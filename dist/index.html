@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="jp">
+<head>
+<meta charset="UTF-8">
+<script src="js/matrixgl.min.js"></script>
+<script src="js/jszip.min.js"></script>
+<script src="js/sha.js"></script>
+<script src="js/index.js" ></script>
+<link rel="stylesheet" type="text/css" href="css/index.css" />
+<link rel="stylesheet" type="text/css" href="css/fontawesome-all.css" />
+<link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css" />
+<title>Viewer</title>
+</head>
+<body>
+<div id="wrapper">
+	<div id="menu" class="menu">
+		<div>
+			<button class="startSlideShow"><i class="fas fa-play"></i></button>
+		</div>
+		<div>
+			<button class="new"><i class="far fa-file"></i> <span>NEW</span></button>
+			<select class="filename">
+				<option value="-1">---quick save---</option>
+			</select>
+			<button class="save"><i class="fas fa-save"></i> <span>SAVE</span></button>
+			<button class="dispose"><i class="fas fa-trash"></i> <span>DELETE</span></button>
+			<button class="load"><i class="fas fa-download"></i> <span>LOAD</span></button>
+		</div>
+		<div>
+			<button class="export"><i class="fas fa-file-export"></i> <span>EXPORT</span></button>
+			<button class="import"><i class="fas fa-file-import"></i> <span>IMPORT</span></button>
+			<input class="import" type="file" value="" accept=".hvd,.hvz">
+		</div>
+		<div>
+<!--			<span>DURATION:<input id="duration" value="2000" type="text"></span>
+			<span>INTERVAL:<input id="interval" value="6000" type="text"></span>-->
+			<span>DURATION:<select id="duration">
+				<option value="1">0</option>
+				<option value="500">500</option>
+				<option value="1000">1000</option>
+				<option value="2000">2000</option>
+				<option value="3000">3000</option>
+				<option value="4000">4000</option>
+				<option value="5000">5000</option>
+			</select>
+			</span>
+			<span>INTERVAL:<select id="interval">
+				<option value="1000">1000</option>
+				<option value="2000">2000</option>
+				<option value="3000">3000</option>
+				<option value="4000">4000</option>
+				<option value="5000">5000</option>
+				<option value="6000">6000</option>
+				<option value="7000">7000</option>
+				<option value="8000">8000</option>
+				<option value="9000">9000</option>
+				<option value="10000">10000</option>
+				<option value="11000">11000</option>
+				<option value="12000">12000</option>
+				<option value="13000">13000</option>
+				<option value="14000">14000</option>
+				<option value="15000">15000</option>
+			</select>
+			</span>
+			<span><input id="bgColor" type="color"  value="#000000" /></span>
+		</div>
+		<div>
+			<label for="cb_fullscreen"><input id="cb_fullscreen" class="fullscreen" type="checkbox"><span>FULLSCREEN</span></label>
+			<label for="cb_ignore"><input id="cb_ignore" class="fullscreen" type="checkbox" checked="checked"><span>IGNORE WARNING</span></label>
+		</div>
+		<div>
+			<label for="cb_mirrorH"><input id="cb_mirrorH" class="fullscreen" type="checkbox"><span>MIRROR H</span></label>
+			<label for="cb_mirrorV"><input id="cb_mirrorV" class="fullscreen" type="checkbox"><span>MIRROR V</span></label>
+		</div>
+	</div>
+	<div id="main">
+		<div class="canvas">
+			<div class="menu">
+				<div>
+					<button class="zoomOut" data-desc="zoom out"><i class="fas fa-search-minus"></i></button>
+					<button class="showAll" data-desc="set canvas to default scale"><i class="far fa-window-maximize"></i></button>
+					<button class="zoomIn" data-desc="zoom in"><i class="fas fa-search-plus"></i></button>
+				</div>
+				<div>
+					<button class="cut" data-desc="cut selected image"><i class="fas fa-cut"></i></button>
+					<button class="copy" data-desc="copy selected image"><i class="fas fa-copy"></i></button>
+					<button class="paste" data-desc="paste copyed image"><i class="fas fa-paste"></i></button>
+				</div>
+				<div>
+					<button class="fit" data-desc="fit selected image to canvas"><i class="fas fa-expand"></i></button>
+					<button class="rotateL" data-desc="rotate selected image counterclockwise"><i class="fas fa-undo" data-desc="rotate selected image clockwise"></i></button><button class="rotateR"><i class="fas fa-redo"></i></button>
+					<button class="mirrorH" data-desc="flip selected image horizontally"><i class="fas fa-arrows-alt-h"></i></button><button class="mirrorV" data-desc="flip selected image vertically"><i class="fas fa-arrows-alt-v"></i></button>
+				</div>
+<!--				<div>
+					<button class="delete"><i class="fas fa-trash"></i></button>
+				</div>-->
+				<button class="close"><i class="fas fa-times"></i></button>
+			</div>
+			<div class="sideMenu">
+				<div class="property">
+					<div>
+						<dl class="position"><dt>position</dt><dd><input type="text" value="0"/></dd><dd><input type="text" value="0"/></dd></dl>
+						<dl class="scale"><dt>scale</dt><dd><input type="text" value="1"/></dd><!--<dd><input type="text" value="1"/></dd>--></dl>
+						<dl class="rotation"><dt>rotation</dt><dd><input type="text" value="0"/></dd></dl>
+						<dl class="opacity"><dt>opacity</dt><dd><input type="text" value="1"/></dd></dl>
+					</div>
+					<div class="copypaste">
+						<button class="copyTrans" title="変形をコピー"><i class="fas fa-clipboard"></i></button>
+						<button class="pasteTrans" title="変形をペースト"><i class="far fa-clipboard"></i></button>
+					</div>
+					<div class="imageRef">
+						<button class="imageRef"><span><i class="fas fa-file-image"></i> IMG REF. </span> <label for="cb_imageRef"><input id="cb_imageRef" type="checkbox"><span>forALL</span></label></button>
+						<input class="imageRef" type="file" value="" accept="image/*">
+					</div>
+					<div class="swap">
+						<button class="down"><i class="fas fa-arrow-down"></i></button><button class="up"><i class="fas fa-arrow-up"></i></button>
+					</div>
+				</div>
+				<div class="layer">
+					<ul>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<div class="list"></div>
+	</div>
+</div>
+
+</body>
+</html>

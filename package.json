@@ -1,0 +1,26 @@
+{
+  "name": "viewer",
+  "main": "./dist/app.js",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "webpack",
+    "build2": "npm run build:webpack && npm run build:electron",
+    "build:webpack": "webpack",
+    "build:electron": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "1.7.5",
+    "jquery": "^3.3.1",
+    "jquery-ui": "^1.12.1",
+    "ts-loader": "^4.0.0",
+    "typescript": "^2.7.2",
+    "webpack": "^4.3.0",
+    "webpack-cli": "^2.0.13"
+  },
+  "devDependencies": {},
+  "description": "",
+  "private": true
+}

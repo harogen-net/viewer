@@ -1,0 +1,714 @@
+body,html {
+	width:100%;
+	height:100%;
+	overflow:hidden;
+	margin:0;
+	padding:0;
+	user-select:none;
+}
+
+#wrapper {
+	width:100%;
+	height:100%;
+	padding:10px;
+	box-sizing:border-box;
+}
+
+#menu {
+	height:60px;
+}
+#main {
+	height:calc(100% - 60px);
+}
+.canvas {
+	height: 0;
+	transition-property: height;
+	transition-duration: 0.3s;
+}
+.list {
+	height:100%;
+	transition-property: height;
+	transition-duration: 0.3s;
+}
+label {
+	cursor:pointer;
+}
+
+/* common */
+.fileOver {
+	box-sizing:border-box;
+	border:5px dashed red !important;
+}
+
+
+/* ---------------------- menu ---------------------------- */
+#menu {
+	/*white-space: nowrap;*/
+}
+.menu > div {
+	display:inline-block;
+	font-size: 0;
+}
+
+.menu span {
+	font-size: 0.8rem;
+}
+
+.menu button,
+.menu select {
+	font-size: 1rem;
+	height:2em;
+	line-height:2em;
+	padding: 0 0.5em;
+	cursor:pointer;
+	/*border:1px solid #333;*/
+}
+.menu button:disabled {
+	cursor: auto;
+}
+.menu button:hover {
+	/*background-color:red;*/
+	opacity: 0.6;
+}
+.menu button:disabled:hover {
+	opacity: 1;
+}
+.menu button.on {
+	color:white;
+	text-shadow:0 0 1px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1);
+}
+
+#menu button.startSlideShow {
+	background-color:#333;
+	color:white;
+	border:none;
+	border-radius: 3px;
+	padding: 0 2rem;
+}
+#menu button.startSlideShow:hover {
+	background-color:red;
+	opacity: 1;
+}
+.menu input[type="text"] {
+	width:6em;
+}
+
+input.import,
+input.imageRef {
+	display: none;
+}
+
+
+
+/* slide */
+.slide {
+	box-sizing:border-box;
+	overflow:hidden;
+	background-color:black;
+	position:relative;
+}
+.slide .container {
+	background-color:#999999;
+	position: absolute;
+}
+.slide .imgWrapper {
+	display:inline-block;
+	line-height:0;
+	font-size:0;
+	white-space: nowrap;
+	position:absolute;
+	user-select:none;
+}
+.slide .imgWrapper.invisible {
+	display:none !important;
+}
+.slide .imgWrapper img {
+	/*clip-path: polygon(20% 20%, 80% 20%, 80% 80%, 20% 80%);*/
+}
+
+/* slide canvas */
+.slideCanvas {
+	position: relative;
+	overflow: hidden;
+}
+
+.slideCanvas .slide.editable {
+	height: 100%;
+	height:calc(100% - 2em);
+	width: 80%;
+	width: calc(100% - 250px);
+	box-shadow: 0px 0px 4px 4px rgba(0,0,0,0.3) inset;
+	border:1px solid black;
+}
+.slideCanvas .shadow {
+	width:100%;
+	height:calc(100% - 2em);
+	z-index:1;
+	position:absolute;
+	background-color:black;
+	opacity:0.4;
+	top:2em;
+	left:0;
+	pointer-events:none;
+}
+
+
+.slideCanvas .menu {
+/*	position: absolute;
+	left:0;
+	top:0;
+	z-index: 1;*/
+	display: flex;
+	background-color:gray;
+	height: 2em;
+	position: relative;
+	overflow:hidden;
+	white-space: nowrap;
+	box-shadow: 0px 0px 2px 2px rgba(0,0,0,0.2);
+	z-index: 1;
+}
+.slideCanvas .menu > div {
+	margin-right: 4px;
+}
+.slideCanvas .menu buttom {
+	width:2em;
+}
+.slideCanvas .menu button.close {
+	position: absolute;
+	z-index: 1;
+	right: 0;
+}
+
+
+/* slide canvas sidemenu */
+.slideCanvas .sideMenu {
+	position: absolute;
+	right:0;
+	top:2em;
+	width:20%;
+	width:calc(250px);
+	height: 100%;
+	height:calc(100% - 2em);
+	background-color:#CCCCCC;
+	display: flex;
+	flex-direction: column;
+}
+.slideCanvas .sideMenu .property {
+/*	height:100px;*/
+	padding: 10px;
+}
+.slideCanvas .sideMenu .property > div {
+	display: flex;
+	flex-wrap: wrap;
+}
+.slideCanvas .sideMenu .property > div.copypaste {
+	justify-content: flex-end;
+}
+.slideCanvas .sideMenu .property div + div {
+	margin-top: 10px;
+}
+.slideCanvas .sideMenu .property dl {
+	margin: 0;
+	padding: 0;
+	font-size: 80% !important;
+	width: 100%;
+}
+.slideCanvas .sideMenu .property dl dt,
+.slideCanvas .sideMenu .property dl dd {
+	margin:0;
+	padding: 0;
+	display:inline-block;
+}
+.slideCanvas .sideMenu .property dl dt{
+	width: 50%;
+}
+.slideCanvas .sideMenu .property dl dd{
+	width: calc((50% - 5px)/2);
+}
+.slideCanvas .sideMenu .property dl dd + dd {
+	margin-left:5px;
+}
+.slideCanvas .sideMenu .property dl dd input[type="text"] {
+	display:inline-block;
+	width: 100%;
+	text-align: center;
+	background:none;
+	border:1px solid rgba(0,0,0,0.05);
+}
+.slideCanvas .sideMenu .property dl dd input[type="text"]:focus {
+	background-color:white;
+	border:1px solid rgba(0,0,0,0.8);
+}
+.slideCanvas .sideMenu .property button {
+	width: 50%;
+	margin:0;
+	box-sizing: border-box;
+	height:2em;
+}
+.slideCanvas .sideMenu .property div.copypaste button {
+	width: 30%;
+}
+.slideCanvas .sideMenu .property button.imageRef {
+	width: 100%;
+}
+
+.slideCanvas .sideMenu .layer {
+	width:100%;
+	overflow-x:hidden;
+	overflow-y:scroll;
+	flex-grow: 1;
+}
+.slideCanvas .sideMenu .layer ul {
+	display:block;
+	width:100%;
+	margin:0;
+	padding:0;
+}
+.slideCanvas .sideMenu .layer ul li {
+	display:block;
+	width:100%;
+	height: 25px;
+	line-height: 25px;
+	background-color:#DDDDDD;
+	box-shadow: 0px 0px 2px 2px rgba(0,0,0,0.2);
+	border:1px solid #333333;
+	border-width:0 0 1px 0;
+	margin: 0;
+	padding:0;
+	font-size:80%;
+	padding:2px 0;
+	cursor: pointer;
+	overflow:hidden;
+	white-space: nowrap;
+	position:relative;
+}
+.slideCanvas .sideMenu .layer ul li span {
+	white-space: nowrap;
+	font-size: 70%;
+}
+.slideCanvas .sideMenu .layer ul li.selected {
+	background-color:blue;
+	color:white;
+	font-weight: bold;
+}
+.slideCanvas .sideMenu .layer ul li button {
+	border:none;
+	opacity:0.2;
+	width: 21px;
+	height:21px;
+	margin:2px 1px 2px 0;
+	vertical-align: middle;
+	border:1px solid rgba(0,0,0,0);
+	box-sizing: border-box;
+	border-radius: 20%;
+	cursor: pointer;
+	font-size:80%;
+	line-height:21px;
+	padding: 0;
+	text-align: center;
+	background-color:#DDDDDD;
+}
+.slideCanvas .sideMenu .layer ul li button.delete {
+	position: absolute;
+	right: 0;
+	top:1px;
+
+}
+.slideCanvas .sideMenu .layer ul li.selected button {
+	background:none;
+	color:white;
+	opacity: 1;
+}
+.slideCanvas .sideMenu .layer ul li button:hover {
+	border:1px solid black;
+	opacity:1;
+}
+.slideCanvas .sideMenu .layer ul li.selected button:hover {
+	background-color:#DDDDDD;
+	color:blue;
+	border:1px solid rgba(0,0,0,0);
+}
+.slideCanvas .sideMenu .layer ul li button.on {
+	opacity:1;
+}
+.slideCanvas .sideMenu .layer ul li img {
+	width:35px;
+	height:calc(100% - 4px);
+	object-fit: contain;
+	margin:2px 0.3rem;
+	box-shadow:1px 1px 1px 1px rgba(0,0,0,0.2) inset;
+	vertical-align: middle;
+}
+
+
+
+
+.slide.editable .border {
+	width:100%;
+	height:100%;
+	z-index:20;
+	border:6px solid rgba(200,0,0,0.5);
+	position:absolute;
+	pointer-events:none;
+	top:0;
+	left:0;
+	box-sizing:border-box;
+}
+.slide.editable .imgWrapper {
+	display:inline-block;
+	line-height:0;
+	/*box-shadow:0px 0px 8px rgba(0,0,0,.5);*/
+	user-select:none;
+/*	transform-origin:0 0;*/
+/*	transition:transform 0.2s;*/
+}
+.slide.editable .imgWrapper > img {
+	user-select:none;
+	cursor:pointer;
+	filter:drop-shadow(0 0 8px rgba(0,0,0,1));
+}
+.slide.editable .controls {
+	position:absolute;
+	z-index:10;
+	display:none;
+	left:0;
+	top:0;
+	width:0;
+	height:0;
+	pointer-events:none;
+	width:100%;
+	height:100%;
+}
+.slide.editable .frame {
+	border:2px solid blue;
+	position:absolute;
+	z-index:1;
+	box-sizing:border-box;
+	width:100%;
+	height:100%;
+	pointer-events:auto;
+	cursor:move;
+}
+.slide.editable .anchor {
+	width:20px;
+	height:20px;
+	background-color:blue;
+	background-size:10px 10px;
+	background-repeat:no-repeat;
+	position:absolute;
+	z-index:2;
+	pointer-events:auto;
+}
+.slide.editable .anchor.ne {
+	top:0;
+	right:0;
+	cursor:ne-resize;
+	background-position:100% 0;
+	background-color:red;
+}
+.slide.editable .anchor.nw {
+	top:0;
+	left:0;
+	cursor:nw-resize;
+	background-position:0 0;
+	background-color:orange;
+}
+.slide.editable .anchor.se {
+	bottom:0;
+	right:0;
+	cursor:se-resize;
+	background-position:100% 100%;
+	background-color:green;
+}
+.slide.editable .anchor.sw {
+	bottom:0;
+	left:0;
+	cursor:sw-resize;
+	background-position:0 100%;
+}
+.slide.editable .imgWrapper.locked {
+	-webkit-filter: invert(100%);
+	-moz-filter: invert(100%);
+	-o-filter: invert(100%);
+	-ms-filter: invert(100%);
+	filter: invert(100%);
+	pointer-events: none;
+}
+
+
+
+
+/* slideList */
+.slideList {
+	width: 100%;
+	box-sizing: border-box;
+	background-color:gray;
+	box-shadow: 2px 2px 4px 4px rgba(0,0,0,0.2) inset;
+	padding:10px;
+	display: flex;
+	position: relative;
+}
+.slideList .slide {
+	height:100%;
+	box-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);
+	flex-shrink: 0;
+	cursor: pointer;
+	box-sizing: border-box;
+	overflow: hidden;
+}
+.slideList .slide.selected {
+	/*border:2px solid red;*/
+	box-shadow: 0 0 2px 2px rgba(255,0,0,.8);
+}
+.slideList .slide.selected .imgWrapper {
+	transition:transform 0.2s;
+}
+.slideList .slide button {
+	position: absolute;
+	width: 30px;
+	height: 30px;
+	border: none;
+	opacity: 0;
+	cursor: pointer;
+	color:white;
+	text-align: center;
+	vertical-align: middle;
+	line-height: 30px;
+	font-size:20px;
+	padding:0;
+	margin:0;
+	transition: opacity 0.3s;
+	pointer-events: none;
+}
+.slideList .slide.selected button {
+	pointer-events: auto;
+	opacity:1;
+}
+.slideList .slide.selected button:hover {
+	opacity:1;
+}
+.slideList .slide button.delete {
+	right: 0;
+	top:0;
+	background-color:red;
+}
+.slideList .slide button.clone {
+	right: 5px;
+	bottom:5px;
+	background-color:rgba(0,0,0,0.5);
+	border-radius:3px;
+}
+.slideList .slide button.edit {
+	left: 5px;
+	top:5px;
+	background-color:rgba(0,0,0,0.5);
+	border-radius:3px;
+}
+
+.slideList .slide input[type="checkbox"] {
+	position: absolute;
+	width: 25px;
+	height: 25px;
+	left:0;
+	bottom: 0;
+	opacity: 0;
+	transition: opacity 0.3s;
+	cursor: pointer;
+	pointer-events: none;
+}
+.slideList .slide.selected input[type="checkbox"] {
+	pointer-events: auto;
+	opacity:1;
+}
+
+.slideList .slide .duration {
+	display:block;
+	position: absolute;
+	left:0;
+	bottom:0;
+	width:60px;
+	height:50px;
+	background-color:rgba(255,0,0,0);
+
+	opacity: 0;
+	transition: opacity 0.3s;
+	pointer-events: none;
+}
+.slideList .slide.selected .duration {
+	pointer-events: auto;
+	opacity:1;
+}
+.slideList .slide .duration span {
+	display:block;
+	position: absolute;
+	left:7px;
+	bottom: 5px;
+	font-weight: bold;
+	text-shadow:1px 1px 2px #000000;
+	font-size:14px;
+	line-height: 14px;
+	white-space: nowrap;
+	color:white;
+}
+.slideList .slide .duration button {
+	width:20px;
+	height:20px;
+	line-height: 20px;
+	left: 0;
+	bottom:30px;
+	background-color:rgba(255,255,255,0.5);
+	text-shadow:1px 1px 2px #000000;
+	border-radius:3px;
+	color:white;
+
+	transition: opacity 0.3s;
+	opacity: 0;
+}
+.slideList .slide .duration:hover button {
+	opacity: 1;
+}
+.slideList .slide .duration button.up {
+	left: 5px;
+}
+.slideList .slide .duration button.down {
+	left: 30px;
+}
+.slideList .slide .joinArrow {
+	width:20px;
+	height: 100%;
+	background-color:red;
+	clip-path:polygon(0% 0%, 100% 50%, 0% 100%);
+	opacity: 0.2;
+	position: absolute;
+	right: -10px;
+}
+.slideList .slide.joining .joinArrow {
+	opacity: 1;
+}
+
+
+/* slideShow */
+div.slideShow {
+	display:none;
+	position: absolute;
+	left:0;
+	top:0;
+	width:100%;
+	height:100%;
+	z-index: 2147483646;
+	background-color:black;
+	overflow: hidden;
+	overflow-x: hidden;
+	overflow-y: hidden;
+}
+div.slideShow div.slideContainer {
+	width: 100%;
+	height: 100%;
+}
+div.slideShow.playing {
+	cursor: none;
+}
+div.slideShow .slide {
+	width: 100%;
+	height:100%;
+	position: absolute;
+	left:0;
+	top:0;
+	background-color:black;
+}
+div.slideShow .slide .container {
+	background:none;
+}
+div.slideShow button.close {
+	position: absolute;
+	width: 60px;
+	height: 60px;
+	border: none;
+	opacity: 0;
+	cursor: pointer;
+	color:white;
+	background-color:rgba(0,0,0,0.5);
+	text-align: center;
+	vertical-align: middle;
+	line-height: 60px;
+	font-size:30px;
+	padding:0;
+	margin:0;
+	z-index:2147483647;
+	right:0;
+	top:0;
+	opacity: 0;
+	transition: opacity 0.3s;
+}
+div.slideShow button.close:hover {
+	opacity: 1;
+}
+@keyframes fadeIn {
+    from {opacity:0;}
+    to {opacity:1;}
+}
+div.slideShow.pause {
+	cursor:wait;
+}
+
+
+
+/* ------------------ mode:select ----------------*/
+body.select .slideCanvas {
+	pointer-events: none;
+	height: 0;
+	margin: 0;
+	border: none;
+}
+body.select .slideList {
+	height:100%;
+
+	overflow-x:hidden;
+	overflow-y:scroll;
+	flex-wrap: wrap;
+	align-content: flex-start;
+}
+body.select .slideList .slide {
+	height:110px;
+	margin-right: 10px;
+	margin-bottom: 30px;
+}
+/* ------------------ mode:edit ----------------*/
+body.edit .slideCanvas {
+	height:calc(100% - 10px - 150px);
+	margin-bottom: 10px;
+}
+body.edit .slideList {
+	height:150px;
+
+	overflow-x:scroll;
+	overflow-y:hidden;
+
+}
+body.edit .slideList .slide {
+	height:110px;
+	margin-right: 10px;
+}
+body.edit .slideList .slide button.edit {
+	display: none;
+}
+/* ------------------ mode:slideshow -------------*/
+
+body.slideShow #wrapper {
+	padding:0;
+	pointer-events: none;
+}
+
+body.slideShow .slideShow {
+	display: block;
+}
+
+body.slideShow .slide.editable {
+	display:none;
+	pointer-events: none;
+}
+
+body.slideShow .slideList {
+	display:none;
+	pointer-events: none;
+}
