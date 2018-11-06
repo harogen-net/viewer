@@ -76,7 +76,7 @@ export class SlideShow extends EventDispatcher {
 
 		this.interval = parseInt($("#interval").val());
 		this.duration = parseInt($("#duration").val());
-		this.bgColor = $("#bgColor").val();
+//		this.bgColor = $("#bgColor").val();
 
 		var slideIndex:number = 0;
 		var lastSlide:Slide = undefined;
@@ -85,7 +85,7 @@ export class SlideShow extends EventDispatcher {
 			var lastSlide:Slide = (i == 0) ? slides[slides.length - 1] : slides[i - 1];
 
 			var slideForSS:Slide = slide.clone();
-			slideForSS.obj.css("background-color",this.bgColor);
+//			slideForSS.obj.css("background-color",this.bgColor);
 			slideForSS.obj.hide();
 
 			var datum:any = {};
