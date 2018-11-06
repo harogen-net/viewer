@@ -36,6 +36,7 @@ export class SlideCanvas extends EventDispatcher {
 			$("button.copyTrans"),
 			$("button.pasteTrans"),
 			$("button.imageRef"),
+			$("button.download"),
 			$("button.up"),
 			$("button.down")
 		];
@@ -149,6 +150,9 @@ export class SlideCanvas extends EventDispatcher {
 		});
 
 		$("input.imageRef").on("change",(e)=>{
+			if(this.slide.selectedImg == null) return;
+
+			var targetImg:Image = this.slide.selectedImg;
 			var reader = new FileReader();
 			reader.addEventListener('load', (e:any) => {
 				var imgObj = $('<img src="' + reader.result + '" />');
@@ -159,9 +163,9 @@ export class SlideCanvas extends EventDispatcher {
 					imgObj.unbind("load");
 					imgObj.ready(()=>{
 						if($("input#cb_imageRef").prop("checked")){
-							ImageManager.swapImageAll(this.slide.selectedImg.imageId, imgObj);
+							ImageManager.swapImageAll(targetImg.imageId, imgObj);
 						}else{
-							this.slide.selectedImg.swap(imgObj);
+							targetImg.swap(imgObj);
 							this.slide.dispatchEvent(new Event("update"));
 						}
 
@@ -178,6 +182,17 @@ export class SlideCanvas extends EventDispatcher {
 			catch(err){
 				console.log(err);
 			}
+		});
+
+		$("button.download").click(()=>{
+			if(this.slide.selectedImg == null) return;
+
+			var a = document.createElement("a");
+			a.href = this.slide.selectedImg.data.src;
+			a.target = '_blank';
+			a.download = this.slide.selectedImg.name;
+			a.click();
+			URL.revokeObjectURL(a.href);
 		});
 
 

@@ -16,10 +16,10 @@
     "javascript-natural-sort": "^0.7.1",
     "jquery": "^3.3.1",
     "jquery-ui": "^1.12.1",
-    "ts-loader": "^4.0.0",
-    "typescript": "^2.7.2",
-    "webpack": "^4.3.0",
-    "webpack-cli": "^2.0.13"
+    "ts-loader": "^4.5.0",
+    "typescript": "^2.9.2",
+    "webpack": "^4.20.0",
+    "webpack-cli": "^3.1.1"
   },
   "devDependencies": {},
   "description": "",

@@ -253,7 +253,10 @@ input.imageRef {
 	width: 30%;
 }
 .slideCanvas .sideMenu .property button.imageRef {
-	width: 100%;
+	width: 85%;
+}
+.slideCanvas .sideMenu .property button.download {
+	width: 15%;
 }
 
 .slideCanvas .sideMenu .layer {
