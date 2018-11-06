@@ -32,7 +32,7 @@ export class LayerListItem extends EventDispatcher {
 			e.stopImmediatePropagation();
 		});
 
-		this.eyeBtn = $('<button class="eye"><i class="fas fa-eye-slash"></i></button>');
+		this.eyeBtn = $('<button class="eye"><i class="fas fa-eye"></i></button>');
 		this.eyeBtn.click((e:any)=>{
 			if(this._image == null) return;
 			
@@ -86,7 +86,7 @@ export class LayerListItem extends EventDispatcher {
 		}else{
 			this.lockBtn.removeClass("on");
 		}
-		if(!this._image.visible){
+		if(this._image.visible){
 			this.eyeBtn.addClass("on");
 		}else{
 			this.eyeBtn.removeClass("on");

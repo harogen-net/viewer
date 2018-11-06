@@ -206,13 +206,6 @@ export class Viewer {
 		//
 
 		this.document = document || new VDoc();
-		if(document){
-			this.document.createTime = new Date().getTime();
-			this.document.editTime = this.document.createTime;
-		}
-
-		//
-
 		this.list.slides = this.document.slides;
 	}
 

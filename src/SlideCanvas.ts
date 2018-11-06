@@ -330,7 +330,9 @@ export class SlideCanvas extends EventDispatcher {
 			this.updateProperty();
 		});
 
-		$(".layer").on("mousedown",(any)=>{
+		var bg:any = $('<div class="bg" />');
+		$(".layer").append(bg);
+		bg.on("click",(any)=>{
 			if(this.slide.selectedImg != null){
 				this.slide.selectImage(null);
 			}
@@ -393,16 +395,16 @@ export class SlideCanvas extends EventDispatcher {
 				this.slide.dispatchEvent(new Event("update"));
 			break;
 			case "eye_on":
+				item.image.visible = true;
+				this.slide.dispatchEvent(new Event("update"));
+				break;
+			case "eye_off":
 				item.image.visible = false;
 				if(item.image == this.slide.selectedImg){
 					this.slide.selectImage(null);
 				}else{
 					this.slide.dispatchEvent(new Event("update"));
 				}
-				break;
-			case "eye_off":
-				item.image.visible = true;
-				this.slide.dispatchEvent(new Event("update"));
 				break;
 			case "select":
 				this.slide.selectImage(item.image);

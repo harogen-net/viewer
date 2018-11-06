@@ -205,10 +205,18 @@ export class SlideStorage extends EventDispatcher {
 	//
 
 	private stringfyData(document:VDoc):string {
+		//MARK : 更新時間上書き
+		document.editTime = new Date().getTime();
+
+		//
+
 		var json:any = {};
 		json.version = SlideStorage.VERSION;
 		json.screen = {width:Viewer.SCREEN_WIDTH, height:Viewer.SCREEN_HEIGHT};
-		json.bgColor = document.bgColor;
+		
+		if(document.bgColor) json.bgColor = document.bgColor;
+		if(document.createTime) json.createTime = document.createTime;
+		if(document.editTime) json.editTime = document.editTime;
 
 		//ver1
 		if(SlideStorage.VERSION == 1){
@@ -258,7 +266,7 @@ export class SlideStorage extends EventDispatcher {
 	private parseData(jsonStr:string):VDoc {
 
 		var slides:Slide[] = [];
-		var bgColor:string = undefined;
+		var options:any = {};
 
 		var json:any = JSON.parse(jsonStr);
 
@@ -337,10 +345,12 @@ export class SlideStorage extends EventDispatcher {
 				slides.push(slide);
 			});
 
-			if(json.bgColor) bgColor = json.bgColor;
+			if(json.bgColor) options.bgColor = json.bgColor;
+			if(json.createTime) options.createTime = json.createTime;
+			if(json.editTime) options.editTime = json.editTime;
 		}
 
-		return new VDoc(slides, {bgColor:bgColor});
+		return new VDoc(slides, options);
 	}
 	//
 	

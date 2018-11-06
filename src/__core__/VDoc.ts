@@ -17,20 +17,31 @@ export class VDoc {
 	public createTime:number;
 	public editTime:number;
 
-	private _bgColor:string|undefined = undefined;
+	private _bgColor:string|undefined;
 
 
 	constructor(slides?:Slide[], options?:any){
 		this.slides = slides || [];
 
+		var bgColor:string|undefined = undefined;
+		var createTime:number|undefined = new Date().getTime();
+		var editTime:number|undefined = createTime;
+		var name:string|undefined = "無題のスライド";
+		
 		if(options){
-			if(options.bgColor) this.bgColor = options.bgColor;
+			if(options.bgColor) bgColor = options.bgColor;
+			createTime = options.createTime;
+			editTime = options.editTime;
+			name = options.name;
 		}
+		this.bgColor = bgColor;
+		this.createTime = createTime;
+		this.editTime = editTime;
+		this.name = name;
 	}
 
 	public set bgColor(value:string|undefined){
 		this._bgColor = value;
-
 		document.documentElement.style.setProperty("--slideBackgroundColor", this._bgColor || this.BG_COLOR_INIT);
 		$("#bgColor").val(this._bgColor || this.BG_COLOR_INIT);
 	}
