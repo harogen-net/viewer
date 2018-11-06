@@ -208,6 +208,7 @@ export class SlideStorage extends EventDispatcher {
 		var json:any = {};
 		json.version = SlideStorage.VERSION;
 		json.screen = {width:Viewer.SCREEN_WIDTH, height:Viewer.SCREEN_HEIGHT};
+		json.bgColor = document.bgColor;
 
 		//ver1
 		if(SlideStorage.VERSION == 1){
@@ -257,6 +258,7 @@ export class SlideStorage extends EventDispatcher {
 	private parseData(jsonStr:string):VDoc {
 
 		var slides:Slide[] = [];
+		var bgColor:string = undefined;
 
 		var json:any = JSON.parse(jsonStr);
 
@@ -334,9 +336,11 @@ export class SlideStorage extends EventDispatcher {
 				});
 				slides.push(slide);
 			});
+
+			if(json.bgColor) bgColor = json.bgColor;
 		}
 
-		return new VDoc(slides);
+		return new VDoc(slides, {bgColor:bgColor});
 	}
 	//
 	

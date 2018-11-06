@@ -21,7 +21,6 @@ export class Viewer {
 	
 	public static enforceAspectRatio = true;
 
-	private readonly BG_COLOR_INIT:string = "#666666";
 
 //	public static readonly SCREEN_WIDTH = 1366;
 //	public static readonly SCREEN_HEIGHT = 768;
@@ -42,7 +41,6 @@ export class Viewer {
     constructor(public obj:any){
 //		if(localStorage.duration == undefined) localStorage.duration = 2000;
 //		if(localStorage.interval == undefined) localStorage.interval = 5000;
-		$("#bgColor").val(this.BG_COLOR_INIT);
 
 		ImageManager.initialize();
 
