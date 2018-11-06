@@ -7,16 +7,21 @@ import { SlideShow } from "./SlideShow";
 import { Menu } from "./Menu";
 import { SlideCanvas } from "./SlideCanvas";
 import { ImageManager } from "./utils/ImageManager";
-
+import { VDoc } from "./__core__/VDoc";
 
 declare var $:any;
+
+export enum ViewerMode {
+	SELECT,
+	EDIT,
+	SLIDESHOW
+}
 
 export class Viewer {
 	
 	public static enforceAspectRatio = true;
-	public static readonly MODE_SELECT = "mode_select";
-	public static readonly MODE_EDIT = "mode_edit";
-	public static readonly MODE_SLIDESHOW = "mode_slideshow";
+
+	private readonly BG_COLOR_INIT:string = "#666666";
 
 //	public static readonly SCREEN_WIDTH = 1366;
 //	public static readonly SCREEN_HEIGHT = 768;
@@ -29,13 +34,15 @@ export class Viewer {
 	private storage:SlideStorage;
 	private menu:Menu;
 
-	private _mode:string;
+	private _mode:ViewerMode;
+
+	private document:VDoc;
 
 
     constructor(public obj:any){
-		if(localStorage.duration == undefined) localStorage.duration = 2000;
-		if(localStorage.interval == undefined) localStorage.interval = 5000;
-		$("#bgColor").val("#666666");
+//		if(localStorage.duration == undefined) localStorage.duration = 2000;
+//		if(localStorage.interval == undefined) localStorage.interval = 5000;
+		$("#bgColor").val(this.BG_COLOR_INIT);
 
 		ImageManager.initialize();
 
@@ -44,7 +51,7 @@ export class Viewer {
 			e.stopImmediatePropagation();
 		});
 		document.addEventListener("webkitfullscreenchange",()=>{
-			if(document.webkitFullscreenElement){
+			if(document["webkitFullscreenElement"]){
 				obj.addClass("slideShow");
 			}else{
 				obj.removeClass("slideShow");
@@ -57,22 +64,23 @@ export class Viewer {
 		this.slideShow = new SlideShow($("<div />").appendTo(obj));
 
 		this.storage = new SlideStorage();
-		this.storage.addEventListener("loaded", (e:any)=>{
-			this.list.initialize();
+		this.storage.addEventListener("loaded", (e:CustomEvent)=>{
+/*			this.list.initialize();
 			this.canvas.initialize();
-			this.setMode(Viewer.MODE_SELECT);
+			this.setMode(ViewerMode.SELECT);
 			$.each(this.storage.slides, (i:number, slide:Slide)=>{
 				this.list.addSlide(slide);
-			});
+			});*/
+			this.newDocument(e.detail as VDoc);
 		});
 		//
 
 
 		this.list.addEventListener("select", ()=>{
-			if(this._mode == Viewer.MODE_SELECT){
+			if(this._mode == ViewerMode.SELECT){
 
 
-			}else if(this._mode == Viewer.MODE_EDIT){
+			}else if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 					this.canvas.slide.isActive = true;
 					this.list.selectedSlide.isLock = true;
@@ -85,7 +93,7 @@ export class Viewer {
 			//console.log("slide selected at list");
 		})
 		this.list.addEventListener("edit", ()=>{
-			this.setMode(Viewer.MODE_EDIT);
+			this.setMode(ViewerMode.EDIT);
 			if(this.list.selectedSlide){
 				this.list.selectedSlide.isLock = true;
 				this.canvas.slide.setData(this.list.selectedSlide.getData());
@@ -94,14 +102,14 @@ export class Viewer {
 		});
 
 		this.canvas.slide.addEventListener("update",()=>{
-			if(this._mode == Viewer.MODE_EDIT){
+			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 					this.list.selectedSlide.setData(this.canvas.slide.getData());
 				}
 			}
 		});
 		this.canvas.addEventListener("close",()=>{
-			this.setMode(Viewer.MODE_SELECT);
+			this.setMode(ViewerMode.SELECT);
 		});
 
 		//
@@ -125,19 +133,16 @@ export class Viewer {
 
 						
 			$(".new").click(()=>{
-				if(this.list.slides.length == 0) return;
+				if(this.document.slides.length == 0) return;
 				if($("#cb_ignore").prop("checked") || window.confirm('clear slides and new document. Are you sure?')){
-					this.list.initialize();
-					this.canvas.initialize();
-					ImageManager.initialize();
-					this.setMode(Viewer.MODE_SELECT);
+					this.newDocument();
 				}
 			});
 
 		
 			$(".save").click(()=>{
 				if(this.list.slides.length > 0){
-					this.storage.save(this.list.slides);
+					this.storage.save(this.document);
 				}
 			});
 			$(".dispose").click(()=>{
@@ -155,7 +160,7 @@ export class Viewer {
 			
 			$(".export").click(()=>{
 				if(this.list.slides.length > 0 ){
-					this.storage.export(this.list.slides);
+					this.storage.export(this.document);
 				}
 			});
 			$("button.import").click(()=>{
@@ -174,40 +179,61 @@ export class Viewer {
 			let selectInit = (obj:any,value:number)=>{
 				obj.find('option[value=' + value +']').prop("selected",true);
 			};
-			selectInit($("#duration"),localStorage.duration);
+			//selectInit($("#duration"),localStorage.duration);
 			$("#duration").change((any)=>{
-				localStorage.duration = $("#duration").val();
+				//localStorage.duration = $("#duration").val();
 			});
-			selectInit($("#interval"),localStorage.interval);
+			//selectInit($("#interval"),localStorage.interval);
 			$("#interval").change((any)=>{
-				localStorage.interval = $("#interval").val();
+				//localStorage.interval = $("#interval").val();
 			});
+
+			$("#bgColor").change((e)=>{
+				this.document.bgColor = $("#bgColor").val();
+			});
+
+
 		}
 
-	
-		
-
-		
-		this.setMode(Viewer.MODE_SELECT);
+		this.newDocument();
 	}
 
+	private newDocument(document?:VDoc){
+		this.document = null;
+		this.list.initialize();
+		this.canvas.initialize();
+		ImageManager.initialize();
+		this.setMode(ViewerMode.SELECT);
 
-	public setMode(mode:string){
+		//
+
+		this.document = document || new VDoc();
+		if(document){
+			this.document.createTime = new Date().getTime();
+			this.document.editTime = this.document.createTime;
+		}
+
+		//
+
+		this.list.slides = this.document.slides;
+	}
+
+	public setMode(mode:ViewerMode){
 		if(mode == this._mode) return;
 		this._mode = mode;
 
 		switch(this._mode){
-			case Viewer.MODE_SELECT:
+			case ViewerMode.SELECT:
 				this.obj.addClass("select");
 				this.obj.removeClass("edit");
 				this.canvas.slide.isActive = false;
 			break;
-			case Viewer.MODE_EDIT:
+			case ViewerMode.EDIT:
 				this.obj.removeClass("select");
 				this.obj.addClass("edit");
 				this.canvas.slide.isActive = true;
 			break;
-/*			case Viewer.MODE_SLIDESHOW:
+/*			case ViewerMode.SLIDESHOW:
 			break;*/
 		}
 		this.list.setMode(this._mode);

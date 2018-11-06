@@ -38,9 +38,17 @@ export class DropHelper extends EventDispatcher {
 			});
 
 			if(files.length > 1){
-				files.sort((a:any,b:any)=>{
-					return (a.name > b.name ? 1 : -1);
-				});
+				var naturalSort = require("javascript-natural-sort");
+				var dic:any = {};
+				var names:string[] = [];
+				for(var i:number = 0; i < files.length; i++){
+					dic[files[i].name] = files[i];
+					names.push(files[i].name);
+				}
+				var initIndex:number = names.indexOf(names.concat().sort(naturalSort)[0]);
+				for(var i:number = 0; i < files.length; i++){
+					files[i] = dic[names[(i + initIndex) % names.length]];
+				}
 			}
 
 			let loadFile = (file:any) => {

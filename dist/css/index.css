@@ -1,3 +1,7 @@
+:root {
+	--slideBackgroundColor:#999999;
+}
+
 body,html {
 	width:100%;
 	height:100%;
@@ -108,7 +112,7 @@ input.imageRef {
 	position:relative;
 }
 .slide .container {
-	background-color:#999999;
+	background-color:var(--slideBackgroundColor);
 	position: absolute;
 }
 .slide .imgWrapper {

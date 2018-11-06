@@ -5,7 +5,7 @@ import {Image} from "./__core__/Image";
 import { ImageManager } from "./utils/ImageManager";
 import { LayerListItem } from "./LayerListItem";
 import { PropertyInput } from "./PropertyInput";
-import { Viewer } from "./Viewer";
+import { Viewer,ViewerMode } from "./Viewer";
 
 
 declare var $:any;
@@ -242,12 +242,12 @@ export class SlideCanvas extends EventDispatcher {
 		});
 	}
 
-	setMode(mode:string):void {
+	setMode(mode:ViewerMode):void {
 		switch(mode){
-			case Viewer.MODE_SELECT:
+			case ViewerMode.SELECT:
 				this.shadow.css("min-height",this.shadow.height());
 			break;
-			case Viewer.MODE_EDIT:
+			case ViewerMode.EDIT:
 				setTimeout(()=>{
 					this.shadow.css("min-height","");
 				},300);

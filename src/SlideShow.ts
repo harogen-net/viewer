@@ -36,7 +36,7 @@ export class SlideShow extends EventDispatcher {
 
 		obj.addClass("slideShow");
 		document.addEventListener("webkitfullscreenchange",()=>{
-			if(document.webkitFullscreenElement){
+			if(document["webkitFullscreenElement"]){
 			}else{
 				this.stop();
 			}
@@ -142,7 +142,7 @@ export class SlideShow extends EventDispatcher {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
 			}catch(e){};
 			try{
-				document.webkitCancelFullScreen(); //Chrome, Safari, Opera
+				document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
 			}catch(e){};
 		}
 
@@ -209,7 +209,7 @@ export class SlideShow extends EventDispatcher {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
 			}catch(e){};
 			try{
-				document.webkitCancelFullScreen(); //Chrome, Safari, Opera
+				document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
 			}catch(e){};
 		}
 

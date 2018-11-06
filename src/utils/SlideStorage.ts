@@ -2,6 +2,7 @@ import {Slide} from "../__core__/Slide";
 import { Image } from "../__core__/Image";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Viewer } from "../Viewer";
+import { VDoc } from "../__core__/VDoc";
 
 declare var $:any;
 declare var jsSHA:any;
@@ -12,12 +13,16 @@ export class SlideStorage extends EventDispatcher {
 	private static readonly VERSION:number = 2;
 	private static readonly SAVE_KEY:string = "viewer.slideData";
 	private static readonly DBNAME:string = "viewer";
+
 	private db:any;
 	private dbVersion:number;
 	private titleStore:any;
 	private dataStore:any;
 
-    public slides:Slide[];
+/*	public bgColor:string | undefined;*/
+/*	public duration:number;
+	public interval:number;*/
+/*    public slides:Slide[];*/
 
     constructor() {
 		super();
@@ -73,7 +78,7 @@ export class SlideStorage extends EventDispatcher {
 
     }
 
-    save(slides:Slide[]){
+    save(document:VDoc){
 
 		//var titleId:number = parseInt($('select.filename').val());
 		var title:string// = $('select.filename option:selected').text();
@@ -81,7 +86,7 @@ export class SlideStorage extends EventDispatcher {
 //		if(titleId == -1){
 			title = this.getNowString();
 //		}
-		var jsonStr:string = this.stringfyData(slides);
+		var jsonStr:string = this.stringfyData(document);
 
 		//
 		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
@@ -95,9 +100,9 @@ export class SlideStorage extends EventDispatcher {
 		}
 	}
 	
-	public export(slides:Slide[], isZip:boolean = true){
+	public export(document:VDoc, isZip:boolean = true){
 		var title = this.getNowString();
-		var jsonStr:string = this.stringfyData(slides);
+		var jsonStr:string = this.stringfyData(document);
 
 		//
 
@@ -117,7 +122,7 @@ export class SlideStorage extends EventDispatcher {
 
 
     public load() {
-		this.slides = [];
+		//this.slides = [];
 		var title:string = $('select.filename option:selected').text();
 		if(title == "new") return;
 
@@ -127,8 +132,7 @@ export class SlideStorage extends EventDispatcher {
 		getReq.onsuccess = (e:any)=>{
 //			console.log(e.target.result); // {id : 'A1', name : 'test'}
 			var jsonStr:string = e.target.result.data;
-			this.parseData(jsonStr);
-			this.dispatchEvent(new Event("loaded"));
+			this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr)}));
 		}
 	}
 
@@ -138,8 +142,7 @@ export class SlideStorage extends EventDispatcher {
 			JSZip.loadAsync(file).then((zip)=>{
 				zip.forEach((a,b)=>{
 					b.async("string").then((data:string)=>{
-						this.parseData(data);
-						this.dispatchEvent(new Event("loaded"));	
+						this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(data)}));
 					});
 				});
 			},(e)=>{
@@ -148,8 +151,7 @@ export class SlideStorage extends EventDispatcher {
 		}else if(file.name.indexOf(".hvd") != -1){
 			var reader = new FileReader();
 			reader.addEventListener("load", (e:any)=>{
-				this.parseData(reader.result as string);
-				this.dispatchEvent(new Event("loaded"));
+				this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(reader.result as string)}));
 			});
 			try{
 				reader.readAsText(file);
@@ -202,7 +204,7 @@ export class SlideStorage extends EventDispatcher {
 
 	//
 
-	private stringfyData(slides:Slide[]):string {
+	private stringfyData(document:VDoc):string {
 		var json:any = {};
 		json.version = SlideStorage.VERSION;
 		json.screen = {width:Viewer.SCREEN_WIDTH, height:Viewer.SCREEN_HEIGHT};
@@ -211,7 +213,7 @@ export class SlideStorage extends EventDispatcher {
 		if(SlideStorage.VERSION == 1){
 			json.version = 1;
 			var slideData:any[] = [];
-			$.each(slides, (i:number, slide:Slide)=>{
+			$.each(document.slides, (i:number, slide:Slide)=>{
 				var imageData:any[] = [];
 				$.each(slide.getData(), (j:number, datum:any)=>{
 					delete datum.class;
@@ -227,7 +229,7 @@ export class SlideStorage extends EventDispatcher {
 			var slideData:any[] = [];
 			var imageSrcData:any = {};
 			
-			$.each(slides, (number, slide:Slide)=>{
+			$.each(document.slides, (number, slide:Slide)=>{
 				var slideDatum:any = {};
 				slideDatum.durationRatio = slide.durationRatio;
 				slideDatum.images = [];
@@ -252,8 +254,9 @@ export class SlideStorage extends EventDispatcher {
 		return jsonStr;
 	}
 
-	private parseData(jsonStr:string){
-		this.slides = [];
+	private parseData(jsonStr:string):VDoc {
+
+		var slides:Slide[] = [];
 
 		var json:any = JSON.parse(jsonStr);
 
@@ -279,7 +282,7 @@ export class SlideStorage extends EventDispatcher {
 					});
 					slide.addImage(img);
 				});
-				this.slides.push(slide);
+				slides.push(slide);
 			});
 		}
 
@@ -329,9 +332,11 @@ export class SlideStorage extends EventDispatcher {
 
 					slide.addImage(img);
 				});
-				this.slides.push(slide);
+				slides.push(slide);
 			});
 		}
+
+		return new VDoc(slides);
 	}
 	//
 	

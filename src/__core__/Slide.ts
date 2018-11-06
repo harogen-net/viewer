@@ -168,6 +168,9 @@ export class Slide extends EventDispatcher {
 	}
 	get joining():boolean { return this._joining; }
 
+	set backgroundColor(colorStr:string) {
+		this.container.css("backgroundColor", colorStr);
+	}
 
 	//
 
