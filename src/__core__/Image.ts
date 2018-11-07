@@ -60,7 +60,8 @@ export class Image{
 	}
 
 	public swap(imgObj:any) {
-		this.setOriginalSize(imgObj);
+		console.log("swap at image id:" + this._id);
+
 		this.imgObj.remove();
 		this.obj.append(imgObj);
 		this.imgObj = imgObj;
@@ -68,6 +69,10 @@ export class Image{
 		if(imgObj.data("name") != undefined){
 			this._name = imgObj.data("name");
 		}
+		this.setOriginalSize(imgObj);
+
+		//NOTE : opacityのみimgObjへの指定なので再設定
+		this.opacity = this.opacity;
 	}
 
 	//
@@ -284,6 +289,7 @@ export class Image{
 		var retImgObj:any = this.imgObj.clone();
 		retImgObj.data("imageId", this.imageId);
 		retImgObj.data("name", this.name);
+
 		var retImg:Image = new Image(retImgObj, this.transform, id);
 		retImg.visible = this._visible;
 		retImg.locked = this._locked;

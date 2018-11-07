@@ -44,6 +44,7 @@ export class ImageManager extends EventDispatcher {
 	private allImages:Image[];
 
 	private constructor(){
+		console.log("ImageManager constructor");
 		super();
 		//this._imageById = {};
 		this.allImages = [];
@@ -54,16 +55,18 @@ export class ImageManager extends EventDispatcher {
 	}
 
 	public registImage(image:Image) {
+		console.log("registImage called" );
+		console.log(this.allImages.length);
 		if(this.allImages.indexOf(image) == -1){
 			this.allImages.push(image);
-			//console.log("ImageManager : registed : total " + this.allImages.length);
+			console.log("ImageManager : registed : total " + this.allImages.length);
 		}
 	}
 
 	public deleteImage(image:Image) {
 		if(this.allImages.indexOf(image) != -1){
 			this.allImages.splice(this.allImages.indexOf(image), 1);
-			//console.log("ImageManager : deleted : total " + this.allImages.length);
+			console.log("ImageManager : deleted : total " + this.allImages.length);
 		}
 	}
 

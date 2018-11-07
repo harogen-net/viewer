@@ -241,11 +241,13 @@ export class SlideStorage extends EventDispatcher {
 			$.each(document.slides, (number, slide:Slide)=>{
 				var slideDatum:any = {};
 				slideDatum.durationRatio = slide.durationRatio;
+				slideDatum.joining = slide.joining;
+				slideDatum.isLock = slide.isLock;
 				slideDatum.images = [];
 
 				$.each(slide.getData(), (number, datum:any)=>{
 					delete datum.class;
-					delete datum.id;
+					//delete datum.id;
 
 					if(imageSrcData[datum.imageId] == undefined){
 						imageSrcData[datum.imageId] = datum.src;
@@ -303,6 +305,8 @@ export class SlideStorage extends EventDispatcher {
 			$.each(json.slideData, (number, slideDatum:any)=>{
 				var slide:Slide = new Slide($('<div />'));
 				slide.durationRatio = slideDatum.durationRatio;
+				slide.joining = slideDatum.joining;
+				slide.isLock = slideDatum.isLock;
 
 				$.each(slideDatum.images, (j:number, imageDatum:any)=>{
 					var imgObj:any = $("<img />");
@@ -325,6 +329,9 @@ export class SlideStorage extends EventDispatcher {
 					}
 					if(imageDatum.locked != undefined){
 						img.locked = imageDatum.locked;
+					}
+					if(imageDatum.shared != undefined){
+						img.shared = imageDatum.shared;
 					}
 					if(isScreenSizeChange){
 						var offsetScale:number = Math.min(

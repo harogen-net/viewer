@@ -9,28 +9,15 @@ export class LayerListItem extends EventDispatcher {
 
 	private _image:Image;
 
-	private lockBtn:any;
 	private eyeBtn:any;
+	private lockBtn:any;
+	private shareBtn:any;
 	private deleteBtn:any;
 
 	constructor(){
 		super();
 
 		this.obj = $('<li><img /><span></span></li>');
-
-		this.lockBtn = $('<button class="lock"><i class="fas fa-lock"></i></button>');
-		this.lockBtn.click((e:any)=>{
-			if(this._image == null) return;
-
-			if(this.lockBtn.hasClass("on")){
-				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"lock_off",target:this}});
-				this.dispatchEvent(cb);
-			}else{
-				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"lock_on",target:this}});
-				this.dispatchEvent(cb);
-			}
-			e.stopImmediatePropagation();
-		});
 
 		this.eyeBtn = $('<button class="eye"><i class="fas fa-eye"></i></button>');
 		this.eyeBtn.click((e:any)=>{
@@ -46,6 +33,35 @@ export class LayerListItem extends EventDispatcher {
 			e.stopImmediatePropagation();
 		});
 
+		this.lockBtn = $('<button class="lock"><i class="fas fa-lock"></i></button>');
+		this.lockBtn.click((e:any)=>{
+			if(this._image == null) return;
+
+			if(this.lockBtn.hasClass("on")){
+				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"lock_off",target:this}});
+				this.dispatchEvent(cb);
+			}else{
+				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"lock_on",target:this}});
+				this.dispatchEvent(cb);
+			}
+			e.stopImmediatePropagation();
+		});
+
+		this.shareBtn = $('<button class="share"><i class="fas fa-exchange-alt"></i></button>');
+		this.shareBtn.click((e:any)=>{
+			if(this._image == null) return;
+			
+			if(this.shareBtn.hasClass("on")){
+				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"share_off",target:this}});
+				this.dispatchEvent(cb);
+			}else{
+				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"share_on",target:this}});
+				this.dispatchEvent(cb);
+			}
+			e.stopImmediatePropagation();
+		});
+
+
 		this.deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>');
 		this.deleteBtn.click((e:any)=>{
 			if(this._image == null) return;
@@ -55,14 +71,15 @@ export class LayerListItem extends EventDispatcher {
 			e.stopImmediatePropagation();
 		});
 
+		this.obj.prepend(this.shareBtn);
 		this.obj.prepend(this.lockBtn);
 		this.obj.prepend(this.eyeBtn);
 		this.obj.append(this.deleteBtn);
 
 		this.obj.click(()=>{
 			if(this._image == null)return;
-			if(this._image.locked) return;
-			if(!this._image.visible) return;
+//			if(this._image.locked) return;
+//			if(!this._image.visible) return;
 			var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"select",target:this}});
 			this.dispatchEvent(cb);
 		});
@@ -86,6 +103,12 @@ export class LayerListItem extends EventDispatcher {
 		}else{
 			this.lockBtn.removeClass("on");
 		}
+		if(this._image.shared){
+			this.shareBtn.addClass("on");
+		}else{
+			this.shareBtn.removeClass("on");
+		}
+		
 		if(this._image.visible){
 			this.eyeBtn.addClass("on");
 		}else{

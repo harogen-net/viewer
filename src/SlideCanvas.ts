@@ -154,7 +154,7 @@ export class SlideCanvas extends EventDispatcher {
 
 			var targetImg:Image = this.slide.selectedImg;
 			var reader = new FileReader();
-			reader.addEventListener('load', (e:any) => {
+			reader.addEventListener('load', (e2:any) => {
 				var imgObj = $('<img src="' + reader.result + '" />');
 
 				var shaObj = new jsSHA("SHA-256","TEXT");
@@ -162,12 +162,14 @@ export class SlideCanvas extends EventDispatcher {
  				imgObj.bind("load",()=>{
 					imgObj.unbind("load");
 					imgObj.ready(()=>{
+
 						if($("input#cb_imageRef").prop("checked")){
 							ImageManager.swapImageAll(targetImg.imageId, imgObj);
 						}else{
 							targetImg.swap(imgObj);
 							this.slide.dispatchEvent(new Event("update"));
 						}
+
 
 						$("input.imageRef").val("");
 					});
@@ -391,7 +393,12 @@ export class SlideCanvas extends EventDispatcher {
 	private onPropertyUpdate = (ce:CustomEvent)=>{
 		if(this.slide.selectedImg == null) return;
 		this.slide.selectedImg[ce.detail.key] = ce.detail.value;
+
 		this.slide.dispatchEvent(new Event("update"));
+		if(this.slide.selectedImg.shared){
+			this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:this.slide.selectedImg}));
+
+		}
 	};
 
 	//private onLayerUpdate(e:any) {
@@ -404,22 +411,41 @@ export class SlideCanvas extends EventDispatcher {
 					this.slide.selectImage(null);
 				}
 				this.slide.dispatchEvent(new Event("update"));
+				if(item.image.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+				}
 				break;
 			case "lock_off":
 			item.image.locked = false;
 				this.slide.dispatchEvent(new Event("update"));
-			break;
+				if(item.image.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+				}
+				break;
 			case "eye_on":
 				item.image.visible = true;
 				this.slide.dispatchEvent(new Event("update"));
+				if(item.image.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+				}
 				break;
 			case "eye_off":
 				item.image.visible = false;
 				if(item.image == this.slide.selectedImg){
 					this.slide.selectImage(null);
-				}else{
-					this.slide.dispatchEvent(new Event("update"));
 				}
+				this.slide.dispatchEvent(new Event("update"));
+				if(item.image.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+				}
+				break;
+			case "share_on":
+				item.image.shared = true;
+				this.slide.dispatchEvent(new Event("update"));
+				break;
+			case "share_off":
+				item.image.shared = false;
+				this.slide.dispatchEvent(new Event("update"));
 				break;
 			case "select":
 				this.slide.selectImage(item.image);

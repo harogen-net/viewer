@@ -106,6 +106,46 @@ export class Viewer {
 				}
 			}
 		});
+		this.canvas.slide.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
+			if(this._mode == ViewerMode.EDIT){
+				if(this.list.selectedSlide){
+					var targetImg:Image = ce.detail as Image;
+					console.log("sharedUpdate : " + targetImg);
+					if(!targetImg) return;
+					var i:number;
+	
+					i = this.list.selectedSlideIndex;
+					while(--i >= 0){
+						var found:boolean = false;
+						$.each(this.list.slides[i].images, (j:number, image:Image)=>{
+							if(found) return;
+							if(!image.shared) return;
+							if(image.imageId != targetImg.imageId) return;
+							image.locked = targetImg.locked;
+							image.visible = targetImg.visible;
+							image.opacity = targetImg.opacity;
+							image.transform = targetImg.transform;
+							found = true;
+						});
+					}
+					i = this.list.selectedSlideIndex;
+					while(++i < this.list.slides.length){
+						var found:boolean = false;
+						$.each(this.list.slides[i].images, (j:number, image:Image)=>{
+							if(found) return;
+							if(!image.shared) return;
+							if(image.imageId != targetImg.imageId) return;
+							image.locked = targetImg.locked;
+							image.visible = targetImg.visible;
+							image.opacity = targetImg.opacity;
+							image.transform = targetImg.transform;
+							found = true;
+						});
+					}
+				}
+			}
+		});
+
 		this.canvas.addEventListener("close",()=>{
 			this.setMode(ViewerMode.SELECT);
 		});
@@ -200,7 +240,7 @@ export class Viewer {
 		this.document = null;
 		this.list.initialize();
 		this.canvas.initialize();
-		ImageManager.initialize();
+		//ImageManager.initialize();
 		this.setMode(ViewerMode.SELECT);
 
 		//

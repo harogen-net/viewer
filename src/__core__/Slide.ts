@@ -59,6 +59,8 @@ export class Slide extends EventDispatcher {
 	public addImage(img:Image, index:number = -1):Image {
 		if(!img) return img;
 
+		console.log("addImage at image : " + img.id);
+
 		if(this._images.indexOf(img) != -1){
 			this._images.splice(this._images.indexOf(img), 1);
 		}else {
@@ -244,13 +246,18 @@ export class Slide extends EventDispatcher {
 	//
 
 	public clone():Slide {
+		console.log("clone at slide : " + this.id);
 		var newObj:any = $('<div />');
 		var slide:Slide = new Slide(newObj);
+
 		slide.id = this.id;
+		slide.durationRatio = this.durationRatio;
+		slide.joining = this.joining;
+		slide.isLock = this.isLock;
+		console.log("this slide has " + this.images.length + " images.");
 		$.each(this._images, (index:number, image:Image) => {
 			slide.addImage(image.clone());
 		});
-		slide.durationRatio = this._durationRatio;
 
 		return slide;
 	}
