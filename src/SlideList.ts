@@ -306,16 +306,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	//
 
 	private onSlideSort() {
-		var newSlides:Slide[] = [];
-
 		this.obj.find(".slide").each((i:number, obj:any)=>{
-//			console.log(i, $(obj).data("id"));
-			newSlides[i] = this._slidesById[$(obj).data("id")];
+			this._slides[i] = this._slidesById[$(obj).data("id")];
 		});
-
-		this._slides = null;
-		delete this._slides;
-		this._slides = newSlides;
 	}
 
 	//

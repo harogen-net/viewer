@@ -253,13 +253,12 @@ export class Image{
 	}
 	
 	public get data():any{
-		return {
+		var ret:any = {
 			class:this,
 			id:this._id,
 			imageId:this.imageId,
 			src:this.imgObj.attr("src"),
 			name:this._name,
-//			obj:this.img.imgObj,
 			transX:this._transX,
 			transY:this._transY,
 			scaleX:this._scaleX,
@@ -267,11 +266,12 @@ export class Image{
 			rotation:this._rotation,
 			mirrorH:this._mirrorH,
 			mirrorV:this._mirrorV,
-			locked:this._locked,
-			visible:this._visible,
 			opacity:this._opacity,
-			shared:this._shared,
-		}
+			visible:this._visible,
+		};
+		if(this._locked) ret.locked = this._locked;
+		if(this._shared) ret.shared = this._shared;
+		return ret;
 	}
 
 	public get id():number {

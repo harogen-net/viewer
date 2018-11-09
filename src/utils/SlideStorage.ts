@@ -31,27 +31,27 @@ export class SlideStorage extends EventDispatcher {
 			var openReq  = indexedDB.open(SlideStorage.DBNAME);
 			openReq.onupgradeneeded = (e:any)=>{
 				this.db = e.target.result;
-				console.log('db upgrade');
+				//console.log('db upgrade');
 				this.db.createObjectStore("slideTitles", {keyPath:"id",autoIncrement:true});
 				this.db.createObjectStore("slideData",{keyPath:"title"});
 			}
 			openReq.onsuccess = (e:any)=>{
 				this.db = e.target.result;
 				this.dbVersion = this.db.version;
-				console.log('db open success : ' + this.dbVersion);
+				//console.log('db open success : ' + this.dbVersion);
 
 				var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 
 				this.titleStore = transaction.objectStore("slideTitles");
 				this.dataStore = transaction.objectStore("slideData");
-				console.log(this.titleStore, this.dataStore);
+				//console.log(this.titleStore, this.dataStore);
 
 				//var putReq = this.titleStore.put({title:"a"});this.titleStore.put({title:"b"});this.titleStore.put({title:"c"});
 
 				//putReq.onsuccess = (e:any)=>{
 				//	var getReq = this.titleStore.get(1);
 				//	getReq.onsuccess = (e:any)=>{
-				//		console.log(e.target.result); // {id : 'A1', name : 'test'}
+				//		//console.log(e.target.result); // {id : 'A1', name : 'test'}
 				//	  }
 
 
@@ -60,7 +60,7 @@ export class SlideStorage extends EventDispatcher {
 			  //}
 			}
 			openReq.onerror = (e:any)=>{
-				console.log('db open error');
+				//console.log('db open error');
 				alert("db open error");
 			}
 		};
@@ -69,7 +69,7 @@ export class SlideStorage extends EventDispatcher {
 		if(0) {
 			var deleteReq = indexedDB.deleteDatabase(SlideStorage.DBNAME);
 			deleteReq.onsuccess = (e:any)=>{
-				console.log('db delete success');
+				//console.log('db delete success');
 				create();
 			}
 		}else{
@@ -130,7 +130,7 @@ export class SlideStorage extends EventDispatcher {
 		this.dataStore = transaction.objectStore("slideData");
 		var getReq = this.dataStore.get(title);
 		getReq.onsuccess = (e:any)=>{
-//			console.log(e.target.result); // {id : 'A1', name : 'test'}
+//			//console.log(e.target.result); // {id : 'A1', name : 'test'}
 			var jsonStr:string = e.target.result.data;
 			this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr)}));
 		}
@@ -146,7 +146,7 @@ export class SlideStorage extends EventDispatcher {
 					});
 				});
 			},(e)=>{
-				console.log("error at zip load : " + e);
+				//console.log("error at zip load : " + e);
 			});
 		}else if(file.name.indexOf(".hvd") != -1){
 			var reader = new FileReader();
@@ -210,6 +210,8 @@ export class SlideStorage extends EventDispatcher {
 
 		//
 
+		//console.log("stringfyData start ------------");
+
 		var json:any = {};
 		json.version = SlideStorage.VERSION;
 		json.screen = {width:Viewer.SCREEN_WIDTH, height:Viewer.SCREEN_HEIGHT};
@@ -238,12 +240,17 @@ export class SlideStorage extends EventDispatcher {
 			var slideData:any[] = [];
 			var imageSrcData:any = {};
 			
-			$.each(document.slides, (number, slide:Slide)=>{
+			var imageNum:number = 0;
+			//console.log("total slide num : " + document.slides.length);
+			$.each(document.slides, (i:number, slide:Slide)=>{
 				var slideDatum:any = {};
+				slideDatum.id = slide.id;
 				slideDatum.durationRatio = slide.durationRatio;
 				slideDatum.joining = slide.joining;
 				slideDatum.isLock = slide.isLock;
 				slideDatum.images = [];
+
+				//console.log(" - slide" + (i + 1) + "("+ slide.id + ")" + " has " + slide.images.length + " images");
 
 				$.each(slide.getData(), (number, datum:any)=>{
 					delete datum.class;
@@ -251,6 +258,7 @@ export class SlideStorage extends EventDispatcher {
 
 					if(imageSrcData[datum.imageId] == undefined){
 						imageSrcData[datum.imageId] = datum.src;
+						imageNum++;
 					}
 					delete datum.src;
 					slideDatum.images.push(datum);
@@ -259,9 +267,17 @@ export class SlideStorage extends EventDispatcher {
 			});
 			json.slideData = slideData;
 			json.imageData = imageSrcData;
+
+			//console.log("total image num : " + imageNum);
+			
 		}
 
 		var jsonStr:string = JSON.stringify(json);
+
+		//MARK: - debug用トレース
+		delete json.imageData;
+		//console.log(JSON.stringify(json));
+
 		return jsonStr;
 	}
 
@@ -369,7 +385,7 @@ export class SlideStorage extends EventDispatcher {
 		this.titleStore.openCursor().onsuccess = function (event) {
 			var cursor = event.target.result;
 			if (cursor) {
-				//console.log(cursor);
+				////console.log(cursor);
 				$("select.filename").append('<option value="' + cursor.value.id + '">' + cursor.value.title + '</option>');
 				cursor.continue();
 			}else{

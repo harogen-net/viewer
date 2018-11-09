@@ -153,6 +153,7 @@ export class SlideCanvas extends EventDispatcher {
 			if(this.slide.selectedImg == null) return;
 
 			var targetImg:Image = this.slide.selectedImg;
+			var targetImageId:string = targetImg.imageId;
 			var reader = new FileReader();
 			reader.addEventListener('load', (e2:any) => {
 				var imgObj = $('<img src="' + reader.result + '" />');
@@ -164,12 +165,11 @@ export class SlideCanvas extends EventDispatcher {
 					imgObj.ready(()=>{
 
 						if($("input#cb_imageRef").prop("checked")){
-							ImageManager.swapImageAll(targetImg.imageId, imgObj);
+							ImageManager.swapImageAll(targetImageId, imgObj);
 						}else{
 							targetImg.swap(imgObj);
 							this.slide.dispatchEvent(new Event("update"));
 						}
-
 
 						$("input.imageRef").val("");
 					});
@@ -220,6 +220,8 @@ export class SlideCanvas extends EventDispatcher {
 
 	initialize(){
 		this.slide.initialize();
+
+		$(".slideCanvas .menu span.name").text("");
 	}
 
 	private updateShadow(){
@@ -271,6 +273,12 @@ export class SlideCanvas extends EventDispatcher {
 			break;
 		}
 	} 
+
+	public setSlideData(aData:any){
+		if(aData.name){
+			$(".slideCanvas .menu span.name").text(aData.name);
+		}
+	}
 
 /* 	setData(aData:any[]){
 		this.slide.setData(aData);

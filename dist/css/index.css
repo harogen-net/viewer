@@ -177,6 +177,11 @@ input.imageRef {
 .slideCanvas .menu buttom {
 	width:2em;
 }
+.slideCanvas .menu span.name {
+	height:100%;
+	display: inline-block;
+	line-height: 2em;
+}
 .slideCanvas .menu button.close {
 	position: absolute;
 	z-index: 1;

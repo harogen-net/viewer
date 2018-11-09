@@ -84,6 +84,7 @@ export class Viewer {
 					this.list.selectedSlide.isLock = true;
 					this.canvas.slide.setData(this.list.selectedSlide.getData());
 					this.list.selectedSlide.isLock = false;
+					this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				}else{
 					this.canvas.initialize();
 				}
@@ -96,6 +97,7 @@ export class Viewer {
 				this.list.selectedSlide.isLock = true;
 				this.canvas.slide.setData(this.list.selectedSlide.getData());
 				this.list.selectedSlide.isLock = false;
+				this.canvas.setSlideData({name:this.list.selectedSlide.id});
 			}
 		});
 

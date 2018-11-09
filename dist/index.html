@@ -30,15 +30,14 @@
 			<button class="export"><i class="fas fa-file-export"></i> <span>EXPORT</span></button>
 			<button class="import"><i class="fas fa-file-import"></i> <span>IMPORT</span></button>
 			<input class="import" type="file" value="" accept=".hvd,.hvz">
+			<label for="cb_zip"><input id="cb_zip" type="checkbox" checked="checked"><span>ZIP</span></label>
 		</div>
 		<div>
-<!--			<span>DURATION:<input id="duration" value="2000" type="text"></span>
-			<span>INTERVAL:<input id="interval" value="6000" type="text"></span>-->
 			<span>DURATION:<select id="duration">
 				<option value="1">0</option>
 				<option value="500">500</option>
 				<option value="1000">1000</option>
-				<option value="2000">2000</option>
+				<option value="2000" selected>2000</option>
 				<option value="3000">3000</option>
 				<option value="4000">4000</option>
 				<option value="5000">5000</option>
@@ -50,7 +49,7 @@
 				<option value="3000">3000</option>
 				<option value="4000">4000</option>
 				<option value="5000">5000</option>
-				<option value="6000">6000</option>
+				<option value="6000" selected>6000</option>
 				<option value="7000">7000</option>
 				<option value="8000">8000</option>
 				<option value="9000">9000</option>
@@ -94,6 +93,9 @@
 <!--				<div>
 					<button class="delete"><i class="fas fa-trash"></i></button>
 				</div>-->
+				<div>
+					<span class="name">[スライド名]</span>
+				</div>
 				<button class="close"><i class="fas fa-times"></i></button>
 			</div>
 			<div class="sideMenu">
