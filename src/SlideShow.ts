@@ -148,6 +148,7 @@ export class SlideShow extends EventDispatcher {
 
 		if(this.slides){
 			$.each(this.slides, (index:number, slide:Slide) =>{
+				slide.removeAllImages();
 				slide.obj.stop();
 				slide.obj.remove();
 			});
@@ -155,7 +156,6 @@ export class SlideShow extends EventDispatcher {
 		this.slides = [];
 		this.data = [];
 		this.history = [];
-		//$("body").removeClass("slideShow");
 
 		this.stopCursorAutoHide();
 	}
