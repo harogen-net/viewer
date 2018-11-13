@@ -12,7 +12,21 @@ export class SlideToPNGConverter {
     public convert(doc:VDoc):string {
 		var width:number = Viewer.SCREEN_WIDTH;
 		var height:number = Viewer.SCREEN_HEIGHT;
-		var canvas:HTMLCanvasElement = this.slide2canvas(doc.slides[0], width, height, doc.bgColor);
+
+		let slideSortFunc = (a:Slide,b:Slide):number=>{
+			if(a.durationRatio > b.durationRatio){
+				return -1
+			}else if(a.durationRatio < b.durationRatio){
+				return 1;
+			}else{
+				return 0;
+			}
+		}
+		var slides:Slide[] = doc.slides.concat();
+		slides = slides.sort(slideSortFunc);
+
+
+		var canvas:HTMLCanvasElement = this.slide2canvas(slides[0], width, height, doc.bgColor);
 		return canvas.toDataURL();
 	}
 	
