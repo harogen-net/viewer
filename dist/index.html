@@ -2,6 +2,7 @@
 <html lang="jp">
 <head>
 <meta charset="UTF-8">
+<script src="js/crc32.min.js"></script>
 <script src="js/matrixgl.min.js"></script>
 <script src="js/jszip.min.js"></script>
 <script src="js/sha.js"></script>
@@ -13,6 +14,19 @@
 </head>
 <body>
 <div id="wrapper">
+	<div id="pref">
+		<button><i class="fas fa-cog"></i></button>
+		<div class="menu">
+			<dl>
+				<dt>SAVE FORMAT TYPE</dt>
+				<dd>
+					<label for="saveFormat_png"><input type="radio" id="saveFormat_png" name="saveFormat" checked><span>.png</span></label>
+					<label for="saveFormat_hvz"><input type="radio" id="saveFormat_hvz" name="saveFormat"><span>.hvz(zipped)</span></label>
+					<label for="saveFormat_hvd"><input type="radio" id="saveFormat_hvd" name="saveFormat"><span>.hvd(text)</span></label>
+				</dd>
+			</dl>
+		</div>
+	</div>
 	<div id="menu" class="menu">
 		<div>
 			<button class="startSlideShow"><i class="fas fa-play"></i></button>
@@ -29,8 +43,7 @@
 		<div>
 			<button class="export"><i class="fas fa-file-export"></i> <span>EXPORT</span></button>
 			<button class="import"><i class="fas fa-file-import"></i> <span>IMPORT</span></button>
-			<input class="import" type="file" value="" accept=".hvd,.hvz">
-			<label for="cb_zip"><input id="cb_zip" type="checkbox" checked="checked"><span>ZIP</span></label>
+			<input class="import" type="file" value="" accept=".png,.hvd,.hvz">
 		</div>
 		<div>
 			<span>DURATION:<select id="duration">

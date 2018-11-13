@@ -3,10 +3,19 @@ import { Image } from "../__core__/Image";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Viewer } from "../Viewer";
 import { VDoc } from "../__core__/VDoc";
+import { PNGEmbedder } from "./PNGEmbedder";
+import { SlideToPNGConverter } from "./SlideToPNGConverter";
+import { DateUtil } from "./DateUtil";
 
 declare var $:any;
 declare var jsSHA:any;
 declare var JSZip:any;
+
+export enum HVDataType {
+	PNG,
+	HVD,
+	HVZ
+}
 
 export class SlideStorage extends EventDispatcher {
 
@@ -19,10 +28,7 @@ export class SlideStorage extends EventDispatcher {
 	private titleStore:any;
 	private dataStore:any;
 
-/*	public bgColor:string | undefined;*/
-/*	public duration:number;
-	public interval:number;*/
-/*    public slides:Slide[];*/
+	private embedder:PNGEmbedder;
 
     constructor() {
 		super();
@@ -76,49 +82,82 @@ export class SlideStorage extends EventDispatcher {
 			create();
 		}
 
+		this.embedder = new PNGEmbedder();
     }
 
-    save(document:VDoc){
-
-		//var titleId:number = parseInt($('select.filename').val());
-		var title:string// = $('select.filename option:selected').text();
-
-//		if(titleId == -1){
-			title = this.getNowString();
-//		}
-		var jsonStr:string = this.stringfyData(document);
+    save(doc:VDoc){
+		var jsonStr:string = this.stringfyData(doc);
 
 		//
 		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
-		var putReq1  = this.titleStore.put({"title":title});
-		var putReq2 = this.dataStore.put({title:title, data:jsonStr});
+		var putReq1  = this.titleStore.put({"title":doc.title});
+		var putReq2 = this.dataStore.put({title:doc.title, data:jsonStr});
 		putReq2.onsuccess = (e:any)=>{
 			this.updateTitleMenu();
 		}
 	}
 	
-	public export(document:VDoc, isZip:boolean = true){
-		var title = this.getNowString();
-		var jsonStr:string = this.stringfyData(document);
+	public export(doc:VDoc, type:HVDataType){
+		var jsonStr:string = this.stringfyData(doc);
 
 		//
 
-		if(isZip){
-			var zip = new JSZip();
-			zip.file(title + ".hvd", jsonStr);
-			zip.generateAsync({type:"blob",compression: "DEFLATE"})
-			.then((blob)=>{
-				this.downloadBlob(blob, title + ".hvz");
-			});
-		}else{
-			var blob = new Blob([jsonStr], {type: "text/plain"});
-			this.downloadBlob(blob, title + ".hvd");
+		switch(type){
+			case HVDataType.PNG:
+				var thumbPng = new SlideToPNGConverter().convert(doc);
+				var zip = new JSZip();
+				zip.file("data.hvd",jsonStr);
+				zip.generateAsync({type:"uint8array",compression: "DEFLATE"})
+				.then((u8a)=>{
+					this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL:string)=>{
+						this.downloadBlob(this.dataURItoBlob(embeddedPngDataURL), "[hv]" + doc.title + ".png");
+					});
+				});
+			break;
+			case HVDataType.HVD:
+				var blob = new Blob([jsonStr], {type: "text/plain"});
+				this.downloadBlob(blob, doc.title + ".hvd");
+			break;
+			case HVDataType.HVZ:
+				var zip = new JSZip();
+				zip.file(doc.title + ".hvd", jsonStr);
+				zip.generateAsync({type:"blob",compression: "DEFLATE"})
+				.then((blob)=>{
+					this.downloadBlob(blob, doc.title + ".hvz");
+				});
+			break;
 		}
 	}
 
+
+
+	private dataURItoBlob(dataURI) {
+		// convert base64 to raw binary data held in a string
+		// doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
+		var byteString = atob(dataURI.split(',')[1]);
+	  
+		// separate out the mime component
+		var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
+	  
+		// write the bytes of the string to an ArrayBuffer
+		var ab = new ArrayBuffer(byteString.length);
+	  
+		// create a view into the buffer
+		var ia = new Uint8Array(ab);
+	  
+		// set the bytes of the buffer to the correct values
+		for (var i = 0; i < byteString.length; i++) {
+			ia[i] = byteString.charCodeAt(i);
+		}
+	  
+		// write the ArrayBuffer to a blob, and you're done
+		var blob = new Blob([ab], {type: mimeString});
+		return blob;
+	  
+	  }
 
 
     public load() {
@@ -138,7 +177,30 @@ export class SlideStorage extends EventDispatcher {
 
 
 	public import(file:any){
-		if(file.name.indexOf(".hvz") != -1){
+		
+		if(file.name.indexOf(".png") != -1){
+			var reader = new FileReader();
+			reader.addEventListener("load", (e:any)=>{
+				var u8a = this.embedder.extract(reader.result as string);
+				var zip = new JSZip();
+				zip.loadAsync(u8a).then((zip)=>{
+					zip.file("data.hvd").async("uint8array").then((obj)=>{
+						//console.log(new TextDecoder().decode(obj));
+						var jsonStr:string = new TextDecoder().decode(obj);
+						if(!jsonStr) {
+							alert("not data png file.");
+							return;
+						}
+						this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr)}));
+					});
+				})
+			});
+			try{
+				reader.readAsDataURL(file);
+			}
+			catch(e){
+			}
+		}else if(file.name.indexOf(".hvz") != -1){
 			JSZip.loadAsync(file).then((zip)=>{
 				zip.forEach((a,b)=>{
 					b.async("string").then((data:string)=>{
@@ -180,17 +242,6 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 	//
-
-	private getNowString():string{
-		var date = new Date();
-		var y = date.getFullYear();
-		var m = ("00" + (date.getMonth()+1)).slice(-2);
-		var d = ("00" + (date.getDate())).slice(-2);
-		var h = ("00" + (date.getHours())).slice(-2);
-		var mi = ("00" + (date.getMinutes())).slice(-2);
-		var s = ("00" + (date.getSeconds())).slice(-2);
-		return "" + y + m + d + h + mi + s;
-	}
 
 	private downloadBlob(blob:any, fileName:string){
 		var a = document.createElement("a");
@@ -371,6 +422,7 @@ export class SlideStorage extends EventDispatcher {
 			if(json.bgColor) options.bgColor = json.bgColor;
 			if(json.createTime) options.createTime = json.createTime;
 			if(json.editTime) options.editTime = json.editTime;
+			if(json.title) options.title = json.title;
 		}
 
 		return new VDoc(slides, options);

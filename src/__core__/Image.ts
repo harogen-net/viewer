@@ -163,6 +163,9 @@ export class Image{
 		this._transY = value  - (this._originHeight / 2);
 		this.updateMatrix();
 	}
+	public get transX():number {return this._transX;}
+	public get transY():number {return this._transY;}
+
 	public get scale(){
 		if(this._scaleX == this._scaleY) return this._scaleX;
 		return NaN;
@@ -190,6 +193,9 @@ export class Image{
 		if(isNaN(value)) value = 0;
 		this._rotation = ((value + 180) % (360)) - 180;
 		this.updateMatrix();
+	}
+	public get angle(){
+		return this._rotation * Math.PI / 180;
 	}
 	public get opacity(){return this._opacity;}
 	public set opacity(value){
@@ -283,6 +289,15 @@ export class Image{
 		//return this.imgObj.data("imageId");
 	}
 
+	public get imageElement():HTMLImageElement {
+		return this.imgObj[0] as HTMLImageElement;
+	}
+
+	public get matrix():number[]{
+		var matrix = Matrix4.identity().translate(this._transX, this._transY,0).rotateZ(this._rotation * Math.PI / 180).scale(this._scaleX * (this._mirrorH ? -1 : 1),this._scaleY * (this._mirrorV ? -1 : 1),1);
+		return [matrix.values[0],matrix.values[1],matrix.values[4],matrix.values[5],matrix.values[12],matrix.values[13]];
+	}
+
 	//
 	
 	public clone(id:number = -1):Image {
@@ -301,15 +316,17 @@ export class Image{
 	//
 	
 	private updateMatrix():void{
-		var matrix = Matrix4.identity().translate(this._transX, this._transY,0).rotateZ(this._rotation * Math.PI / 180).scale(this._scaleX * (this._mirrorH ? -1 : 1),this._scaleY * (this._mirrorV ? -1 : 1),1);
-		var cssMat = "matrix("
+		//var matrix = Matrix4.identity().translate(this._transX, this._transY,0).rotateZ(this._rotation * Math.PI / 180).scale(this._scaleX * (this._mirrorH ? -1 : 1),this._scaleY * (this._mirrorV ? -1 : 1),1);
+/* 		var cssMat = "matrix("
 			+ matrix.values[0] + ","
 			+ matrix.values[1] + ","
 			+ matrix.values[4] + ","
 			+ matrix.values[5] + ","
 			+ matrix.values[12] + ","
 			+ matrix.values[13]
-			+ ")";
+			+ ")"; */
+		var matrix:number[] = this.matrix;
+		var cssMat:string = "matrix(" + matrix.join(",") + ")";
 		this.obj.css("transform", cssMat);
 	}
 

@@ -45,6 +45,63 @@ label {
 }
 
 
+/* ---------------------- preference ---------------------- */
+#pref {
+	display: block;
+	position: absolute;
+	right:0;
+	top:0;
+	font-size:0.8rem;
+}
+#pref > button {
+	background:none;
+	border:none;
+	width:50px;
+	height:50px;
+	font-size:20px;
+	line-height: 50px;
+	position: absolute;
+	right:0;
+	top:0;
+	z-index: 2147483645;
+	cursor: pointer;
+}
+#pref > button:hover {
+	opacity:0.5;
+}
+#pref > button:focus {
+	outline-style: none;
+}
+#pref > button:active {
+	right:-1px;
+	top:1px;
+}
+#pref .menu {
+	display: none;
+	position: absolute;
+	right:0;
+	top:0;
+	z-index: 2147483644;
+	padding:20px 20px 20px 20px;
+	background:rgba(255,255,255,.95);
+	height:100vh;
+}
+#pref .menu > dl {
+	white-space: nowrap;
+}
+#pref dt,
+#pref dd {
+	display:block;
+	padding:0;
+	margin:0;
+}
+#pref dt {
+	font-weight: bold;
+	white-space: nowrap;
+	border-bottom: 1px solid gray;
+	margin-bottom: 5px;
+}
+
 /* ---------------------- menu ---------------------------- */
 #menu {
 	/*white-space: nowrap;*/

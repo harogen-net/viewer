@@ -1,5 +1,6 @@
 import { Slide } from "./Slide";
 import { Image } from "./Image";
+import { DateUtil } from "../utils/DateUtil";
 
 declare var $: any;
 
@@ -13,7 +14,7 @@ export class VDoc {
 	public duration:number|undefined;
 	public interval:number|undefined;
 
-	public name:string;
+	public title:string;
 	public createTime:number;
 	public editTime:number;
 
@@ -26,19 +27,21 @@ export class VDoc {
 		var bgColor:string|undefined = undefined;
 		var createTime:number|undefined = new Date().getTime();
 		var editTime:number|undefined = createTime;
-		var name:string|undefined = "無題のスライド";
+		var title:string|undefined = DateUtil.getDateString();
 		
 		if(options){
 			if(options.bgColor) bgColor = options.bgColor;
-			createTime = options.createTime;
-			editTime = options.editTime;
-			name = options.name;
+			if(options.createTime) createTime = options.createTime;
+			if(options.editTime) editTime = options.editTime;
+			if(options.title) title = options.title;
 		}
 		this.bgColor = bgColor;
 		this.createTime = createTime;
 		this.editTime = editTime;
-		this.name = name;
+		this.title = title;
 	}
+
+	//
 
 	public set bgColor(value:string|undefined){
 		this._bgColor = value;

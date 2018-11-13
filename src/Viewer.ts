@@ -2,7 +2,7 @@ import {Slide} from "./__core__/Slide";
 import {SlideEditable} from "./__core__/SlideEditable";
 import {SlideList} from "./SlideList";
 import {Image} from "./__core__/Image";
-import { SlideStorage } from "./utils/SlideStorage";
+import { SlideStorage, HVDataType } from "./utils/SlideStorage";
 import { SlideShow } from "./SlideShow";
 import { Menu } from "./Menu";
 import { SlideCanvas } from "./SlideCanvas";
@@ -156,6 +156,9 @@ export class Viewer {
 
 		//IO section
 		{
+			$("#pref > button").click(()=>{
+				$("#pref > .menu").toggle();
+			});
 			$("label[for='cb_ignore']").hide();
 
 			$(".startSlideShow").click(() => {
@@ -200,9 +203,14 @@ export class Viewer {
 			
 			$(".export").click(()=>{
 				if(this.list.slides.length > 0 ){
-					this.storage.export(this.document);
+					var type:HVDataType;
+					if($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
+					if($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
+					if($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
+					this.storage.export(this.document, type);
 				}
 			});
+
 			$("button.import").click(()=>{
 				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
 					$("input.import")[0].click();
@@ -238,7 +246,7 @@ export class Viewer {
 		this.newDocument();
 	}
 
-	private newDocument(document?:VDoc){
+	private newDocument(doc?:VDoc){
 		this.document = null;
 		this.list.initialize();
 		this.canvas.initialize();
@@ -247,7 +255,7 @@ export class Viewer {
 
 		//
 
-		this.document = document || new VDoc();
+		this.document = doc || new VDoc();
 		this.list.slides = this.document.slides;
 	}
 
