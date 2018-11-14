@@ -5,11 +5,26 @@ import { Image } from "../__core__/Image";
 
 declare var $:any;
 
+enum SlidePNGTileType {
+	SINGLE = 1,
+	QUADRUPLE = 4,
+	NONUPLE = 9
+}
+
 export class SlideToPNGConverter {
 
     constructor(){    }
 
-    public convert(doc:VDoc):string {
+    public convert(doc:VDoc, pages?:number[]):string {
+		pages = pages || [];
+		var type:SlidePNGTileType = SlidePNGTileType.SINGLE;
+		var convertibleSlideNum:number = this.countConvertibleSlideNum(doc);
+		if(convertibleSlideNum >= SlidePNGTileType.NONUPLE){
+			type = SlidePNGTileType.NONUPLE;
+		}else if(convertibleSlideNum >= SlidePNGTileType.QUADRUPLE){
+			type = SlidePNGTileType.QUADRUPLE;
+		}
+
 		var width:number = Viewer.SCREEN_WIDTH;
 		var height:number = Viewer.SCREEN_HEIGHT;
 
@@ -25,8 +40,11 @@ export class SlideToPNGConverter {
 		var slides:Slide[] = doc.slides.concat();
 		slides = slides.sort(slideSortFunc);
 
+		while(pages.length < type && slides.length > 0){
+			pages.push(doc.slides.indexOf(slides.shift()));
+		}
 
-		var canvas:HTMLCanvasElement = this.slide2canvas(slides[0], width, height, doc.bgColor);
+		var canvas:HTMLCanvasElement = this.slide2canvas(doc.slides[pages[0]], width, height, doc.bgColor);
 		return canvas.toDataURL();
 	}
 	
@@ -61,5 +79,13 @@ export class SlideToPNGConverter {
 		});
 
 		return canvas;
+	}
+
+	private countConvertibleSlideNum(doc:VDoc):number {
+		var num:number = 0;
+		doc.slides.forEach((slide:Slide)=>{
+			if(slide.durationRatio >= 1) num++;
+		});
+		return num;
 	}
 }

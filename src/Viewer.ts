@@ -207,7 +207,10 @@ export class Viewer {
 					if($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
 					if($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
 					if($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
-					this.storage.export(this.document, type);
+
+					this.storage.export(this.document, type, {
+						pages:(this.list.selectedSlideIndex != -1) ? [this.list.selectedSlideIndex] : undefined
+					});
 				}
 			});
 

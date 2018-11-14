@@ -6,6 +6,7 @@ import { VDoc } from "../__core__/VDoc";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 import { DateUtil } from "./DateUtil";
+import { DataUtil } from "./DataUtil";
 
 declare var $:any;
 declare var jsSHA:any;
@@ -22,6 +23,7 @@ export class SlideStorage extends EventDispatcher {
 	private static readonly VERSION:number = 2;
 	private static readonly SAVE_KEY:string = "viewer.slideData";
 	private static readonly DBNAME:string = "viewer";
+	private static readonly PNG_DATA_FILE_PREFIX:string = "[hv]";
 
 	private db:any;
 	private dbVersion:number;
@@ -86,7 +88,7 @@ export class SlideStorage extends EventDispatcher {
     }
 
     save(doc:VDoc){
-		var jsonStr:string = this.stringfyData(doc);
+		var jsonStr:string = this.stringifyData(doc);
 
 		//
 		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
@@ -100,64 +102,38 @@ export class SlideStorage extends EventDispatcher {
 		}
 	}
 	
-	public export(doc:VDoc, type:HVDataType){
-		var jsonStr:string = this.stringfyData(doc);
+	public export(doc:VDoc, type:HVDataType, options?:any){
+		var jsonStr:string = this.stringifyData(doc);
 
 		//
 
 		switch(type){
 			case HVDataType.PNG:
-				var thumbPng = new SlideToPNGConverter().convert(doc);
+				var pages:number[] = options ? (options.pages || []) : [];
+				var thumbPng = new SlideToPNGConverter().convert(doc,pages);
 				var zip = new JSZip();
 				zip.file("data.hvd",jsonStr);
 				zip.generateAsync({type:"uint8array",compression: "DEFLATE"})
 				.then((u8a)=>{
 					this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL:string)=>{
-						this.downloadBlob(this.dataURItoBlob(embeddedPngDataURL), "[hv]" + doc.title + ".png");
+						DataUtil.downloadBlob(DataUtil.dataURItoBlob(embeddedPngDataURL), SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png");
 					});
 				});
 			break;
 			case HVDataType.HVD:
 				var blob = new Blob([jsonStr], {type: "text/plain"});
-				this.downloadBlob(blob, doc.title + ".hvd");
+				DataUtil.downloadBlob(blob, doc.title + ".hvd");
 			break;
 			case HVDataType.HVZ:
 				var zip = new JSZip();
 				zip.file(doc.title + ".hvd", jsonStr);
 				zip.generateAsync({type:"blob",compression: "DEFLATE"})
 				.then((blob)=>{
-					this.downloadBlob(blob, doc.title + ".hvz");
+					DataUtil.downloadBlob(blob, doc.title + ".hvz");
 				});
 			break;
 		}
 	}
-
-
-
-	private dataURItoBlob(dataURI) {
-		// convert base64 to raw binary data held in a string
-		// doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
-		var byteString = atob(dataURI.split(',')[1]);
-	  
-		// separate out the mime component
-		var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
-	  
-		// write the bytes of the string to an ArrayBuffer
-		var ab = new ArrayBuffer(byteString.length);
-	  
-		// create a view into the buffer
-		var ia = new Uint8Array(ab);
-	  
-		// set the bytes of the buffer to the correct values
-		for (var i = 0; i < byteString.length; i++) {
-			ia[i] = byteString.charCodeAt(i);
-		}
-	  
-		// write the ArrayBuffer to a blob, and you're done
-		var blob = new Blob([ab], {type: mimeString});
-		return blob;
-	  
-	  }
 
 
     public load() {
@@ -191,7 +167,8 @@ export class SlideStorage extends EventDispatcher {
 							alert("not data png file.");
 							return;
 						}
-						this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr)}));
+						var title:string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
+						this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr, {title:title})}));
 					});
 				})
 			});
@@ -243,25 +220,13 @@ export class SlideStorage extends EventDispatcher {
 
 	//
 
-	private downloadBlob(blob:any, fileName:string){
-		var a = document.createElement("a");
-		a.href = URL.createObjectURL(blob);
-		a.target = '_blank';
-		a.download = fileName;
-		a.click();
-		URL.revokeObjectURL(a.href);
-		//document.body.removeChild(a);
-	}
-
-	//
-
-	private stringfyData(document:VDoc):string {
+	private stringifyData(document:VDoc):string {
 		//MARK : 更新時間上書き
 		document.editTime = new Date().getTime();
 
 		//
 
-		//console.log("stringfyData start ------------");
+		//console.log("stringifyData start ------------");
 
 		var json:any = {};
 		json.version = SlideStorage.VERSION;
@@ -332,10 +297,10 @@ export class SlideStorage extends EventDispatcher {
 		return jsonStr;
 	}
 
-	private parseData(jsonStr:string):VDoc {
+	private parseData(jsonStr:string, options?:any):VDoc {
 
 		var slides:Slide[] = [];
-		var options:any = {};
+		options = options || {};
 
 		var json:any = JSON.parse(jsonStr);
 
@@ -422,7 +387,7 @@ export class SlideStorage extends EventDispatcher {
 			if(json.bgColor) options.bgColor = json.bgColor;
 			if(json.createTime) options.createTime = json.createTime;
 			if(json.editTime) options.editTime = json.editTime;
-			if(json.title) options.title = json.title;
+			//if(json.title) options.title = json.title;
 		}
 
 		return new VDoc(slides, options);
