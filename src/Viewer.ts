@@ -8,6 +8,8 @@ import { Menu } from "./Menu";
 import { SlideCanvas } from "./SlideCanvas";
 import { ImageManager } from "./utils/ImageManager";
 import { VDoc } from "./__core__/VDoc";
+import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
+import { DataUtil } from "./utils/DataUtil";
 
 declare var $:any;
 
@@ -150,6 +152,11 @@ export class Viewer {
 
 		this.canvas.addEventListener("close",()=>{
 			this.setMode(ViewerMode.SELECT);
+		});
+
+		this.canvas.addEventListener("download", ()=>{
+			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.canvas.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, this.document.bgColor);
+			DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.document.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
 		});
 
 		//

@@ -48,7 +48,7 @@ export class SlideToPNGConverter {
 		return canvas.toDataURL();
 	}
 	
-	private slide2canvas(slide:Slide, width:number, height:number, bgColor?:string):HTMLCanvasElement {
+	public slide2canvas(slide:Slide, width:number, height:number, bgColor?:string):HTMLCanvasElement {
 		var canvas:HTMLCanvasElement = document.createElement("canvas") as HTMLCanvasElement;
 		canvas.width = width;
 		canvas.height = height;

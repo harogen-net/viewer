@@ -6,6 +6,8 @@ import { ImageManager } from "./utils/ImageManager";
 import { LayerListItem } from "./LayerListItem";
 import { PropertyInput } from "./PropertyInput";
 import { Viewer,ViewerMode } from "./Viewer";
+import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
+import { DataUtil } from "./utils/DataUtil";
 
 
 declare var $:any;
@@ -124,11 +126,7 @@ export class SlideCanvas extends EventDispatcher {
 				$(".mirrorV").toggleClass("on");
 			}
 		});
-/* 		$(".delete").click(() => {
-			if(this.slide.selectedImg && !this.slide.selectedImg.locked && this.slide.selectedImg.visible) {
-				this.slide.removeImage(this.slide.selectedImg);
-			}
-		}); */
+
 		$(".copyTrans").click(() => {
 			this.slide.copyTrans();
 		});
@@ -139,6 +137,11 @@ export class SlideCanvas extends EventDispatcher {
 		$(".fit").click(() => {
 			this.slide.fitSelectedImage();
 		});
+		$(".slideDownload").click(()=>{
+			this.dispatchEvent(new Event("download"));
+		});
+
+
 
 		$("label[for='cb_imageRef']").click((e)=>{
 			$("input#cb_imageRef").prop("checked", !$("input#cb_imageRef").prop("checked"));
@@ -194,7 +197,7 @@ export class SlideCanvas extends EventDispatcher {
 			a.target = '_blank';
 			a.download = this.slide.selectedImg.name;
 			a.click();
-			URL.revokeObjectURL(a.href);
+			window.URL.revokeObjectURL(a.href);
 		});
 
 
