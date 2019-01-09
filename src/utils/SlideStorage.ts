@@ -95,7 +95,9 @@ export class SlideStorage extends EventDispatcher {
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
-		var putReq1  = this.titleStore.put({"title":doc.title});
+		
+		var putReq1  = this.titleStore.put({"title":DateUtil.getDateString()});
+		//var putReq1  = this.titleStore.put({"title":doc.title});
 		var putReq2 = this.dataStore.put({title:doc.title, data:jsonStr});
 		putReq2.onsuccess = (e:any)=>{
 			this.updateTitleMenu();
