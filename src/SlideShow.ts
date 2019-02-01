@@ -113,7 +113,7 @@ export class SlideShow extends EventDispatcher {
 		if(this.slides.length == 0){	
 			var slideForSS:Slide = slides[0].clone();
 			this.slides.push(slideForSS);
-			this.obj.append(slideForSS.obj);
+			this.slideContainer.append(slideForSS.obj);
 		}
 
 		//index:-1を解決

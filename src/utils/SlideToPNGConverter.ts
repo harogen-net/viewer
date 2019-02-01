@@ -64,15 +64,15 @@ export class SlideToPNGConverter {
 
 			//translate div
 			ctx.translate(img.x, img.y);
-			//scale div
-			ctx.scale(img.scaleX * (img.mirrorH ? -1 : 1), img.scaleY * (img.mirrorV ? -1 : 1));
-			ctx.translate(-img.originWidth  / 2, -img.originHeight / 2);
 
 			//rotate div
 			ctx.translate(img.originWidth  / 2, img.originHeight / 2);
 			ctx.rotate(img.angle);
 			ctx.translate(-img.originWidth  / 2, -img.originHeight / 2);
 
+			//scale div
+			ctx.scale(img.scaleX * (img.mirrorH ? -1 : 1), img.scaleY * (img.mirrorV ? -1 : 1));
+			ctx.translate(-img.originWidth  / 2, -img.originHeight / 2);
 			
 			ctx.globalAlpha = img.opacity;
 			ctx.drawImage(img.imageElement, 0, 0);
