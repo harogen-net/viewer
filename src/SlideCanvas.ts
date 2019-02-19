@@ -309,12 +309,12 @@ export class SlideCanvas extends EventDispatcher {
 
 	private constructMenu(slide:Slide):void{
 
-		this.inputTransX = new PropertyInput($(".property .position input").eq(0), "x");
-		this.inputTransY = new PropertyInput($(".property .position input").eq(1), "y");
-		this.inputScaleX = new PropertyInput($(".property .scale input").eq(0), "scale", {init:1, min:0.01, max:20, type:"multipy", acceleration:0.1});
+		this.inputTransX = new PropertyInput($(".property .position input").eq(0), "x", {v:-25});
+		this.inputTransY = new PropertyInput($(".property .position input").eq(1), "y", {v:-25});
+		this.inputScaleX = new PropertyInput($(".property .scale input").eq(0), "scale", {init:1, min:0.1, max:20, type:"multiply", v:0.1});
 		/*this.inputScaleY = new PropertyInput($(".property .scale input").eq(1), "scaleY", 1,10,-10,{type:"multipy"});*/
-		this.inputRotation = new PropertyInput($(".property .rotation input").eq(0), "rotation", {min:-180, max:180});
-		this.inputOpacity = new PropertyInput($(".property .opacity input").eq(0), "opacity", {min:0, max:1, acceleration:0.003, step:0.01});
+		this.inputRotation = new PropertyInput($(".property .rotation input").eq(0), "rotation", {min:-180, max:180, v:5});
+		this.inputOpacity = new PropertyInput($(".property .opacity input").eq(0), "opacity", {min:0, max:1, v:0.1});
 
 		this.propertyInputs = [this.inputTransX, this.inputTransY, this.inputScaleX, this.inputRotation, this.inputOpacity];
 //		this.propertyInputs = [this.inputTransX, this.inputTransY, this.inputScaleX, this.inputScaleY, this.inputRotation, this.inputOpacity];

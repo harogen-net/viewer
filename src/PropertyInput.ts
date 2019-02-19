@@ -31,8 +31,8 @@ export class PropertyInput extends EventDispatcher {
 			this.dispatchUpdate();
 		});
 
-		var acceleration:number = option.acceleration || 1;
-		var step:number = option.step || 0;
+		//var acceleration:number = option.acceleration || 1;
+		var v:number = option.v || 10;
 
 		this.obj.on("keydown.PropertyInput",(e:any)=>{
 			if(this.disabled) return;
@@ -43,24 +43,24 @@ export class PropertyInput extends EventDispatcher {
 				this.dispatchUpdate();
 				this.obj.select();
 			}else if(e.keyCode == 38){
-				if(option.type == "multipy"){
-					this.value = this.value * 1.05;
+				if(option.type == "multiply"){
+					this.value *= (1 + v);
 				}else{
-					this.value = this.value + 10;
+					this.value += v;
 				}
 				this.dispatchUpdate();
 				this.obj.select();
 			}else if(e.keyCode == 40){
-				if(option.type == "multipy"){
-					this.value = this.value / 1.05;
+				if(option.type == "multiply"){
+					this.value /= (1 + v);
 				}else{
-					this.value = this.value - 10;
+					this.value -= v;
 				}
 				this.dispatchUpdate();
 				this.obj.select();
 			}
 		});
-		this.obj.on("mousedown.PropertyInput",(e:any)=>{
+		/*this.obj.on("mousedown.PropertyInput",(e:any)=>{
 			$(window).off("mousemove.PropertyInput");
 			$(window).off("mouseup.PropertyInput");
 
@@ -69,7 +69,7 @@ export class PropertyInput extends EventDispatcher {
 			$(window).on("mousemove.PropertyInput",(e:any)=>{
 				//this.obj.prop("readonly", true);
 				var delta:number = (((e.screenX - pressX) * acceleration));
-				if(step != 0) delta = Math.round(delta / step) * step;
+				if(v != 0) delta = Math.round(delta / v) * v;
 
 				this.value = currentValue + delta;
 				this.dispatchUpdate();
@@ -82,16 +82,17 @@ export class PropertyInput extends EventDispatcher {
 			});
 
 			
-		});
+		});*/
 		$(window).on("wheel.PropertyInput",(e:any)=>{
 			if(this.disabled) return;
 			if(!this.isFocus) return;
 
-			//console.log(e.originalEvent.deltaY);
-
-			var delta:number = (e.originalEvent.deltaY / Math.abs(e.originalEvent.deltaY)) * acceleration * 10;
-			if(step != 0) delta = Math.round(delta / step) * step;
-			this.value += delta;
+			var delta:number = -1 * (e.originalEvent.deltaY / Math.abs(e.originalEvent.deltaY)) * v;
+			if(option.type == "multiply"){
+				this.value *= (1 + delta);
+			}else{
+				this.value += delta;
+			}
 			this.dispatchUpdate();
 		});
 }

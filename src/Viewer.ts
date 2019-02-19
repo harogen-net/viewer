@@ -119,32 +119,24 @@ export class Viewer {
 					var i:number;
 	
 					i = this.list.selectedSlideIndex;
+					var found:boolean = false;
+					var updateFunc = (j:number, image:Image)=>{
+						if(found) return;
+						if(!image.shared) return;
+						if(image.imageId != targetImg.imageId) return;
+						image.locked = targetImg.locked;
+						image.visible = targetImg.visible;
+						image.opacity = targetImg.opacity;
+						image.transform = targetImg.transform;
+						found = true;
+					}
 					while(--i >= 0){
-						var found:boolean = false;
-						$.each(this.list.slides[i].images, (j:number, image:Image)=>{
-							if(found) return;
-							if(!image.shared) return;
-							if(image.imageId != targetImg.imageId) return;
-							image.locked = targetImg.locked;
-							image.visible = targetImg.visible;
-							image.opacity = targetImg.opacity;
-							image.transform = targetImg.transform;
-							found = true;
-						});
+						$.each(this.list.slides[i].images, updateFunc);
 					}
 					i = this.list.selectedSlideIndex;
+					found = false;
 					while(++i < this.list.slides.length){
-						var found:boolean = false;
-						$.each(this.list.slides[i].images, (j:number, image:Image)=>{
-							if(found) return;
-							if(!image.shared) return;
-							if(image.imageId != targetImg.imageId) return;
-							image.locked = targetImg.locked;
-							image.visible = targetImg.visible;
-							image.opacity = targetImg.opacity;
-							image.transform = targetImg.transform;
-							found = true;
-						});
+						$.each(this.list.slides[i].images, updateFunc);
 					}
 				}
 			}

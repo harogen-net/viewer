@@ -60,20 +60,23 @@ export class SlideToPNGConverter {
 
 		$.each(slide.images, (number, img:Image)=>{
 			var matrix:number[] = img.matrix;
-			ctx.setTransform(1,0,0,1,1,1);
+			ctx.setTransform(1,0,0,1,0,0);
 
-			//translate div
+			//※アフィン変換は逆に行われる
+
+			//４：最後に移動する
 			ctx.translate(img.x, img.y);
 
-			//rotate div
-			ctx.translate(img.originWidth  / 2, img.originHeight / 2);
+			//３：原点を中心に回転を行う
+			//（ミラー設定前に回転してしまうと方向がおかしくなる、前回のバグはこの順序が原因ではないか）
 			ctx.rotate(img.angle);
+
+			//２：原点を中心に拡大縮小を行う（ミラー設定があるので、回転より先に行う）
+			ctx.scale(img.scaleX * (img.mirrorH ? -1 : 1), img.scaleY * (img.mirrorV ? -1 : 1));
+
+			//１：最初に画像のサイズの半分だけ動かし、画像の中心を原点に合わせる
 			ctx.translate(-img.originWidth  / 2, -img.originHeight / 2);
 
-			//scale div
-			ctx.scale(img.scaleX * (img.mirrorH ? -1 : 1), img.scaleY * (img.mirrorV ? -1 : 1));
-			ctx.translate(-img.originWidth  / 2, -img.originHeight / 2);
-			
 			ctx.globalAlpha = img.opacity;
 			ctx.drawImage(img.imageElement, 0, 0);
 		});
