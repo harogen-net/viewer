@@ -113,30 +113,82 @@ export class Viewer {
 		this.canvas.slide.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-					var targetImg:Image = ce.detail as Image;
-					console.log("sharedUpdate : " + targetImg);
+					var targetImg:Image = ce.detail.image as Image;
+					var deleteFlag:boolean = ce.detail.delete as boolean;
+					console.log("sharedUpdate : " + targetImg + " : " + deleteFlag);
 					if(!targetImg) return;
-					var i:number;
-	
-					i = this.list.selectedSlideIndex;
+
+					var i:number = this.list.selectedSlideIndex;
 					var found:boolean = false;
+					var slide:Slide = null;
 					var updateFunc = (j:number, image:Image)=>{
 						if(found) return;
 						if(!image.shared) return;
 						if(image.imageId != targetImg.imageId) return;
-						image.locked = targetImg.locked;
-						image.visible = targetImg.visible;
-						image.opacity = targetImg.opacity;
-						image.transform = targetImg.transform;
+
+						if(deleteFlag){
+							slide.removeImage(image);
+						}else{
+							image.locked = targetImg.locked;
+							image.visible = targetImg.visible;
+							image.opacity = targetImg.opacity;
+							image.transform = targetImg.transform;
+						}
 						found = true;
 					}
 					while(--i >= 0){
-						$.each(this.list.slides[i].images, updateFunc);
+						found = false;
+						slide = this.list.slides[i];
+						$.each(slide.images, updateFunc);
+						if(!found) break;
 					}
 					i = this.list.selectedSlideIndex;
-					found = false;
 					while(++i < this.list.slides.length){
-						$.each(this.list.slides[i].images, updateFunc);
+						found = false;
+						slide = this.list.slides[i];
+						$.each(slide.images, updateFunc);
+						if(!found) break;
+					}
+				}
+			}
+		});
+		this.canvas.slide.addEventListener("sharedPaste",(ce:CustomEvent)=>{
+			if(this._mode == ViewerMode.EDIT){
+				if(this.list.selectedSlide){
+					var targetImg:Image = ce.detail.image as Image;
+					console.log("sharedPaste : " + targetImg);
+					if(!targetImg) return;
+
+					var i:number = this.list.selectedSlideIndex;
+					var found:boolean = false;
+					var slide:Slide = null;
+					var findFunc = (j:number, image:Image)=>{
+						if(found) return;
+						if(image.imageId == targetImg.imageId) {
+							found = true;
+							return;
+						}
+					}
+					while(--i >= 0){
+						found = false;
+						slide = this.list.slides[i];
+						$.each(slide.images, findFunc);
+						if(found) {
+							break;
+						}else{
+							slide.addImage(targetImg.clone());
+						}
+					}
+					i = this.list.selectedSlideIndex;
+					while(++i < this.list.slides.length){
+						found = false;
+						slide = this.list.slides[i];
+						$.each(slide.images, findFunc);
+						if(found) {
+							break;
+						}else{
+							slide.addImage(targetImg.clone());
+						}
 					}
 				}
 			}
@@ -252,7 +304,7 @@ export class Viewer {
 		this.document = null;
 		this.list.initialize();
 		this.canvas.initialize();
-		//ImageManager.initialize();
+		ImageManager.initialize();
 		this.setMode(ViewerMode.SELECT);
 
 		//

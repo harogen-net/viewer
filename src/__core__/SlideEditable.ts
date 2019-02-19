@@ -250,7 +250,7 @@ export class SlideEditable extends Slide implements IDroppable {
 		//console.log(this.selectedImg.transform, this.copyedTrans);
 		this.dispatchEvent(new Event("update"));
 		if(this.selectedImg.shared){
-			this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:this.selectedImg}));
+			this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.selectedImg}}));
 		}
 
 		this.updateControlsSize();
@@ -324,7 +324,7 @@ export class SlideEditable extends Slide implements IDroppable {
 
 			this.dispatchEvent(new Event("update"));
 			if(this.selectedImg.shared){
-				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:this.selectedImg}));
+				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.selectedImg}}));
 			}
 		});
 	}
@@ -381,7 +381,7 @@ export class SlideEditable extends Slide implements IDroppable {
 
 			this.dispatchEvent(new Event("update"));
 			if(this.selectedImg.shared){
-				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:this.selectedImg}));
+				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.selectedImg}}));
 			}
 		});
 	}

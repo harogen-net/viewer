@@ -103,12 +103,18 @@ export class SlideCanvas extends EventDispatcher {
 			if(this.slide.selectedImg && !this.slide.selectedImg.locked && this.slide.selectedImg.visible) {
 				this.slide.selectedImg.rotation -= 90;
 				this.slide.dispatchEvent(new Event("update"));
+				if(this.slide.selectedImg.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.slide.selectedImg}}));
+				}
 			}
 		});
 		$(".rotateR").click(() => {
 			if(this.slide.selectedImg && !this.slide.selectedImg.locked && this.slide.selectedImg.visible) {
 				this.slide.selectedImg.rotation += 90;
 				this.slide.dispatchEvent(new Event("update"));
+				if(this.slide.selectedImg.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.slide.selectedImg}}));
+				}
 			}
 		});
 
@@ -116,6 +122,9 @@ export class SlideCanvas extends EventDispatcher {
 			if(this.slide.selectedImg && !this.slide.selectedImg.locked && this.slide.selectedImg.visible) {
 				this.slide.selectedImg.mirrorH = !this.slide.selectedImg.mirrorH;
 				this.slide.dispatchEvent(new Event("update"));
+				if(this.slide.selectedImg.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.slide.selectedImg}}));
+				}
 				$(".mirrorH").toggleClass("on");
 			}
 		});
@@ -123,6 +132,9 @@ export class SlideCanvas extends EventDispatcher {
 			if(this.slide.selectedImg && !this.slide.selectedImg.locked && this.slide.selectedImg.visible) {
 				this.slide.selectedImg.mirrorV = !this.slide.selectedImg.mirrorV;
 				this.slide.dispatchEvent(new Event("update"));
+				if(this.slide.selectedImg.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.slide.selectedImg}}));
+				}
 				$(".mirrorV").toggleClass("on");
 			}
 		});
@@ -407,7 +419,7 @@ export class SlideCanvas extends EventDispatcher {
 
 		this.slide.dispatchEvent(new Event("update"));
 		if(this.slide.selectedImg.shared){
-			this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:this.slide.selectedImg}));
+			this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.slide.selectedImg}}));
 
 		}
 	};
@@ -423,21 +435,21 @@ export class SlideCanvas extends EventDispatcher {
 				}
 				this.slide.dispatchEvent(new Event("update"));
 				if(item.image.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:item.image}}));
 				}
 				break;
 			case "lock_off":
 			item.image.locked = false;
 				this.slide.dispatchEvent(new Event("update"));
 				if(item.image.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:item.image}}));
 				}
 				break;
 			case "eye_on":
 				item.image.visible = true;
 				this.slide.dispatchEvent(new Event("update"));
 				if(item.image.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:item.image}}));
 				}
 				break;
 			case "eye_off":
@@ -447,12 +459,15 @@ export class SlideCanvas extends EventDispatcher {
 				}
 				this.slide.dispatchEvent(new Event("update"));
 				if(item.image.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:item.image}));
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:item.image}}));
 				}
 				break;
 			case "share_on":
 				item.image.shared = true;
 				this.slide.dispatchEvent(new Event("update"));
+				if(window.confirm('copy image to all slide (within the image not exists). Are you sure?')){
+					this.slide.dispatchEvent(new CustomEvent("sharedPaste", {detail:{image:item.image}}));
+				}
 				break;
 			case "share_off":
 				item.image.shared = false;
@@ -462,6 +477,9 @@ export class SlideCanvas extends EventDispatcher {
 				this.slide.selectImage(item.image);
 				break;
 			case "delete":
+				if(item.image.shared && window.confirm('delete all shared image. Are you sure?')){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:item.image, delete:true}}));
+				}
 				this.slide.removeImage(item.image);
 			break;
 			default:

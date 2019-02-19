@@ -51,6 +51,9 @@ export class ImageManager extends EventDispatcher {
 	}
 
 	public initialize(){
+		while(this.allImages.length > 0){
+			this.deleteImage(this.allImages.pop());
+		}
 		this.allImages = [];
 	}
 
