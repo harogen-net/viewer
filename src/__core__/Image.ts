@@ -1,7 +1,9 @@
+import { Layer } from "./Layer";
+
 declare var $: any;
 declare var Matrix4: any;
 
-export class Image{
+export class Image extends Layer {
 
 	private _id:number;
 
@@ -36,6 +38,8 @@ export class Image{
 
 	
 	constructor(private imgObj:any, transform:any = null, id:number = -1){
+		super();
+		
 		if(id == -1){
 			this._id = Math.floor(Math.random() * 10000000);
 		}else{
