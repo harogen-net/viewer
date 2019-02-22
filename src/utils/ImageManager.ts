@@ -1,5 +1,5 @@
 import {EventDispatcher} from "../events/EventDispatcher";
-import { Image } from "../__core__/Image";
+import { Image } from "../__core__/layer/Image";
 
 declare var $:any;
 

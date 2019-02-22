@@ -172,7 +172,7 @@ input.imageRef {
 	background-color:var(--slideBackgroundColor);
 	position: absolute;
 }
-.slide .imgWrapper {
+.slide .layerWrapper {
 	display:inline-block;
 	line-height:0;
 	font-size:0;
@@ -180,10 +180,10 @@ input.imageRef {
 	position:absolute;
 	user-select:none;
 }
-.slide .imgWrapper.invisible {
+.slide .layerWrapper.invisible {
 	display:none !important;
 }
-.slide .imgWrapper img {
+.slide .layerWrapper img {
 	/*clip-path: polygon(20% 20%, 80% 20%, 80% 80%, 20% 80%);*/
 }
 
@@ -434,7 +434,7 @@ input.imageRef {
 	left:0;
 	box-sizing:border-box;
 }
-.slide.editable .imgWrapper {
+.slide.editable .layerWrapper {
 	display:inline-block;
 	line-height:0;
 	/*box-shadow:0px 0px 8px rgba(0,0,0,.5);*/
@@ -442,7 +442,7 @@ input.imageRef {
 /*	transform-origin:0 0;*/
 /*	transition:transform 0.2s;*/
 }
-.slide.editable .imgWrapper > img {
+.slide.editable .layerWrapper > img {
 	user-select:none;
 	cursor:pointer;
 	filter:drop-shadow(0 0 8px rgba(0,0,0,1));
@@ -506,7 +506,7 @@ input.imageRef {
 	cursor:sw-resize;
 	background-position:0 100%;
 }
-.slide.editable .imgWrapper.locked {
+.slide.editable .layerWrapper.locked {
 	-webkit-filter: invert(100%);
 	-moz-filter: invert(100%);
 	-o-filter: invert(100%);
@@ -535,17 +535,18 @@ input.imageRef {
 	cursor: pointer;
 	box-sizing: border-box;
 	overflow: hidden;
+	background-color:rgba(0,0,0,0.2);
 }
 .slideList .slide.selected {
 	/*border:2px solid red;*/
 	box-shadow: 0 0 2px 2px rgba(255,0,0,.8);
 }
-.slideList .slide.selected .imgWrapper {
+.slideList .slide.selected .layerWrapper {
 	transition:transform 0.2s;
 }
 .slideList .slide button {
 	position: absolute;
-	z-index: 2;
+	z-index: 3;
 	width: 30px;
 	height: 30px;
 	border: none;
@@ -605,12 +606,12 @@ input.imageRef {
 .slideList .slide .duration {
 	display:block;
 	position: absolute;
+	z-index: 2;
 	left:0;
 	bottom:0;
-	width:60px;
-	height:50px;
+	width:100%;
+	height:30px;
 	background-color:rgba(255,0,0,0);
-
 	opacity: 0;
 	transition: opacity 0.3s;
 	pointer-events: none;
@@ -622,7 +623,7 @@ input.imageRef {
 .slideList .slide .duration span {
 	display:block;
 	position: absolute;
-	left:7px;
+/*	left:7px;*/
 	bottom: 5px;
 	font-weight: bold;
 	text-shadow:1px 1px 2px #000000;
@@ -630,13 +631,16 @@ input.imageRef {
 	line-height: 14px;
 	white-space: nowrap;
 	color:white;
+	z-index: 2;
+	text-align: center;
+	width: 100%;
 }
 .slideList .slide .duration button {
 	width:20px;
 	height:20px;
 	line-height: 20px;
 	left: 0;
-	bottom:30px;
+	bottom:10px;
 	background-color:rgba(255,255,255,0.5);
 	text-shadow:1px 1px 2px #000000;
 	border-radius:3px;
@@ -657,7 +661,7 @@ input.imageRef {
 .slideList .slide .joinArrow {
 	position: absolute;
 	z-index: 1;
-	width:20px;
+	width:16px;
 	height: 100%;
 	background-color:red;
 	opacity: 0;
@@ -668,9 +672,11 @@ input.imageRef {
 	opacity: 0.2;
 }
 .slideList .slide.joining {
-	margin-right: 0 !important;
+	margin-right: -16px !important;
 }
-
+/*.slideList .slide.joining +  .slide {
+	margin-top: 5px;
+}*/
 
 
 /* slideShow */

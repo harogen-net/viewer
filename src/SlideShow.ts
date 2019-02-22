@@ -1,11 +1,11 @@
 import { EventDispatcher } from "./events/EventDispatcher";
 import { Slide } from "./__core__/Slide";
-import { Image } from "./__core__/Image";
+import { Image } from "./__core__/layer/Image";
+import { Layer, LayerType } from "./__core__/Layer";
 
 declare var $:any;
 
 export class SlideShow extends EventDispatcher {
-
 	private _isRun:boolean;
 	private _isPause:boolean;
 	private _mirrorH:boolean;
@@ -100,9 +100,9 @@ export class SlideShow extends EventDispatcher {
 				this.slideContainer.append(slideForSS.obj);
 			}
 			datum.transforms = [];
-			for(var j:number = 0; j < slide.images.length; j++){
-				var transform:any = slide.images[j].transform;
-				transform.opacity = slide.images[j].opacity;
+			for(var j:number = 0; j < slide.layers.length; j++){
+				var transform:any = slide.layers[j].transform;
+				transform.opacity = slide.layers[j].opacity;
 				datum.transforms.push(transform);
 			}
 			datum.durationRatio = slide.durationRatio;
@@ -148,7 +148,7 @@ export class SlideShow extends EventDispatcher {
 
 		if(this.slides){
 			$.each(this.slides, (index:number, slide:Slide) =>{
-				slide.removeAllImages();
+				slide.removeAllLayers();
 				slide.obj.stop();
 				slide.obj.remove();
 			});
@@ -219,7 +219,7 @@ export class SlideShow extends EventDispatcher {
 				"z-index":0,
 				"opacity":1
 			});
-			slide.obj.find(".imgWrapper").css("transition", "");
+			slide.obj.find(".layerWrapper").css("transition", "");
 		});
 
 		this.stopCursorAutoHide();
@@ -276,11 +276,11 @@ export class SlideShow extends EventDispatcher {
 		if(datum.keep && !this.isInit){
 			slide.obj.stop().css({"opacity":1});
 			var keepDurationOffset:number = Math.min(this.slideDuration * 0.2, (this.interval - this.duration));
-			slide.obj.find(".imgWrapper").css("transition", "transform " + ((this.slideDuration - keepDurationOffset) / 1000) + "s cubic-bezier(.4,0,.7,1)");
+			slide.obj.find(".layerWrapper").css("transition", "transform " + ((this.slideDuration - keepDurationOffset) / 1000) + "s cubic-bezier(.4,0,.7,1)");
 			slide.obj.find("img").css("transition", "opacity " + ((this.slideDuration - keepDurationOffset) / 1000) + "s linear");
-			//slide.obj.find(".imgWrapper").css("transition", "transform " + (this.duration / 1000) + "s cubic-bezier(.4,0,.7,1)");
+			//slide.obj.find(".layerWrapper").css("transition", "transform " + (this.duration / 1000) + "s cubic-bezier(.4,0,.7,1)");
 		}else{
-			slide.obj.find(".imgWrapper").css("transition", "");
+			slide.obj.find(".layerWrapper").css("transition", "");
 			slide.obj.find("img").css("transition", "");
 			slide.obj.show();
 			slide.obj.css({
@@ -294,9 +294,9 @@ export class SlideShow extends EventDispatcher {
 			}
 			this.history.push(slide);
 		}
-		for(var i:number = 0; i < slide.images.length; i++){
-			slide.images[i].transform = datum.transforms[i];
-			slide.images[i].opacity = datum.transforms[i].opacity;
+		for(var i:number = 0; i < slide.layers.length; i++){
+			slide.layers[i].transform = datum.transforms[i];
+			slide.layers[i].opacity = datum.transforms[i].opacity;
 		}
 		
 		this.timer = setTimeout(()=>{
@@ -347,14 +347,24 @@ export class SlideShow extends EventDispatcher {
 	//
 
 	private checkSlidesSame(slide1:Slide, slide2:Slide):boolean {
-		if(slide1.images.length != slide2.images.length) return false;
-		if(slide1.images.length == 0) return false;
+		if(!slide2.joining) return false;
+		if(slide1.layers.length != slide2.layers.length) return false;
+		if(slide1.layers.length == 0) return false;
 
-		for(var i = 0; i < slide1.images.length; i++){
-			var image1:Image = slide1.images[i];
-			var image2:Image = slide2.images[i];
-			if(image1.imageId != image2.imageId) return false;
-	//		if(image1.id != image2.id) return false;
+		for(var i = 0; i < slide1.layers.length; i++){
+			var layer1:Layer = slide1.layers[i];
+			var layer2:Layer = slide2.layers[i];
+
+			if(layer1.type != layer1.type) return false;
+
+			switch(layer1.type){
+				case LayerType.IMAGE:
+					if((layer1 as Image).imageId != (layer2 as Image).imageId) return false;
+				break;
+				default:
+					if(layer1.id != layer2.id) return false;
+				break;
+			}
 		}
 
 		return true;

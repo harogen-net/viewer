@@ -1,5 +1,5 @@
 import {Slide} from "../__core__/Slide";
-import { Image } from "../__core__/Image";
+import { Image } from "../__core__/layer/Image";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Viewer } from "../Viewer";
 import { VDoc } from "../__core__/VDoc";
@@ -7,6 +7,7 @@ import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
+import { Layer, LayerType } from "../__core__/Layer";
 
 declare var $:any;
 declare var jsSHA:any;
@@ -20,7 +21,7 @@ export enum HVDataType {
 
 export class SlideStorage extends EventDispatcher {
 
-	private static readonly VERSION:number = 2;
+	private static readonly VERSION:number = 2.1;
 	private static readonly SAVE_KEY:string = "viewer.slideData";
 	private static readonly DBNAME:string = "viewer";
 	private static readonly PNG_DATA_FILE_PREFIX:string = "[hv]";
@@ -241,7 +242,6 @@ export class SlideStorage extends EventDispatcher {
 
 		//ver1
 		if(SlideStorage.VERSION == 1){
-			json.version = 1;
 			var slideData:any[] = [];
 			$.each(document.slides, (i:number, slide:Slide)=>{
 				var imageData:any[] = [];
@@ -255,7 +255,7 @@ export class SlideStorage extends EventDispatcher {
 		}
 
 		//ver2
-		if(SlideStorage.VERSION == 2){
+		if(SlideStorage.VERSION >= 2){
 			var slideData:any[] = [];
 			var imageSrcData:any = {};
 			
@@ -267,20 +267,26 @@ export class SlideStorage extends EventDispatcher {
 				slideDatum.durationRatio = slide.durationRatio;
 				slideDatum.joining = slide.joining;
 				slideDatum.isLock = slide.isLock;
-				slideDatum.images = [];
+
+				var layers:Layer[] = [];
+				if(SlideStorage.VERSION >= 2.1){
+					slideDatum.layers = layers;
+				}else{
+					slideDatum.images = layers;
+				}
 
 				//console.log(" - slide" + (i + 1) + "("+ slide.id + ")" + " has " + slide.images.length + " images");
 
-				$.each(slide.getData(), (number, datum:any)=>{
-					delete datum.class;
+				$.each(slide.getData(), (number, layerDatum:any)=>{
+					delete layerDatum.class;
 					//delete datum.id;
 
-					if(imageSrcData[datum.imageId] == undefined){
-						imageSrcData[datum.imageId] = datum.src;
+					if(layerDatum.type == LayerType.IMAGE && imageSrcData[layerDatum.imageId] == undefined){
+						imageSrcData[layerDatum.imageId] = layerDatum.src;
 						imageNum++;
 					}
-					delete datum.src;
-					slideDatum.images.push(datum);
+					delete layerDatum.src;
+					layers.push(layerDatum);
 				});
 				slideData.push(slideDatum);
 			});
@@ -327,14 +333,14 @@ export class SlideStorage extends EventDispatcher {
 						scaleY:datum.scaleY,
 						rotation:datum.rotation
 					});
-					slide.addImage(img);
+					slide.addLayer(img);
 				});
 				slides.push(slide);
 			});
 		}
 
 		//ver2
-		if(json.version == 2){
+		if(json.version >= 2){
 			var isScreenSizeChange:boolean = (json.screen.width != Viewer.SCREEN_WIDTH || json.screen.height != Viewer.SCREEN_HEIGHT);
 
 			$.each(json.slideData, (number, slideDatum:any)=>{
@@ -342,47 +348,60 @@ export class SlideStorage extends EventDispatcher {
 				slide.durationRatio = slideDatum.durationRatio;
 				slide.joining = slideDatum.joining;
 				slide.isLock = slideDatum.isLock;
+				var layers:Layer[];
+				if(json.version >= 2.1){
+					layers = slideDatum.layers;
+				}else{
+					layers = slideDatum.images;
+				}
 
-				$.each(slideDatum.images, (j:number, imageDatum:any)=>{
-					var imgObj:any = $("<img />");
-					imgObj.attr("src", json.imageData[imageDatum.imageId]);
-					imgObj.data("imageId",imageDatum.imageId);
-					if(imageDatum.name != undefined){
-						imgObj.data("name",imageDatum.name);
-					}
-					var img:Image = new Image(imgObj, {
-						transX:imageDatum.transX,
-						transY:imageDatum.transY,
-						scaleX:imageDatum.scaleX,
-						scaleY:imageDatum.scaleY,
-						rotation:imageDatum.rotation,
-						mirrorH:imageDatum.mirrorH,
-						mirrorV:imageDatum.mirrorV,
-					});
-					if(imageDatum.opacity != undefined){
-						img.opacity = imageDatum.opacity;						
-					}
-					if(imageDatum.locked != undefined){
-						img.locked = imageDatum.locked;
-					}
-					if(imageDatum.shared != undefined){
-						img.shared = imageDatum.shared;
-					}
-					if(isScreenSizeChange){
-						var offsetScale:number = Math.min(
-							Viewer.SCREEN_WIDTH / json.screen.width,
-							Viewer.SCREEN_HEIGHT / json.screen.height
-						);
-						var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-						var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+				$.each(layers, (j:number, layerDatum:any)=>{
+					switch(layerDatum.type){
+						case LayerType.TEXT:
 
-						imgObj.ready(()=>{
-							img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
-							img.scaleBy(offsetScale);
-						});
+						break;
+						case undefined:	//version < 2.1
+						case LayerType.IMAGE:
+							var imgObj:any = $("<img />");
+							imgObj.attr("src", json.imageData[layerDatum.imageId]);
+							imgObj.data("imageId", layerDatum.imageId);
+							if(layerDatum.name != undefined){
+								imgObj.data("name",layerDatum.name);
+							}
+							var img:Image = new Image(imgObj, {
+								transX:layerDatum.transX,
+								transY:layerDatum.transY,
+								scaleX:layerDatum.scaleX,
+								scaleY:layerDatum.scaleY,
+								rotation:layerDatum.rotation,
+								mirrorH:layerDatum.mirrorH,
+								mirrorV:layerDatum.mirrorV,
+							});
+							if(layerDatum.opacity != undefined){
+								img.opacity = layerDatum.opacity;						
+							}
+							if(layerDatum.locked != undefined){
+								img.locked = layerDatum.locked;
+							}
+							if(layerDatum.shared != undefined){
+								img.shared = layerDatum.shared;
+							}
+							if(isScreenSizeChange){
+								var offsetScale:number = Math.min(
+									Viewer.SCREEN_WIDTH / json.screen.width,
+									Viewer.SCREEN_HEIGHT / json.screen.height
+								);
+								var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+								var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+		
+								imgObj.ready(()=>{
+									img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
+									img.scaleBy(offsetScale);
+								});
+							}
+							slide.addLayer(img);
+						break;
 					}
-
-					slide.addImage(img);
 				});
 				slides.push(slide);
 			});

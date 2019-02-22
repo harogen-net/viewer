@@ -1,5 +1,5 @@
 import { Slide } from "./__core__/Slide";
-import {Image} from "./__core__/Image";
+import {Image} from "./__core__/layer/Image";
 import { EventDispatcher } from "./events/EventDispatcher";
 import { DropHelper } from "./utils/DropHelper";
 import { IDroppable } from "./interface/IDroppable";
@@ -46,7 +46,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			var slide = new Slide(slideObj);
 			//slide.updateSize();
 			this.addSlide(slide);
-			slide.addImage(new Image(e.detail));
+			slide.addLayer(new Image(e.detail));
 		}); 
 
 		$(window).resize(()=>{
@@ -228,7 +228,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		var removeMain = ()=>{
 			this._slides.splice(index, 1);
 			this._slidesById[slide.id] = undefined;
-			slide.removeAllImages();
+			slide.removeAllLayers();
 			slide.obj.find("button").remove();
 			slide.obj.find("div.duration").remove();
 			slide.obj.off("click.slide");

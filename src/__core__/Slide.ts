@@ -1,25 +1,26 @@
-import {Image} from "./Image";
+import { Image } from "./layer/Image";
 import {EventDispatcher} from "../events/EventDispatcher";
 import { ImageManager } from "../utils/ImageManager";
 import { Viewer } from "../Viewer";
+import { Layer, LayerType } from "./Layer";
 
 declare var $: any;
 
 export class Slide extends EventDispatcher {
-	static slideFromImage(img:Image):Slide {
+	static slideFromImage(img:Layer):Slide {
 		var slide = new Slide($('<div />'));
-		slide.addImage(img);
+		slide.addLayer(img);
 		return slide;
 	}
 
 	static centerX():number { return Viewer.SCREEN_WIDTH >> 1; }
 	static centerY():number { return Viewer.SCREEN_HEIGHT >> 1; }
 
-	static readonly IMAGE_NUM_MAX:number = 100;
+	static readonly LAYER_NUM_MAX:number = 100;
 
 	//
 
-	protected _images:Image[];
+	protected _layers:Layer[];
 	
 	public container:any;
 
@@ -39,7 +40,7 @@ export class Slide extends EventDispatcher {
 	constructor(public obj:any){
 		super();
 		
-		this._images = [];
+		this._layers = [];
 
 		this.obj.addClass("slide");
 
@@ -56,53 +57,61 @@ export class Slide extends EventDispatcher {
 		}
 	}
 
-	public addImage(img:Image, index:number = -1):Image {
-		if(!img) return img;
+	public addLayer(layer:Layer, index:number = -1):Layer {
+		if(!layer) return layer;
 
-		console.log("addImage at image : " + img.id);
+		console.log("addLayer at slide : " + layer.id);
 
-		if(this._images.indexOf(img) != -1){
-			this._images.splice(this._images.indexOf(img), 1);
+		if(this._layers.indexOf(layer) != -1){
+			this._layers.splice(this._layers.indexOf(layer), 1);
 		}else {
-			if(this._images.length >= Slide.IMAGE_NUM_MAX){
-				alert("max image num exceeded.");
-				return img;
+			if(this._layers.length >= Slide.LAYER_NUM_MAX){
+				alert("max layer num exceeded.");
+				return layer;
 			}
-			this._images.push(img);
+			this._layers.push(layer);
 		}
 		
-		this.container.append(img.obj);
+		this.container.append(layer.obj);
 		
-		if(!img.transform){
-			if(img.originHeight > (img.originWidth * 1.2)) {
-				img.rotation -= 90;
-			}
-			this.fitImage(img);
-		}
 		
-		this.setImagesZIndex();
+		this.setLayersZIndex();
 		
-		ImageManager.registImage(img);
+		if(layer.type == LayerType.IMAGE){
+			ImageManager.registImage(layer as Image);
 
-		return img;
+			if(!layer.transform){
+				if(layer.originHeight > (layer.originWidth * 1.2)) {
+					layer.rotation -= 90;
+				}
+				this.fitLayer(layer);
+			}
+		}else {
+			layer.moveTo(Viewer.SCREEN_WIDTH >> 1, Viewer.SCREEN_HEIGHT >> 1);
+		}
+
+		return layer;
 	}
 
-	public removeImage(img:Image):Image {
-		if(!img) return img;
-		if(this._images.indexOf(img) != -1){
-			this._images.splice(this._images.indexOf(img), 1);
+	public removeLayer(layer:Layer):Layer {
+		if(!layer) return layer;
+		if(this._layers.indexOf(layer) != -1){
+			this._layers.splice(this._layers.indexOf(layer), 1);
 		}
-		ImageManager.deleteImage(img);
-		img.obj.remove();
 
-		this.setImagesZIndex();
+		if(layer.type == LayerType.IMAGE){
+			ImageManager.deleteImage(layer as Image);
+		}
+		layer.obj.remove();
+
+		this.setLayersZIndex();
 		
-		return img;
+		return layer;
 	}
 
-	public removeAllImages() {
-		while(this._images.length > 0){
-			this.removeImage(this._images[0]);
+	public removeAllLayers() {
+		while(this._layers.length > 0){
+			this.removeLayer(this._layers[0]);
 		}
 	}
 
@@ -153,8 +162,8 @@ export class Slide extends EventDispatcher {
 		}
 	}
 
-	get images():Image[]{
-		return this._images.concat();
+	get layers():Layer[]{
+		return this._layers.concat();
 	}
 
 	set isLock(value:boolean){ this._isLock = value; }
@@ -214,7 +223,7 @@ export class Slide extends EventDispatcher {
 		this.scale = this._scale;
 	}
 	
-	public fitImage(img:Image):Image {
+	public fitLayer(img:Layer):Layer {
 		var scaleX,scaleY;
 		if(img.rotation == 90 || img.rotation == -90){
 			scaleX = Viewer.SCREEN_WIDTH / img.height;
@@ -254,9 +263,9 @@ export class Slide extends EventDispatcher {
 		slide.durationRatio = this.durationRatio;
 		slide.joining = this.joining;
 		slide.isLock = this.isLock;
-		console.log("this slide has " + this.images.length + " images.");
-		$.each(this._images, (index:number, image:Image) => {
-			slide.addImage(image.clone());
+		console.log("this slide has " + this.layers.length + " images.");
+		$.each(this._layers, (index:number, layer:Layer) => {
+			slide.addLayer(layer.clone());
 		});
 
 		return slide;
@@ -266,7 +275,7 @@ export class Slide extends EventDispatcher {
 
 	getData():any[] {
 		var ret:any[] = [];
-		$.each(this._images, (index:number,img:Image) => {
+		$.each(this._layers, (index:number,img:Layer) => {
 			ret.push(img.data);
 		});
 		return ret;
@@ -276,25 +285,27 @@ export class Slide extends EventDispatcher {
 		if(this._isLock) return;
 		
 		var i,j:number;
-		var img:Image;
-		var datum:{class:Image};
+		var layer:Layer;
+		var datum:{class:Layer};
 		var found:boolean;
-		var newImages:Image[] = [];
+		var newLayers:Layer[] = [];
 
-		for(i = 0; i < this._images.length; i++){
-			img = this._images[i];
+		for(i = 0; i < this._layers.length; i++){
+			layer = this._layers[i];
 			found = false;
 			$.each(aData, (j, datum) => {
-				if(datum.class.id == img.id) {
-					if(datum.class.imageId == img.imageId){
-						img.name = datum.class.name;
-						found = true;
+				if(datum.class.id == layer.id) {
+					if(datum.class.type == LayerType.IMAGE){
+						if((datum.class as Image).imageId == (layer as Image).imageId){
+							layer.name = datum.class.name;
+							found = true;
+						}
 					}
 				}
 			});
 			if(!found){
 				//console.log("\t", img.imageId.slice(0,8) + "～のImageが不必要です");
-				this.removeImage(img);
+				this.removeLayer(layer);
 				i--;
 			}
 		}
@@ -303,42 +314,42 @@ export class Slide extends EventDispatcher {
 		$.each(aData, (i, datum) => {
 			found = false;
 
-			for(j = 0; j < this._images.length; j++){
-				img = this._images[j];
-				if(datum.class.id == img.id){
-					if(datum.class.imageId != img.imageId){
-						this.removeImage(img);
+			for(j = 0; j < this._layers.length; j++){
+				layer = this._layers[j];
+				if(datum.class.id == layer.id && datum.class.type == LayerType.IMAGE){
+					if((datum.class as Image).imageId != (layer as Image).imageId){
+						this.removeLayer(layer);
 						//j--;
 					}else{
 						found = true;
-						img.transform = datum.class.transform;
-						img.locked = datum.class.locked;
-						img.visible = datum.class.visible;
-						img.opacity = datum.class.opacity;
-						img.shared = datum.class.shared;
-						img.name = datum.class.name;
-						newImages[i] = img;
+						layer.transform = datum.class.transform;
+						layer.locked = datum.class.locked;
+						layer.visible = datum.class.visible;
+						layer.opacity = datum.class.opacity;
+						layer.shared = datum.class.shared;
+						layer.name = datum.class.name;
+						newLayers[i] = layer;
 					}
 					break;
 				}
 			}
 			if(!found){
 				//console.log("\t",datum.class.id.slice(0,8) + "～のImageがありません");
-				newImages[i] = this.addImage(datum.class.clone(datum.class.id));
+				newLayers[i] = this.addLayer(datum.class.clone(datum.class.id));
 			}
 		});
 
 
-		this._images = newImages;
+		this._layers = newLayers;
 //		console.log(this.id, "/=============");
-		this.setImagesZIndex();
+		this.setLayersZIndex();
 	}
 
 	//
 
-	protected setImagesZIndex(){
-		for(var i = 0; i < this._images.length; i++){
-			this._images[i].obj.css("z-index",i);
+	protected setLayersZIndex(){
+		for(var i = 0; i < this._layers.length; i++){
+			this._layers[i].obj.css("z-index",i);
 		}
 	}
 }

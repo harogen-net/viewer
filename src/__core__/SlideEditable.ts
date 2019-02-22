@@ -1,5 +1,6 @@
 import {Slide} from "./Slide";
-import {Image} from "./Image";
+import {Layer, LayerType} from "./Layer";
+import {Image} from "./layer/Image";
 import {KeyboardManager} from "../utils/KeyboardManager";
 import { DropHelper } from "../utils/DropHelper";
 import { IDroppable } from "../interface/IDroppable";
@@ -12,8 +13,8 @@ export class SlideEditable extends Slide implements IDroppable {
 
 	private readonly ENFORCE_ASPECT_RATIO:boolean = true;
 
-	public selectedImg:Image|null;
-	private copyedImg:Image|null;
+	public selectedLayer:Layer|null;
+	private copyedLayer:Layer|null;
 	private copyedTrans:any = null;
 
 	//image controls
@@ -40,7 +41,7 @@ export class SlideEditable extends Slide implements IDroppable {
 		super(obj);
 
 		this.scale = SlideEditable.SCALE_DEFAULT;
-		this.selectedImg = null;
+		this.selectedLayer = null;
 		this.obj.addClass("editable");
 
 
@@ -71,7 +72,7 @@ export class SlideEditable extends Slide implements IDroppable {
 			e.stopImmediatePropagation();
 		});
 
-		this.frame.on("mousedown.image_drag", (e:any) => {
+		this.frame.on("mousedown.layer_drag", (e:any) => {
 			this.startDrag(e);
 			e.stopImmediatePropagation();
 		});
@@ -89,12 +90,12 @@ export class SlideEditable extends Slide implements IDroppable {
 
 			return;
 
-			if(this.selectedImg !== null){
+			if(this.selectedLayer !== null){
 				var theta:number = (e.originalEvent.deltaY / 20) * (Math.PI / 180);
 				if(KeyboardManager.isDown(16)){
 					theta = (45 * e.originalEvent.deltaY / Math.abs(e.originalEvent.deltaY)) * (Math.PI / 180);
 				}
-				this.selectedImg.rotateBy(theta);
+				this.selectedLayer.rotateBy(theta);
 			}
 
 			//this.selectedImg.rotation = 45;
@@ -102,12 +103,12 @@ export class SlideEditable extends Slide implements IDroppable {
 		
 		this.obj.on("mousedown",(e:any) => {
 			if(!this._isActive) return;
-			this.selectImage(null);
+			this.selectLayer(null);
 		});
 
 		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-			this.selectImage(this.addImage(new Image(e.detail)));
+			this.selectLayer(this.addLayer(new Image(e.detail)));
 		});
 
 
@@ -134,68 +135,70 @@ export class SlideEditable extends Slide implements IDroppable {
 		this.isActive = false;
 	}
 
-	addImage(img:Image):Image{
-		super.addImage(img);
+	addLayer(layer:Layer):Layer{
+		super.addLayer(layer);
 
-		img.obj.on("mousedown.image_preselect", (e:any) => {
-			if(img.selected) return;
-			if(img.locked) return;
+		layer.obj.on("mousedown.layer_preselect", (e:any) => {
+			if(layer.selected) return;
+			if(layer.locked) return;
 
-			img.obj.off("mousemove.image_preselect");
-			img.obj.on("mousemove.image_preselect", (e:any) => {
-				img.obj.off("mousemove.image_preselect");
-				this.selectImage(img);
+			layer.obj.off("mousemove.layer_preselect");
+			layer.obj.on("mousemove.layer_preselect", (e:any) => {
+				layer.obj.off("mousemove.layer_preselect");
+				this.selectLayer(layer);
 				this.startDrag(e);
 			});
 			e.stopImmediatePropagation();
 		});
-		img.obj.on("mouseup.image_preselect", (e:any) => {
-			img.obj.off("mousemove.image_preselect");
-			if(!img.selected && !this.isDrag && !img.locked){
-				this.selectImage(img);
+		layer.obj.on("mouseup.layer_preselect", (e:any) => {
+			layer.obj.off("mousemove.layer_preselect");
+			if(!layer.selected && !this.isDrag && !layer.locked){
+				this.selectLayer(layer);
 			};
 		});
 
 		this.dispatchEvent(new Event("update"));
-		return img;
+		return layer;
 	}
 
-	removeImage(img:Image):Image{
-		if(img == this.selectedImg){
-			this.selectImage();
+	removeLayer(layer:Layer):Layer{
+		if(layer == this.selectedLayer){
+			this.selectLayer();
 		}
-		super.removeImage(img);
-		img.obj.off("dragstart");
-		img.obj.off("mousedown.image_preselect");
-		img.obj.off("mousemove.image_preselect");
-		img.obj.off("mouseup.image_preselect");
+		super.removeLayer(layer);
+		layer.obj.off("dragstart");
+		layer.obj.off("mousedown.layer_preselect");
+		layer.obj.off("mousemove.layer_preselect");
+		layer.obj.off("mouseup.layer_preselect");
 		this.dispatchEvent(new Event("update"));
-		return img;
+		return layer;
 	}
 
-	selectImage(img:Image|null = null){
-		if(this.selectedImg) {
+	selectLayer(layer:Layer|null = null){
+		if(this.selectedLayer) {
 			this.controls.detach();
 		}
-		this.selectedImg = null;
+		this.selectedLayer = null;
 
-		$.each(this._images, (i:number ,value:any) => {
-			if(img === value){
+		$.each(this._layers, (i:number ,value:any) => {
+			if(layer === value){
 				value.selected = true;
 
-				this.selectedImg = value;
+				this.selectedLayer = value;
 			}else {
 				value.selected = false;
 			}
 		});
 
-		if(this.selectedImg !== null){
-			this.selectedImg.obj.append(this.controls);
+		if(this.selectedLayer !== null){
+			this.selectedLayer.obj.append(this.controls);
 			this.updateControlsSize();
 			this.controls.show();
-
-			this.lastSelectedId = this.selectedImg.imageId;
-			this.lastSelectedIndex = this.images.indexOf(this.selectedImg);
+			
+			if(this.selectedLayer.type == LayerType.IMAGE){
+				this.lastSelectedId = (this.selectedLayer as Image).imageId;
+			}
+			this.lastSelectedIndex = this.layers.indexOf(this.selectedLayer);
 		}else{
 			this.controls.hide();
 
@@ -207,50 +210,50 @@ export class SlideEditable extends Slide implements IDroppable {
 	}
 
 	initialize(){
-		var tmpImages:Image[] = this._images.concat() as Image[];
-		$.each(tmpImages, (index:number, img:Image)=>{
-			this.removeImage(img);
+		var tmpLayers:Layer[] = this._layers.concat() as Layer[];
+		$.each(tmpLayers, (index:number, layer:Layer)=>{
+			this.removeLayer(layer);
 		});
 		this.isActive = false;
 	}
 
 	cut(){
 		if(!this._isActive) return;
-		if(this.selectedImg){
-			this.copyedImg = this.selectedImg;
-			this.removeImage(this.selectedImg);
+		if(this.selectedLayer){
+			this.copyedLayer = this.selectedLayer;
+			this.removeLayer(this.selectedLayer);
 		}
 	}
 
 	copy(){
 		if(!this._isActive) return;
-		if(this.selectedImg){
-			this.copyedImg = this.selectedImg;
+		if(this.selectedLayer){
+			this.copyedLayer = this.selectedLayer;
 		}
 	}
 
 	paste(){
 		if(!this._isActive) return;
-		if(this.copyedImg){
-			var newImg:Image = this.copyedImg.clone();
-			this.selectImage(this.addImage(newImg));
+		if(this.copyedLayer){
+			var newLayer:Layer = this.copyedLayer.clone();
+			this.selectLayer(this.addLayer(newLayer));
 		}
 	}
 
 	copyTrans(){
-		if(!this.selectedImg) return;
-		this.copyedTrans = this.selectedImg.transform;
+		if(!this.selectedLayer) return;
+		this.copyedTrans = this.selectedLayer.transform;
 	}
 
 	pasteTrans(){
-		if(!this.selectedImg) return;
+		if(!this.selectedLayer) return;
 		if(!this.copyedTrans) return;
-		this.selectedImg.transform = this.copyedTrans;
+		this.selectedLayer.transform = this.copyedTrans;
 
 		//console.log(this.selectedImg.transform, this.copyedTrans);
 		this.dispatchEvent(new Event("update"));
-		if(this.selectedImg.shared){
-			this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.selectedImg}}));
+		if(this.selectedLayer.shared){
+			this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.selectedLayer}}));
 		}
 
 		this.updateControlsSize();
@@ -261,95 +264,95 @@ export class SlideEditable extends Slide implements IDroppable {
 		this.updateControlsSize();
 	}
 
-	fitSelectedImage(){
-		if(!this.selectedImg) return;
+	fitSelectedLayer(){
+		if(!this.selectedLayer) return;
 		//this.selectedImg.rotation = 0;
-		this.fitImage(this.selectedImg);
+		this.fitLayer(this.selectedLayer);
 
 		this.dispatchEvent(new Event("update"));
 
 		this.updateControlsSize();
 	}
 
-	forwardImage(img:Image){
-		if(this._images.indexOf(img) == -1) return;
+	forwardLayer(layer:Layer){
+		if(this._layers.indexOf(layer) == -1) return;
 
-		var index:number = this._images.indexOf(img);
-		this._images.splice(index,1);
-		this._images.splice(Math.min(index + 1, this._images.length),0,img);
+		var index:number = this._layers.indexOf(layer);
+		this._layers.splice(index,1);
+		this._layers.splice(Math.min(index + 1, this._layers.length),0,layer);
 
-		this.setImagesZIndex();
+		this.setLayersZIndex();
 		this.dispatchEvent(new Event("update"));
 	}
 
-	backwordImage(img:Image){
-		if(this._images.indexOf(img) == -1) return;
+	backwordLayer(layer:Layer){
+		if(this._layers.indexOf(layer) == -1) return;
 
-		var index:number = this._images.indexOf(img);
-		this._images.splice(index,1);
-		this._images.splice(Math.max(index - 1, 0),0,img);
+		var index:number = this._layers.indexOf(layer);
+		this._layers.splice(index,1);
+		this._layers.splice(Math.max(index - 1, 0),0,layer);
 
-		this.setImagesZIndex();
+		this.setLayersZIndex();
 		this.dispatchEvent(new Event("update"));
 	}
 
 	//
 
 	private startDrag(e:any){
-		if(!this.selectedImg) return;
-		if(this.selectedImg.locked) return;
+		if(!this.selectedLayer) return;
+		if(this.selectedLayer.locked) return;
 		//if(this.isDrag) this.stopDrag(e:any);
 		this.isDrag = true;
 
 		var mouseX = e.screenX;
 		var mouseY = e.screenY;
 
-		$(document).off("mousemove.image_drag");
-		$(document).off("mouseup.image_drag");
-		$(document).on("mousemove.image_drag", (e:any) => {
-			if(!this.selectedImg) return;
+		$(document).off("mousemove.layer_drag");
+		$(document).off("mouseup.layer_drag");
+		$(document).on("mousemove.layer_drag", (e:any) => {
+			if(!this.selectedLayer) return;
 			if(!this.isDrag) return;
 
-			this.selectedImg.moveBy((e.screenX - mouseX) / this.actualScale, (e.screenY - mouseY) / this.actualScale);
+			this.selectedLayer.moveBy((e.screenX - mouseX) / this.actualScale, (e.screenY - mouseY) / this.actualScale);
 			mouseX = e.screenX;
 			mouseY = e.screenY;
 		});
-		$(document).on("mouseup.image_drag", (e:any) => {
-			if(!this.selectedImg) return;
+		$(document).on("mouseup.layer_drag", (e:any) => {
+			if(!this.selectedLayer) return;
 			if(!this.isDrag) return;
 
 			this.isDrag = false;
-			$(document).off("mousemove.image_drag");
-			$(document).off("mouseup.image_drag");
+			$(document).off("mousemove.layer_drag");
+			$(document).off("mouseup.layer_drag");
 
 			this.dispatchEvent(new Event("update"));
-			if(this.selectedImg.shared){
-				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.selectedImg}}));
+			if(this.selectedLayer.shared){
+				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.selectedLayer}}));
 			}
 		});
 	}
 
 	private startScale(e:any, key:string = ""){
-		if(!this.selectedImg) return;
-		if(this.selectedImg.locked) return;
+		if(!this.selectedLayer) return;
+		if(this.selectedLayer.locked) return;
 		//if(this.isDrag) this.stopScale(e);
 		this.isDrag = true;
 
 		var mouseX = e.screenX;
 		var mouseY = e.screenY;
 
-		var controlX = (this.selectedImg.width / 2) * (this.selectedImg.scaleX);
-		var controlY = (this.selectedImg.height / 2) * (this.selectedImg.scaleY);
+		var controlX = (this.selectedLayer.width / 2) * (this.selectedLayer.scaleX);
+		var controlY = (this.selectedLayer.height / 2) * (this.selectedLayer.scaleY);
 
-		$(document).off("mousemove.image_scale");
-		$(document).off("mouseup.image_scale");
-		$(document).on("mousemove.image_scale", (e:any) => {
+		$(document).off("mousemove.layer_scale");
+		$(document).off("mouseup.layer_scale");
+		$(document).on("mousemove.layer_scale", (e:any) => {
 			if(!this.isDrag) return;
 
 			var defX:number,defY:number;
 			defX = (e.screenX - mouseX);
 			defY = (e.screenY - mouseY);
-			var mat = Matrix4.identity().scale(1/this.actualScale, 1/this.actualScale,1).rotateZ(-this.selectedImg.rotation * Math.PI / 180).translate(defX, defY,0);
+			var mat = Matrix4.identity().scale(1/this.actualScale, 1/this.actualScale,1).rotateZ(-this.selectedLayer.rotation * Math.PI / 180).translate(defX, defY,0);
 			var defX2 = mat.values[12];
 			var defY2 = mat.values[13];
 
@@ -358,30 +361,30 @@ export class SlideEditable extends Slide implements IDroppable {
 			var yDirection:number = 1;
 			if(key.indexOf("e") == -1) xDirection *= -1;
 			if(key.indexOf("s") == -1) yDirection *= -1;
-			if(this.selectedImg.mirrorH) xDirection *= -1;
-			if(this.selectedImg.mirrorV) yDirection *= -1;
+			if(this.selectedLayer.mirrorH) xDirection *= -1;
+			if(this.selectedLayer.mirrorV) yDirection *= -1;
 
-			scaleX = (controlX + (defX2 * xDirection)) / (this.selectedImg.width / 2);
-			scaleY = (controlY + (defY2 * yDirection)) / (this.selectedImg.height / 2);
+			scaleX = (controlX + (defX2 * xDirection)) / (this.selectedLayer.width / 2);
+			scaleY = (controlY + (defY2 * yDirection)) / (this.selectedLayer.height / 2);
 
 			if(KeyboardManager.isDown(16) || this.ENFORCE_ASPECT_RATIO) {
 				var scale = Math.min(scaleX, scaleY);
-				this.selectedImg.scaleX = this.selectedImg.scaleY = scale;
+				this.selectedLayer.scaleX = this.selectedLayer.scaleY = scale;
 			}else{
-				this.selectedImg.scaleX = scaleX;
-				this.selectedImg.scaleY = scaleY;
+				this.selectedLayer.scaleX = scaleX;
+				this.selectedLayer.scaleY = scaleY;
 			}
 			this.updateControlsSize();
 		});
-		$(document).on("mouseup.image_scale", (e:any) => {
+		$(document).on("mouseup.layer_scale", (e:any) => {
 			if(!this.isDrag) return;
 			this.isDrag = false;
-			$(document).off("mousemove.image_scale");
-			$(document).off("mouseup.image_scale");
+			$(document).off("mousemove.layer_scale");
+			$(document).off("mouseup.layer_scale");
 
 			this.dispatchEvent(new Event("update"));
-			if(this.selectedImg.shared){
-				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{image:this.selectedImg}}));
+			if(this.selectedLayer.shared){
+				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.selectedLayer}}));
 			}
 		});
 	}
@@ -391,9 +394,9 @@ export class SlideEditable extends Slide implements IDroppable {
 			this.border.css("border-width", 6/this.actualScale + "px");
 		}
 
-		if(!this.selectedImg) return;
-		var anchorSizeX = 20 / (this.selectedImg.scaleX * this.actualScale);
-		var anchorSizeY = 20 / (this.selectedImg.scaleY * this.actualScale);
+		if(!this.selectedLayer) return;
+		var anchorSizeX = 20 / (this.selectedLayer.scaleX * this.actualScale);
+		var anchorSizeY = 20 / (this.selectedLayer.scaleY * this.actualScale);
 		this.anchorPoint1.css("width",anchorSizeX);
 		this.anchorPoint1.css("height",anchorSizeY);
 		this.anchorPoint2.css("width",anchorSizeX);
@@ -402,8 +405,8 @@ export class SlideEditable extends Slide implements IDroppable {
 		this.anchorPoint3.css("height",anchorSizeY);
 		this.anchorPoint4.css("width",anchorSizeX);
 		this.anchorPoint4.css("height",anchorSizeY);
-		var borderSizeH = 3 / (this.selectedImg.scaleX * this.actualScale) + "px";
-		var borderSizeV = 3 / (this.selectedImg.scaleY * this.actualScale) + "px";
+		var borderSizeH = 3 / (this.selectedLayer.scaleX * this.actualScale) + "px";
+		var borderSizeV = 3 / (this.selectedLayer.scaleY * this.actualScale) + "px";
 		this.frame.css("border-width",borderSizeV + " " + borderSizeH);
 	}
 
@@ -412,35 +415,36 @@ export class SlideEditable extends Slide implements IDroppable {
 	setData(aData:any[]){
 		super.setData(aData);
 
-		if(this.images.length > 0){
+		if(this.layers.length > 0){
 			// MARK: auto image select
 
 			//console.log(this.lastSelectedId.slice(0,10), this.lastSelectedIndex);
 
-			var autoSelectedImg:Image = null;
+			var autoSelectedLayer:Layer = null;
 
 			if(this.lastSelectedId != ""){
-				$.each(this.images, (number, image:Image)=>{
-					if(this.lastSelectedId == image.imageId){
-						if(!image.locked && image.visible){
-							autoSelectedImg = image;
+				$.each(this.layers, (number, layer:Layer)=>{
+					if(layer.type != LayerType.IMAGE) return false;
+					if(this.lastSelectedId == (layer as Image).imageId){
+						if(!layer.locked && layer.visible){
+							autoSelectedLayer = layer;
 						}
 						return false;
 					}
 				});
 			}
-			if(autoSelectedImg != null){this.selectImage(autoSelectedImg); return;}
+			if(autoSelectedLayer != null){this.selectLayer(autoSelectedLayer); return;}
 
-			if(this.lastSelectedIndex != -1 && this.images.length > this.lastSelectedIndex){
-				if(!this.images[this.lastSelectedIndex].locked && this.images[this.lastSelectedIndex].visible){
-					autoSelectedImg = this.images[this.lastSelectedIndex];
+			if(this.lastSelectedIndex != -1 && this.layers.length > this.lastSelectedIndex){
+				if(!this.layers[this.lastSelectedIndex].locked && this.layers[this.lastSelectedIndex].visible){
+					autoSelectedLayer = this.layers[this.lastSelectedIndex];
 				}
 			}
-			if(autoSelectedImg != null){this.selectImage(autoSelectedImg); return;}
+			if(autoSelectedLayer != null){this.selectLayer(autoSelectedLayer); return;}
 
-			for(var i:number = this.images.length - 1; i >= 0; i--){
-				if(!this.images[i].locked && this.images[i].visible){
-					this.selectImage(this.images[i]);
+			for(var i:number = this.layers.length - 1; i >= 0; i--){
+				if(!this.layers[i].locked && this.layers[i].visible){
+					this.selectLayer(this.layers[i]);
 					break;
 				}
 			}

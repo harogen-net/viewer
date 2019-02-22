@@ -1,5 +1,5 @@
 import { Slide } from "./Slide";
-import { Image } from "./Image";
+import { Image } from "./layer/Image";
 import { DateUtil } from "../utils/DateUtil";
 
 declare var $: any;

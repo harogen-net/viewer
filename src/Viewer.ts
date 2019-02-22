@@ -1,7 +1,7 @@
 import {Slide} from "./__core__/Slide";
 import {SlideEditable} from "./__core__/SlideEditable";
 import {SlideList} from "./SlideList";
-import {Image} from "./__core__/Image";
+import {Image} from "./__core__/layer/Image";
 import { SlideStorage, HVDataType } from "./utils/SlideStorage";
 import { SlideShow } from "./SlideShow";
 import { Menu } from "./Menu";
@@ -10,6 +10,7 @@ import { ImageManager } from "./utils/ImageManager";
 import { VDoc } from "./__core__/VDoc";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";
+import { Layer, LayerType } from "./__core__/Layer";
 
 declare var $:any;
 
@@ -113,40 +114,49 @@ export class Viewer {
 		this.canvas.slide.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-					var targetImg:Image = ce.detail.image as Image;
+					var targetLayer:Layer = ce.detail.layer as Layer;
 					var deleteFlag:boolean = ce.detail.delete as boolean;
-					console.log("sharedUpdate : " + targetImg + " : " + deleteFlag);
-					if(!targetImg) return;
+					console.log("sharedUpdate : " + targetLayer + " : " + deleteFlag);
+					if(!targetLayer) return;
 
 					var i:number = this.list.selectedSlideIndex;
 					var found:boolean = false;
 					var slide:Slide = null;
-					var updateFunc = (j:number, image:Image)=>{
+					var updateFunc = (j:number, layer:Layer)=>{
 						if(found) return;
-						if(!image.shared) return;
-						if(image.imageId != targetImg.imageId) return;
+						if(!layer.shared) return;
+
+						if(targetLayer.type != layer.type) return;
+						switch(targetLayer.type){
+							case LayerType.IMAGE:
+								if((layer as Image).imageId != (targetLayer as Image).imageId) return;
+							break;
+							default:
+								if(layer.id != targetLayer.id) return;
+							break;
+						}
 
 						if(deleteFlag){
-							slide.removeImage(image);
+							slide.removeLayer(layer);
 						}else{
-							image.locked = targetImg.locked;
-							image.visible = targetImg.visible;
-							image.opacity = targetImg.opacity;
-							image.transform = targetImg.transform;
+							layer.locked = targetLayer.locked;
+							layer.visible = targetLayer.visible;
+							layer.opacity = targetLayer.opacity;
+							layer.transform = targetLayer.transform;
 						}
 						found = true;
 					}
 					while(--i >= 0){
 						found = false;
 						slide = this.list.slides[i];
-						$.each(slide.images, updateFunc);
+						$.each(slide.layers, updateFunc);
 						if(!found) break;
 					}
 					i = this.list.selectedSlideIndex;
 					while(++i < this.list.slides.length){
 						found = false;
 						slide = this.list.slides[i];
-						$.each(slide.images, updateFunc);
+						$.each(slide.layers, updateFunc);
 						if(!found) break;
 					}
 				}
@@ -155,39 +165,51 @@ export class Viewer {
 		this.canvas.slide.addEventListener("sharedPaste",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-					var targetImg:Image = ce.detail.image as Image;
-					console.log("sharedPaste : " + targetImg);
-					if(!targetImg) return;
+					var targetLayer:Layer = ce.detail.layer as Layer;
+					console.log("sharedPaste : " + targetLayer);
+					if(!targetLayer) return;
 
 					var i:number = this.list.selectedSlideIndex;
 					var found:boolean = false;
 					var slide:Slide = null;
-					var findFunc = (j:number, image:Image)=>{
+					var findFunc = (j:number, layer:Layer)=>{
 						if(found) return;
-						if(image.imageId == targetImg.imageId) {
-							found = true;
-							return;
+
+						if(targetLayer.type != layer.type) return;
+						switch(targetLayer.type){
+							case LayerType.IMAGE:
+								if((layer as Image).imageId == (targetLayer as Image).imageId) {
+									found = true;
+									return;
+								}
+							break;
+							default:
+								if(layer.id == targetLayer.id) {
+									found = true;
+									return;
+								};
+							break;
 						}
 					}
 					while(--i >= 0){
 						found = false;
 						slide = this.list.slides[i];
-						$.each(slide.images, findFunc);
+						$.each(slide.layers, findFunc);
 						if(found) {
 							break;
 						}else{
-							slide.addImage(targetImg.clone());
+							slide.addLayer(targetLayer.clone());
 						}
 					}
 					i = this.list.selectedSlideIndex;
 					while(++i < this.list.slides.length){
 						found = false;
 						slide = this.list.slides[i];
-						$.each(slide.images, findFunc);
+						$.each(slide.layers, findFunc);
 						if(found) {
 							break;
 						}else{
-							slide.addImage(targetImg.clone());
+							slide.addLayer(targetLayer.clone());
 						}
 					}
 				}

@@ -1,7 +1,7 @@
 import { VDoc } from "../__core__/VDoc";
 import { Viewer } from "../Viewer";
 import { Slide } from "../__core__/Slide";
-import { Image } from "../__core__/Image";
+import { Image } from "../__core__/layer/Image";
 
 declare var $:any;
 
@@ -58,7 +58,7 @@ export class SlideToPNGConverter {
 			ctx.fillRect(0,0,canvas.width, canvas.height);
 		}
 
-		$.each(slide.images, (number, img:Image)=>{
+		$.each(slide.layers, (number, img:Image)=>{
 			var matrix:number[] = img.matrix;
 			ctx.setTransform(1,0,0,1,0,0);
 

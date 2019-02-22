@@ -1,5 +1,6 @@
-import {Image} from "./__core__/Image";
+import { Image } from "./__core__/layer/Image";
 import { EventDispatcher } from "./events/EventDispatcher";
+import { Layer, LayerType } from "./__core__/Layer";
 
 declare var $:any;
 
@@ -7,7 +8,7 @@ export class LayerListItem extends EventDispatcher {
 	
 	public obj:any;
 
-	private _image:Image;
+	private _layer:Layer;
 
 	private eyeBtn:any;
 	private lockBtn:any;
@@ -21,7 +22,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.eyeBtn = $('<button class="eye"><i class="fas fa-eye"></i></button>');
 		this.eyeBtn.click((e:any)=>{
-			if(this._image == null) return;
+			if(this._layer == null) return;
 			
 			if(this.eyeBtn.hasClass("on")){
 				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"eye_off",target:this}});
@@ -35,7 +36,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.lockBtn = $('<button class="lock"><i class="fas fa-lock"></i></button>');
 		this.lockBtn.click((e:any)=>{
-			if(this._image == null) return;
+			if(this._layer == null) return;
 
 			if(this.lockBtn.hasClass("on")){
 				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"lock_off",target:this}});
@@ -49,7 +50,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.shareBtn = $('<button class="share"><i class="fas fa-exchange-alt"></i></button>');
 		this.shareBtn.click((e:any)=>{
-			if(this._image == null) return;
+			if(this._layer == null) return;
 			
 			if(this.shareBtn.hasClass("on")){
 				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"share_off",target:this}});
@@ -64,7 +65,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>');
 		this.deleteBtn.click((e:any)=>{
-			if(this._image == null) return;
+			if(this._layer == null) return;
 			
 			var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"delete",target:this}});
 			this.dispatchEvent(cb);
@@ -77,7 +78,7 @@ export class LayerListItem extends EventDispatcher {
 		this.obj.append(this.deleteBtn);
 
 		this.obj.click(()=>{
-			if(this._image == null)return;
+			if(this._layer == null)return;
 //			if(this._image.locked) return;
 //			if(!this._image.visible) return;
 			var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"select",target:this}});
@@ -90,31 +91,31 @@ export class LayerListItem extends EventDispatcher {
 	}	
 	
 	public update(){
-		if(!this._image) return;
+		if(!this._layer) return;
 
-		if(this._image.name != ""){
-			this.obj.find("span").text(this._image.name);
+		if(this._layer.name != ""){
+			this.obj.find("span").text(this._layer.name);
 		}else{
 			this.obj.find("span").text("イメージ");
 		}
 
-		if(this._image.locked){
+		if(this._layer.locked){
 			this.lockBtn.addClass("on");
 		}else{
 			this.lockBtn.removeClass("on");
 		}
-		if(this._image.shared){
+		if(this._layer.shared){
 			this.shareBtn.addClass("on");
 		}else{
 			this.shareBtn.removeClass("on");
 		}
 		
-		if(this._image.visible){
+		if(this._layer.visible){
 			this.eyeBtn.addClass("on");
 		}else{
 			this.eyeBtn.removeClass("on");
 		}
-		if(this._image.selected){
+		if(this._layer.selected){
 			this.obj.addClass("selected");
 		}else{
 			this.obj.removeClass("selected");
@@ -127,16 +128,24 @@ export class LayerListItem extends EventDispatcher {
 		this.obj.find("span").text(value);
 	}
 	
-	public set image(value:Image){
-		this._image = value;
+	public set layer(value:Layer){
+		this._layer = value;
 		
 		this.update();
-		if(this._image != null){
-			this.obj.find("img").attr("src",this._image.data.src);
+
+		if(this._layer != null){
+			switch(this._layer.type){
+				case LayerType.IMAGE:
+					this.obj.find("img").attr("src",this._layer.data.src);
+				break;
+				default:
+
+				break;
+			}
 		}
 	}
-	public get image():Image{
-		return this._image;
+	public get layer():Layer{
+		return this._layer;
 	}
 
 }
