@@ -277,9 +277,9 @@ export class Layer {
 	}
 
 	public get transform(){
-		if(this._transX == 0 && this._transY == 0 && this._scaleX == 1 && this._scaleY == 1 && this._rotation == 0 && !this._mirrorH && !this._mirrorV) {
+/* 		if(this._transX == 0 && this._transY == 0 && this._scaleX == 1 && this._scaleY == 1 && this._rotation == 0 && !this._mirrorH && !this._mirrorV) {
 			return null;
-		}
+		} */
 		return {
 			transX:this._transX,
 			transY:this._transY,
@@ -291,8 +291,9 @@ export class Layer {
 		};
 	}
 	public set transform(value:any){
-		if(!value) throw new Error("");
-		
+		//if(!value) throw new Error("");
+		if(!value) value = {};
+
 		this._transX = value.transX || 0;
 		this._transY = value.transY || 0;
 		this._scaleX = value.scaleX || 1;

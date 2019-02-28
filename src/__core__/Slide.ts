@@ -223,33 +223,39 @@ export class Slide extends EventDispatcher {
 		this.scale = this._scale;
 	}
 	
-	public fitLayer(img:Layer):Layer {
+	public fitLayer(layer:Layer):Layer {
+		if(layer.width == Viewer.SCREEN_WIDTH && layer.height == Viewer.SCREEN_HEIGHT){
+			layer.x = Slide.centerX()
+			layer.y = Slide.centerY();
+			return layer;
+		}
+
 		var scaleX,scaleY;
-		if(img.rotation == 90 || img.rotation == -90){
-			scaleX = Viewer.SCREEN_WIDTH / img.height;
-			scaleY = Viewer.SCREEN_HEIGHT / img.width;
+		if(layer.rotation == 90 || layer.rotation == -90){
+			scaleX = Viewer.SCREEN_WIDTH / layer.height;
+			scaleY = Viewer.SCREEN_HEIGHT / layer.width;
 		}else{
-			scaleX = Viewer.SCREEN_WIDTH / img.width;
-			scaleY = Viewer.SCREEN_HEIGHT / img.height;
+			scaleX = Viewer.SCREEN_WIDTH / layer.width;
+			scaleY = Viewer.SCREEN_HEIGHT / layer.height;
 		}
 
 		var scale1:number = Math.min(scaleX, scaleY);
 		var scale2:number = Math.max(scaleX, scaleY);
 
-		if(img.x == Slide.centerX() && img.y == Slide.centerY()){
+		if(layer.x == Slide.centerX() && layer.y == Slide.centerY()){
 			var compRatio:number = Math.pow(10,10);
-			if(Math.round(img.scale * compRatio) == Math.round(scale1 * compRatio)){
-				img.scale = scale2;
+			if(Math.round(layer.scale * compRatio) == Math.round(scale1 * compRatio)){
+				layer.scale = scale2;
 			}else{
-				img.scale = scale1;
+				layer.scale = scale1;
 			}
 		}else{
-			img.scale = Math.min(scaleX, scaleY);
-			img.x = Slide.centerX()
-			img.y = Slide.centerY();
+			layer.scale = Math.min(scaleX, scaleY);
+			layer.x = Slide.centerX()
+			layer.y = Slide.centerY();
 		}
 
-		return img;
+		return layer;
 	}
 
 	//
