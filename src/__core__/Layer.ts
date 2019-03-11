@@ -279,7 +279,8 @@ export class Layer {
 	public get transform(){
 /* 		if(this._transX == 0 && this._transY == 0 && this._scaleX == 1 && this._scaleY == 1 && this._rotation == 0 && !this._mirrorH && !this._mirrorV) {
 			return null;
-		} */
+			//nullは「初回追加時かどうか」の判別に使われており、それがバグの要因となっている。
+		}*/
 		return {
 			transX:this._transX,
 			transY:this._transY,

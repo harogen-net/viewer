@@ -187,6 +187,24 @@ input.imageRef {
 	/*clip-path: polygon(20% 20%, 80% 20%, 80% 80%, 20% 80%);*/
 }
 
+.slide .text {
+	width:auto;
+	height:auto;
+	background-color:none;
+	font-family: "メイリオ";
+	font-weight: bold;
+	font-size:64px;
+	line-height: 64px;
+	color:white;
+	text-shadow:
+	-1px -1px 20px red,
+	-1px 1px 20px red,
+	1px -1px 20px red,
+	1px 1px 20px red;
+}
+
+
+
 /* slide canvas */
 .slideCanvas {
 	position: relative;
@@ -515,6 +533,9 @@ input.imageRef {
 	pointer-events: none;
 }
 
+.slide.editable .text {
+	border:1px dashed black;
+}
 
 
 

@@ -3,6 +3,7 @@ import {EventDispatcher} from "../events/EventDispatcher";
 import { ImageManager } from "../utils/ImageManager";
 import { Viewer } from "../Viewer";
 import { Layer, LayerType } from "./Layer";
+import { TextLayer } from "./layer/TextLayer";
 
 declare var $: any;
 
@@ -74,18 +75,10 @@ export class Slide extends EventDispatcher {
 		
 		this.container.append(layer.obj);
 		
-		
 		this.setLayersZIndex();
 		
 		if(layer.type == LayerType.IMAGE){
 			ImageManager.registImage(layer as Image);
-
-			if(!layer.transform){
-				if(layer.originHeight > (layer.originWidth * 1.2)) {
-					layer.rotation -= 90;
-				}
-				this.fitLayer(layer);
-			}
 		}else {
 			layer.moveTo(Viewer.SCREEN_WIDTH >> 1, Viewer.SCREEN_HEIGHT >> 1);
 		}
@@ -224,11 +217,18 @@ export class Slide extends EventDispatcher {
 	}
 	
 	public fitLayer(layer:Layer):Layer {
-		if(layer.width == Viewer.SCREEN_WIDTH && layer.height == Viewer.SCREEN_HEIGHT){
-			layer.x = Slide.centerX()
-			layer.y = Slide.centerY();
+		console.log("fitLayer");
+		if(layer.width == 0 || layer.height ==0)
+		{
 			return layer;
 		}
+
+/*		if(layer.width == Viewer.SCREEN_WIDTH && layer.height == Viewer.SCREEN_HEIGHT){
+			layer.x = Slide.centerX()
+			layer.y = Slide.centerY();
+			layer.scale = 1;
+			return layer;
+		}*/
 
 		var scaleX,scaleY;
 		if(layer.rotation == 90 || layer.rotation == -90){
@@ -250,7 +250,7 @@ export class Slide extends EventDispatcher {
 				layer.scale = scale1;
 			}
 		}else{
-			layer.scale = Math.min(scaleX, scaleY);
+			layer.scale = scale1;
 			layer.x = Slide.centerX()
 			layer.y = Slide.centerY();
 		}
@@ -322,11 +322,25 @@ export class Slide extends EventDispatcher {
 
 			for(j = 0; j < this._layers.length; j++){
 				layer = this._layers[j];
-				if(datum.class.id == layer.id && datum.class.type == LayerType.IMAGE){
-					if((datum.class as Image).imageId != (layer as Image).imageId){
-						this.removeLayer(layer);
-						//j--;
-					}else{
+				if(datum.class.id == layer.id){
+					if(datum.class.type == LayerType.IMAGE){
+						if((datum.class as Image).imageId != (layer as Image).imageId){
+							this.removeLayer(layer);
+							//j--;
+						}else{
+							found = true;
+							layer.transform = datum.class.transform;
+							layer.locked = datum.class.locked;
+							layer.visible = datum.class.visible;
+							layer.opacity = datum.class.opacity;
+							layer.shared = datum.class.shared;
+							layer.name = datum.class.name;
+							newLayers[i] = layer;
+						}
+						break;
+					}else if(datum.class.type == LayerType.TEXT){
+						(layer as TextLayer).text = (datum.class as TextLayer).text;
+
 						found = true;
 						layer.transform = datum.class.transform;
 						layer.locked = datum.class.locked;
@@ -335,12 +349,12 @@ export class Slide extends EventDispatcher {
 						layer.shared = datum.class.shared;
 						layer.name = datum.class.name;
 						newLayers[i] = layer;
-					}
-					break;
+				}
 				}
 			}
 			if(!found){
-				//console.log("\t",datum.class.id.slice(0,8) + "～のImageがありません");
+				//console.log("\t",datum.class.id + "～のImageがありません");
+				//console.log((datum.class as Layer).transform);
 				newLayers[i] = this.addLayer(datum.class.clone(datum.class.id));
 			}
 		});

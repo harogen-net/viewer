@@ -65,6 +65,14 @@ export class SlideList extends EventDispatcher implements IDroppable {
 /*  		this.obj.on("mousedown",(e)=>{
 			if(this._mode == ViewerMode.SELECT) this.selectSlide();
 		}); */
+
+		/*var test = this.obj.append('<div />');
+		test.addClass("slide");
+		test.css({
+			"width":Viewer.SCREEN_WIDTH,
+			"height":Viewer.SCREEN_HEIGHT,
+			"background-color":"red"
+		});*/
 	}
 
  	setMode(mode:ViewerMode):void {
@@ -176,10 +184,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		this.updateSlideDuration(slide);
 
 		var joinArrow = $('<div class="joinArrow" />').appendTo(slide.obj);
-		joinArrow.click(()=>{
+		joinArrow.on("click.slide", ()=>{
 			slide.joining = !slide.joining;
 		});
-
 
 		//
 
@@ -231,6 +238,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			slide.removeAllLayers();
 			slide.obj.find("button").remove();
 			slide.obj.find("div.duration").remove();
+			slide.obj.find("div.joinArrow").remove();
 			slide.obj.off("click.slide");
 			slide.obj.off("dblclick.slide");
 			slide.obj.off("mousedown.slide");

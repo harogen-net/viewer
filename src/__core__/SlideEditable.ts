@@ -108,7 +108,12 @@ export class SlideEditable extends Slide implements IDroppable {
 
 		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-			this.selectLayer(this.addLayer(new Image(e.detail)));
+			var layer = this.addLayer(new Image(e.detail));
+			if(layer.originHeight > (layer.originWidth * 1.2)) {
+				layer.rotation -= 90;
+			}
+			this.fitLayer(layer);
+			this.selectLayer(layer);
 		});
 
 
@@ -395,8 +400,8 @@ export class SlideEditable extends Slide implements IDroppable {
 		}
 
 		if(!this.selectedLayer) return;
-		var anchorSizeX = 20 / (this.selectedLayer.scaleX * this.actualScale);
-		var anchorSizeY = 20 / (this.selectedLayer.scaleY * this.actualScale);
+		var anchorSizeX = 16 / (this.selectedLayer.scaleX * this.actualScale);
+		var anchorSizeY = 16 / (this.selectedLayer.scaleY * this.actualScale);
 		this.anchorPoint1.css("width",anchorSizeX);
 		this.anchorPoint1.css("height",anchorSizeY);
 		this.anchorPoint2.css("width",anchorSizeX);

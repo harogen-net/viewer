@@ -59,7 +59,7 @@ export class ImageManager extends EventDispatcher {
 
 	public registImage(image:Image) {
 		console.log("registImage called" );
-		console.log(this.allImages.length);
+	//	console.log(this.allImages.length);
 		if(this.allImages.indexOf(image) == -1){
 			this.allImages.push(image);
 			console.log("ImageManager : registed : total " + this.allImages.length);

@@ -8,6 +8,7 @@ import { SlideToPNGConverter } from "./SlideToPNGConverter";
 import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
 import { Layer, LayerType } from "../__core__/Layer";
+import { TextLayer } from "../__core__/layer/TextLayer";
 
 declare var $:any;
 declare var jsSHA:any;
@@ -358,7 +359,36 @@ export class SlideStorage extends EventDispatcher {
 				$.each(layers, (j:number, layerDatum:any)=>{
 					switch(layerDatum.type){
 						case LayerType.TEXT:
-
+							var textLayer = new TextLayer(layerDatum.text, {
+								transX:layerDatum.transX,
+								transY:layerDatum.transY,
+								scaleX:layerDatum.scaleX,
+								scaleY:layerDatum.scaleY,
+								rotation:layerDatum.rotation,
+								mirrorH:layerDatum.mirrorH,
+								mirrorV:layerDatum.mirrorV,
+							});
+							if(layerDatum.opacity != undefined){
+								textLayer.opacity = layerDatum.opacity;						
+							}
+							if(layerDatum.locked != undefined){
+								textLayer.locked = layerDatum.locked;
+							}
+							if(layerDatum.shared != undefined){
+								textLayer.shared = layerDatum.shared;
+							}
+							if(isScreenSizeChange){
+								var offsetScale:number = Math.min(
+									Viewer.SCREEN_WIDTH / json.screen.width,
+									Viewer.SCREEN_HEIGHT / json.screen.height
+								);
+								var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+								var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+		
+								textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
+								textLayer.scaleBy(offsetScale);
+							}
+							slide.addLayer(textLayer);
 						break;
 						case undefined:	//version < 2.1
 						case LayerType.IMAGE:
