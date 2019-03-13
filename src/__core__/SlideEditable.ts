@@ -4,6 +4,7 @@ import {Image} from "./layer/Image";
 import {KeyboardManager} from "../utils/KeyboardManager";
 import { DropHelper } from "../utils/DropHelper";
 import { IDroppable } from "../interface/IDroppable";
+import { TextLayer } from "./layer/TextLayer";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -74,6 +75,10 @@ export class SlideEditable extends Slide implements IDroppable {
 
 		this.frame.on("mousedown.layer_drag", (e:any) => {
 			this.startDrag(e);
+			e.stopImmediatePropagation();
+		});
+		this.frame.on("dblclick.layer_edit", (e:any)=>{
+			this.startEdit();
 			e.stopImmediatePropagation();
 		});
 
@@ -162,6 +167,22 @@ export class SlideEditable extends Slide implements IDroppable {
 			};
 		});
 
+/*		if(layer.type == LayerType.TEXT){
+			var textLayer = layer as TextLayer;
+			textLayer.textObj.off("dblclick.textLayer_edit");
+			textLayer.textObj.on("dblclick.textLayer_edit", (e:any)=>{
+				textLayer.textObj.attr("contentEditable","true");
+				textLayer.textObj.focus();
+				textLayer.textObj.off("focusout.textLayer_edit");
+				textLayer.textObj.on("focusout.textLayer_edit", ()=>{
+					textLayer.textObj.attr("contentEditable","false");
+					textLayer.textObj.off("focusout.textLayer_edit");
+				});
+			});
+
+		}*/
+
+
 		this.dispatchEvent(new Event("update"));
 		return layer;
 	}
@@ -175,6 +196,10 @@ export class SlideEditable extends Slide implements IDroppable {
 		layer.obj.off("mousedown.layer_preselect");
 		layer.obj.off("mousemove.layer_preselect");
 		layer.obj.off("mouseup.layer_preselect");
+		if(layer.type == LayerType.TEXT){
+			var textLayer = layer as TextLayer;
+			textLayer.textObj.off("focusout.textLayer_edit");
+		}
 		this.dispatchEvent(new Event("update"));
 		return layer;
 	}
@@ -392,6 +417,30 @@ export class SlideEditable extends Slide implements IDroppable {
 				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.selectedLayer}}));
 			}
 		});
+	}
+
+	private startEdit(){
+		if(!this.selectedLayer) return;
+		if(this.selectedLayer.locked) return;
+
+		if(this.selectedLayer.type == LayerType.TEXT){
+			var textLayer = this.selectedLayer as TextLayer;
+			var text = textLayer.text;
+			textLayer.textObj.attr("contenteditable","true");
+			textLayer.textObj.focus();
+
+			textLayer.textObj.off("focusout.textLayer_edit");
+			textLayer.textObj.on("focusout.textLayer_edit", ()=>{
+				textLayer.textObj.attr("contentEditable","false");
+				textLayer.textObj.off("focusout.textLayer_edit");
+
+				setTimeout(()=>{
+					if(text != textLayer.text){
+						this.dispatchEvent(new Event("update"));
+					}
+				},10)
+			});
+		}
 	}
 
 	private updateControlsSize(){

@@ -6,7 +6,7 @@ declare var Matrix4: any;
 
 export class TextLayer extends Layer {
 
-	private textObj:any;
+	public textObj:any;
 
 
 	constructor(private _text:string, transform:any = null, id:number = -1){
@@ -18,7 +18,7 @@ export class TextLayer extends Layer {
 
 		var fontSize = 64;
 
-		this.textObj = $('<div class="text" contenteditable="true" spellcheck="false">' + _text + '</div>');
+		this.textObj = $('<div class="text" contenteditable="false" spellcheck="false">' + _text + '</div>');
 /*		this.textObj.css({
 			"width":"auto",
 			"height":"auto",
@@ -32,12 +32,17 @@ export class TextLayer extends Layer {
 			"line-height":fontSize + "px"
 		});*/
 		this.obj.append(this.textObj);
+		this.textObj.on("focusout", ()=>{
+			if(this.textObj.text() != this._text){
+				this._text = this.textObj.text();
+			}
+		});
 
 		this._originWidth = this.textObj.width();
 		this._originHeight = this.textObj.height();
-		this._scaleX_min = 2;
-		this._scaleY_min = 2;
-		this.scale = 2;
+		this._scaleX_min = 1;
+		this._scaleY_min = 1;
+//		this.scale = 2;
 
 		this.opacityObj = this.textObj;
 	}

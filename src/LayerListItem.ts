@@ -1,6 +1,7 @@
 import { Image } from "./__core__/layer/Image";
 import { EventDispatcher } from "./events/EventDispatcher";
 import { Layer, LayerType } from "./__core__/Layer";
+import { TextLayer } from "./__core__/layer/TextLayer";
 
 declare var $:any;
 
@@ -14,11 +15,15 @@ export class LayerListItem extends EventDispatcher {
 	private lockBtn:any;
 	private shareBtn:any;
 	private deleteBtn:any;
+	private label:any;
+	private thumbnail:any;
 
 	constructor(){
 		super();
 
 		this.obj = $('<li><img /><span></span></li>');
+		this.label = this.obj.find("span");
+		this.thumbnail = this.obj.find("img");
 
 		this.eyeBtn = $('<button class="eye"><i class="fas fa-eye"></i></button>');
 		this.eyeBtn.click((e:any)=>{
@@ -85,7 +90,7 @@ export class LayerListItem extends EventDispatcher {
 			this.dispatchEvent(cb);
 		});
 
-/*		this.obj.find("span").editable("dblclick",(e:any)=>{
+/*		this.label.editable("dblclick",(e:any)=>{
 
 		});*/
 	}	
@@ -93,10 +98,17 @@ export class LayerListItem extends EventDispatcher {
 	public update(){
 		if(!this._layer) return;
 
-		if(this._layer.name != ""){
-			this.obj.find("span").text(this._layer.name);
-		}else{
-			this.obj.find("span").text("イメージ");
+		switch(this._layer.type){
+			case LayerType.IMAGE:
+				if(this._layer.name != ""){
+					this.label.text(this._layer.name);
+				}else{
+					this.label.text("イメージ");
+				}
+			break;
+			case LayerType.TEXT:
+				this.label.text((this._layer as TextLayer).text);
+			break;
 		}
 
 		if(this._layer.locked){
@@ -124,9 +136,9 @@ export class LayerListItem extends EventDispatcher {
 
 	//
 
-	public set name(value:string){
-		this.obj.find("span").text(value);
-	}
+	// public set name(value:string){
+	// 	this.label.text(value);
+	// }
 	
 	public set layer(value:Layer){
 		this._layer = value;
@@ -136,7 +148,10 @@ export class LayerListItem extends EventDispatcher {
 		if(this._layer != null){
 			switch(this._layer.type){
 				case LayerType.IMAGE:
-					this.obj.find("img").attr("src",this._layer.data.src);
+					this.thumbnail.attr("src",this._layer.data.src);
+				break;
+				case LayerType.TEXT:
+					this.thumbnail.attr("src",this._layer.data.src);
 				break;
 				default:
 

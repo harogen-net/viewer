@@ -79,8 +79,6 @@ export class Slide extends EventDispatcher {
 		
 		if(layer.type == LayerType.IMAGE){
 			ImageManager.registImage(layer as Image);
-		}else {
-			layer.moveTo(Viewer.SCREEN_WIDTH >> 1, Viewer.SCREEN_HEIGHT >> 1);
 		}
 
 		return layer;
@@ -189,7 +187,7 @@ export class Slide extends EventDispatcher {
 	public fitToHeight():void {
 		//console.log("fitToHeight : ", this.obj.height());
 		this.obj.css("height","");
-		var durationCorrection:number = Math.atan(this._durationRatio - 1) + 1;
+		var durationCorrection:number = Math.atan(this._durationRatio - 1) * 0.5 + 1;
 		if(this._durationRatio < 1){
 			durationCorrection = Math.pow(this.durationRatio,0.4);
 		}
@@ -306,6 +304,8 @@ export class Slide extends EventDispatcher {
 							layer.name = datum.class.name;
 							found = true;
 						}
+					}else if(datum.class.type == LayerType.TEXT){
+						found = true;
 					}
 				}
 			});

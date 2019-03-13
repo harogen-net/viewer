@@ -158,6 +158,7 @@ export class SlideCanvas extends EventDispatcher {
 		$(".text").click(()=>{
 			var textLayer:TextLayer = new TextLayer(prompt("insert text layer:"));
 			this.slide.addLayer(textLayer);
+			textLayer.moveTo(Viewer.SCREEN_WIDTH >> 1, Viewer.SCREEN_HEIGHT >> 1);
 		});
 
 
