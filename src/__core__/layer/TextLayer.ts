@@ -9,16 +9,17 @@ export class TextLayer extends Layer {
 	public textObj:any;
 
 
-	constructor(private _text:string, transform:any = null, id:number = -1){
+	constructor(text:string, transform:any = null, id:number = -1){
 		super(transform, id);
 		this._type = LayerType.TEXT;
 
 		//
 
 
-		var fontSize = 64;
+		var fontSize = 48;
 
-		this.textObj = $('<div class="text" contenteditable="false" spellcheck="false">' + _text + '</div>');
+		this.textObj = $('<div class="text" contenteditable="false" spellcheck="false"></div>');
+		this.text = text;
 /*		this.textObj.css({
 			"width":"auto",
 			"height":"auto",
@@ -32,11 +33,11 @@ export class TextLayer extends Layer {
 			"line-height":fontSize + "px"
 		});*/
 		this.obj.append(this.textObj);
-		this.textObj.on("focusout", ()=>{
+/*		this.textObj.on("focusout", ()=>{
 			if(this.textObj.text() != this._text){
 				this._text = this.textObj.text();
 			}
-		});
+		});*/
 
 		this._originWidth = this.textObj.width();
 		this._originHeight = this.textObj.height();
@@ -47,23 +48,28 @@ export class TextLayer extends Layer {
 		this.opacityObj = this.textObj;
 	}
 
+
+
 	public set text(value:string){
-		this._text = value;
-		this.textObj.text(this._text);
+		this.textObj.html(value);
 	}
 	public get text():string{
-		return this._text;
+		return this.textObj.html();
+	}
+
+	public get plainText():string {
+		return this.textObj.text();
 	}
 
 	protected makeData():any {
 		var ret = super.makeData();
-		ret.text = this._text;
+		ret.text = this.text;
 		return ret;
 	}
 
 
 	public clone(id:number = -1):TextLayer {
-		var ret:TextLayer = new TextLayer(this._text, this.transform, id);
+		var ret:TextLayer = new TextLayer(this.text, this.transform, id);
 		ret.visible = this._visible;
 		ret.locked = this._locked;
 		ret.opacity = this._opacity;

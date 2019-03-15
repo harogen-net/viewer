@@ -107,7 +107,7 @@ export class LayerListItem extends EventDispatcher {
 				}
 			break;
 			case LayerType.TEXT:
-				this.label.text((this._layer as TextLayer).text);
+				this.label.text((this._layer as TextLayer).plainText);
 			break;
 		}
 
