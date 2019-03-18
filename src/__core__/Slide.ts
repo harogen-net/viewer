@@ -56,6 +56,8 @@ export class Slide extends EventDispatcher {
 		}else {
 			this.updateSize();
 		}
+
+		this.joining = true;
 	}
 
 	public addLayer(layer:Layer, index:number = -1):Layer {

@@ -1,5 +1,6 @@
 :root {
 	--slideBackgroundColor:#999999;
+	--slideListHeight:110px;
 }
 
 body,html {
@@ -549,23 +550,24 @@ input.imageRef {
 	display: flex;
 	position: relative;
 }
-.slideList .slide {
+.slideList > .slide {
 	height:100%;
 	box-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);
 	flex-shrink: 0;
 	cursor: pointer;
 	box-sizing: border-box;
 	overflow: hidden;
-	background-color:rgba(0,0,0,0.2);
+	background-color:rgba(0,0,0,0.5);
+	margin-right: 10px;
 }
-.slideList .slide.selected {
+.slideList >  .slide.selected {
 	/*border:2px solid red;*/
 	box-shadow: 0 0 2px 2px rgba(255,0,0,.8);
 }
-.slideList .slide.selected .layerWrapper {
+.slideList > .slide.selected .layerWrapper {
 	transition:transform 0.2s;
 }
-.slideList .slide button {
+.slideList > .slide button {
 	position: absolute;
 	z-index: 3;
 	width: 30px;
@@ -583,32 +585,32 @@ input.imageRef {
 	transition: opacity 0.3s;
 	pointer-events: none;
 }
-.slideList .slide.selected button {
+.slideList > .slide.selected button {
 	pointer-events: auto;
 	opacity:1;
 }
-.slideList .slide.selected button:hover {
+.slideList > .slide.selected button:hover {
 	opacity:1;
 }
-.slideList .slide button.delete {
+.slideList > .slide button.delete {
 	right: 0;
 	top:0;
 	background-color:red;
 }
-.slideList .slide button.clone {
+.slideList > .slide button.clone {
 	right: 5px;
 	bottom:5px;
 	background-color:rgba(0,0,0,0.5);
 	border-radius:3px;
 }
-.slideList .slide button.edit {
+.slideList > .slide button.edit {
 	left: 5px;
 	top:5px;
 	background-color:rgba(0,0,0,0.5);
 	border-radius:3px;
 }
 
-.slideList .slide input[type="checkbox"] {
+.slideList > .slide input[type="checkbox"] {
 	position: absolute;
 	width: 25px;
 	height: 25px;
@@ -619,12 +621,12 @@ input.imageRef {
 	cursor: pointer;
 	pointer-events: none;
 }
-.slideList .slide.selected input[type="checkbox"] {
+.slideList > .slide.selected input[type="checkbox"] {
 	pointer-events: auto;
 	opacity:1;
 }
 
-.slideList .slide .duration {
+.slideList > .slide .duration {
 	display:block;
 	position: absolute;
 	z-index: 2;
@@ -637,11 +639,11 @@ input.imageRef {
 	transition: opacity 0.3s;
 	pointer-events: none;
 }
-.slideList .slide.selected .duration {
+.slideList > .slide.selected .duration {
 	pointer-events: auto;
 	opacity:1;
 }
-.slideList .slide .duration span {
+.slideList > .slide .duration span {
 	display:block;
 	position: absolute;
 /*	left:7px;*/
@@ -656,7 +658,7 @@ input.imageRef {
 	text-align: center;
 	width: 100%;
 }
-.slideList .slide .duration button {
+.slideList > .slide .duration button {
 	width:20px;
 	height:20px;
 	line-height: 20px;
@@ -670,16 +672,16 @@ input.imageRef {
 	transition: opacity 0.3s;
 	opacity: 0;
 }
-.slideList .slide .duration:hover button {
+.slideList > .slide .duration:hover button {
 	opacity: 1;
 }
-.slideList .slide .duration button.up {
+.slideList > .slide .duration button.up {
 	left: 5px;
 }
-.slideList .slide .duration button.down {
+.slideList > .slide .duration button.down {
 	left: 30px;
 }
-.slideList .slide .joinArrow {
+.slideList > .slide .joinArrow {
 	position: absolute;
 	z-index: 1;
 	width:16px;
@@ -689,15 +691,40 @@ input.imageRef {
 	top:0;
 	right:0;
 }
-.slideList .slide.joining .joinArrow {
+.slideList > .slide.joining .joinArrow {
 	opacity: 0.2;
 }
-.slideList .slide.joining {
-	margin-right: -16px !important;
+.slideList > .slide.joining {
+	margin-right: -16px ;
 }
-/*.slideList .slide.joining +  .slide {
+.slideList > .slide.joining.last {
+	margin-right: 10px;
+}
+/*.slideList > .slide.joining +  .slide {
 	margin-top: 5px;
 }*/
+.slideList > .newSlideBtn {
+	width:var(--slideListHeight);
+	height:var(--slideListHeight);
+	line-height:var(--slideListHeight);
+	overflow:hidden;
+	font-size:48px;
+	color:rgba(255,255,255,0.2);
+	text-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);
+	background-color: gray;
+	border-radius: 10px;
+	box-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);
+	cursor: pointer;
+	text-align:center;
+/*	opacity: 0;*/
+	transition: opacity 0.3s;
+}
+.slideList > .newSlideBtn:hover {
+	opacity: 0.5;
+}
+
+
+
 
 
 /* slideShow */
@@ -781,9 +808,9 @@ body.select .slideList {
 	flex-wrap: wrap;
 	align-content: flex-start;
 }
-body.select .slideList .slide {
-	height:110px;
-	margin-right: 10px;
+body.select .slideList > .slide {
+	height:var(--slideListHeight);
+	/*margin-right: 10px;*/
 	margin-bottom: 30px;
 }
 /* ------------------ mode:edit ----------------*/
@@ -798,11 +825,11 @@ body.edit .slideList {
 	overflow-y:hidden;
 
 }
-body.edit .slideList .slide {
-	height:110px;
-	margin-right: 10px;
+body.edit .slideList > .slide {
+	height:var(--slideListHeight);
+/*	margin-right: 10px;*/
 }
-body.edit .slideList .slide button.edit {
+body.edit .slideList > .slide button.edit {
 	display: none;
 }
 /* ------------------ mode:slideshow -------------*/

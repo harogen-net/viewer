@@ -177,6 +177,7 @@ export class SlideShow extends EventDispatcher {
 			$.each(this.slides, (index:number, slide:Slide) =>{
 				slide.obj.css("opacity", 0);
 				slide.updateSize();
+				slide.obj.show();
 				slide.obj.animate({"opacity":1},1000);
 			})
 			return;
