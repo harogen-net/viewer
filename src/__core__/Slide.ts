@@ -319,39 +319,54 @@ export class Slide extends EventDispatcher {
 		}
 //		console.log(this.id, "=============");
 //		console.log("処理前 : ", this._images.length, aData.length);
+
+
+		var applyLayerFromLayer = (toLayer:Layer, fromLayer:Layer)=>{
+			toLayer.transform = fromLayer.transform;
+			toLayer.locked = fromLayer.locked;
+			toLayer.visible = fromLayer.visible;
+			toLayer.opacity = fromLayer.opacity;
+			toLayer.shared = fromLayer.shared;
+			toLayer.name = fromLayer.name;
+		};
+
 		$.each(aData, (i, datum) => {
 			found = false;
 
 			for(j = 0; j < this._layers.length; j++){
 				layer = this._layers[j];
 				if(datum.class.id == layer.id){
-					if(datum.class.type == LayerType.IMAGE){
-						if((datum.class as Image).imageId != (layer as Image).imageId){
-							this.removeLayer(layer);
-							//j--;
-						}else{
+					switch(datum.class.type){
+						case LayerType.IMAGE:
+						{
+							var imageClass = datum.class as Image;
+							var imageLayer = layer as Image;
+							if(imageClass.imageId != imageLayer.imageId){
+								this.removeLayer(imageLayer);
+								//j--;
+							}else{
+								found = true;
+								applyLayerFromLayer(imageLayer, imageClass);
+								imageLayer.clipRect = imageClass.clipRect;
+								newLayers[i] = layer;
+							}
+						}
+						break;
+						case LayerType.TEXT:
+						{
+							var textClass = datum.class as TextLayer;
+							var textLayer = layer as TextLayer;
+
 							found = true;
-							layer.transform = datum.class.transform;
-							layer.locked = datum.class.locked;
-							layer.visible = datum.class.visible;
-							layer.opacity = datum.class.opacity;
-							layer.shared = datum.class.shared;
-							layer.name = datum.class.name;
+							applyLayerFromLayer(layer, datum.class);
+							textLayer.text = textClass.text;
 							newLayers[i] = layer;
 						}
 						break;
-					}else if(datum.class.type == LayerType.TEXT){
-						(layer as TextLayer).text = (datum.class as TextLayer).text;
+						default:
 
-						found = true;
-						layer.transform = datum.class.transform;
-						layer.locked = datum.class.locked;
-						layer.visible = datum.class.visible;
-						layer.opacity = datum.class.opacity;
-						layer.shared = datum.class.shared;
-						layer.name = datum.class.name;
-						newLayers[i] = layer;
-				}
+						break;
+					}
 				}
 			}
 			if(!found){

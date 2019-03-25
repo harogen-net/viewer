@@ -57,6 +57,7 @@ export class SlideCanvas extends EventDispatcher {
 			});
 			
 			$("button.imageRef").prop("disabled", !(this.slide.selectedLayer != null && this.slide.selectedLayer.type == LayerType.IMAGE));
+			$(".property .clip dd input").prop("disabled", !(this.slide.selectedLayer != null && this.slide.selectedLayer.type == LayerType.IMAGE));
 
 			if(this.slide.selectedLayer != null){
 				if(this.slide.selectedLayer.mirrorH){
@@ -324,6 +325,10 @@ export class SlideCanvas extends EventDispatcher {
 	private inputScaleY:PropertyInput;
 	private inputRotation:PropertyInput;
 	private inputOpacity:PropertyInput;
+	private inputClip1:PropertyInput;
+	private inputClip2:PropertyInput;
+	private inputClip3:PropertyInput;
+	private inputClip4:PropertyInput;
 
 	private propertyInputs:PropertyInput[];
 	private items:LayerListItem[];
@@ -337,7 +342,12 @@ export class SlideCanvas extends EventDispatcher {
 		this.inputRotation = new PropertyInput($(".property .rotation input").eq(0), "rotation", {min:-180, max:180, v:5});
 		this.inputOpacity = new PropertyInput($(".property .opacity input").eq(0), "opacity", {min:0, max:1, v:0.1});
 
-		this.propertyInputs = [this.inputTransX, this.inputTransY, this.inputScaleX, this.inputRotation, this.inputOpacity];
+		this.inputClip1 = new PropertyInput($(".property .clip input").eq(0), "clipT", {v:-25});
+		this.inputClip2 = new PropertyInput($(".property .clip input").eq(1), "clipR", {v:-25});
+		this.inputClip3 = new PropertyInput($(".property .clip input").eq(2), "clipB", {v:-25});
+		this.inputClip4 = new PropertyInput($(".property .clip input").eq(3), "clipL", {v:-25});
+
+		this.propertyInputs = [this.inputTransX, this.inputTransY, this.inputScaleX, this.inputRotation, this.inputOpacity, this.inputClip1, this.inputClip2, this.inputClip3, this.inputClip4];
 //		this.propertyInputs = [this.inputTransX, this.inputTransY, this.inputScaleX, this.inputScaleY, this.inputRotation, this.inputOpacity];
 		$.each(this.propertyInputs, (number, input:PropertyInput)=>{
 			input.addEventListener("update",this.onPropertyUpdate);
@@ -416,7 +426,11 @@ export class SlideCanvas extends EventDispatcher {
 		var selectedSlideExists:boolean = this.slide.selectedLayer != null;
 		$.each(this.propertyInputs, (number, input:PropertyInput)=>{
 			input.disabled = !selectedSlideExists;
-			if(selectedSlideExists) input.value = this.slide.selectedLayer[input.key];
+			if(selectedSlideExists && this.slide.selectedLayer[input.key] != undefined){
+				input.value = this.slide.selectedLayer[input.key];
+			}else{
+				input.disabled = true;
+			}
 		});
 	}
 

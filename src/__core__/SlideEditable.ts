@@ -440,6 +440,8 @@ export class SlideEditable extends Slide implements IDroppable {
 					}
 				},10)
 			});
+		}else if(this.selectedLayer.type == LayerType.IMAGE) {
+//			var image = this.selectedLayer as Image;
 		}
 	}
 

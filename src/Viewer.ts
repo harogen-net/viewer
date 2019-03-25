@@ -143,6 +143,10 @@ export class Viewer {
 							layer.visible = targetLayer.visible;
 							layer.opacity = targetLayer.opacity;
 							layer.transform = targetLayer.transform;
+
+							if(layer.type == LayerType.IMAGE){
+								(layer as Image).clipRect = (targetLayer as Image).clipRect;
+							}
 						}
 						found = true;
 					}

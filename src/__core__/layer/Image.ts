@@ -6,7 +6,7 @@ declare var Matrix4: any;
 export class Image extends Layer {
 
 	private _imageId:string = "";
-	private _clipRect:number[] = null;
+	private _clipRect:number[] = [0,0,0,0];
 	
 	constructor(private imgObj:any, transform:any = null, id:number = -1){
 		super(transform, id);
@@ -66,7 +66,9 @@ export class Image extends Layer {
 		ret.imageId = this.imageId;
 		ret.src = this.imgObj.attr("src");
 
-		if(this._clipRect != null) ret.clipRect = this._clipRect;
+		if(this._clipRect.some((value)=>{
+			return value !== 0;
+		})) ret.clipRect = this._clipRect;
 
 		return ret;
 	}
@@ -102,6 +104,7 @@ export class Image extends Layer {
 		retImg.locked = this._locked;
 		retImg.opacity = this._opacity;
 		retImg.shared = this._shared;
+		retImg.clipRect = this._clipRect;
 		return retImg;
 	}
 
@@ -147,6 +150,51 @@ export class Image extends Layer {
 		return {x:matrix.values[12] + this.width / 2, y:matrix.values[13] + this.height / 2};
 	}*/
 	
+	public set clipRect(value:number[]){
+		this._clipRect = value.slice(0,4);
+		this.updateClipRect();
+	}
+	public get clipRect():number[]{
+		return this._clipRect;
+	}
+	public set clipT(value:number){
+		this._clipRect[0] = value;
+		this.updateClipRect();
+	}
+	public get clipT():number {
+		return this._clipRect[0];
+	}
+	public set clipR(value:number){
+		this._clipRect[1] = value;
+		this.updateClipRect();
+	}
+	public get clipR():number {
+		return this._clipRect[1];
+	}
+	public set clipB(value:number){
+		this._clipRect[2] = value;
+		this.updateClipRect();
+	}
+	public get clipB():number {
+		return this._clipRect[2];
+	}
+	public set clipL(value:number){
+		this._clipRect[3] = value;
+		this.updateClipRect();
+	}
+	public get clipL():number {
+		return this._clipRect[3];
+	}
+	private updateClipRect(){
+		this.imgObj.css("clip-path","inset(" + this._clipRect[0] + "px " + this._clipRect[1] + "px " + this._clipRect[2] + "px " + this._clipRect[3] + "px)");
+	}
+
+	public get originWidth(){
+		return this._originWidth - (this._clipRect[1] + this._clipRect[3]);
+	}
+	public get originHeight(){
+		return this._originHeight - (this._clipRect[0] + this._clipRect[2]);
+	}
 
 	
 }

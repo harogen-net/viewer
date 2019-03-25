@@ -184,9 +184,9 @@ input.imageRef {
 .slide .layerWrapper.invisible {
 	display:none !important;
 }
-.slide .layerWrapper img {
-	/*clip-path: polygon(20% 20%, 80% 20%, 80% 80%, 20% 80%);*/
-}
+/*.slide .layerWrapper img {
+	clip-path: polygon(20% 20%, 80% 20%, 80% 80%, 20% 80%);
+}*/
 
 .slide .text {
 	width:auto;
@@ -305,10 +305,10 @@ input.imageRef {
 	display:inline-block;
 }
 .slideCanvas .sideMenu .property dl dt{
-	width: 50%;
+	width: 40%;
 }
 .slideCanvas .sideMenu .property dl dd{
-	width: calc((50% - 5px)/2);
+	width: calc((60% - 5px)/2);
 }
 .slideCanvas .sideMenu .property dl dd + dd {
 	margin-left:5px;
@@ -323,6 +323,9 @@ input.imageRef {
 .slideCanvas .sideMenu .property dl dd input[type="text"]:focus {
 	background-color:white;
 	border:1px solid rgba(0,0,0,0.8);
+}
+.slideCanvas .sideMenu .property dl.clip dd {
+	width: calc((60% - 15px)/4);
 }
 .slideCanvas .sideMenu .property button {
 	width: 50%;
