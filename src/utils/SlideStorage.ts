@@ -416,6 +416,9 @@ export class SlideStorage extends EventDispatcher {
 							if(layerDatum.shared != undefined){
 								img.shared = layerDatum.shared;
 							}
+							if(layerDatum.clipRect != undefined){
+								img.clipRect = layerDatum.clipRect;
+							}
 							if(isScreenSizeChange){
 								var offsetScale:number = Math.min(
 									Viewer.SCREEN_WIDTH / json.screen.width,
