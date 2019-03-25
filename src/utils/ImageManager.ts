@@ -51,6 +51,7 @@ export class ImageManager extends EventDispatcher {
 	}
 
 	public initialize(){
+		console.log("initialize called" );
 		while(this.allImages.length > 0){
 			this.deleteImage(this.allImages.pop());
 		}
@@ -64,6 +65,10 @@ export class ImageManager extends EventDispatcher {
 			this.allImages.push(image);
 			console.log("ImageManager : registed : total " + this.allImages.length);
 		}
+
+		$.each(this.allImages, (i, image2:Image)=>{
+			console.log(image2.imageId.substr(0,10) + "...");
+		});
 	}
 
 	public deleteImage(image:Image) {
@@ -71,6 +76,9 @@ export class ImageManager extends EventDispatcher {
 			this.allImages.splice(this.allImages.indexOf(image), 1);
 			console.log("ImageManager : deleted : total " + this.allImages.length);
 		}
+		$.each(this.allImages, (i, image2:Image)=>{
+			console.log(image2.imageId.substr(0,10) + "...");
+		});
 	}
 
 	public swapImageAll(id:string, imgObj:any) {

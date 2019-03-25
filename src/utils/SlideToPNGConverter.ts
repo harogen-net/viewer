@@ -2,6 +2,7 @@ import { VDoc } from "../__core__/VDoc";
 import { Viewer } from "../Viewer";
 import { Slide } from "../__core__/Slide";
 import { Image } from "../__core__/layer/Image";
+import { Layer, LayerType } from "../__core__/Layer";
 
 declare var $:any;
 
@@ -58,27 +59,30 @@ export class SlideToPNGConverter {
 			ctx.fillRect(0,0,canvas.width, canvas.height);
 		}
 
-		$.each(slide.layers, (number, img:Image)=>{
-			var matrix:number[] = img.matrix;
+		$.each(slide.layers, (number, layer:Layer)=>{
+			if(layer.type != LayerType.IMAGE) return;
+			var image = layer as Image;
+
+			var matrix:number[] = layer.matrix;
 			ctx.setTransform(1,0,0,1,0,0);
 
 			//※アフィン変換は逆に行われる
 
 			//４：最後に移動する
-			ctx.translate(img.x, img.y);
+			ctx.translate(image.x, image.y);
 
 			//３：原点を中心に回転を行う
 			//（ミラー設定前に回転してしまうと方向がおかしくなる、前回のバグはこの順序が原因ではないか）
-			ctx.rotate(img.angle);
+			ctx.rotate(image.angle);
 
 			//２：原点を中心に拡大縮小を行う（ミラー設定があるので、回転より先に行う）
-			ctx.scale(img.scaleX * (img.mirrorH ? -1 : 1), img.scaleY * (img.mirrorV ? -1 : 1));
+			ctx.scale(image.scaleX * (image.mirrorH ? -1 : 1), image.scaleY * (image.mirrorV ? -1 : 1));
 
 			//１：最初に画像のサイズの半分だけ動かし、画像の中心を原点に合わせる
-			ctx.translate(-img.originWidth  / 2, -img.originHeight / 2);
+			ctx.translate(-image.originWidth  / 2, -image.originHeight / 2);
 
-			ctx.globalAlpha = img.opacity;
-			ctx.drawImage(img.imageElement, 0, 0);
+			ctx.globalAlpha = image.opacity;
+			ctx.drawImage(image.imageElement, 0, 0);
 		});
 
 		return canvas;

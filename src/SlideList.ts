@@ -107,13 +107,20 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 
 	addSlide(slide:Slide,index:number = -1):Slide {
+		console.log("addSlide called : " + this._slides.length);
 
-		if(index != -1 && this._slides.length > index){
-			this._slides.splice(index + 1,0,slide);
+		if(index != -1 && index < this._slides.length){
+			this._slides.splice(index,0,slide);
 //			this._slides[index].obj.after(slide.obj);
 		}else{
 			this._slides.push(slide);
 		}
+
+		slide.id = Math.floor(Math.random()*100000000);
+		$.each(this._slides, (i, slide2:Slide)=>{
+			console.log(slide2, slide2.id);
+		});
+		this._slidesById[slide.id] = slide;
 
 		this.sortSlideObjByIndex();
 		this.setSlideUp(slide);
@@ -123,9 +130,6 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 	private setSlideUp(slide:Slide) {
 		//slide.obj.appendTo(this.obj);
-
-		slide.id = Math.floor(Math.random()*100000000);
-		this._slidesById[slide.id] = slide;
 
 		slide.fitToHeight();
 
@@ -182,7 +186,8 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		});
 		this.updateSlideDuration(slide);
 
-		var joinArrow = $('<div class="joinArrow" />').appendTo(slide.obj);
+		var joinArrow = $('<div class="joinArrow"></div>').appendTo(slide.obj);
+		//var joinArrow = $('<div class="joinArrow"><i class="fas fa-arrow-right"></i></div>').appendTo(slide.obj);
 		joinArrow.on("click.slide", ()=>{
 			slide.joining = !slide.joining;
 		});
@@ -202,14 +207,13 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		});
 		slide.obj.hide().fadeIn(300, () => {
 		});
-
-		this.obj.sortable("refresh");
 	}
 
 	clonseSlide(slide:Slide):Slide {
 		if(this._slides.indexOf(slide) == -1) return;
+
 		var clonedSlide:Slide = slide.clone();
-		this.addSlide(clonedSlide, this._slides.indexOf(slide));
+		this.addSlide(clonedSlide, this._slides.indexOf(slide) + 1);
 		slide.joining = true;
 
 		setTimeout(()=>{
@@ -242,19 +246,31 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			slide.obj.off("dblclick.slide");
 			slide.obj.off("mousedown.slide");
 			slide.obj.remove();
+			slide = null;
 		}
 
 		if(isAnimation){
 			this.obj.css("pointer-events","none");
-			slide.obj.fadeOut(300, () => {
+			slide.obj.fadeOut(200, () => {
 				this.obj.css("pointer-events","");
 				removeMain();
-				this.selectSlide(nextSlide);
+				this.sortSlideObjByIndex();
+				if(nextSlide){
+					this.selectSlide(nextSlide);
+				}else{
+					this.dispatchEvent(new Event("close"));
+				}
 			});
 		}else{
 			removeMain();
-			this.selectSlide(nextSlide);
+			this.sortSlideObjByIndex();
+			if(nextSlide){
+				this.selectSlide(nextSlide);
+			}else{
+				this.dispatchEvent(new Event("close"));
+			}
 		}
+
 
 		return slide;
 	}
@@ -310,12 +326,15 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	}
 
 	private sortSlideObjByIndex(){
+		if(this._slides.length == 0) return;
+
 		$.each(this._slides, (i:number, slide:Slide) => {
 			this.obj.append(slide.obj);
 			slide.obj.removeClass("last");
 		});
 		this._slides[this._slides.length - 1].obj.addClass("last");
 		this.obj.append(this.newSlideBtn);
+		this.obj.sortable("refresh");
 	}
 
 	//
@@ -340,9 +359,8 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 	public set slides(value:Slide[]) {
 		this.initialize();
-		this._slides  = value;
-		$.each(this._slides, (number, slide:Slide)=>{
-			this.setSlideUp(slide);
+		$.each(value, (number, slide:Slide)=>{
+			this.addSlide(slide);
 		});
 	}
 	public get slides():Slide[] { return this._slides; }

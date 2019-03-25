@@ -63,7 +63,7 @@ export class Slide extends EventDispatcher {
 	public addLayer(layer:Layer, index:number = -1):Layer {
 		if(!layer) return layer;
 
-		console.log("addLayer at slide : " + layer.id);
+		//console.log("addLayer at slide : " + layer.id);
 
 		if(this._layers.indexOf(layer) != -1){
 			this._layers.splice(this._layers.indexOf(layer), 1);
@@ -269,7 +269,7 @@ export class Slide extends EventDispatcher {
 		slide.durationRatio = this.durationRatio;
 		slide.joining = this.joining;
 		slide.isLock = this.isLock;
-		console.log("this slide has " + this.layers.length + " images.");
+		console.log("this slide has " + this.layers.length + " layers.");
 		$.each(this._layers, (index:number, layer:Layer) => {
 			slide.addLayer(layer.clone());
 		});

@@ -6,7 +6,7 @@ declare var Matrix4: any;
 export class Image extends Layer {
 
 	private _imageId:string = "";
-
+	private _clipRect:number[] = null;
 	
 	constructor(private imgObj:any, transform:any = null, id:number = -1){
 		super(transform, id);
@@ -65,6 +65,9 @@ export class Image extends Layer {
 		var ret = super.makeData();
 		ret.imageId = this.imageId;
 		ret.src = this.imgObj.attr("src");
+
+		if(this._clipRect != null) ret.clipRect = this._clipRect;
+
 		return ret;
 	}
 
@@ -121,7 +124,7 @@ export class Image extends Layer {
 	//
 	
 	private setOriginalSize(imgObj:any):void{
-		var minSize:number = 200;
+		var minSize:number = 50;
 		this._originWidth = imgObj.width();
 		this._originHeight = imgObj.height();
 		this._scaleX_min = minSize / this._originWidth;

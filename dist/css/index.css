@@ -704,11 +704,12 @@ input.imageRef {
 	margin-top: 5px;
 }*/
 .slideList > .newSlideBtn {
-	width:var(--slideListHeight);
+	/*width:var(--slideListHeight);*/
+	width:40px;
 	height:var(--slideListHeight);
 	line-height:var(--slideListHeight);
 	overflow:hidden;
-	font-size:48px;
+	font-size:32px;
 	color:rgba(255,255,255,0.2);
 	text-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);
 	background-color: gray;

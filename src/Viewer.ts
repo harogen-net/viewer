@@ -219,6 +219,9 @@ export class Viewer {
 		this.canvas.addEventListener("close",()=>{
 			this.setMode(ViewerMode.SELECT);
 		});
+		this.list.addEventListener("close",()=>{
+			this.setMode(ViewerMode.SELECT);
+		});
 
 		this.canvas.addEventListener("download", ()=>{
 			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.canvas.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, this.document.bgColor);
@@ -326,8 +329,11 @@ export class Viewer {
 		this.document = null;
 		this.list.initialize();
 		this.canvas.initialize();
-		ImageManager.initialize();
 		this.setMode(ViewerMode.SELECT);
+
+		if(!doc){
+			ImageManager.initialize();
+		}
 
 		//
 
