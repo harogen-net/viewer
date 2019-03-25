@@ -128,7 +128,7 @@ export class Layer {
 	}
 
 	public clone(id:number = -1):Layer {
-		var retLayer:Layer = new Layer(this.transform, id);
+		var retLayer:Layer = new Layer(this.transform, this._id);
 		retLayer.visible = this._visible;
 		retLayer.locked = this._locked;
 		retLayer.opacity = this._opacity;

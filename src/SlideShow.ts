@@ -2,6 +2,7 @@ import { EventDispatcher } from "./events/EventDispatcher";
 import { Slide } from "./__core__/Slide";
 import { Image } from "./__core__/layer/Image";
 import { Layer, LayerType } from "./__core__/Layer";
+import { TextLayer } from "./__core__/layer/TextLayer";
 
 declare var $:any;
 
@@ -361,6 +362,10 @@ export class SlideShow extends EventDispatcher {
 			switch(layer1.type){
 				case LayerType.IMAGE:
 					if((layer1 as Image).imageId != (layer2 as Image).imageId) return false;
+				break;
+				case LayerType.TEXT:
+//					if(layer1.id != layer2.id) return false;
+					if((layer1 as TextLayer).text != (layer2 as TextLayer).text) return false;
 				break;
 				default:
 					if(layer1.id != layer2.id) return false;

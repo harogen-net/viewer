@@ -69,7 +69,7 @@ export class TextLayer extends Layer {
 
 
 	public clone(id:number = -1):TextLayer {
-		var ret:TextLayer = new TextLayer(this.text, this.transform, id);
+		var ret:TextLayer = new TextLayer(this.text, this.transform, this._id);
 		ret.visible = this._visible;
 		ret.locked = this._locked;
 		ret.opacity = this._opacity;

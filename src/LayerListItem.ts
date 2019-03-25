@@ -149,9 +149,11 @@ export class LayerListItem extends EventDispatcher {
 			switch(this._layer.type){
 				case LayerType.IMAGE:
 					this.thumbnail.attr("src",this._layer.data.src);
+					this.thumbnail.show();
 				break;
 				case LayerType.TEXT:
-					this.thumbnail.attr("src",this._layer.data.src);
+					this.thumbnail.attr("src","");
+					this.thumbnail.hide();
 				break;
 				default:
 
