@@ -79,6 +79,10 @@ export class SlideShow extends EventDispatcher {
 		this.duration = parseInt($("#duration").val());
 //		this.bgColor = $("#bgColor").val();
 
+		slides = slides.filter((value:Slide)=>{
+			return !value.disabled;
+		});
+
 		var slideIndex:number = 0;
 		var lastSlide:Slide = undefined;
 		for(var i:number = 0; i < slides.length; i++){

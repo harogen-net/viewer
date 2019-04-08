@@ -64,13 +64,16 @@ export class DropHelper extends EventDispatcher {
 						imgObj.unbind("load");
 						$("body").append(imgObj);
 						imgObj.ready(()=>{
-							var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:imgObj});
-							this.dispatchEvent(e);
-							if(files.length > 0){
-								loadFile(files.shift());
-							}else{
-								console.log("drop complete");
-							}
+						//	setTimeout(()=>{
+								var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:imgObj});
+								this.dispatchEvent(e);
+								
+								if(files.length > 0){
+									loadFile(files.shift());
+								}else{
+									console.log("drop complete");
+								}
+						//	},10);
                         });
 					});
 					//imgのjqueryオブジェクトに画像バイナリデータから生成したハッシュ値を固有IDとしてセット

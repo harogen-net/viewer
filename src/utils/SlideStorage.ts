@@ -268,6 +268,7 @@ export class SlideStorage extends EventDispatcher {
 				slideDatum.durationRatio = slide.durationRatio;
 				slideDatum.joining = slide.joining;
 				slideDatum.isLock = slide.isLock;
+				slideDatum.disabled = slide.disabled;
 
 				var layers:Layer[] = [];
 				if(SlideStorage.VERSION >= 2.1){
@@ -349,6 +350,8 @@ export class SlideStorage extends EventDispatcher {
 				slide.durationRatio = slideDatum.durationRatio;
 				slide.joining = slideDatum.joining;
 				slide.isLock = slideDatum.isLock;
+				slide.disabled = slideDatum.disabled;
+				
 				var layers:Layer[];
 				if(json.version >= 2.1){
 					layers = slideDatum.layers;

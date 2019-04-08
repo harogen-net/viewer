@@ -72,7 +72,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.obj);
 		this.newSlideBtn.click(()=>{
 			this.selectSlide(this.addSlide(new Slide($('<div/>'))));
-		})
+		});
 	}
 
  	setMode(mode:ViewerMode):void {
@@ -117,9 +117,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		}
 
 		slide.id = Math.floor(Math.random()*100000000);
-		$.each(this._slides, (i, slide2:Slide)=>{
+/*		$.each(this._slides, (i, slide2:Slide)=>{
 			console.log(slide2, slide2.id);
-		});
+		});*/
 		this._slidesById[slide.id] = slide;
 
 		this.sortSlideObjByIndex();
@@ -151,7 +151,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			return false;
 		});
 		
-		var durationDiv = $('<div class="duration"><span>x2</span><button class="down">-</button><button class="up">+</button></div>').appendTo(slide.obj);
+		var durationDiv = $('<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>').appendTo(slide.obj);
 		durationDiv.find("button.up").click((e:any)=>{
 			this.lockDoubleClick();
 			if(slide.durationRatio < 9){
@@ -188,9 +188,18 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		var joinArrow = $('<div class="joinArrow"></div>').appendTo(slide.obj);
 		//var joinArrow = $('<div class="joinArrow"><i class="fas fa-arrow-right"></i></div>').appendTo(slide.obj);
-		joinArrow.on("click.slide", ()=>{
+		joinArrow.on("click.slide", (e:any)=>{
 			slide.joining = !slide.joining;
+			e.preventDefault();
+			e.stopImmediatePropagation();
 		});
+
+		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(slide.obj);
+		enableCheck.on("click.slide", (e:any)=>{
+			slide.disabled = !enableCheck.prop("checked");
+			e.stopImmediatePropagation();
+		});
+		enableCheck.prop("checked", !slide.disabled);
 
 		//
 
@@ -362,6 +371,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		$.each(value, (number, slide:Slide)=>{
 			this.addSlide(slide);
 		});
+
+		//Slide追加処理の後、slidesアレイ参照自体を置き換える
+		this._slides = value;
 	}
 	public get slides():Slide[] { return this._slides; }
 

@@ -17,7 +17,6 @@ export class Image extends Layer {
 		//
 
 		this.setOriginalSize(imgObj);
-
 		this.obj.append(imgObj);
 
 		this._imageId = imgObj.data("imageId");
@@ -186,15 +185,44 @@ export class Image extends Layer {
 		return this._clipRect[3];
 	}
 	private updateClipRect(){
-		this.imgObj.css("clip-path","inset(" + this._clipRect[0] + "px " + this._clipRect[1] + "px " + this._clipRect[2] + "px " + this._clipRect[3] + "px)");
+		if(this._clipRect.some((value)=>{
+			return value > 0
+		})){
+			this.imgObj.css("clip-path","inset(" + this._clipRect[0] + "px " + this._clipRect[1] + "px " + this._clipRect[2] + "px " + this._clipRect[3] + "px)");
+		}else{
+			this.imgObj.css("clip-path","");
+		}
 	}
 
-	public get originWidth(){
+/*	public get originWidth(){
 		return this._originWidth - (this._clipRect[1] + this._clipRect[3]);
 	}
 	public get originHeight(){
 		return this._originHeight - (this._clipRect[0] + this._clipRect[2]);
+	}*/
+
+	public get clipedWidth(){
+		return this._originWidth - (this._clipRect[1] + this._clipRect[3]);
+	}
+	public get clipedHeight(){
+		return this._originHeight - (this._clipRect[0] + this._clipRect[2]);
 	}
 
+	//
+
+	public get width(){
+		if(this.obj.width() == 0){
+			return this._scaleX * this.originWidth;
+		}else{
+			return this.obj.width();
+		}
+	}
+	public get height(){
+		if(this.obj.height() == 0){
+			return this._scaleY * this.originHeight;
+		}else{
+			return this.obj.height();
+		}
+	}
 	
 }

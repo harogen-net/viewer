@@ -102,8 +102,6 @@ export class SlideEditable extends Slide implements IDroppable {
 				}
 				this.selectedLayer.rotateBy(theta);
 			}
-
-			//this.selectedImg.rotation = 45;
 		});
 		
 		this.obj.on("mousedown",(e:any) => {
@@ -113,12 +111,11 @@ export class SlideEditable extends Slide implements IDroppable {
 
 		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-			var layer = this.addLayer(new Image(e.detail));
+			var layer = new Image(e.detail);
 			if(layer.originHeight > (layer.originWidth * 1.2)) {
 				layer.rotation -= 90;
 			}
-			this.fitLayer(layer);
-			this.selectLayer(layer);
+			this.selectLayer(this.addLayer(this.fitLayer(layer)));
 		});
 
 
@@ -181,7 +178,6 @@ export class SlideEditable extends Slide implements IDroppable {
 			});
 
 		}*/
-
 
 		this.dispatchEvent(new Event("update"));
 		return layer;

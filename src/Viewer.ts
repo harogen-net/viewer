@@ -244,7 +244,16 @@ export class Viewer {
 			$(".startSlideShow").click(() => {
 				if(this.list.slides.length < 1) return;
 				this.slideShow.setUp(this.list.slides);
-				var startIndex:number = (this.list.selectedSlideIndex != -1) ? this.list.selectedSlideIndex : 0;
+
+				var startIndex:number = 0;
+				if(this.list.selectedSlideIndex != -1){
+					for(var i:number = 0; i < this.list.slides.length; i++){
+						var slide = this.list.slides[i];
+						if(slide.selected) break;
+						if(!slide.disabled) startIndex++;
+					}
+				}
+
 				this.slideShow.run(startIndex);
 			});
 			$("#cb_mirrorH").click(()=>{

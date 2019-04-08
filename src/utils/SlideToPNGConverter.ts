@@ -82,7 +82,8 @@ export class SlideToPNGConverter {
 			ctx.translate(-image.originWidth  / 2, -image.originHeight / 2);
 
 			ctx.globalAlpha = image.opacity;
-			ctx.drawImage(image.imageElement, 0, 0);
+			//ctx.drawImage(image.imageElement, 0, 0);
+			ctx.drawImage(image.imageElement, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,0,0,image.width, image.height);
 		});
 
 		return canvas;

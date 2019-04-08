@@ -36,6 +36,7 @@ export class Slide extends EventDispatcher {
 	private _isLock:boolean = false;
 	private _durationRatio:number = 1;
 	private _joining:boolean = false;
+	private _disabled:boolean = false;
 
 	
 	constructor(public obj:any){
@@ -175,6 +176,15 @@ export class Slide extends EventDispatcher {
 	set backgroundColor(colorStr:string) {
 		this.container.css("backgroundColor", colorStr);
 	}
+	set disabled(value:boolean) {
+		this._disabled = value;
+		if(this._disabled){
+			this.obj.addClass("disabled");
+		}else{
+			this.obj.removeClass("disabled");
+		}
+	}
+	get disabled():boolean { return this._disabled; }
 
 	//
 
@@ -217,7 +227,7 @@ export class Slide extends EventDispatcher {
 	}
 	
 	public fitLayer(layer:Layer):Layer {
-		console.log("fitLayer");
+		console.log("fitLayer", layer.width, layer.height);
 		if(layer.width == 0 || layer.height ==0)
 		{
 			return layer;
@@ -269,6 +279,7 @@ export class Slide extends EventDispatcher {
 		slide.durationRatio = this.durationRatio;
 		slide.joining = this.joining;
 		slide.isLock = this.isLock;
+		slide.disabled = this.disabled;
 		console.log("this slide has " + this.layers.length + " layers.");
 		$.each(this._layers, (index:number, layer:Layer) => {
 			slide.addLayer(layer.clone());

@@ -342,10 +342,10 @@ export class SlideCanvas extends EventDispatcher {
 		this.inputRotation = new PropertyInput($(".property .rotation input").eq(0), "rotation", {min:-180, max:180, v:5});
 		this.inputOpacity = new PropertyInput($(".property .opacity input").eq(0), "opacity", {min:0, max:1, v:0.1});
 
-		this.inputClip1 = new PropertyInput($(".property .clip input").eq(0), "clipT", {v:-25});
-		this.inputClip2 = new PropertyInput($(".property .clip input").eq(1), "clipR", {v:-25});
-		this.inputClip3 = new PropertyInput($(".property .clip input").eq(2), "clipB", {v:-25});
-		this.inputClip4 = new PropertyInput($(".property .clip input").eq(3), "clipL", {v:-25});
+		this.inputClip1 = new PropertyInput($(".property .clip input").eq(0), "clipT", {v:-25, min:0});
+		this.inputClip2 = new PropertyInput($(".property .clip input").eq(1), "clipR", {v:-25, min:0});
+		this.inputClip3 = new PropertyInput($(".property .clip input").eq(2), "clipB", {v:-25, min:0});
+		this.inputClip4 = new PropertyInput($(".property .clip input").eq(3), "clipL", {v:-25, min:0});
 
 		this.propertyInputs = [this.inputTransX, this.inputTransY, this.inputScaleX, this.inputRotation, this.inputOpacity, this.inputClip1, this.inputClip2, this.inputClip3, this.inputClip4];
 //		this.propertyInputs = [this.inputTransX, this.inputTransY, this.inputScaleX, this.inputScaleY, this.inputRotation, this.inputOpacity];

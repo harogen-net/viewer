@@ -76,9 +76,9 @@ export class ImageManager extends EventDispatcher {
 			this.allImages.splice(this.allImages.indexOf(image), 1);
 			console.log("ImageManager : deleted : total " + this.allImages.length);
 		}
-		$.each(this.allImages, (i, image2:Image)=>{
+/*		$.each(this.allImages, (i, image2:Image)=>{
 			console.log(image2.imageId.substr(0,10) + "...");
-		});
+		});*/
 	}
 
 	public swapImageAll(id:string, imgObj:any) {

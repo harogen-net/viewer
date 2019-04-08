@@ -24,7 +24,7 @@ export class VDoc {
 	constructor(slides?:Slide[], options?:any){
 		this.slides = slides || [];
 
-		var bgColor:string|undefined = undefined;
+		var bgColor:string|undefined = this.BG_COLOR_INIT;
 		var createTime:number|undefined = new Date().getTime();
 		var editTime:number|undefined = createTime;
 		var title:string|undefined = DateUtil.getDateString();
@@ -39,6 +39,8 @@ export class VDoc {
 		this.createTime = createTime;
 		this.editTime = editTime;
 		this.title = title;
+
+
 	}
 
 	//
