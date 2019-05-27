@@ -3,6 +3,7 @@ import {IDroppable} from "../interface/IDroppable";
 
 declare var $:any;
 declare var jsSHA:any;
+//declare function require(x: string): any;
 
 export class DropHelper extends EventDispatcher {
 	public static readonly EVENT_DROP_COMPLETE:string = "DropHelper.EVENT_DROP_COMPLETE";

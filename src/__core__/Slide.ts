@@ -58,7 +58,7 @@ export class Slide extends EventDispatcher {
 			this.updateSize();
 		}
 
-		this.joining = true;
+		//this.joining = true;
 	}
 
 	public addLayer(layer:Layer, index:number = -1):Layer {
@@ -330,7 +330,6 @@ export class Slide extends EventDispatcher {
 		}
 //		console.log(this.id, "=============");
 //		console.log("処理前 : ", this._images.length, aData.length);
-
 
 		var applyLayerFromLayer = (toLayer:Layer, fromLayer:Layer)=>{
 			toLayer.transform = fromLayer.transform;

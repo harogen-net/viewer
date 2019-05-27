@@ -49,7 +49,12 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			var slide = new Slide(slideObj);
 			//slide.updateSize();
 			this.addSlide(slide);
-			slide.fitLayer(slide.addLayer(new Image(e.detail)));
+
+			var layer = slide.addLayer(new Image(e.detail));
+			if(layer.originHeight > (layer.originWidth * 1.2)) {
+				layer.rotation -= 90;
+			}
+			slide.fitLayer(layer);
 		}); 
 
 		$(window).resize(()=>{

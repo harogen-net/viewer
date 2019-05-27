@@ -184,7 +184,15 @@ export class SlideShow extends EventDispatcher {
 				slide.updateSize();
 				slide.obj.show();
 				slide.obj.animate({"opacity":1},1000);
-			})
+
+				for(var i:number = 0; i < slide.layers.length; i++){
+					var layer = slide.layers[i];
+					var trans = layer.transform;
+					if(layer.type == LayerType.TEXT){	//文字を反転から救う
+						this.avoidMirrorText(layer as TextLayer, trans.mirrorH, trans.mirrorV);
+					}
+				}				
+			});
 			return;
 		}
 
@@ -301,8 +309,13 @@ export class SlideShow extends EventDispatcher {
 			this.history.push(slide);
 		}
 		for(var i:number = 0; i < slide.layers.length; i++){
-			slide.layers[i].transform = datum.transforms[i];
-			slide.layers[i].opacity = datum.transforms[i].opacity;
+			var layer = slide.layers[i];
+			var trans = datum.transforms[i];
+			layer.transform = trans;
+			if(layer.type == LayerType.TEXT){	//文字を反転から救う
+				this.avoidMirrorText(layer as TextLayer, trans.mirrorH, trans.mirrorV);
+			}
+			layer.opacity = datum.transforms[i].opacity;
 		}
 		
 		this.timer = setTimeout(()=>{
@@ -378,6 +391,25 @@ export class SlideShow extends EventDispatcher {
 		}
 
 		return true;
+	}
+
+	//textLayerを鏡面再生でも読めるようにする
+	//回転角が±90度あたりならば鏡面の縦横を逆にして判定
+	private avoidMirrorText(textLayer:TextLayer, defaultMirrorH:boolean, defaultMirrorV:boolean){
+		if(this._mirrorH){
+			if((textLayer.rotation > 45 && textLayer.rotation < 135) || (textLayer.rotation < -45 && textLayer.rotation > -135)){
+				textLayer.mirrorV = !defaultMirrorV;
+			}else{
+				textLayer.mirrorH = !defaultMirrorH;
+			}
+		}
+		if(this._mirrorV){
+			if((textLayer.rotation > 45 && textLayer.rotation < 135) || (textLayer.rotation < -45 && textLayer.rotation > -135)){
+				textLayer.mirrorH = !defaultMirrorH;
+			}else{
+				textLayer.mirrorV = !defaultMirrorV;
+			}
+		}
 	}
 
 	//

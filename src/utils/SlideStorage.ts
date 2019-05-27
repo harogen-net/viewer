@@ -322,7 +322,7 @@ export class SlideStorage extends EventDispatcher {
 				$.each(imageData, (j:number, datum:any)=>{
 					var imgObj:any = $("<img />");
 					imgObj.attr("src",datum.src);
-					if(!datum.imageId){
+					if(datum.imageId == undefined || datum.imageId == ""){
 						var shaObj = new jsSHA("SHA-256","TEXT");
 						shaObj.update(datum.src);
 						datum.imageId = shaObj.getHash("HEX");

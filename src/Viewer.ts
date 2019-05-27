@@ -266,18 +266,33 @@ export class Viewer {
 						
 			$(".new").click(()=>{
 				if(this.document.slides.length == 0) return;
-				if($("#cb_ignore").prop("checked") || window.confirm('clear slides and new document. Are you sure?')){
+				//if($("#cb_ignore").prop("checked") || window.confirm('clear slides and new document. Are you sure?')){
+				if(window.confirm('clear slides and new document. Are you sure?')){
 					this.newDocument();
 				}
 			});
 
+			$(".fileSelect.up").click(()=>{
+				var val = $('select.filename').val();
+				var prevOp = $('select.filename option[value="' + val + '"]').prev();
+				if(prevOp.length == 0) return;
+				$('select.filename').val(prevOp.attr("value"));
+				this.storage.load();
+			});
+			$(".fileSelect.down").click(()=>{
+				var val = $('select.filename').val();
+				var nextOp = $('select.filename option[value="' + val + '"]').next();
+				if(nextOp.length == 0) return;
+				$('select.filename').val(nextOp.attr("value"));
+				this.storage.load();
+			});
 		
 			$(".save").click(()=>{
 				if(this.list.slides.length > 0){
 					this.storage.save(this.document);
 				}
 			});
-			$(".dispose").click(()=>{
+			$(".dispose").dblclick(()=>{
 				if($('select.filename').val() == -1) return;
 				if($("#cb_ignore").prop("checked") || window.confirm('delete selected save data. Are you sure?')){
 					this.storage.delete();
@@ -334,6 +349,12 @@ export class Viewer {
 
 
 		}
+
+		//
+
+		window.addEventListener('beforeunload', function(e){
+			e.returnValue = "ページを離れます。よろしいですか？";
+		},false);
 
 		this.newDocument();
 	}

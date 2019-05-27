@@ -67,7 +67,9 @@ export class ImageManager extends EventDispatcher {
 		}
 
 		$.each(this.allImages, (i, image2:Image)=>{
-			console.log(image2.imageId.substr(0,10) + "...");
+			if(image2.imageId){
+				console.log(image2.imageId.substr(0,10) + "...");
+			}
 		});
 	}
 

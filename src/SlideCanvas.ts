@@ -29,20 +29,20 @@ export class SlideCanvas extends EventDispatcher {
 		super();
 
 		this.UIsForImage = [
-			$("button.cut"),
-			$("button.copy"),
-			$("button.fit"),
-			$("button.rotateL"),
-			$("button.rotateR"),
-			$("button.mirrorH"),
-			$("button.mirrorV"),
-			$("button.delete"),
-			$("button.copyTrans"),
-			$("button.pasteTrans"),
-//			$("button.imageRef"),
-			$("button.download"),
-			$("button.up"),
-			$("button.down")
+			$("#main button.cut"),
+			$("#main button.copy"),
+			$("#main button.fit"),
+			$("#main button.rotateL"),
+			$("#main button.rotateR"),
+			$("#main button.mirrorH"),
+			$("#main button.mirrorV"),
+			$("#main button.delete"),
+			$("#main button.copyTrans"),
+			$("#main button.pasteTrans"),
+//			$("#main button.imageRef"),
+			$("#main button.download"),
+			$("#main button.up"),
+			$("#main button.down")
 		];
 		$.each(this.UIsForImage, (number, obj:any)=>{
 			obj.prop("disabled", true);

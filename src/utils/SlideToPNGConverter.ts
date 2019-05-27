@@ -62,6 +62,7 @@ export class SlideToPNGConverter {
 		$.each(slide.layers, (number, layer:Layer)=>{
 			if(layer.type != LayerType.IMAGE) return;
 			var image = layer as Image;
+			if (!image.visible) return;
 
 			var matrix:number[] = layer.matrix;
 			ctx.setTransform(1,0,0,1,0,0);
