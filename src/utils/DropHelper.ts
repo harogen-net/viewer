@@ -1,5 +1,6 @@
 import {EventDispatcher} from "../events/EventDispatcher";
 import {IDroppable} from "../interface/IDroppable";
+import { ImageManager } from "./ImageManager";
 
 declare var $:any;
 declare var jsSHA:any;
@@ -65,21 +66,20 @@ export class DropHelper extends EventDispatcher {
 						imgObj.unbind("load");
 						$("body").append(imgObj);
 						imgObj.ready(()=>{
-						//	setTimeout(()=>{
-								var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:imgObj});
-								this.dispatchEvent(e);
-								
-								if(files.length > 0){
-									loadFile(files.shift());
-								}else{
-									console.log("drop complete");
-								}
-						//	},10);
+							ImageManager.shared.registImageData(shaObj.getHash("HEX"), imgObj.attr("src"), imgObj.width(), imgObj.height());
+							var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:shaObj.getHash("HEX")});
+							this.dispatchEvent(e);
+							
+							if(files.length > 0){
+								loadFile(files.shift());
+							}else{
+								console.log("drop complete");
+							}
                         });
 					});
 					//imgのjqueryオブジェクトに画像バイナリデータから生成したハッシュ値を固有IDとしてセット
-					imgObj.data("imageId",shaObj.getHash("HEX"));
-					imgObj.data("name",file.name);
+//					imgObj.data("imageId",shaObj.getHash("HEX"));
+//					imgObj.data("name",file.name);
 				});
 				try{
 					reader.readAsDataURL(file);

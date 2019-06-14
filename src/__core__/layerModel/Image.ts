@@ -1,5 +1,6 @@
-import { Layer, LayerType } from "../layerModel/Layer";
+import { Layer, LayerType } from "./Layer";
 import { IImage } from "./ILayer";
+import { ImageManager } from "../../utils/ImageManager";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -10,7 +11,11 @@ export class Image extends Layer implements IImage {
 	
 	constructor(private _imageId:string, transform:any = null, id:number = -1){
 		super(transform, id);
+		console.log("Image const:" , _imageId);
 		this._type = LayerType.IMAGE;
+
+		this._originWidth = ImageManager.shared.getImageById(_imageId).width;
+		this._originHeight = ImageManager.shared.getImageById(_imageId).height;
 	}
 
 	//

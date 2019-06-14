@@ -1,15 +1,16 @@
 import { EventDispatcher } from "./events/EventDispatcher";
-import { SlideEditable } from "./__core__/SlideEditable";
-import { Slide } from "./__core__/Slide";
-import { Image } from "./__core__/layer/Image";
+import { SlideEditable } from "./__core__/slide/EditableSlide";
+import { SlideView } from "./__core__/SlideView";
+import { Image } from "./__core__/layerModel/Image";
 import { ImageManager } from "./utils/ImageManager";
 import { LayerListItem } from "./LayerListItem";
 import { PropertyInput } from "./PropertyInput";
 import { Viewer,ViewerMode } from "./Viewer";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";
-import { LayerType, Layer } from "./__core__/Layer";
-import { TextLayer } from "./__core__/layer/TextLayer";
+import { LayerType, Layer } from "./__core__/layerModel/Layer";
+import { TextLayer } from "./__core__/layerModel/TextLayer";
+import { LayerView } from "./__core__/layerView/LayerView";
 
 
 declare var $:any;
@@ -68,10 +69,10 @@ export class SlideCanvas extends EventDispatcher {
 				}
 			}
 
-			this.updateMenu(this.slide.layers);
+			this.updateMenu(this.slide.layerViews);
 		});
 		this.slide.addEventListener("update",(any)=>{
-			this.updateMenu(this.slide.layers);
+			this.updateMenu(this.slide.layerViews);
 		});
 		this.slide.addEventListener("scale",(any)=>{
 			this.updateShadow();
@@ -173,7 +174,7 @@ export class SlideCanvas extends EventDispatcher {
 		});
 
 		$("input.imageRef").on("change",(e)=>{
-			if(this.slide.selectedLayer == null) return;
+		/*	if(this.slide.selectedLayer == null) return;
 
 			var targetImage:Image = this.slide.selectedLayer as Image;
 			if(targetImage == null) return;
@@ -208,18 +209,18 @@ export class SlideCanvas extends EventDispatcher {
 			}
 			catch(err){
 				console.log(err);
-			}
+			}*/
 		});
 
 		$("button.download").click(()=>{
-			if(this.slide.selectedLayer == null) return;
+/*			if(this.slide.selectedLayer == null) return;
 
 			var a = document.createElement("a");
 			a.href = this.slide.selectedLayer.data.src;
 			a.target = '_blank';
 			a.download = this.slide.selectedLayer.name;
 			a.click();
-			window.URL.revokeObjectURL(a.href);
+			window.URL.revokeObjectURL(a.href);*/
 		});
 
 
@@ -333,7 +334,7 @@ export class SlideCanvas extends EventDispatcher {
 	private propertyInputs:PropertyInput[];
 	private items:LayerListItem[];
 
-	private constructMenu(slide:Slide):void{
+	private constructMenu(slide:SlideView):void{
 
 		this.inputTransX = new PropertyInput($(".property .position input").eq(0), "x", {v:-25});
 		this.inputTransY = new PropertyInput($(".property .position input").eq(1), "y", {v:-25});
@@ -356,7 +357,7 @@ export class SlideCanvas extends EventDispatcher {
 		//
 
 		this.items = [];
-		for(var i:number = 0; i < Slide.LAYER_NUM_MAX; i++){
+		for(var i:number = 0; i < SlideView.LAYER_NUM_MAX; i++){
 			var item = new LayerListItem();
 			item.addEventListener("update", this.onLayerUpdate);
 			this.items.push(item);
@@ -385,7 +386,7 @@ export class SlideCanvas extends EventDispatcher {
 			},2);
 		});
 		slide.addEventListener("update",(any)=>{
-			this.updateMenu(this.slide.layers);
+			this.updateMenu(this.slide.layerViews);
 			this.updateProperty();
 		});
 
@@ -400,16 +401,16 @@ export class SlideCanvas extends EventDispatcher {
 
 
 
-	private updateMenu(layers:Layer[] = null):void{
+	private updateMenu(layers:LayerView[] = null):void{
 //	private updateMenu(images:Image[]):void{
-		layers = this.slide.layers;
+		layers = this.slide.layerViews;
 		$.each(this.items, (number, item:LayerListItem)=>{
 			item.obj.detach();
 			item.layer = null;
 		});
-		$.each(layers, (i:number, layer:Layer)=>{
+		$.each(layers, (i:number, layerView:LayerView)=>{
 			$(".layer ul").prepend(this.items[i].obj);
-			this.items[i].layer = layer;
+			this.items[i].layer = layerView;
 		});
 
 		//$(".layer ul").sortable("refresh");
@@ -453,7 +454,7 @@ export class SlideCanvas extends EventDispatcher {
 		switch(e.detail.subType){
 			case "lock_on":
 				item.layer.locked = true;
-				if(item.layer == this.slide.selectedLayer){
+				if(item.layer == this.slide.selectedLayerView){
 					this.slide.selectLayer(null);
 				}
 				this.slide.dispatchEvent(new Event("update"));
@@ -477,7 +478,7 @@ export class SlideCanvas extends EventDispatcher {
 				break;
 			case "eye_off":
 				item.layer.visible = false;
-				if(item.layer == this.slide.selectedLayer){
+				if(item.layer == this.slide.selectedLayerView){
 					this.slide.selectLayer(null);
 				}
 				this.slide.dispatchEvent(new Event("update"));
@@ -497,13 +498,13 @@ export class SlideCanvas extends EventDispatcher {
 				this.slide.dispatchEvent(new Event("update"));
 				break;
 			case "select":
-				this.slide.selectLayer(item.layer);
+				this.slide.selectLayer(item.layer.data);
 				break;
 			case "delete":
 				if(item.layer.shared && window.confirm('delete all shared image. Are you sure?')){
 					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layer, delete:true}}));
 				}
-				this.slide.removeLayer(item.layer);
+				this.slide.removeLayer(item.layer.data);
 			break;
 			default:
 			break;

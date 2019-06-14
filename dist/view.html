@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="jp">
+<head>
+<meta charset="UTF-8">
+<script src="js/crc32.min.js"></script>
+<script src="js/matrixgl.min.js"></script>
+<script src="js/jszip.min.js"></script>
+<script src="js/sha.js"></script>
+<script src="js/index.js" ></script>
+<link rel="stylesheet" type="text/css" href="css/index.css" />
+<link rel="stylesheet" type="text/css" href="css/fontawesome-all.css" />
+<link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css" />
+<title>Viewer</title>
+</head>
+<body>
+<div id="wrapper">
+	<div id="menu" class="menu">
+		<div>
+			<button class="startSlideShow"><i class="fas fa-play"></i></button>
+		</div>
+		<div>
+			<button class="new"><i class="far fa-file"></i> <span>NEW</span></button>
+		</div>
+		<div>
+			<button class="fileSelect up"><i class="fas fa-chevron-left"></i></button>
+			<select class="filename">
+				<option value="-1">---quick save---</option>
+			</select>
+			<button class="fileSelect down"><i class="fas fa-chevron-right"></i></button>
+		</div>
+		<div>
+			<button class="save"><i class="fas fa-save"></i> <span>SAVE</span></button>
+			<button class="dispose"><i class="fas fa-trash"></i> <span>DEL</span></button>
+			<button class="load"><i class="fas fa-download"></i> <span>LOAD</span></button>
+		</div>
+		<div>
+			<button class="import"><i class="fas fa-file-import"></i> <span>IMPORT</span></button>
+			<input class="import" type="file" value="" accept=".png,.hvd,.hvz">
+		</div>
+		<div>
+			<span>DURATION:<select id="duration">
+				<option value="1">0</option>
+				<option value="500">500</option>
+				<option value="1000">1000</option>
+				<option value="2000" selected>2000</option>
+				<option value="3000">3000</option>
+				<option value="4000">4000</option>
+				<option value="5000">5000</option>
+			</select>
+			</span>
+			<span>INTERVAL:<select id="interval">
+				<option value="500">500</option>
+				<option value="1000">1000</option>
+				<option value="2000">2000</option>
+				<option value="3000">3000</option>
+				<option value="4000">4000</option>
+				<option value="5000">5000</option>
+				<option value="6000" selected>6000</option>
+				<option value="7000">7000</option>
+				<option value="8000">8000</option>
+				<option value="9000">9000</option>
+				<option value="10000">10000</option>
+				<option value="11000">11000</option>
+				<option value="12000">12000</option>
+				<option value="13000">13000</option>
+				<option value="14000">14000</option>
+				<option value="15000">15000</option>
+			</select>
+			</span>
+			<span><input id="bgColor" type="color"  value="#999999" /></span>
+		</div>
+		<div>
+			<label for="cb_fullscreen"><input id="cb_fullscreen" class="fullscreen" type="checkbox"><span>FULLSCREEN</span></label>
+			<label for="cb_ignore"><input id="cb_ignore" class="fullscreen" type="checkbox" checked="checked"><span>IGNORE WARNING</span></label>
+		</div>
+		<div>
+			<label for="cb_mirrorH"><input id="cb_mirrorH" class="fullscreen" type="checkbox"><span>MIRROR H</span></label>
+			<label for="cb_mirrorV"><input id="cb_mirrorV" class="fullscreen" type="checkbox"><span>MIRROR V</span></label>
+		</div>
+	</div>
+	<div id="main">
+		<div class="list"></div>
+	</div>
+</div>
+
+</body>
+</html>

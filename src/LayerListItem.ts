@@ -1,7 +1,11 @@
-import { Image } from "./__core__/layer/Image";
+import { Image } from "./__core__/layerModel/Image";
 import { EventDispatcher } from "./events/EventDispatcher";
-import { Layer, LayerType } from "./__core__/Layer";
-import { TextLayer } from "./__core__/layer/TextLayer";
+import { Layer, LayerType } from "./__core__/layerModel/Layer";
+import { TextLayer } from "./__core__/layerModel/TextLayer";
+import { LayerView } from "./__core__/layerView/LayerView";
+import { TextView } from "./__core__/layerView/TextView";
+import { ImageManager } from "./utils/ImageManager";
+import { ImageView } from "./__core__/layerView/ImageView";
 
 declare var $:any;
 
@@ -9,7 +13,7 @@ export class LayerListItem extends EventDispatcher {
 	
 	public obj:any;
 
-	private _layer:Layer;
+	private _layer:LayerView;
 
 	private eyeBtn:any;
 	private lockBtn:any;
@@ -107,7 +111,8 @@ export class LayerListItem extends EventDispatcher {
 				}
 			break;
 			case LayerType.TEXT:
-				this.label.text((this._layer as TextLayer).plainText);
+				this.label.text((this._layer as TextView).text);
+				//this.label.text((this._layer as TextLayer).plainText);
 			break;
 		}
 
@@ -140,7 +145,7 @@ export class LayerListItem extends EventDispatcher {
 	// 	this.label.text(value);
 	// }
 	
-	public set layer(value:Layer){
+	public set layer(value:LayerView){
 		this._layer = value;
 		
 		this.update();
@@ -148,7 +153,7 @@ export class LayerListItem extends EventDispatcher {
 		if(this._layer != null){
 			switch(this._layer.type){
 				case LayerType.IMAGE:
-					this.thumbnail.attr("src",this._layer.data.src);
+					this.thumbnail.attr("src", ImageManager.shared.getImageById((this._layer as ImageView).imageId).imgObj.attr("src"));
 					this.thumbnail.show();
 				break;
 				case LayerType.TEXT:
@@ -161,7 +166,7 @@ export class LayerListItem extends EventDispatcher {
 			}
 		}
 	}
-	public get layer():Layer{
+	public get layer():LayerView{
 		return this._layer;
 	}
 

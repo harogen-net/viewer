@@ -1,6 +1,8 @@
 :root {
 	--slideBackgroundColor:#999999;
 	--slideListHeight:110px;
+	--slideWidth:1920px;
+	--slideHeight:1080px;
 	--textGlowColor:black;
 }
 
@@ -103,6 +105,58 @@ label {
 	border-bottom: 1px solid gray;
 	margin-bottom: 5px;
 }
+
+/* ---------------------- imagelist ---------------------- */
+#images {
+	display: block;
+	position: absolute;
+	right:0;
+	top:0;
+	font-size:0.8rem;
+}
+#images > button {
+	background:none;
+	border:none;
+	width:50px;
+	height:50px;
+	font-size:20px;
+	line-height: 50px;
+	position: absolute;
+	right:0;
+	top:40px;
+	z-index: 2147483645;
+	cursor: pointer;
+}
+#images > button:hover {
+	opacity:0.5;
+}
+#images > button:focus {
+	outline-style: none;
+}
+#images > button:active {
+	right:-1px;
+	top:41px;
+}
+#images .container {
+	display: none;
+	position: absolute;
+	right:0;
+	top:0;
+	z-index: 2147483644;
+	padding:20px 20px 20px 20px;
+	background:rgba(255,255,255,.95);
+	width:100vh;
+	height:100vh;
+}
+#images .container > img {
+	width:100px;
+	height:100px;
+	object-fit: contain;
+	background-color: gray;
+	box-shadow: 1px 1px 5px rgba(0,0,0,0.5) inset;
+	margin: 0 5px 5px 0;
+}
+
 
 /* ---------------------- menu ---------------------------- */
 #menu {

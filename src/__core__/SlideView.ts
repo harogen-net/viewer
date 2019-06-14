@@ -1,15 +1,15 @@
-import { Image } from "./layer/Image";
+import { Image } from "./layerModel/Image";
 import {EventDispatcher} from "../events/EventDispatcher";
 import { ImageManager } from "../utils/ImageManager";
 import { Viewer } from "../Viewer";
-import { Layer, LayerType } from "./Layer";
-import { TextLayer } from "./layer/TextLayer";
+import { Layer, LayerType } from "./layerModel/Layer";
+import { TextLayer } from "./layerModel/TextLayer";
 
 declare var $: any;
 
-export class Slide extends EventDispatcher {
-	static slideFromImage(img:Layer):Slide {
-		var slide = new Slide($('<div />'));
+export class SlideView extends EventDispatcher {
+	static slideFromImage(img:Layer):SlideView {
+		var slide = new SlideView($('<div />'));
 		slide.addLayer(img);
 		return slide;
 	}
@@ -57,32 +57,50 @@ export class Slide extends EventDispatcher {
 		}else {
 			this.updateSize();
 		}
-
-		//this.joining = true;
 	}
+
+	public clone():this {
+		console.log("clone at slide : " + this.id);
+		var newObj:any = $('<div />');
+		var slide:this = new (this.constructor as any)(new SlideView(newObj));
+
+		slide.id = this.id;
+		slide.durationRatio = this.durationRatio;
+		slide.joining = this.joining;
+		slide.isLock = this.isLock;
+		slide.disabled = this.disabled;
+		console.log("this slide has " + this.layers.length + " layers.");
+		$.each(this._layers, (index:number, layer:Layer) => {
+			slide.addLayer(layer.clone());
+		});
+
+		return slide;
+	}
+
+	//
 
 	public addLayer(layer:Layer, index:number = -1):Layer {
 		if(!layer) return layer;
 
-		//console.log("addLayer at slide : " + layer.id);
+		console.log("addLayer at slide");
+		console.log(layer);
 
 		if(this._layers.indexOf(layer) != -1){
 			this._layers.splice(this._layers.indexOf(layer), 1);
 		}else {
-			if(this._layers.length >= Slide.LAYER_NUM_MAX){
+			if(this._layers.length >= SlideView.LAYER_NUM_MAX){
 				alert("max layer num exceeded.");
 				return layer;
 			}
 			this._layers.push(layer);
 		}
 		
-		this.container.append(layer.obj);
+//		this.container.append(layer.obj);
+//		this.setLayersZIndex();
 		
-		this.setLayersZIndex();
-		
-		if(layer.type == LayerType.IMAGE){
-			ImageManager.registImage(layer as Image);
-		}
+		// if(layer.type == LayerType.IMAGE){
+		// 	ImageManager.registImage(layer as Image);
+		// }
 
 		return layer;
 	}
@@ -93,12 +111,11 @@ export class Slide extends EventDispatcher {
 			this._layers.splice(this._layers.indexOf(layer), 1);
 		}
 
-		if(layer.type == LayerType.IMAGE){
-			ImageManager.deleteImage(layer as Image);
-		}
-		layer.obj.remove();
-
-		this.setLayersZIndex();
+		// if(layer.type == LayerType.IMAGE){
+		// 	ImageManager.deleteImage(layer as Image);
+		// }
+//		layer.obj.remove();
+//		this.setLayersZIndex();
 		
 		return layer;
 	}
@@ -227,7 +244,7 @@ export class Slide extends EventDispatcher {
 	}
 	
 	public fitLayer(layer:Layer):Layer {
-		console.log("fitLayer", layer.width, layer.height);
+		console.log("fitLayer", layer, layer.width, layer.height);
 		if(layer.width == 0 || layer.height ==0)
 		{
 			return layer;
@@ -252,7 +269,7 @@ export class Slide extends EventDispatcher {
 		var scale1:number = Math.min(scaleX, scaleY);
 		var scale2:number = Math.max(scaleX, scaleY);
 
-		if(layer.x == Slide.centerX() && layer.y == Slide.centerY()){
+		if(layer.x == SlideView.centerX() && layer.y == SlideView.centerY()){
 			var compRatio:number = Math.pow(10,10);
 			if(Math.round(layer.scale * compRatio) == Math.round(scale1 * compRatio)){
 				layer.scale = scale2;
@@ -261,8 +278,8 @@ export class Slide extends EventDispatcher {
 			}
 		}else{
 			layer.scale = scale1;
-			layer.x = Slide.centerX()
-			layer.y = Slide.centerY();
+			layer.x = SlideView.centerX()
+			layer.y = SlideView.centerY();
 		}
 
 		return layer;
@@ -270,35 +287,20 @@ export class Slide extends EventDispatcher {
 
 	//
 
-	public clone():Slide {
-		console.log("clone at slide : " + this.id);
-		var newObj:any = $('<div />');
-		var slide:Slide = new Slide(newObj);
 
-		slide.id = this.id;
-		slide.durationRatio = this.durationRatio;
-		slide.joining = this.joining;
-		slide.isLock = this.isLock;
-		slide.disabled = this.disabled;
-		console.log("this slide has " + this.layers.length + " layers.");
-		$.each(this._layers, (index:number, layer:Layer) => {
-			slide.addLayer(layer.clone());
-		});
-
-		return slide;
-	}
 
 	//
 
-	getData():any[] {
-		var ret:any[] = [];
+	getData():Layer[] {
+		var ret:Layer[] = [];
 		$.each(this._layers, (index:number,img:Layer) => {
-			ret.push(img.data);
+			ret.push(img);
 		});
 		return ret;
 	}
 
-	setData(aData:any[]){
+	setData(aData:Layer[]){
+		console.log("setData called : " + aData);
 		if(this._isLock) return;
 		
 		var i,j:number;
@@ -310,14 +312,14 @@ export class Slide extends EventDispatcher {
 		for(i = 0; i < this._layers.length; i++){
 			layer = this._layers[i];
 			found = false;
-			$.each(aData, (j, datum) => {
-				if(datum.class.id == layer.id) {
-					if(datum.class.type == LayerType.IMAGE){
-						if((datum.class as Image).imageId == (layer as Image).imageId){
-							layer.name = datum.class.name;
+			$.each(aData, (j, datum:Layer) => {
+				if(datum.id == layer.id) {
+					if(datum.type == LayerType.IMAGE){
+						if((datum as Image).imageId == (layer as Image).imageId){
+							layer.name = datum.name;
 							found = true;
 						}
-					}else if(datum.class.type == LayerType.TEXT){
+					}else if(datum.type == LayerType.TEXT){
 						found = true;
 					}
 				}
@@ -331,32 +333,23 @@ export class Slide extends EventDispatcher {
 //		console.log(this.id, "=============");
 //		console.log("処理前 : ", this._images.length, aData.length);
 
-		var applyLayerFromLayer = (toLayer:Layer, fromLayer:Layer)=>{
-			toLayer.transform = fromLayer.transform;
-			toLayer.locked = fromLayer.locked;
-			toLayer.visible = fromLayer.visible;
-			toLayer.opacity = fromLayer.opacity;
-			toLayer.shared = fromLayer.shared;
-			toLayer.name = fromLayer.name;
-		};
-
-		$.each(aData, (i, datum) => {
+		$.each(aData, (i, datum:Layer) => {
 			found = false;
 
 			for(j = 0; j < this._layers.length; j++){
 				layer = this._layers[j];
-				if(datum.class.id == layer.id){
-					switch(datum.class.type){
+				if(datum.id == layer.id){
+					switch(datum.type){
 						case LayerType.IMAGE:
 						{
-							var imageClass = datum.class as Image;
+							var imageClass = datum as Image;
 							var imageLayer = layer as Image;
 							if(imageClass.imageId != imageLayer.imageId){
 								this.removeLayer(imageLayer);
 								//j--;
 							}else{
 								found = true;
-								applyLayerFromLayer(imageLayer, imageClass);
+								Layer.copyAttributes(imageLayer, imageClass);
 								imageLayer.clipRect = imageClass.clipRect;
 								newLayers[i] = layer;
 							}
@@ -364,11 +357,11 @@ export class Slide extends EventDispatcher {
 						break;
 						case LayerType.TEXT:
 						{
-							var textClass = datum.class as TextLayer;
+							var textClass = datum as TextLayer;
 							var textLayer = layer as TextLayer;
 
 							found = true;
-							applyLayerFromLayer(layer, datum.class);
+							Layer.copyAttributes(layer, datum);
 							textLayer.text = textClass.text;
 							newLayers[i] = layer;
 						}
@@ -382,21 +375,17 @@ export class Slide extends EventDispatcher {
 			if(!found){
 				//console.log("\t",datum.class.id + "～のImageがありません");
 				//console.log((datum.class as Layer).transform);
-				newLayers[i] = this.addLayer(datum.class.clone(datum.class.id));
+				newLayers[i] = this.addLayer(datum.clone(datum.id));
 			}
 		});
+
+		console.log(newLayers);
 
 
 		this._layers = newLayers;
 //		console.log(this.id, "/=============");
-		this.setLayersZIndex();
+
 	}
 
-	//
 
-	protected setLayersZIndex(){
-		for(var i = 0; i < this._layers.length; i++){
-			this._layers[i].obj.css("z-index",i);
-		}
-	}
 }

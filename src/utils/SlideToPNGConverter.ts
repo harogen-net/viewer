@@ -1,8 +1,9 @@
 import { VDoc } from "../__core__/VDoc";
 import { Viewer } from "../Viewer";
-import { Slide } from "../__core__/Slide";
-import { Image } from "../__core__/layer/Image";
-import { Layer, LayerType } from "../__core__/Layer";
+import { SlideView } from "../__core__/SlideView";
+import { Image } from "../__core__/layerModel/Image";
+import { Layer, LayerType } from "../__core__/layerModel/Layer";
+import { ImageManager } from "./ImageManager";
 
 declare var $:any;
 
@@ -26,10 +27,10 @@ export class SlideToPNGConverter {
 			type = SlidePNGTileType.QUADRUPLE;
 		}
 
-		var width:number = Viewer.SCREEN_WIDTH;
-		var height:number = Viewer.SCREEN_HEIGHT;
+		var width:number = doc.width;
+		var height:number = doc.height;
 
-		let slideSortFunc = (a:Slide,b:Slide):number=>{
+		let slideSortFunc = (a:SlideView,b:SlideView):number=>{
 			if(a.durationRatio > b.durationRatio){
 				return -1
 			}else if(a.durationRatio < b.durationRatio){
@@ -38,7 +39,7 @@ export class SlideToPNGConverter {
 				return 0;
 			}
 		}
-		var slides:Slide[] = doc.slides.concat();
+		var slides:SlideView[] = doc.slides.concat();
 		slides = slides.sort(slideSortFunc);
 
 		while(pages.length < type && slides.length > 0){
@@ -48,16 +49,24 @@ export class SlideToPNGConverter {
 		var canvas:HTMLCanvasElement = this.slide2canvas(doc.slides[pages[0]], width, height, doc.bgColor);
 		return canvas.toDataURL();
 	}
-	
-	public slide2canvas(slide:Slide, width:number, height:number, bgColor?:string):HTMLCanvasElement {
+
+	public slide2canvas(slide:SlideView, width:number, height:number, bgColor?:string):HTMLCanvasElement {
 		var canvas:HTMLCanvasElement = document.createElement("canvas") as HTMLCanvasElement;
 		canvas.width = width;
 		canvas.height = height;
+		this.drawSlide2Canvas(slide,canvas,width,height,1,bgColor);
+		return canvas;
+	}
+
+	public drawSlide2Canvas(slide:SlideView, canvas:HTMLCanvasElement, width:number, height:number, slideScale?:number, bgColor?:string) {
 		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
 		if(bgColor){
 			ctx.fillStyle = bgColor;
 			ctx.fillRect(0,0,canvas.width, canvas.height);
+		}else{
+			ctx.clearRect(0,0,canvas.width, canvas.height);
 		}
+		if(!slideScale) slideScale = 1;
 
 		$.each(slide.layers, (number, layer:Layer)=>{
 			if(layer.type != LayerType.IMAGE) return;
@@ -68,6 +77,9 @@ export class SlideToPNGConverter {
 			ctx.setTransform(1,0,0,1,0,0);
 
 			//※アフィン変換は逆に行われる
+
+			//5 : 最後に全体を拡縮
+			if(slideScale != 1) ctx.scale(slideScale, slideScale);
 
 			//４：最後に移動する
 			ctx.translate(image.x, image.y);
@@ -84,15 +96,14 @@ export class SlideToPNGConverter {
 
 			ctx.globalAlpha = image.opacity;
 			//ctx.drawImage(image.imageElement, 0, 0);
-			ctx.drawImage(image.imageElement, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,0,0,image.width, image.height);
+			var element = ImageManager.shared.getImageById(image.imageId).imgObj[0] as HTMLImageElement;
+			ctx.drawImage(element, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,0,0,image.width, image.height);
 		});
-
-		return canvas;
 	}
 
 	private countConvertibleSlideNum(doc:VDoc):number {
 		var num:number = 0;
-		doc.slides.forEach((slide:Slide)=>{
+		doc.slides.forEach((slide:SlideView)=>{
 			if(slide.durationRatio >= 1) num++;
 		});
 		return num;

@@ -1,7 +1,6 @@
-import {Slide} from "./__core__/Slide";
-import {SlideEditable} from "./__core__/SlideEditable";
+import {SlideView} from "./__core__/SlideView";
 import {SlideList} from "./SlideList";
-import {Image} from "./__core__/layer/Image";
+import {Image} from "./__core__/layerModel/Image";
 import { SlideStorage, HVDataType } from "./utils/SlideStorage";
 import { SlideShow } from "./SlideShow";
 import { Menu } from "./Menu";
@@ -10,7 +9,7 @@ import { ImageManager } from "./utils/ImageManager";
 import { VDoc } from "./__core__/VDoc";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";
-import { Layer, LayerType } from "./__core__/Layer";
+import { Layer, LayerType } from "./__core__/layerModel/Layer";
 
 declare var $:any;
 
@@ -24,11 +23,8 @@ export class Viewer {
 	
 	public static enforceAspectRatio = true;
 
-
-//	public static readonly SCREEN_WIDTH = 1366;
-//	public static readonly SCREEN_HEIGHT = 768;
-	public static readonly SCREEN_WIDTH = window.screen.width;
-	public static readonly SCREEN_HEIGHT = window.screen.height;
+	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
+	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
 	private canvas:SlideCanvas;
 	private list:SlideList;
@@ -45,7 +41,7 @@ export class Viewer {
 //		if(localStorage.duration == undefined) localStorage.duration = 2000;
 //		if(localStorage.interval == undefined) localStorage.interval = 5000;
 
-		ImageManager.initialize();
+		ImageManager.init($('#images > .container'));
 
 		$(document).on("drop dragover", (e:any) => {
 			e.preventDefault();
@@ -121,7 +117,7 @@ export class Viewer {
 
 					var i:number = this.list.selectedSlideIndex;
 					var found:boolean = false;
-					var slide:Slide = null;
+					var slide:SlideView = null;
 					var updateFunc = (j:number, layer:Layer)=>{
 						if(found) return;
 						if(!layer.shared) return;
@@ -175,7 +171,7 @@ export class Viewer {
 
 					var i:number = this.list.selectedSlideIndex;
 					var found:boolean = false;
-					var slide:Slide = null;
+					var slide:SlideView = null;
 					var findFunc = (j:number, layer:Layer)=>{
 						if(found) return;
 
@@ -239,6 +235,9 @@ export class Viewer {
 			$("#pref > button").click(()=>{
 				$("#pref > .menu").toggle();
 			});
+			$("#images > button").click(()=>{
+				$("#images > .container").toggle();
+			});
 			$("label[for='cb_ignore']").hide();
 
 			$(".startSlideShow").click(() => {
@@ -300,6 +299,7 @@ export class Viewer {
 			});
 			$(".load").click(()=>{
 				if($('select.filename').val() == -1) return;
+				console.log(this.list, this.list.slides)
 				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
 					this.storage.load();
 				}
@@ -352,9 +352,9 @@ export class Viewer {
 
 		//
 
-		window.addEventListener('beforeunload', function(e){
-			e.returnValue = "ページを離れます。よろしいですか？";
-		},false);
+		// window.addEventListener('beforeunload', function(e){
+		// 	e.returnValue = "ページを離れます。よろしいですか？";
+		// },false);
 
 		this.newDocument();
 	}
@@ -366,12 +366,14 @@ export class Viewer {
 		this.setMode(ViewerMode.SELECT);
 
 		if(!doc){
-			ImageManager.initialize();
+			//ImageManager.shared.initialize();
 		}
 
 		//
 
 		this.document = doc || new VDoc();
+		console.log(this.document);
+		console.log(this.document.slides);
 		this.list.slides = this.document.slides;
 	}
 

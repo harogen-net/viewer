@@ -1,15 +1,20 @@
-import {Slide} from "./Slide";
-import {Layer, LayerType} from "./Layer";
-import {Image} from "./layer/Image";
-import {KeyboardManager} from "../utils/KeyboardManager";
-import { DropHelper } from "../utils/DropHelper";
-import { IDroppable } from "../interface/IDroppable";
-import { TextLayer } from "./layer/TextLayer";
+import {SlideView} from "../SlideView";
+import {Layer, LayerType} from "../layerModel/Layer";
+import {Image} from "../layerModel/Image";
+import {KeyboardManager} from "../../utils/KeyboardManager";
+import { DropHelper } from "../../utils/DropHelper";
+import { IDroppable } from "../../interface/IDroppable";
+import { TextLayer } from "../layerModel/TextLayer";
+import { DOMSlide } from "./DOMSlide";
+import { LayerView } from "../layerView/LayerView";
+import { TextView } from "../layerView/TextView";
+import { ImageView } from "../layerView/ImageView";
+import { LayerViewFactory } from "../layerView/LayerViewFactory";
 
 declare var $: any;
 declare var Matrix4: any;
 
-export class SlideEditable extends Slide implements IDroppable {
+export class SlideEditable extends DOMSlide implements IDroppable {
 	public static SCALE_DEFAULT:number = 0.9;
 
 	private readonly ENFORCE_ASPECT_RATIO:boolean = true;
@@ -37,6 +42,10 @@ export class SlideEditable extends Slide implements IDroppable {
 	private lastSelectedId:string = "";
 	private lastSelectedIndex:number = -1;
 
+
+	public get selectedLayerView():LayerView {
+		return this.getLayerViewByLayer(this.selectedLayer);
+	}
 
 	constructor(public obj:any){
 		super(obj);
@@ -111,11 +120,12 @@ export class SlideEditable extends Slide implements IDroppable {
 
 		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-			var layer = new Image(e.detail);
-			if(layer.originHeight > (layer.originWidth * 1.2)) {
-				layer.rotation -= 90;
+			var imageId:string = e.detail as string;
+			var image:Image = new Image(imageId);
+			if(image.originHeight > (image.originWidth * 1.2)) {
+				image.rotation -= 90;
 			}
-			this.selectLayer(this.addLayer(this.fitLayer(layer)));
+			this.selectLayer(this.addLayer(this.fitLayer(image)));
 		});
 
 
@@ -145,22 +155,25 @@ export class SlideEditable extends Slide implements IDroppable {
 	addLayer(layer:Layer):Layer{
 		super.addLayer(layer);
 
-		layer.obj.on("mousedown.layer_preselect", (e:any) => {
-			if(layer.selected) return;
+		var layerView:LayerView = this.getLayerViewByLayer(layer);
+		if(!layerView) return layer;
+
+		layerView.obj.on("mousedown.layer_preselect", (e:any) => {
+			if(layerView.selected) return;
 			if(layer.locked) return;
 
-			layer.obj.off("mousemove.layer_preselect");
-			layer.obj.on("mousemove.layer_preselect", (e:any) => {
-				layer.obj.off("mousemove.layer_preselect");
-				this.selectLayer(layer);
+			layerView.obj.off("mousemove.layer_preselect");
+			layerView.obj.on("mousemove.layer_preselect", (e:any) => {
+				layerView.obj.off("mousemove.layer_preselect");
+				this.selectLayer(layerView.data);
 				this.startDrag(e);
 			});
 			e.stopImmediatePropagation();
 		});
-		layer.obj.on("mouseup.layer_preselect", (e:any) => {
-			layer.obj.off("mousemove.layer_preselect");
-			if(!layer.selected && !this.isDrag && !layer.locked){
-				this.selectLayer(layer);
+		layerView.obj.on("mouseup.layer_preselect", (e:any) => {
+			layerView.obj.off("mousemove.layer_preselect");
+			if(!layerView.selected && !this.isDrag && !layerView.data.locked){
+				this.selectLayer(layerView.data);
 			};
 		});
 
@@ -184,47 +197,51 @@ export class SlideEditable extends Slide implements IDroppable {
 	}
 
 	removeLayer(layer:Layer):Layer{
-		if(layer == this.selectedLayer){
+		var layerView:LayerView = this.getLayerViewByLayer(layer);
+		if(!layerView) return layer;
+
+		if(layerView.data == this.selectedLayer){
 			this.selectLayer();
 		}
 		super.removeLayer(layer);
-		layer.obj.off("dragstart");
-		layer.obj.off("mousedown.layer_preselect");
-		layer.obj.off("mousemove.layer_preselect");
-		layer.obj.off("mouseup.layer_preselect");
+		layerView.obj.off("dragstart");
+		layerView.obj.off("mousedown.layer_preselect");
+		layerView.obj.off("mousemove.layer_preselect");
+		layerView.obj.off("mouseup.layer_preselect");
 		if(layer.type == LayerType.TEXT){
-			var textLayer = layer as TextLayer;
-			textLayer.textObj.off("focusout.textLayer_edit");
+			var textLayerView = layerView as TextView;
+			textLayerView.textObj.off("focusout.textLayer_edit");
 		}
 		this.dispatchEvent(new Event("update"));
 		return layer;
 	}
 
-	selectLayer(layer:Layer|null = null){
+	selectLayer(targetLayer:Layer|null = null){
 		if(this.selectedLayer) {
 			this.controls.detach();
 		}
 		this.selectedLayer = null;
 
-		$.each(this._layers, (i:number ,value:any) => {
-			if(layer === value){
-				value.selected = true;
+		$.each(this.layerViews, (i:number ,layerView:LayerView) => {
+			if(layerView.data === targetLayer){
+				layerView.selected = true;
 
-				this.selectedLayer = value;
+				this.selectedLayer = targetLayer;
 			}else {
-				value.selected = false;
+				layerView.selected = false;
 			}
 		});
 
 		if(this.selectedLayer !== null){
-			this.selectedLayer.obj.append(this.controls);
+			var selectedLayerView = this.getLayerViewByLayer(this.selectedLayer);
+			selectedLayerView.obj.append(this.controls);
 			this.updateControlsSize();
 			this.controls.show();
 			
 			if(this.selectedLayer.type == LayerType.IMAGE){
 				this.lastSelectedId = (this.selectedLayer as Image).imageId;
 			}
-			this.lastSelectedIndex = this.layers.indexOf(this.selectedLayer);
+			this.lastSelectedIndex = this._layers.indexOf(this.selectedLayer);
 		}else{
 			this.controls.hide();
 
@@ -261,8 +278,7 @@ export class SlideEditable extends Slide implements IDroppable {
 	paste(){
 		if(!this._isActive) return;
 		if(this.copyedLayer){
-			var newLayer:Layer = this.copyedLayer.clone();
-			this.selectLayer(this.addLayer(newLayer));
+			this.selectLayer(this.addLayer(this.copyedLayer.clone()));
 		}
 	}
 
@@ -420,18 +436,18 @@ export class SlideEditable extends Slide implements IDroppable {
 		if(this.selectedLayer.locked) return;
 
 		if(this.selectedLayer.type == LayerType.TEXT){
-			var textLayer = this.selectedLayer as TextLayer;
-			var text = textLayer.text;
-			textLayer.textObj.attr("contenteditable","true");
-			textLayer.textObj.focus();
+			var textView:TextView = this.getLayerViewByLayer(this.selectedLayer) as TextView;
+			var text = textView.text;
+			textView.textObj.attr("contenteditable","true");
+			textView.textObj.focus();
 
-			textLayer.textObj.off("focusout.textLayer_edit");
-			textLayer.textObj.on("focusout.textLayer_edit", ()=>{
-				textLayer.textObj.attr("contentEditable","false");
-				textLayer.textObj.off("focusout.textLayer_edit");
+			textView.textObj.off("focusout.textLayer_edit");
+			textView.textObj.on("focusout.textLayer_edit", ()=>{
+				textView.textObj.attr("contentEditable","false");
+				textView.textObj.off("focusout.textLayer_edit");
 
 				setTimeout(()=>{
-					if(text != textLayer.text){
+					if(text != textView.text){
 						this.dispatchEvent(new Event("update"));
 					}
 				},10)
@@ -471,6 +487,7 @@ export class SlideEditable extends Slide implements IDroppable {
 			// MARK: auto image select
 
 			//console.log(this.lastSelectedId.slice(0,10), this.lastSelectedIndex);
+/*
 
 			var autoSelectedLayer:Layer = null;
 
@@ -499,7 +516,7 @@ export class SlideEditable extends Slide implements IDroppable {
 					this.selectLayer(this.layers[i]);
 					break;
 				}
-			}
+			}*/
 
 			//this.selectImage(this.images[this.images.length - 1]);
 		}

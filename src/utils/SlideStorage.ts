@@ -1,5 +1,5 @@
-import {Slide} from "../__core__/Slide";
-import { Image } from "../__core__/layer/Image";
+import {SlideView} from "../__core__/SlideView";
+import { Image } from "../__core__/layerModel/Image";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Viewer } from "../Viewer";
 import { VDoc } from "../__core__/VDoc";
@@ -7,8 +7,10 @@ import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
-import { Layer, LayerType } from "../__core__/Layer";
-import { TextLayer } from "../__core__/layer/TextLayer";
+import { Layer, LayerType } from "../__core__/layerModel/Layer";
+import { TextLayer } from "../__core__/layerModel/TextLayer";
+import { ThumbSlide } from "../ThumbSlide";
+import { ImageManager } from "./ImageManager";
 
 declare var $:any;
 declare var jsSHA:any;
@@ -242,18 +244,18 @@ export class SlideStorage extends EventDispatcher {
 		if(document.editTime) json.editTime = document.editTime;
 
 		//ver1
-		if(SlideStorage.VERSION == 1){
-			var slideData:any[] = [];
-			$.each(document.slides, (i:number, slide:Slide)=>{
-				var imageData:any[] = [];
-				$.each(slide.getData(), (j:number, datum:any)=>{
-					delete datum.class;
-					imageData.push(datum);
-				});
-				slideData.push(imageData);
-			});
-			json.data = slideData;
-		}
+		// if(SlideStorage.VERSION == 1){
+		// 	var slideData:any[] = [];
+		// 	$.each(document.slides, (i:number, slide:SlideView)=>{
+		// 		var imageData:any[] = [];
+		// 		$.each(slide.getData(), (j:number, datum:any)=>{
+		// 			delete datum.class;
+		// 			imageData.push(datum);
+		// 		});
+		// 		slideData.push(imageData);
+		// 	});
+		// 	json.data = slideData;
+		// }
 
 		//ver2
 		if(SlideStorage.VERSION >= 2){
@@ -262,7 +264,7 @@ export class SlideStorage extends EventDispatcher {
 			
 			var imageNum:number = 0;
 			//console.log("total slide num : " + document.slides.length);
-			$.each(document.slides, (i:number, slide:Slide)=>{
+			$.each(document.slides, (i:number, slide:SlideView)=>{
 				var slideDatum:any = {};
 				slideDatum.id = slide.id;
 				slideDatum.durationRatio = slide.durationRatio;
@@ -271,24 +273,25 @@ export class SlideStorage extends EventDispatcher {
 				slideDatum.disabled = slide.disabled;
 
 				var layers:Layer[] = [];
-				if(SlideStorage.VERSION >= 2.1){
+//				if(SlideStorage.VERSION >= 2.1){
 					slideDatum.layers = layers;
-				}else{
-					slideDatum.images = layers;
-				}
+//				}else{
+//					slideDatum.images = layers;
+//				}
 
 				//console.log(" - slide" + (i + 1) + "("+ slide.id + ")" + " has " + slide.images.length + " images");
 
-				$.each(slide.getData(), (number, layerDatum:any)=>{
-					delete layerDatum.class;
+				$.each(slide.getData(), (number, layer:Layer)=>{
+					//delete layerDatum.class;
 					//delete datum.id;
+					var layerDatum:any = {};
 
-					if(layerDatum.type == LayerType.IMAGE && imageSrcData[layerDatum.imageId] == undefined){
+/*					if(layer.type == LayerType.IMAGE && imageSrcData[layerDatum.imageId] == undefined){
 						imageSrcData[layerDatum.imageId] = layerDatum.src;
 						imageNum++;
 					}
-					delete layerDatum.src;
-					layers.push(layerDatum);
+					delete layerDatum.src;*/
+					layers.push(layer);
 				});
 				slideData.push(slideDatum);
 			});
@@ -308,56 +311,66 @@ export class SlideStorage extends EventDispatcher {
 		return jsonStr;
 	}
 
-	private parseData(jsonStr:string, options?:any):VDoc {
+	private async parseData(jsonStr:string, options?:any) {
 
-		var slides:Slide[] = [];
+		var slides:SlideView[] = [];
 		options = options || {};
 
 		var json:any = JSON.parse(jsonStr);
 
+		ImageManager.shared.deleteAllImageData();
+
 		//ver1
 		if(json.version == 1 || json.version == undefined){
-			$.each(json.data, (i:number, imageData:any)=>{
-				var slide:Slide = new Slide($('<div />'));
-				$.each(imageData, (j:number, datum:any)=>{
-					var imgObj:any = $("<img />");
-					imgObj.attr("src",datum.src);
-					if(datum.imageId == undefined || datum.imageId == ""){
-						var shaObj = new jsSHA("SHA-256","TEXT");
-						shaObj.update(datum.src);
-						datum.imageId = shaObj.getHash("HEX");
-					}
-					imgObj.data("imageId",datum.imageId);
-					var img:Image = new Image(imgObj, {
-						transX:datum.transX,
-						transY:datum.transY,
-						scaleX:datum.scaleX,
-						scaleY:datum.scaleY,
-						rotation:datum.rotation
-					});
-					slide.addLayer(img);
-				});
-				slides.push(slide);
-			});
+			// $.each(json.data, (i:number, imageData:any)=>{
+			// 	var slide:SlideView = new ThumbSlide($('<div />'));
+			// 	//var slide:Slide = new Slide($('<div />'));
+			// 	$.each(imageData, (j:number, datum:any)=>{
+			// 		var imgObj:any = $("<img />");
+			// 		imgObj.attr("src",datum.src);
+			// 		if(datum.imageId == undefined || datum.imageId == ""){
+			// 			var shaObj = new jsSHA("SHA-256","TEXT");
+			// 			shaObj.update(datum.src);
+			// 			datum.imageId = shaObj.getHash("HEX");
+			// 		}
+			// 		imgObj.data("imageId",datum.imageId);
+			// 		var img:Image = new Image(imgObj, {
+			// 			transX:datum.transX,
+			// 			transY:datum.transY,
+			// 			scaleX:datum.scaleX,
+			// 			scaleY:datum.scaleY,
+			// 			rotation:datum.rotation
+			// 		});
+			// 		slide.addLayer(img);
+			// 	});
+			// 	slides.push(slide);
+			// });
 		}
 
 		//ver2
 		if(json.version >= 2){
-			var isScreenSizeChange:boolean = (json.screen.width != Viewer.SCREEN_WIDTH || json.screen.height != Viewer.SCREEN_HEIGHT);
+//			var isScreenSizeChange:boolean = (json.screen.width != Viewer.SCREEN_WIDTH || json.screen.height != Viewer.SCREEN_HEIGHT);
+
+
+			for (let imageId in json.imageData){
+				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+			}
 
 			$.each(json.slideData, (number, slideDatum:any)=>{
-				var slide:Slide = new Slide($('<div />'));
+				var slide:SlideView = new SlideView($('<div />'));
+				//var slide:Slide = new Slide($('<div />'));
 				slide.durationRatio = slideDatum.durationRatio;
 				slide.joining = slideDatum.joining;
 				slide.isLock = slideDatum.isLock;
 				slide.disabled = slideDatum.disabled;
 				
 				var layers:Layer[];
-				if(json.version >= 2.1){
+//				if(json.version >= 2.1){
 					layers = slideDatum.layers;
-				}else{
-					layers = slideDatum.images;
-				}
+//				}else{
+//					layers = slideDatum.images;
+//				}
+
 
 				$.each(layers, (j:number, layerDatum:any)=>{
 					switch(layerDatum.type){
@@ -380,28 +393,28 @@ export class SlideStorage extends EventDispatcher {
 							if(layerDatum.shared != undefined){
 								textLayer.shared = layerDatum.shared;
 							}
-							if(isScreenSizeChange){
-								var offsetScale:number = Math.min(
-									Viewer.SCREEN_WIDTH / json.screen.width,
-									Viewer.SCREEN_HEIGHT / json.screen.height
-								);
-								var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-								var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+							// if(isScreenSizeChange){
+							// 	var offsetScale:number = Math.min(
+							// 		Viewer.SCREEN_WIDTH / json.screen.width,
+							// 		Viewer.SCREEN_HEIGHT / json.screen.height
+							// 	);
+							// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+							// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
 		
-								textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
-								textLayer.scaleBy(offsetScale);
-							}
+							// 	textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
+							// 	textLayer.scaleBy(offsetScale);
+							// }
 							slide.addLayer(textLayer);
 						break;
 						case undefined:	//version < 2.1
 						case LayerType.IMAGE:
-							var imgObj:any = $("<img />");
-							imgObj.attr("src", json.imageData[layerDatum.imageId]);
-							imgObj.data("imageId", layerDatum.imageId);
-							if(layerDatum.name != undefined){
-								imgObj.data("name",layerDatum.name);
-							}
-							var img:Image = new Image(imgObj, {
+							// var imgObj:any = $("<img />");
+							// imgObj.attr("src", json.imageData[layerDatum.imageId]);
+							// imgObj.data("imageId", layerDatum.imageId);
+							// if(layerDatum.name != undefined){
+							// 	imgObj.data("name",layerDatum.name);
+							// }
+							var img:Image = new Image(layerDatum.imageId, {
 								transX:layerDatum.transX,
 								transY:layerDatum.transY,
 								scaleX:layerDatum.scaleX,
@@ -422,19 +435,19 @@ export class SlideStorage extends EventDispatcher {
 							if(layerDatum.clipRect != undefined){
 								img.clipRect = layerDatum.clipRect;
 							}
-							if(isScreenSizeChange){
-								var offsetScale:number = Math.min(
-									Viewer.SCREEN_WIDTH / json.screen.width,
-									Viewer.SCREEN_HEIGHT / json.screen.height
-								);
-								var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-								var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+							// if(isScreenSizeChange){
+							// 	var offsetScale:number = Math.min(
+							// 		Viewer.SCREEN_WIDTH / json.screen.width,
+							// 		Viewer.SCREEN_HEIGHT / json.screen.height
+							// 	);
+							// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+							// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
 		
-								imgObj.ready(()=>{
-									img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
-									img.scaleBy(offsetScale);
-								});
-							}
+							// 	imgObj.ready(()=>{
+							// 		img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
+							// 		img.scaleBy(offsetScale);
+							// 	});
+							// }
 							slide.addLayer(img);
 						break;
 					}
@@ -445,9 +458,14 @@ export class SlideStorage extends EventDispatcher {
 			if(json.bgColor) options.bgColor = json.bgColor;
 			if(json.createTime) options.createTime = json.createTime;
 			if(json.editTime) options.editTime = json.editTime;
+			if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
+			if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
 			//if(json.title) options.title = json.title;
 		}
 
+/*		return new Promise((resolve)=>{
+
+		});*/
 		return new VDoc(slides, options);
 	}
 	//
