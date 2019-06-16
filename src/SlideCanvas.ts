@@ -108,6 +108,7 @@ export class SlideCanvas extends EventDispatcher {
 			if(this.slide.selectedLayer && !this.slide.selectedLayer.locked && this.slide.selectedLayer.visible) {
 				this.slide.selectedLayer.rotation -= 90;
 				this.slide.dispatchEvent(new Event("update"));
+
 				if(this.slide.selectedLayer.shared){
 					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slide.selectedLayer}}));
 				}
@@ -117,6 +118,7 @@ export class SlideCanvas extends EventDispatcher {
 			if(this.slide.selectedLayer && !this.slide.selectedLayer.locked && this.slide.selectedLayer.visible) {
 				this.slide.selectedLayer.rotation += 90;
 				this.slide.dispatchEvent(new Event("update"));
+
 				if(this.slide.selectedLayer.shared){
 					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slide.selectedLayer}}));
 				}
@@ -406,11 +408,11 @@ export class SlideCanvas extends EventDispatcher {
 		layers = this.slide.layerViews;
 		$.each(this.items, (number, item:LayerListItem)=>{
 			item.obj.detach();
-			item.layer = null;
+			item.layerView = null;
 		});
 		$.each(layers, (i:number, layerView:LayerView)=>{
 			$(".layer ul").prepend(this.items[i].obj);
-			this.items[i].layer = layerView;
+			this.items[i].layerView = layerView;
 		});
 
 		//$(".layer ul").sortable("refresh");
@@ -453,58 +455,58 @@ export class SlideCanvas extends EventDispatcher {
 		var item:LayerListItem = e.detail.target as LayerListItem;
 		switch(e.detail.subType){
 			case "lock_on":
-				item.layer.locked = true;
-				if(item.layer == this.slide.selectedLayerView){
+				item.layerView.data.locked = true;
+				if(item.layerView == this.slide.selectedLayerView){
 					this.slide.selectLayer(null);
 				}
 				this.slide.dispatchEvent(new Event("update"));
-				if(item.layer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layer}}));
+				if(item.layerView.data.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "lock_off":
-			item.layer.locked = false;
+			item.layerView.data.locked = false;
 				this.slide.dispatchEvent(new Event("update"));
-				if(item.layer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layer}}));
+				if(item.layerView.data.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "eye_on":
-				item.layer.visible = true;
+				item.layerView.data.visible = true;
 				this.slide.dispatchEvent(new Event("update"));
-				if(item.layer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layer}}));
+				if(item.layerView.data.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "eye_off":
-				item.layer.visible = false;
-				if(item.layer == this.slide.selectedLayerView){
+				item.layerView.data.visible = false;
+				if(item.layerView == this.slide.selectedLayerView){
 					this.slide.selectLayer(null);
 				}
 				this.slide.dispatchEvent(new Event("update"));
-				if(item.layer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layer}}));
+				if(item.layerView.data.shared){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "share_on":
-				item.layer.shared = true;
+				item.layerView.data.shared = true;
 				this.slide.dispatchEvent(new Event("update"));
 				if(window.confirm('copy image to all slide (within the image not exists). Are you sure?')){
-					this.slide.dispatchEvent(new CustomEvent("sharedPaste", {detail:{layer:item.layer}}));
+					this.slide.dispatchEvent(new CustomEvent("sharedPaste", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "share_off":
-				item.layer.shared = false;
+				item.layerView.data.shared = false;
 				this.slide.dispatchEvent(new Event("update"));
 				break;
 			case "select":
-				this.slide.selectLayer(item.layer.data);
+				this.slide.selectLayer(item.layerView.data);
 				break;
 			case "delete":
-				if(item.layer.shared && window.confirm('delete all shared image. Are you sure?')){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layer, delete:true}}));
+				if(item.layerView.data.shared && window.confirm('delete all shared image. Are you sure?')){
+					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView, delete:true}}));
 				}
-				this.slide.removeLayer(item.layer.data);
+				this.slide.removeLayer(item.layerView.data);
 			break;
 			default:
 			break;

@@ -81,27 +81,25 @@ export class SlideView extends EventDispatcher {
 
 	public addLayer(layer:Layer, index:number = -1):Layer {
 		if(!layer) return layer;
+		if(index > this._layers.length - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
+			throw new Error("invalid index.");
+		}
+		if(this._layers.length >= SlideView.LAYER_NUM_MAX - (this._layers.indexOf(layer) != -1 ? 1 : 0)){
+			throw new Error("exceeds max layer num.");
+		}
 
-		console.log("addLayer at slide");
-		console.log(layer);
+		// console.log("addLayer at slide");
+		// console.log(layer);
 
 		if(this._layers.indexOf(layer) != -1){
 			this._layers.splice(this._layers.indexOf(layer), 1);
-		}else {
-			if(this._layers.length >= SlideView.LAYER_NUM_MAX){
-				alert("max layer num exceeded.");
-				return layer;
-			}
+		}
+		if(index != -1){
 			this._layers.push(layer);
+		}else{
+			this._layers.splice(index, 0, layer);
 		}
 		
-//		this.container.append(layer.obj);
-//		this.setLayersZIndex();
-		
-		// if(layer.type == LayerType.IMAGE){
-		// 	ImageManager.registImage(layer as Image);
-		// }
-
 		return layer;
 	}
 
@@ -110,13 +108,6 @@ export class SlideView extends EventDispatcher {
 		if(this._layers.indexOf(layer) != -1){
 			this._layers.splice(this._layers.indexOf(layer), 1);
 		}
-
-		// if(layer.type == LayerType.IMAGE){
-		// 	ImageManager.deleteImage(layer as Image);
-		// }
-//		layer.obj.remove();
-//		this.setLayersZIndex();
-		
 		return layer;
 	}
 

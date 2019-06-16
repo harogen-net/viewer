@@ -2,11 +2,11 @@ import { LayerView } from "./LayerView";
 import { ILayer } from "../layerModel/ILayer";
 import { Image } from "../layerModel/Image";
 import { ImageManager } from "../../utils/ImageManager";
-import { Layer } from "../layerModel/Layer";
+//import { Layer } from "../layerModel/Layer";
 
 declare var $:any;
 
-export class ImageView extends LayerView implements ILayer {
+export class ImageView extends LayerView {
 
 	private imgObj:any;
 
@@ -49,7 +49,7 @@ export class ImageView extends LayerView implements ILayer {
 
 		//NOTE : opacityのみimgObjへの指定なので再設定
 		this.opacityObj = this.imgObj;
-		this.opacity = this.opacity;
+		this._data.opacity = this._data.opacity;
 	}
 
 	//
@@ -116,14 +116,14 @@ export class ImageView extends LayerView implements ILayer {
 
 	public get width(){
 		if(this.obj.width() == 0){
-			return this._data.scaleX * this.originWidth;
+			return this._data.scaleX * this._data.originWidth;
 		}else{
 			return this.obj.width();
 		}
 	}
 	public get height(){
 		if(this.obj.height() == 0){
-			return this._data.scaleY * this.originHeight;
+			return this._data.scaleY * this._data.originHeight;
 		}else{
 			return this.obj.height();
 		}

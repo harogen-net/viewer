@@ -17,30 +17,30 @@ export class ThumbSlide extends SlideView {
 
 	//
 
-	public addLayer(layer:Layer, index:number = -1):Layer {
-		if(!layer) return layer;
-		super.addLayer(layer, index);
-		this.updateThumbnail();
+	// public addLayer(layer:Layer, index:number = -1):Layer {
+	// 	if(!layer) return layer;
+	// 	super.addLayer(layer, index);
+	// 	this.updateThumbnail();
 
-		return layer;
-	}
+	// 	return layer;
+	// }
 
-	public removeLayer(layer:Layer):Layer {
-		if(!layer) return layer;
-		super.removeLayer(layer);
-		this.updateThumbnail();
+	// public removeLayer(layer:Layer):Layer {
+	// 	if(!layer) return layer;
+	// 	super.removeLayer(layer);
+	// 	this.updateThumbnail();
 		
-		return layer;
-	}
+	// 	return layer;
+	// }
 
 	protected setLayers(aData:any[]){
 		super.setLayers(aData);
-		this.updateThumbnail();
+		this.refresh();
 	}
 
 	//
 
-	private updateThumbnail(){
+	public refresh(){
 		if(this.thumbnail){
 			this.thumbnail.remove();
 			this.thumbnail = null;

@@ -1,11 +1,11 @@
 import { Layer, LayerType } from "./Layer";
-import { IImage } from "./ILayer";
+//import { IImage } from "./ILayer";
 import { ImageManager } from "../../utils/ImageManager";
 
 declare var $: any;
 declare var Matrix4: any;
 
-export class Image extends Layer implements IImage {
+export class Image extends Layer {
 
 	private _clipRect:number[] = [0,0,0,0];
 	

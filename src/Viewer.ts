@@ -106,7 +106,8 @@ export class Viewer {
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 //					this.list.selectedSlide.setData(this.canvas.slide.getData());
-					this.list.selectedSlide.layers = this.canvas.slide.layers;
+					//this.list.selectedSlide.layers = this.canvas.slide.layers;
+					this.list.refresh();
 				}
 			}
 		});
@@ -302,7 +303,6 @@ export class Viewer {
 			});
 			$(".load").click(()=>{
 				if($('select.filename').val() == -1) return;
-				console.log(this.list, this.list.slides)
 				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
 					this.storage.load();
 				}

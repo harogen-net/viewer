@@ -1,11 +1,11 @@
-import { ILayer } from "../layer/ILayer";
+//import { ILayer } from "../layerModel/ILayer";
 import { LayerView } from "./LayerView";
 import { TextLayer } from "../layerModel/TextLayer";
 import { Layer } from "../layerModel/Layer";
 
 declare var $:any;
 
-export class TextView extends LayerView implements ILayer {
+export class TextView extends LayerView {
 
 	public textObj:any;
 
@@ -19,7 +19,7 @@ export class TextView extends LayerView implements ILayer {
 		this.textObj = $('<div class="text" contenteditable="false" spellcheck="false"></div>');
 		this.obj.append(this.textObj);
 		this.opacityObj = this.textObj;
-		this.opacity = this.opacity;
+		this._data.opacity = this._data.opacity;
 
 		this.setText();
 	}

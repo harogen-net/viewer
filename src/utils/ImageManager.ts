@@ -129,6 +129,12 @@ export class ImageManager extends EventDispatcher {
 		}
 	}
 
+	public getSrcById(id):string {
+		var imgObjData = this._imageById[id];
+		if(imgObjData == undefined) return null;
+		return imgObjData.imgObj.attr("src");
+	}
+
 
 
 

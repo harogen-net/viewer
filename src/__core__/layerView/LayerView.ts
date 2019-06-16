@@ -1,11 +1,11 @@
 import { Layer, LayerType } from "../layerModel/Layer";
-import { ILayer } from "../layerModel/ILayer";
+//import { ILayer } from "../layerModel/ILayer";
 
 
 declare var $: any;
 declare var Matrix4: any;
 
-export class LayerView implements ILayer {
+export class LayerView {
 
 //	protected _data:Layer;
 
@@ -14,6 +14,27 @@ export class LayerView implements ILayer {
 
 
 	constructor(protected _data:Layer, public obj:any) {
+		_data.addEventListener("update", ()=>{
+			console.log("layer update");
+			if(!this._data.visible){
+				this.obj.addClass("invisible");
+			}else{
+				this.obj.removeClass("invisible");
+			}
+			if(this._data.locked){
+				this.obj.addClass("locked");
+			}else{
+				this.obj.removeClass("locked");
+			}
+			if(this.opacityObj){
+				if(this._data.opacity == 1){
+					this.opacityObj.css("opacity","");
+				}else{
+					this.opacityObj.css("opacity",this._data.opacity);
+				}
+			}
+			this.updateMatrix();
+		});
 //	constructor(aData:any, protected obj:any) {
 //		this._data = aData;
 		this.updateMatrix();
@@ -27,7 +48,7 @@ export class LayerView implements ILayer {
 	//
 	//methods
 	//
-	public moveTo(x:number, y:number):void{
+/*	public moveTo(x:number, y:number):void{
 		this._data.moveTo(x,y);
 		this.updateMatrix();
 	}
@@ -42,7 +63,7 @@ export class LayerView implements ILayer {
 	public rotateBy(theta:number):void{
 		this._data.rotateBy(theta);
 		this.updateMatrix();
-	}
+	}*/
 
 	protected updateMatrix():void{
 		var matrix:number[] = this._data.matrix;
@@ -72,7 +93,7 @@ export class LayerView implements ILayer {
 		return this.obj.height();
 	}
 
-	public get name():string{return this._data.name;}
+/*	public get name():string{return this._data.name;}
 	public set name(value:string){
 		this._data.name = value;
 	}
@@ -81,12 +102,10 @@ export class LayerView implements ILayer {
 	public set locked(value:boolean){
 		this._data.locked = value;
 
-		if(this.obj){
-			if(this._data.locked){
-				this.obj.addClass("locked");
-			}else{
-				this.obj.removeClass("locked");
-			}
+		if(this._data.locked){
+			this.obj.addClass("locked");
+		}else{
+			this.obj.removeClass("locked");
 		}
 	}
 	public get visible():boolean{ return this._data.visible;}
@@ -185,7 +204,7 @@ export class LayerView implements ILayer {
 	public set transform(value:any){
 		this._data.transform = value;
 		this.updateMatrix();
-	}
+	}*/
 
 	//
 

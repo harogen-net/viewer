@@ -427,7 +427,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 
 			if(KeyboardManager.isDown(16) || this.ENFORCE_ASPECT_RATIO) {
 				var scale = Math.min(scaleX, scaleY);
-				this.selectedLayer.scaleX = this.selectedLayer.scaleY = scale;
+				this.selectedLayer.scale =  scale;
 			}else{
 				this.selectedLayer.scaleX = scaleX;
 				this.selectedLayer.scaleY = scaleY;

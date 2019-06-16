@@ -13,7 +13,7 @@ export class LayerListItem extends EventDispatcher {
 	
 	public obj:any;
 
-	private _layer:LayerView;
+	private _layerView:LayerView;
 
 	private eyeBtn:any;
 	private lockBtn:any;
@@ -31,7 +31,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.eyeBtn = $('<button class="eye"><i class="fas fa-eye"></i></button>');
 		this.eyeBtn.click((e:any)=>{
-			if(this._layer == null) return;
+			if(this._layerView == null) return;
 			
 			if(this.eyeBtn.hasClass("on")){
 				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"eye_off",target:this}});
@@ -45,7 +45,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.lockBtn = $('<button class="lock"><i class="fas fa-lock"></i></button>');
 		this.lockBtn.click((e:any)=>{
-			if(this._layer == null) return;
+			if(this._layerView == null) return;
 
 			if(this.lockBtn.hasClass("on")){
 				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"lock_off",target:this}});
@@ -59,7 +59,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.shareBtn = $('<button class="share"><i class="fas fa-exchange-alt"></i></button>');
 		this.shareBtn.click((e:any)=>{
-			if(this._layer == null) return;
+			if(this._layerView == null) return;
 			
 			if(this.shareBtn.hasClass("on")){
 				var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"share_off",target:this}});
@@ -74,7 +74,7 @@ export class LayerListItem extends EventDispatcher {
 
 		this.deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>');
 		this.deleteBtn.click((e:any)=>{
-			if(this._layer == null) return;
+			if(this._layerView == null) return;
 			
 			var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"delete",target:this}});
 			this.dispatchEvent(cb);
@@ -87,7 +87,7 @@ export class LayerListItem extends EventDispatcher {
 		this.obj.append(this.deleteBtn);
 
 		this.obj.click(()=>{
-			if(this._layer == null)return;
+			if(this._layerView == null)return;
 //			if(this._image.locked) return;
 //			if(!this._image.visible) return;
 			var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"select",target:this}});
@@ -100,39 +100,39 @@ export class LayerListItem extends EventDispatcher {
 	}	
 	
 	public update(){
-		if(!this._layer) return;
+		if(!this._layerView) return;
 
-		switch(this._layer.type){
+		switch(this._layerView.type){
 			case LayerType.IMAGE:
-				if(this._layer.name != ""){
-					this.label.text(this._layer.name);
+				if(this._layerView.data.name != ""){
+					this.label.text(this._layerView.data.name);
 				}else{
 					this.label.text("イメージ");
 				}
 			break;
 			case LayerType.TEXT:
-				this.label.text((this._layer as TextView).text);
+				this.label.text((this._layerView as TextView).text);
 				//this.label.text((this._layer as TextLayer).plainText);
 			break;
 		}
 
-		if(this._layer.locked){
+		if(this._layerView.data.locked){
 			this.lockBtn.addClass("on");
 		}else{
 			this.lockBtn.removeClass("on");
 		}
-		if(this._layer.shared){
+		if(this._layerView.data.shared){
 			this.shareBtn.addClass("on");
 		}else{
 			this.shareBtn.removeClass("on");
 		}
 		
-		if(this._layer.visible){
+		if(this._layerView.data.visible){
 			this.eyeBtn.addClass("on");
 		}else{
 			this.eyeBtn.removeClass("on");
 		}
-		if(this._layer.selected){
+		if(this._layerView.selected){
 			this.obj.addClass("selected");
 		}else{
 			this.obj.removeClass("selected");
@@ -145,15 +145,15 @@ export class LayerListItem extends EventDispatcher {
 	// 	this.label.text(value);
 	// }
 	
-	public set layer(value:LayerView){
-		this._layer = value;
+	public set layerView(value:LayerView){
+		this._layerView = value;
 		
 		this.update();
 
-		if(this._layer != null){
-			switch(this._layer.type){
+		if(this._layerView != null){
+			switch(this._layerView.type){
 				case LayerType.IMAGE:
-					this.thumbnail.attr("src", ImageManager.shared.getImageById((this._layer as ImageView).imageId).imgObj.attr("src"));
+					this.thumbnail.attr("src", ImageManager.shared.getSrcById((this._layerView as ImageView).imageId));
 					this.thumbnail.show();
 				break;
 				case LayerType.TEXT:
@@ -166,8 +166,8 @@ export class LayerListItem extends EventDispatcher {
 			}
 		}
 	}
-	public get layer():LayerView{
-		return this._layer;
+	public get layerView():LayerView{
+		return this._layerView;
 	}
 
 }

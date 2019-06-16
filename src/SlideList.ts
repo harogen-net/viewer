@@ -56,6 +56,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 				layer.rotation -= 90;
 			}
 			slide.fitLayer(layer);
+			slide.refresh();
 		}); 
 
 		$(window).resize(()=>{
@@ -77,6 +78,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.obj);
 		this.newSlideBtn.click(()=>{
+			if(this._slides.length > 0){
+				this._slides[this._slides.length - 1].joining = false;
+			}
 			this.selectSlide(this.addSlide(new ThumbSlide($('<div/>'))));
 		});
 	}
@@ -290,6 +294,12 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return slide;
 	}
 
+	public refresh(){
+		this._slides.forEach(slide=>{
+			(slide as ThumbSlide).refresh();
+		})
+	}
+
 	//
 
 	private selectSlide(slide:SlideView = null){
@@ -379,7 +389,13 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		console.log(value);
 		$.each(value, (number, slide:SlideView)=>{
-			this.addSlide(slide);
+			var slideObj = $('<div />');
+			var slide2 = new ThumbSlide(slideObj);
+			slide.layers.forEach(layer=>{
+				slide2.addLayer(layer.clone());
+			});
+
+			this.addSlide(slide2);
 		});
 
 		//Slide追加処理の後、slidesアレイ参照自体を置き換える
