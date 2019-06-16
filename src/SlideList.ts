@@ -5,7 +5,7 @@ import { DropHelper } from "./utils/DropHelper";
 import { IDroppable } from "./interface/IDroppable";
 import { Viewer, ViewerMode } from "./Viewer";
 import { join } from "path";
-import { ThumbSlide } from "./ThumbSlide";
+import { ThumbSlide } from "./__core__/slide/ThumbSlide";
 
 declare var $: any;
 

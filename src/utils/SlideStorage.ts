@@ -9,7 +9,7 @@ import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
 import { Layer, LayerType } from "../__core__/layerModel/Layer";
 import { TextLayer } from "../__core__/layerModel/TextLayer";
-import { ThumbSlide } from "../ThumbSlide";
+import { ThumbSlide } from "../__core__/slide/ThumbSlide";
 import { ImageManager } from "./ImageManager";
 
 declare var $:any;
@@ -281,7 +281,7 @@ export class SlideStorage extends EventDispatcher {
 
 				//console.log(" - slide" + (i + 1) + "("+ slide.id + ")" + " has " + slide.images.length + " images");
 
-				$.each(slide.getData(), (number, layer:Layer)=>{
+				$.each(slide.layers, (number, layer:Layer)=>{
 					//delete layerDatum.class;
 					//delete datum.id;
 					var layerDatum:any = {};

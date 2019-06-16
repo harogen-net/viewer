@@ -152,15 +152,49 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		this.isActive = false;
 	}
 
-	addLayer(layer:Layer):Layer{
-		super.addLayer(layer);
+// 	addLayer(layer:Layer):Layer{
+// 		super.addLayer(layer);
 
-		var layerView:LayerView = this.getLayerViewByLayer(layer);
-		if(!layerView) return layer;
+// //		var layerView:LayerView = this.getLayerViewByLayer(layer);
+// //		if(!layerView) return layer;
+
+
+
+// /*		if(layer.type == LayerType.TEXT){
+// 			var textLayer = layer as TextLayer;
+// 			textLayer.textObj.off("dblclick.textLayer_edit");
+// 			textLayer.textObj.on("dblclick.textLayer_edit", (e:any)=>{
+// 				textLayer.textObj.attr("contentEditable","true");
+// 				textLayer.textObj.focus();
+// 				textLayer.textObj.off("focusout.textLayer_edit");
+// 				textLayer.textObj.on("focusout.textLayer_edit", ()=>{
+// 					textLayer.textObj.attr("contentEditable","false");
+// 					textLayer.textObj.off("focusout.textLayer_edit");
+// 				});
+// 			});
+
+// 		}*/
+
+// 		return layer;
+// 	}
+
+// 	removeLayer(layer:Layer):Layer{
+// 		var layerView:LayerView = this.getLayerViewByLayer(layer);
+// 		if(!layerView) return layer;
+// //		this.removeDomLayer(layerView);
+
+		
+// 		return layer;
+// 	}
+
+	//
+
+	protected addDomLayer(layerView:LayerView){
+		super.addDomLayer(layerView);
 
 		layerView.obj.on("mousedown.layer_preselect", (e:any) => {
 			if(layerView.selected) return;
-			if(layer.locked) return;
+			if(layerView.data.locked) return;
 
 			layerView.obj.off("mousemove.layer_preselect");
 			layerView.obj.on("mousemove.layer_preselect", (e:any) => {
@@ -177,44 +211,26 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 			};
 		});
 
-/*		if(layer.type == LayerType.TEXT){
-			var textLayer = layer as TextLayer;
-			textLayer.textObj.off("dblclick.textLayer_edit");
-			textLayer.textObj.on("dblclick.textLayer_edit", (e:any)=>{
-				textLayer.textObj.attr("contentEditable","true");
-				textLayer.textObj.focus();
-				textLayer.textObj.off("focusout.textLayer_edit");
-				textLayer.textObj.on("focusout.textLayer_edit", ()=>{
-					textLayer.textObj.attr("contentEditable","false");
-					textLayer.textObj.off("focusout.textLayer_edit");
-				});
-			});
-
-		}*/
-
 		this.dispatchEvent(new Event("update"));
-		return layer;
 	}
-
-	removeLayer(layer:Layer):Layer{
-		var layerView:LayerView = this.getLayerViewByLayer(layer);
-		if(!layerView) return layer;
+	protected removeDomLayer(layerView:LayerView){
+		super.removeDomLayer(layerView);
 
 		if(layerView.data == this.selectedLayer){
 			this.selectLayer();
 		}
-		super.removeLayer(layer);
 		layerView.obj.off("dragstart");
 		layerView.obj.off("mousedown.layer_preselect");
 		layerView.obj.off("mousemove.layer_preselect");
 		layerView.obj.off("mouseup.layer_preselect");
-		if(layer.type == LayerType.TEXT){
+		if(layerView.type == LayerType.TEXT){
 			var textLayerView = layerView as TextView;
 			textLayerView.textObj.off("focusout.textLayer_edit");
 		}
 		this.dispatchEvent(new Event("update"));
-		return layer;
 	}
+
+	//
 
 	selectLayer(targetLayer:Layer|null = null){
 		if(this.selectedLayer) {
@@ -480,47 +496,47 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 
 	//
 
-	setData(aData:any[]){
-		super.setData(aData);
+// 	setData(aData:any[]){
+// 		super.setData(aData);
 
-		if(this.layers.length > 0){
-			// MARK: auto image select
+// 		if(this._layers.length > 0){
+// 			// MARK: auto image select
 
-			//console.log(this.lastSelectedId.slice(0,10), this.lastSelectedIndex);
-/*
+// 			//console.log(this.lastSelectedId.slice(0,10), this.lastSelectedIndex);
+// /*
 
-			var autoSelectedLayer:Layer = null;
+// 			var autoSelectedLayer:Layer = null;
 
-			if(this.lastSelectedId != ""){
-				$.each(this.layers, (number, layer:Layer)=>{
-					if(layer.type != LayerType.IMAGE) return false;
-					if(this.lastSelectedId == (layer as Image).imageId){
-						if(!layer.locked && layer.visible){
-							autoSelectedLayer = layer;
-						}
-						return false;
-					}
-				});
-			}
-			if(autoSelectedLayer != null){this.selectLayer(autoSelectedLayer); return;}
+// 			if(this.lastSelectedId != ""){
+// 				$.each(this.layers, (number, layer:Layer)=>{
+// 					if(layer.type != LayerType.IMAGE) return false;
+// 					if(this.lastSelectedId == (layer as Image).imageId){
+// 						if(!layer.locked && layer.visible){
+// 							autoSelectedLayer = layer;
+// 						}
+// 						return false;
+// 					}
+// 				});
+// 			}
+// 			if(autoSelectedLayer != null){this.selectLayer(autoSelectedLayer); return;}
 
-			if(this.lastSelectedIndex != -1 && this.layers.length > this.lastSelectedIndex){
-				if(!this.layers[this.lastSelectedIndex].locked && this.layers[this.lastSelectedIndex].visible){
-					autoSelectedLayer = this.layers[this.lastSelectedIndex];
-				}
-			}
-			if(autoSelectedLayer != null){this.selectLayer(autoSelectedLayer); return;}
+// 			if(this.lastSelectedIndex != -1 && this.layers.length > this.lastSelectedIndex){
+// 				if(!this.layers[this.lastSelectedIndex].locked && this.layers[this.lastSelectedIndex].visible){
+// 					autoSelectedLayer = this.layers[this.lastSelectedIndex];
+// 				}
+// 			}
+// 			if(autoSelectedLayer != null){this.selectLayer(autoSelectedLayer); return;}
 
-			for(var i:number = this.layers.length - 1; i >= 0; i--){
-				if(!this.layers[i].locked && this.layers[i].visible){
-					this.selectLayer(this.layers[i]);
-					break;
-				}
-			}*/
+// 			for(var i:number = this.layers.length - 1; i >= 0; i--){
+// 				if(!this.layers[i].locked && this.layers[i].visible){
+// 					this.selectLayer(this.layers[i]);
+// 					break;
+// 				}
+// 			}*/
 
-			//this.selectImage(this.images[this.images.length - 1]);
-		}
-	}
+// 			//this.selectImage(this.images[this.images.length - 1]);
+// 		}
+// 	}
 
 	//
 

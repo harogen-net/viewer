@@ -1,6 +1,6 @@
-import { SlideView } from "./__core__/SlideView";
-import { Layer } from "./__core__/layerModel/Layer";
-import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
+import { SlideView } from "../SlideView";
+import { Layer } from "../layerModel/Layer";
+import { SlideToPNGConverter } from "../../utils/SlideToPNGConverter";
 
 declare var $: any;
 
@@ -33,9 +33,8 @@ export class ThumbSlide extends SlideView {
 		return layer;
 	}
 
-	setData(aData:any[]){
-		if(this.isLock) return;
-		super.setData(aData);
+	protected setLayers(aData:any[]){
+		super.setLayers(aData);
 		this.updateThumbnail();
 	}
 

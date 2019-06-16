@@ -62,14 +62,14 @@ export class SlideView extends EventDispatcher {
 	public clone():this {
 		console.log("clone at slide : " + this.id);
 		var newObj:any = $('<div />');
-		var slide:this = new (this.constructor as any)(new SlideView(newObj));
+		var slide:this = new (this.constructor as any)(newObj);
 
 		slide.id = this.id;
 		slide.durationRatio = this.durationRatio;
 		slide.joining = this.joining;
 		slide.isLock = this.isLock;
 		slide.disabled = this.disabled;
-		console.log("this slide has " + this.layers.length + " layers.");
+		console.log("this slide has " + this._layers.length + " layers.");
 		$.each(this._layers, (index:number, layer:Layer) => {
 			slide.addLayer(layer.clone());
 		});
@@ -173,10 +173,6 @@ export class SlideView extends EventDispatcher {
 		}
 	}
 
-	get layers():Layer[]{
-		return this._layers.concat();
-	}
-
 	set isLock(value:boolean){ this._isLock = value; }
 	get isLock():boolean{ return this._isLock; }
 
@@ -202,6 +198,15 @@ export class SlideView extends EventDispatcher {
 		}
 	}
 	get disabled():boolean { return this._disabled; }
+
+	get layers():Layer[] {
+		return this._layers;
+	}
+	set layers(value:Layer[]) {
+//		console.log("set layers called : " + value);
+		if(this._isLock) return;
+		this.setLayers(value);
+	}
 
 	//
 
@@ -291,19 +296,27 @@ export class SlideView extends EventDispatcher {
 
 	//
 
-	getData():Layer[] {
-		var ret:Layer[] = [];
-		$.each(this._layers, (index:number,img:Layer) => {
-			ret.push(img);
-		});
-		return ret;
-	}
+	// getData():Layer[] {
+	// 	// var ret:Layer[] = [];
+	// 	// $.each(this._layers, (index:number,img:Layer) => {
+	// 	// 	ret.push(img);
+	// 	// });
+	// 	// return ret;
+	// 	return this._layers;
+	// }
 
-	setData(aData:Layer[]){
-		console.log("setData called : " + aData);
-		if(this._isLock) return;
+	protected setLayers(aData:Layer[]){
+		// console.log("setData called : " + aData);
+		// if(this._isLock) return;
+
+		this._layers = aData;
+/*		this.removeAllLayers();
+		aData.forEach(layer => {
+			this.addLayer(layer);
+		});*/
 		
-		var i,j:number;
+		
+/*		var i,j:number;
 		var layer:Layer;
 		var datum:{class:Layer};
 		var found:boolean;
@@ -384,7 +397,8 @@ export class SlideView extends EventDispatcher {
 
 		this._layers = newLayers;
 //		console.log(this.id, "/=============");
-
+		*/
+	//	this._layers = aData;
 	}
 
 

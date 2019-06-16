@@ -11,7 +11,7 @@ export class LayerViewFactory {
 	public static layerViewFromData(data:Layer):LayerView {
 		switch(data.type){
 			case LayerType.IMAGE:
-				return new ImageView(data as Image, $('<div />'));
+				return new ImageView(data as Image, $('<div class="layerWrapper" />'));
 			case LayerType.TEXT:
 				return new TextView(data as TextLayer, $('<div />'));
 			default:

@@ -81,7 +81,8 @@ export class Viewer {
 				if(this.list.selectedSlide){
 					this.canvas.slide.isActive = true;
 					this.list.selectedSlide.isLock = true;
-					this.canvas.slide.setData(this.list.selectedSlide.getData());
+//					this.canvas.slide.setData(this.list.selectedSlide.getData());
+					this.canvas.slide.layers = this.list.selectedSlide.layers;
 					this.list.selectedSlide.isLock = false;
 					this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				}else{
@@ -94,7 +95,8 @@ export class Viewer {
 			this.setMode(ViewerMode.EDIT);
 			if(this.list.selectedSlide){
 				this.list.selectedSlide.isLock = true;
-				this.canvas.slide.setData(this.list.selectedSlide.getData());
+//				this.canvas.slide.setData(this.list.selectedSlide.getData());
+				this.canvas.slide.layers = this.list.selectedSlide.layers;
 				this.list.selectedSlide.isLock = false;
 				this.canvas.setSlideData({name:this.list.selectedSlide.id});
 			}
@@ -103,7 +105,8 @@ export class Viewer {
 		this.canvas.slide.addEventListener("update",()=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-					this.list.selectedSlide.setData(this.canvas.slide.getData());
+//					this.list.selectedSlide.setData(this.canvas.slide.getData());
+					this.list.selectedSlide.layers = this.canvas.slide.layers;
 				}
 			}
 		});
@@ -372,8 +375,6 @@ export class Viewer {
 		//
 
 		this.document = doc || new VDoc();
-		console.log(this.document);
-		console.log(this.document.slides);
 		this.list.slides = this.document.slides;
 	}
 
