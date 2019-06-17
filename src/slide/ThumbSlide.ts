@@ -26,7 +26,6 @@ export class ThumbSlide extends SlideView {
 		});
 
 		this.converter = new SlideToPNGConverter();
-		this._slide.addEventListener("update", this.refresh);
 		this.refresh();
 	}
 
@@ -60,7 +59,7 @@ export class ThumbSlide extends SlideView {
 			this.thumbnail.remove();
 			this.thumbnail = null;
 		}
-		var canvas = this.converter.slide2canvas(this._slide, this.width, this.height);
+		var canvas = this.converter.slide2canvas(this._slide, this._slide.width, this._slide.height);
 		this.thumbnail = $(canvas);
 		this.container.append(this.thumbnail);
 		this.thumbnail.css({

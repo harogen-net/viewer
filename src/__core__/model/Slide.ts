@@ -109,8 +109,8 @@ export class Slide extends EventDispatcher {
 			layer.addEventListener("update", this.onLayerUpdate);
 			this.dispatchEvent(new CustomEvent("layerAdd", {detail:{layer:layer}}));
 		}
-		this.dispatchEvent(new Event("update"));
-		
+		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+
 		return layer;
 	}
 
@@ -120,7 +120,8 @@ export class Slide extends EventDispatcher {
 			this._layers.splice(this._layers.indexOf(layer), 1);
 			layer.removeEventListener("update", this.onLayerUpdate);
 			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{layer:layer}}));
-			this.dispatchEvent(new Event("update"));
+			this.dispatchEvent(new CustomEvent("update", {detail:this}));
+
 		}
 		return layer;
 	}
@@ -192,7 +193,7 @@ export class Slide extends EventDispatcher {
 	get durationRatio(){return this._durationRatio;}
 	set durationRatio(value:number){
 		this._durationRatio = Math.max(value, 0.4);
-
+		this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		// if(this.obj.attr("style")){
 		// 	if(this.obj.attr("style").indexOf("width") != -1){
 		// 		this.fitToHeight();
@@ -208,7 +209,8 @@ export class Slide extends EventDispatcher {
 
 	set joining(value:boolean) {
 		this._joining = value;
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+
 		// if(this._joining){
 		// 	this.obj.addClass("joining");
 		// }else{
@@ -222,7 +224,8 @@ export class Slide extends EventDispatcher {
 	// }
 	set disabled(value:boolean) {
 		this._disabled = value;
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+
 
 		// if(this._disabled){
 		// 	this.obj.addClass("disabled");

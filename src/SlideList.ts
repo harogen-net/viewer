@@ -45,21 +45,22 @@ export class SlideList extends EventDispatcher implements IDroppable {
             }
 		});
 
+		this._slides = [];
 		this._slideViews = [];
 		this._slideViewsById = {};
 
  		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
+			var layer = (new ImageLayer(e.detail));
+			if(layer.originHeight > (layer.originWidth * 1.2)) {
+				layer.rotation -= 90;
+			}
+			var slide = new Slide(VDoc.shared.width, VDoc.shared.height,[layer]);
 			var slideObj = $('<div />');
-			var slide = new Slide(VDoc.shared.width, VDoc.shared.height);
 			var slideView = new ThumbSlide(slide, slideObj);
 			//slide.updateSize();
 			this.addSlide(slide);
 
-			var layer = slide.addLayer(new ImageLayer(e.detail));
-			if(layer.originHeight > (layer.originWidth * 1.2)) {
-				layer.rotation -= 90;
-			}
 			slideView.fitLayer(layer);
 			slideView.refresh();
 		}); 
@@ -86,7 +87,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			if(this._slideViews.length > 0){
 				this._slideViews[this._slideViews.length - 1].slide.joining = false;
 			}
-			this.selectSlide(this.addSlide(new Slide(VDoc.shared.width, VDoc.shared.height)));
+			var slide = new Slide(VDoc.shared.width, VDoc.shared.height);
+			this.addSlide(slide)
+//			this.selectSlide();
 		});
 	}
 
@@ -94,14 +97,14 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		this._mode = mode;
 		switch(mode){
 			case ViewerMode.SELECT:
-				$.each(this.slides, (index:number, slide:SlideView)=>{
+				$.each(this._slideViews, (index:number, slide:SlideView)=>{
 					slide.fitToHeight();
 				});
 				//this.obj.sortable("refresh");
 				//this.obj.sortable("enable");
 			break;
 			case ViewerMode.EDIT:
-				$.each(this.slides, (index:number, slide:SlideView)=>{
+				$.each(this._slideViews, (index:number, slide:SlideView)=>{
 					slide.fitToHeight();
 				});
 				//this.obj.sortable("disable");
@@ -115,6 +118,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	} 
 
 	initialize():void {
+		if(!this._slides) return;
 		while(this.slides.length > 0){
 			this.removeSlide(this.slides[0]);
 		}
@@ -156,9 +160,17 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		}
 		this._slideViewsById[slideView.id] = slideView;
 
-		//slide.obj.appendTo(this.obj);
+		slideView.obj.appendTo(this.obj);
+		this.sortSlideObjByIndex();
 
 		slideView.fitToHeight();
+
+		slide.addEventListener("update", this.onSlideUpdate);
+		slide.addEventListener("update", (e)=>{
+			console.log("a");
+			console.log(e);
+		});
+
 
 		var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(slideView.obj);
 		deleteBtn.click(()=>{
@@ -216,17 +228,19 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		var joinArrow = $('<div class="joinArrow"></div>').appendTo(slideView.obj);
 		//var joinArrow = $('<div class="joinArrow"><i class="fas fa-arrow-right"></i></div>').appendTo(slide.obj);
 		joinArrow.on("click.slide", (e:any)=>{
-			slide.joining = !slide.joining;
+			slideView.slide.joining = !slideView.slide.joining;
 			e.preventDefault();
 			e.stopImmediatePropagation();
 		});
 
+
 		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(slideView.obj);
 		enableCheck.on("click.slide", (e:any)=>{
-			slide.disabled = !enableCheck.prop("checked");
+			slideView.slide.disabled = !enableCheck.prop("checked");
 			e.stopImmediatePropagation();
 		});
-		enableCheck.prop("checked", !slide.disabled);
+		enableCheck.prop("checked", !slideView.slide.disabled);
+
 
 		//
 
@@ -259,13 +273,16 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return clonedSlide;
 	}
 
+	private onSlideUpdate = (ce:CustomEvent)=>{
+		this.updateSlideProps(ce.detail);
+	}
 	removeSlide(slide:Slide, isAnimation:boolean = false):Slide{
 		var index:number = this._slides.indexOf(slide);
 		if(index == -1) return;
 
 
 		var slideView:SlideView = this.getSlideViewBySlide(slide);
-
+		slide.removeEventListener("update", this.onSlideUpdate);
 		var nextSlide:Slide = null;
 		if(slideView.selected){
 			if(index < this._slideViews.length - 1) {
@@ -315,9 +332,25 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return slide;
 	}
 
+	private updateSlideProps(slide:Slide){
+		var slideView:SlideView = this.getSlideViewBySlide(slide);
+		if(!slideView) return;
+
+		if(slideView.slide.disabled){
+			slideView.obj.addClass("disabled");
+		}else{
+			slideView.obj.removeClass("disabled");
+		}
+		if(slideView.slide.joining){
+			slideView.obj.addClass("joining");
+		}else{
+			slideView.obj.removeClass("joining");
+		}
+	}
+
 	public refresh(){
 		this._slideViews.forEach(slide=>{
-			(slide as ThumbSlide).refresh();
+	//		(slide as ThumbSlide).refresh();
 		})
 	}
 
