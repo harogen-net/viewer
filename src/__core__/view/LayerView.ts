@@ -1,4 +1,4 @@
-import { Layer, LayerType } from "../layerModel/Layer";
+import { Layer, LayerType } from "../model/Layer";
 //import { ILayer } from "../layerModel/ILayer";
 
 

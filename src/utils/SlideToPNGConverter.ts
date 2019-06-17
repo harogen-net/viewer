@@ -1,9 +1,10 @@
-import { VDoc } from "../__core__/VDoc";
+import { VDoc } from "../__core__/model/VDoc";
 import { Viewer } from "../Viewer";
-import { SlideView } from "../__core__/SlideView";
-import { Image } from "../__core__/layerModel/Image";
-import { Layer, LayerType } from "../__core__/layerModel/Layer";
+import { SlideView } from "../__core__/view/SlideView";
+import { ImageLayer } from "../__core__/model/ImageLayer";
+import { Layer, LayerType } from "../__core__/model/Layer";
 import { ImageManager } from "./ImageManager";
+import { Slide } from "../__core__/model/Slide";
 
 declare var $:any;
 
@@ -30,7 +31,7 @@ export class SlideToPNGConverter {
 		var width:number = doc.width;
 		var height:number = doc.height;
 
-		let slideSortFunc = (a:SlideView,b:SlideView):number=>{
+		let slideSortFunc = (a:Slide,b:Slide):number=>{
 			if(a.durationRatio > b.durationRatio){
 				return -1
 			}else if(a.durationRatio < b.durationRatio){
@@ -39,7 +40,7 @@ export class SlideToPNGConverter {
 				return 0;
 			}
 		}
-		var slides:SlideView[] = doc.slides.concat();
+		var slides:Slide[] = doc.slides.concat();
 		slides = slides.sort(slideSortFunc);
 
 		while(pages.length < type && slides.length > 0){
@@ -50,7 +51,7 @@ export class SlideToPNGConverter {
 		return canvas.toDataURL();
 	}
 
-	public slide2canvas(slide:SlideView, width:number, height:number, bgColor?:string):HTMLCanvasElement {
+	public slide2canvas(slide:Slide, width:number, height:number, bgColor?:string):HTMLCanvasElement {
 		var canvas:HTMLCanvasElement = document.createElement("canvas") as HTMLCanvasElement;
 		canvas.width = width;
 		canvas.height = height;
@@ -58,7 +59,7 @@ export class SlideToPNGConverter {
 		return canvas;
 	}
 
-	public drawSlide2Canvas(slide:SlideView, canvas:HTMLCanvasElement, width:number, height:number, slideScale?:number, bgColor?:string) {
+	public drawSlide2Canvas(slide:Slide, canvas:HTMLCanvasElement, width:number, height:number, slideScale?:number, bgColor?:string) {
 		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
 		if(bgColor){
 			ctx.fillStyle = bgColor;
@@ -70,7 +71,7 @@ export class SlideToPNGConverter {
 
 		$.each(slide.layers, (number, layer:Layer)=>{
 			if(layer.type != LayerType.IMAGE) return;
-			var image = layer as Image;
+			var image = layer as ImageLayer;
 			if (!image.visible) return;
 
 			var matrix:number[] = layer.matrix;
@@ -103,7 +104,7 @@ export class SlideToPNGConverter {
 
 	private countConvertibleSlideNum(doc:VDoc):number {
 		var num:number = 0;
-		doc.slides.forEach((slide:SlideView)=>{
+		doc.slides.forEach((slide:Slide)=>{
 			if(slide.durationRatio >= 1) num++;
 		});
 		return num;

@@ -1,5 +1,5 @@
 import {EventDispatcher} from "../events/EventDispatcher";
-import { Image } from "../__core__/layerModel/Image";
+import { ImageLayer } from "../__core__/model/ImageLayer";
 import { resolve } from "dns";
 
 declare var $:any;
@@ -52,7 +52,7 @@ export class ImageManager extends EventDispatcher {
 
 	//
 
-	private allImages:Image[];
+	private allImages:ImageLayer[];
 	private _imageById:{[key:string]:{width:number, height:number, imgObj:any}};
 
 	private constructor(private container:any){

@@ -1,7 +1,7 @@
 //import { ILayer } from "../layerModel/ILayer";
 import { LayerView } from "./LayerView";
-import { TextLayer } from "../layerModel/TextLayer";
-import { Layer } from "../layerModel/Layer";
+import { TextLayer } from "../model/TextLayer";
+import { Layer } from "../model/Layer";
 
 declare var $:any;
 

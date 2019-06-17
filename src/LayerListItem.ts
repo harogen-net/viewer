@@ -1,11 +1,11 @@
-import { Image } from "./__core__/layerModel/Image";
+import { ImageLayer } from "./__core__/model/ImageLayer";
 import { EventDispatcher } from "./events/EventDispatcher";
-import { Layer, LayerType } from "./__core__/layerModel/Layer";
-import { TextLayer } from "./__core__/layerModel/TextLayer";
-import { LayerView } from "./__core__/layerView/LayerView";
-import { TextView } from "./__core__/layerView/TextView";
+import { Layer, LayerType } from "./__core__/model/Layer";
+import { TextLayer } from "./__core__/model/TextLayer";
+import { LayerView } from "./__core__/view/LayerView";
+import { TextView } from "./__core__/view/TextView";
 import { ImageManager } from "./utils/ImageManager";
-import { ImageView } from "./__core__/layerView/ImageView";
+import { ImageView } from "./__core__/view/ImageView";
 
 declare var $:any;
 

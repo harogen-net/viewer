@@ -1,9 +1,10 @@
 import { EventDispatcher } from "./events/EventDispatcher";
-import { SlideView } from "./__core__/SlideView";
-import { Image } from "./__core__/layerModel/Image";
-import { Layer, LayerType } from "./__core__/layerModel/Layer";
-import { TextLayer } from "./__core__/layerModel/TextLayer";
-import { DOMSlide } from "./__core__/slide/DOMSlide";
+import { SlideView } from "./__core__/view/SlideView";
+import { ImageLayer } from "./__core__/model/ImageLayer";
+import { Layer, LayerType } from "./__core__/model/Layer";
+import { TextLayer } from "./__core__/model/TextLayer";
+import { DOMSlide } from "./slide/DOMSlide";
+import { Slide } from "./__core__/model/Slide";
 
 declare var $:any;
 
@@ -72,7 +73,7 @@ export class SlideShow extends EventDispatcher {
 		};
 	}
 
-	setUp(slides:SlideView[]):void {
+	setUp(slides:Slide[]):void {
 		//console.log("setup at slideshow", this._isRun);
 		this.intialize();
 
@@ -80,22 +81,22 @@ export class SlideShow extends EventDispatcher {
 		this.duration = parseInt($("#duration").val());
 //		this.bgColor = $("#bgColor").val();
 
-		slides = slides.filter((value:SlideView)=>{
+		slides = slides.filter((value:Slide)=>{
 			return !value.disabled;
 		});
 
 		var slideIndex:number = 0;
-		var lastSlide:SlideView = undefined;
+		var lastSlide:Slide = undefined;
 		for(var i:number = 0; i < slides.length; i++){
-			var slide:SlideView = slides[i];
-			var lastSlide:SlideView = (i == 0) ? slides[slides.length - 1] : slides[i - 1];
+			var slide:Slide = slides[i];
+			var lastSlide:Slide = (i == 0) ? slides[slides.length - 1] : slides[i - 1];
 
 			var newObj:any = $('<div />');
-			var slideForSS:DOMSlide = new DOMSlide(newObj);
+			var slideForSS:Slide = slide.clone();
+			var slideViewForSS:DOMSlide = new DOMSlide(slide.clone(), newObj);
 			slideForSS.id = slide.id;
 			slideForSS.durationRatio = slide.durationRatio;
 			slideForSS.joining = slide.joining;
-			slideForSS.isLock = slide.isLock;
 			slideForSS.disabled = slide.disabled;
 			$.each(slide.layers, (number, layer:Layer) => {
 				slideForSS.addLayer(layer.clone());
@@ -104,7 +105,7 @@ export class SlideShow extends EventDispatcher {
 
 //			var slideForSS:SlideView = slide.clone();
 //			slideForSS.obj.css("background-color",this.bgColor);
-			slideForSS.obj.hide();
+			slideViewForSS.obj.hide();
 
 			var datum:any = {};
 
@@ -113,9 +114,9 @@ export class SlideShow extends EventDispatcher {
 				datum.index = this.slides.length - 1;
 			}else{
 				datum.index = this.slides.length;
-				this.slides.push(slideForSS);
+				this.slides.push(slideViewForSS);
 				//this.obj.append(slideForSS.obj);
-				this.slideContainer.append(slideForSS.obj);
+				this.slideContainer.append(slideViewForSS.obj);
 			}
 			datum.transforms = [];
 			for(var j:number = 0; j < slide.layers.length; j++){
@@ -132,18 +133,18 @@ export class SlideShow extends EventDispatcher {
 			//var slideForSS:SlideView = slides[0].clone();
 
 			var newObj:any = $('<div />');
-			var slideForSS:DOMSlide = new DOMSlide(newObj);
+			var slideForSS:Slide = slide.clone();
+			var slideViewForSS:DOMSlide = new DOMSlide(slideForSS, newObj);
 			slideForSS.id = slides[0].id;
 			slideForSS.durationRatio = slides[0].durationRatio;
 			slideForSS.joining = slides[0].joining;
-			slideForSS.isLock = slides[0].isLock;
 			slideForSS.disabled = slides[0].disabled;
 			$.each(slides[0].layers, (number, layer:Layer) => {
 				slideForSS.addLayer(layer.clone());
 			});
 	
-			this.slides.push(slideForSS);
-			this.slideContainer.append(slideForSS.obj);
+			this.slides.push(slideViewForSS);
+			this.slideContainer.append(slideViewForSS.obj);
 		}
 
 		//index:-1を解決
@@ -178,7 +179,7 @@ export class SlideShow extends EventDispatcher {
 
 		if(this.slides){
 			$.each(this.slides, (index:number, slide:SlideView) =>{
-				slide.removeAllLayers();
+				slide.slide.removeAllLayers();
 				slide.obj.stop();
 				slide.obj.remove();
 			});
@@ -210,8 +211,8 @@ export class SlideShow extends EventDispatcher {
 				slide.obj.show();
 				slide.obj.animate({"opacity":1},1000);
 
-				for(var i:number = 0; i < slide.layers.length; i++){
-					var layer = slide.layers[i];
+				for(var i:number = 0; i < slide.slide.layers.length; i++){
+					var layer = slide.slide.layers[i];
 					var trans = layer.transform;
 					if(layer.type == LayerType.TEXT){	//文字を反転から救う
 						this.avoidMirrorText(layer as TextLayer, trans.mirrorH, trans.mirrorV);
@@ -333,8 +334,8 @@ export class SlideShow extends EventDispatcher {
 			}
 			this.history.push(slide);
 		}
-		for(var i:number = 0; i < slide.layers.length; i++){
-			var layer = slide.layers[i];
+		for(var i:number = 0; i < slide.slide.layers.length; i++){
+			var layer = slide.slide.layers[i];
 			var trans = datum.transforms[i];
 			layer.transform = trans;
 			if(layer.type == LayerType.TEXT){	//文字を反転から救う
@@ -390,7 +391,7 @@ export class SlideShow extends EventDispatcher {
 
 	//
 
-	private checkSlidesSame(slide1:SlideView, slide2:SlideView):boolean {
+	private checkSlidesSame(slide1:Slide, slide2:Slide):boolean {
 		if(!slide2.joining) return false;
 		if(slide1.layers.length != slide2.layers.length) return false;
 		if(slide1.layers.length == 0) return false;
@@ -403,7 +404,7 @@ export class SlideShow extends EventDispatcher {
 
 			switch(layer1.type){
 				case LayerType.IMAGE:
-					if((layer1 as Image).imageId != (layer2 as Image).imageId) return false;
+					if((layer1 as ImageLayer).imageId != (layer2 as ImageLayer).imageId) return false;
 				break;
 				case LayerType.TEXT:
 //					if(layer1.id != layer2.id) return false;

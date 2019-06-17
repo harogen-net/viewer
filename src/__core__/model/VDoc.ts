@@ -1,14 +1,18 @@
-import { SlideView } from "./SlideView";
-import { Image } from "./layerModel/Image";
-import { DateUtil } from "../utils/DateUtil";
-import { Viewer } from "../Viewer";
+import { SlideView } from "../view/SlideView";
+import { ImageLayer } from "./ImageLayer";
+import { DateUtil } from "../../utils/DateUtil";
+import { Viewer } from "../../Viewer";
+import { Slide } from "./Slide";
 
 declare var $: any;
 
 export class VDoc {
+
+	public static shared:VDoc = null;
+
 	private readonly BG_COLOR_INIT:string = "#999999";
 
-	public slides:SlideView[];
+	public slides:Slide[];
 	
 	public duration:number|undefined;
 	public interval:number|undefined;
@@ -23,7 +27,7 @@ export class VDoc {
 	private _bgColor:string|undefined;
 
 
-	constructor(slides?:SlideView[], options?:any){
+	constructor(slides?:Slide[], options?:any){
 		console.log("const at vdoc", slides, options);
 		this.slides = slides || [];
 
@@ -48,6 +52,9 @@ export class VDoc {
 		this.title = title;
 		this.width = width;
 		this.height = height;
+
+		VDoc.shared = this;
+		console.log(VDoc.shared);
 	}
 
 	//

@@ -1,15 +1,16 @@
-import {SlideView} from "../SlideView";
-import {Layer, LayerType} from "../layerModel/Layer";
-import {Image} from "../layerModel/Image";
-import {KeyboardManager} from "../../utils/KeyboardManager";
-import { DropHelper } from "../../utils/DropHelper";
-import { IDroppable } from "../../interface/IDroppable";
-import { TextLayer } from "../layerModel/TextLayer";
+import {SlideView} from "../__core__/view/SlideView";
+import {Layer, LayerType} from "../__core__/model/Layer";
+import {ImageLayer} from "../__core__/model/ImageLayer";
+import {KeyboardManager} from "../utils/KeyboardManager";
+import { DropHelper } from "../utils/DropHelper";
+import { IDroppable } from "../interface/IDroppable";
+import { TextLayer } from "../__core__/model/TextLayer";
 import { DOMSlide } from "./DOMSlide";
-import { LayerView } from "../layerView/LayerView";
-import { TextView } from "../layerView/TextView";
-import { ImageView } from "../layerView/ImageView";
-import { LayerViewFactory } from "../layerView/LayerViewFactory";
+import { LayerView } from "../__core__/view/LayerView";
+import { TextView } from "../__core__/view/TextView";
+import { ImageView } from "../__core__/view/ImageView";
+import { LayerViewFactory } from "../__core__/view/LayerViewFactory";
+import { Slide } from "../__core__/model/Slide";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -47,8 +48,8 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		return this.getLayerViewByLayer(this.selectedLayer);
 	}
 
-	constructor(public obj:any){
-		super(obj);
+	constructor(protected _slide:Slide, public obj:any){
+		super(_slide, obj);
 
 		this.scale = SlideEditable.SCALE_DEFAULT;
 		this.selectedLayer = null;
@@ -121,11 +122,11 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
 			var imageId:string = e.detail as string;
-			var image:Image = new Image(imageId);
+			var image:ImageLayer = new ImageLayer(imageId);
 			if(image.originHeight > (image.originWidth * 1.2)) {
 				image.rotation -= 90;
 			}
-			this.selectLayer(this.addLayer(this.fitLayer(image)));
+			this.selectLayer(this._slide.addLayer(this.fitLayer(image)));
 		});
 
 
@@ -189,8 +190,8 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 
 	//
 
-	protected addDomLayer(layerView:LayerView){
-		super.addDomLayer(layerView);
+	protected addDomLayer(layer:Layer):LayerView{
+		var layerView = super.addDomLayer(layer);
 
 		layerView.obj.on("mousedown.layer_preselect", (e:any) => {
 			if(layerView.selected) return;
@@ -211,10 +212,12 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 			};
 		});
 
-		this.dispatchEvent(new Event("update"));
+//		this.dispatchEvent(new Event("update"));
+
+		return layerView;
 	}
-	protected removeDomLayer(layerView:LayerView){
-		super.removeDomLayer(layerView);
+	protected removeDomLayer(layer:Layer):LayerView{
+		var layerView = super.removeDomLayer(layer);
 
 		if(layerView.data == this.selectedLayer){
 			this.selectLayer();
@@ -227,7 +230,9 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 			var textLayerView = layerView as TextView;
 			textLayerView.textObj.off("focusout.textLayer_edit");
 		}
-		this.dispatchEvent(new Event("update"));
+		//this.dispatchEvent(new Event("update"));
+
+		return layerView
 	}
 
 	//
@@ -255,9 +260,9 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 			this.controls.show();
 			
 			if(this.selectedLayer.type == LayerType.IMAGE){
-				this.lastSelectedId = (this.selectedLayer as Image).imageId;
+				this.lastSelectedId = (this.selectedLayer as ImageLayer).imageId;
 			}
-			this.lastSelectedIndex = this._layers.indexOf(this.selectedLayer);
+			this.lastSelectedIndex = this._slide.layers.indexOf(this.selectedLayer);
 		}else{
 			this.controls.hide();
 
@@ -269,10 +274,11 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 	}
 
 	initialize(){
-		var tmpLayers:Layer[] = this._layers.concat() as Layer[];
-		$.each(tmpLayers, (index:number, layer:Layer)=>{
-			this.removeLayer(layer);
-		});
+		// var tmpLayers:Layer[] = this._slide.layers.concat() as Layer[];
+		// $.each(tmpLayers, (index:number, layer:Layer)=>{
+		// 	this.removeLayer(layer);
+		// });
+		this._slide.layers = [];
 		this.isActive = false;
 	}
 
@@ -280,7 +286,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		if(!this._isActive) return;
 		if(this.selectedLayer){
 			this.copyedLayer = this.selectedLayer;
-			this.removeLayer(this.selectedLayer);
+			this._slide.removeLayer(this.selectedLayer);
 		}
 	}
 
@@ -294,7 +300,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 	paste(){
 		if(!this._isActive) return;
 		if(this.copyedLayer){
-			this.selectLayer(this.addLayer(this.copyedLayer.clone()));
+			this.selectLayer(this._slide.addLayer(this.copyedLayer.clone()));
 		}
 	}
 
@@ -333,22 +339,22 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 	}
 
 	forwardLayer(layer:Layer){
-		if(this._layers.indexOf(layer) == -1) return;
+		if(this._slide.layers.indexOf(layer) == -1) return;
 
-		var index:number = this._layers.indexOf(layer);
-		this._layers.splice(index,1);
-		this._layers.splice(Math.min(index + 1, this._layers.length),0,layer);
+		var index:number = this._slide.layers.indexOf(layer);
+		this._slide.layers.splice(index,1);
+		this._slide.layers.splice(Math.min(index + 1, this._slide.layers.length),0,layer);
 
 		this.setLayersZIndex();
 		this.dispatchEvent(new Event("update"));
 	}
 
 	backwordLayer(layer:Layer){
-		if(this._layers.indexOf(layer) == -1) return;
+		if(this._slide.layers.indexOf(layer) == -1) return;
 
-		var index:number = this._layers.indexOf(layer);
-		this._layers.splice(index,1);
-		this._layers.splice(Math.max(index - 1, 0),0,layer);
+		var index:number = this._slide.layers.indexOf(layer);
+		this._slide.layers.splice(index,1);
+		this._slide.layers.splice(Math.max(index - 1, 0),0,layer);
 
 		this.setLayersZIndex();
 		this.dispatchEvent(new Event("update"));

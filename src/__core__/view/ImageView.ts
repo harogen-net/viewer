@@ -1,6 +1,6 @@
 import { LayerView } from "./LayerView";
-import { ILayer } from "../layerModel/ILayer";
-import { Image } from "../layerModel/Image";
+//import { ILayer } from "../model/ILayer";
+import { ImageLayer } from "../model/ImageLayer";
 import { ImageManager } from "../../utils/ImageManager";
 //import { Layer } from "../layerModel/Layer";
 
@@ -10,7 +10,7 @@ export class ImageView extends LayerView {
 
 	private imgObj:any;
 
-	constructor(protected _imageData:Image, public obj:any) {
+	constructor(protected _imageData:ImageLayer, public obj:any) {
 		super(_imageData, obj);
 		this.setImgObj();
 

@@ -1,16 +1,17 @@
-import {SlideView} from "../__core__/SlideView";
-import { Image } from "../__core__/layerModel/Image";
+import {SlideView} from "../__core__/view/SlideView";
+import { ImageLayer } from "../__core__/model/ImageLayer";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Viewer } from "../Viewer";
-import { VDoc } from "../__core__/VDoc";
+import { VDoc } from "../__core__/model/VDoc";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
-import { Layer, LayerType } from "../__core__/layerModel/Layer";
-import { TextLayer } from "../__core__/layerModel/TextLayer";
-import { ThumbSlide } from "../__core__/slide/ThumbSlide";
+import { Layer, LayerType } from "../__core__/model/Layer";
+import { TextLayer } from "../__core__/model/TextLayer";
+import { ThumbSlide } from "../slide/ThumbSlide";
 import { ImageManager } from "./ImageManager";
+import { Slide } from "../__core__/model/Slide";
 
 declare var $:any;
 declare var jsSHA:any;
@@ -264,12 +265,12 @@ export class SlideStorage extends EventDispatcher {
 			
 			var imageNum:number = 0;
 			//console.log("total slide num : " + document.slides.length);
-			$.each(document.slides, (i:number, slide:SlideView)=>{
+			$.each(document.slides, (i:number, slide:Slide)=>{
 				var slideDatum:any = {};
 				slideDatum.id = slide.id;
 				slideDatum.durationRatio = slide.durationRatio;
 				slideDatum.joining = slide.joining;
-				slideDatum.isLock = slide.isLock;
+//				slideDatum.isLock = slide.isLock;
 				slideDatum.disabled = slide.disabled;
 
 				var layers:Layer[] = [];
@@ -313,7 +314,7 @@ export class SlideStorage extends EventDispatcher {
 
 	private async parseData(jsonStr:string, options?:any) {
 
-		var slides:SlideView[] = [];
+		var slides:Slide[] = [];
 		options = options || {};
 
 		var json:any = JSON.parse(jsonStr);
@@ -351,17 +352,21 @@ export class SlideStorage extends EventDispatcher {
 		if(json.version >= 2){
 //			var isScreenSizeChange:boolean = (json.screen.width != Viewer.SCREEN_WIDTH || json.screen.height != Viewer.SCREEN_HEIGHT);
 
+			const width:number = json.width && !isNaN(parseInt(json.width)) ? parseInt(json.width) : Viewer.SCREEN_WIDTH;
+			const height:number = json.height && !isNaN(parseInt(json.height)) ? parseInt(json.height) : Viewer.SCREEN_HEIGHT;
+			options.width = width;
+			options.height = height;
 
 			for (let imageId in json.imageData){
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
 
 			$.each(json.slideData, (number, slideDatum:any)=>{
-				var slide:SlideView = new SlideView($('<div />'));
+				var slide:Slide = new Slide(width, height);
 				//var slide:Slide = new Slide($('<div />'));
 				slide.durationRatio = slideDatum.durationRatio;
 				slide.joining = slideDatum.joining;
-				slide.isLock = slideDatum.isLock;
+//				slide.isLock = slideDatum.isLock;
 				slide.disabled = slideDatum.disabled;
 				
 				var layers:Layer[];
@@ -414,7 +419,7 @@ export class SlideStorage extends EventDispatcher {
 							// if(layerDatum.name != undefined){
 							// 	imgObj.data("name",layerDatum.name);
 							// }
-							var img:Image = new Image(layerDatum.imageId, {
+							var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
 								transX:layerDatum.transX,
 								transY:layerDatum.transY,
 								scaleX:layerDatum.scaleX,
@@ -458,8 +463,8 @@ export class SlideStorage extends EventDispatcher {
 			if(json.bgColor) options.bgColor = json.bgColor;
 			if(json.createTime) options.createTime = json.createTime;
 			if(json.editTime) options.editTime = json.editTime;
-			if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
-			if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
+			//if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
+			//if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
 			//if(json.title) options.title = json.title;
 		}
 

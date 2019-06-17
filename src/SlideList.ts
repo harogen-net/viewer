@@ -1,24 +1,28 @@
-import { SlideView } from "./__core__/SlideView";
-import {Image} from "./__core__/layerModel/Image";
+import { SlideView } from "./__core__/view/SlideView";
+import {ImageLayer} from "./__core__/model/ImageLayer";
 import { EventDispatcher } from "./events/EventDispatcher";
 import { DropHelper } from "./utils/DropHelper";
 import { IDroppable } from "./interface/IDroppable";
 import { Viewer, ViewerMode } from "./Viewer";
 import { join } from "path";
-import { ThumbSlide } from "./__core__/slide/ThumbSlide";
+import { ThumbSlide } from "./slide/ThumbSlide";
+import { Slide } from "./__core__/model/Slide";
+import { VDoc } from "./__core__/model/VDoc";
 
 declare var $: any;
 
 export class SlideList extends EventDispatcher implements IDroppable {
 
-	private _slides:SlideView[];
-	private _slidesById:any;
+	private _slides:Slide[];
+	private _slideViews:ThumbSlide[];
+	private _slideViewsById:any;
+	private _selectedSlide:Slide;
+
 	private _mode:ViewerMode;
-	private _selectedSlide:SlideView;
 
 	private doubleClickLock:boolean;
 	private doubleClickTimer:NodeJS.Timer;
-
+	
 	private newSlideBtn:any;
 
 
@@ -41,27 +45,28 @@ export class SlideList extends EventDispatcher implements IDroppable {
             }
 		});
 
-		this._slides = [];
-		this._slidesById = {};
+		this._slideViews = [];
+		this._slideViewsById = {};
 
  		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
 			var slideObj = $('<div />');
-			var slide = new ThumbSlide(slideObj);
+			var slide = new Slide(VDoc.shared.width, VDoc.shared.height);
+			var slideView = new ThumbSlide(slide, slideObj);
 			//slide.updateSize();
 			this.addSlide(slide);
 
-			var layer = slide.addLayer(new Image(e.detail));
+			var layer = slide.addLayer(new ImageLayer(e.detail));
 			if(layer.originHeight > (layer.originWidth * 1.2)) {
 				layer.rotation -= 90;
 			}
-			slide.fitLayer(layer);
-			slide.refresh();
+			slideView.fitLayer(layer);
+			slideView.refresh();
 		}); 
 
 		$(window).resize(()=>{
 			setTimeout(()=>{
-				$.each(this._slides, (index:number, slide:SlideView) =>{
+				$.each(this._slideViews, (index:number, slide:SlideView) =>{
 					var bool:boolean = slide.selected;
 					slide.selected = false;
 					slide.fitToHeight();
@@ -78,10 +83,10 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.obj);
 		this.newSlideBtn.click(()=>{
-			if(this._slides.length > 0){
-				this._slides[this._slides.length - 1].joining = false;
+			if(this._slideViews.length > 0){
+				this._slideViews[this._slideViews.length - 1].slide.joining = false;
 			}
-			this.selectSlide(this.addSlide(new ThumbSlide($('<div/>'))));
+			this.selectSlide(this.addSlide(new Slide(VDoc.shared.width, VDoc.shared.height)));
 		});
 	}
 
@@ -116,7 +121,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	}
 
 
-	addSlide(slide:SlideView,index:number = -1):SlideView {
+	addSlide(slide:Slide, index:number = -1):Slide {
 		console.log("addSlide called : " + this._slides.length);
 
 		if(index != -1 && index < this._slides.length){
@@ -126,11 +131,11 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			this._slides.push(slide);
 		}
 
-		slide.id = Math.floor(Math.random()*100000000);
+///		slide.id = Math.floor(Math.random()*100000000);
 /*		$.each(this._slides, (i, slide2:Slide)=>{
 			console.log(slide2, slide2.id);
 		});*/
-		this._slidesById[slide.id] = slide;
+//		this._slideViewsById[slide.id] = slide;
 
 		this.sortSlideObjByIndex();
 		this.setSlideUp(slide);
@@ -138,30 +143,42 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return slide;
 	}
 
-	private setSlideUp(slide:SlideView) {
+	private getSlideViewBySlide(slide:Slide):SlideView {
+		return this._slideViews[this._slides.indexOf(slide)] || null;
+	}
+
+	private setSlideUp(slide:Slide, index:number = -1) {
+		var slideView:ThumbSlide = new ThumbSlide(slide, $('<div />'));
+		if(index != -1 && index < this._slides.length){
+			this._slideViews.splice(index,0,slideView);
+		}else{
+			this._slideViews.push(slideView);
+		}
+		this._slideViewsById[slideView.id] = slideView;
+
 		//slide.obj.appendTo(this.obj);
 
-		slide.fitToHeight();
+		slideView.fitToHeight();
 
-		var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(slide.obj);
+		var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(slideView.obj);
 		deleteBtn.click(()=>{
 			//if(window.confirm('Are you sure?')){
-				this.removeSlide(slide,true);
+				this.removeSlide(slideView.slide ,true);
 			//}
 			return false;
 		});
-		var cloneBtn = $('<button class="clone"><i class="fas fa-plus"></i></button>').appendTo(slide.obj);
+		var cloneBtn = $('<button class="clone"><i class="fas fa-plus"></i></button>').appendTo(slideView.obj);
 		cloneBtn.click(()=>{
-			this.clonseSlide(slide);
+			this.clonseSlide(slideView.slide);
 			return false;
 		});
-		var editBtn = $('<button class="edit"><i class="fas fa-edit"></i></button>').appendTo(slide.obj);
+		var editBtn = $('<button class="edit"><i class="fas fa-edit"></i></button>').appendTo(slideView.obj);
 		editBtn.click(()=>{
 			this.dispatchEvent(new Event("edit"));
 			return false;
 		});
 		
-		var durationDiv = $('<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>').appendTo(slide.obj);
+		var durationDiv = $('<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>').appendTo(slideView.obj);
 		durationDiv.find("button.up").click((e:any)=>{
 			this.lockDoubleClick();
 			if(slide.durationRatio < 9){
@@ -175,7 +192,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 /* 				setTimeout(()=>{
 					this.scrollToSelected();
 				},200); */
-				this.updateSlideDuration(slide);
+				this.updateSlideDuration(slideView.slide);
 			};
 		});
 		durationDiv.find("button.down").click((e:any)=>{
@@ -191,12 +208,12 @@ export class SlideList extends EventDispatcher implements IDroppable {
 /* 				setTimeout(()=>{
 					this.scrollToSelected();
 				},200); */
-				this.updateSlideDuration(slide);
+				this.updateSlideDuration(slideView.slide);
 			};
 		});
-		this.updateSlideDuration(slide);
+		this.updateSlideDuration(slideView.slide);
 
-		var joinArrow = $('<div class="joinArrow"></div>').appendTo(slide.obj);
+		var joinArrow = $('<div class="joinArrow"></div>').appendTo(slideView.obj);
 		//var joinArrow = $('<div class="joinArrow"><i class="fas fa-arrow-right"></i></div>').appendTo(slide.obj);
 		joinArrow.on("click.slide", (e:any)=>{
 			slide.joining = !slide.joining;
@@ -204,7 +221,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			e.stopImmediatePropagation();
 		});
 
-		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(slide.obj);
+		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(slideView.obj);
 		enableCheck.on("click.slide", (e:any)=>{
 			slide.disabled = !enableCheck.prop("checked");
 			e.stopImmediatePropagation();
@@ -213,25 +230,25 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		//
 
-		slide.obj.on("mousedown.slide",(e:any)=>{
+		slideView.obj.on("mousedown.slide",(e:any)=>{
 			//e.stopPropagation();
 		});
-  		slide.obj.on("click.slide", ()=>{
-			this.selectSlide(slide);
+		slideView.obj.on("click.slide", ()=>{
+			this.selectSlide(slideView.slide);
 		});
-		slide.obj.on("dblclick.slide", ()=>{
+		slideView.obj.on("dblclick.slide", ()=>{
 			if(this.doubleClickLock) return;
 			this.dispatchEvent(new Event("edit"));
 			return false;
 		});
-		slide.obj.hide().fadeIn(300, () => {
+		slideView.obj.hide().fadeIn(300, () => {
 		});
 	}
 
-	clonseSlide(slide:SlideView):SlideView {
+	clonseSlide(slide:Slide):Slide {
 		if(this._slides.indexOf(slide) == -1) return;
 
-		var clonedSlide:SlideView = slide.clone();
+		var clonedSlide:Slide = slide.clone();
 		this.addSlide(clonedSlide, this._slides.indexOf(slide) + 1);
 		slide.joining = true;
 
@@ -242,35 +259,39 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return clonedSlide;
 	}
 
-	removeSlide(slide:SlideView, isAnimation:boolean = false):SlideView{
+	removeSlide(slide:Slide, isAnimation:boolean = false):Slide{
 		var index:number = this._slides.indexOf(slide);
 		if(index == -1) return;
 
-		var nextSlide:SlideView = null;
-		if(slide.selected){
-			if(index < this._slides.length - 1) {
-				nextSlide = this._slides[index + 1];
+
+		var slideView:SlideView = this.getSlideViewBySlide(slide);
+
+		var nextSlide:Slide = null;
+		if(slideView.selected){
+			if(index < this._slideViews.length - 1) {
+				nextSlide = this._slideViews[index + 1].slide;
 			}else if(index > 0){
-				nextSlide = this._slides[index - 1];
+				nextSlide = this._slideViews[index - 1].slide;
 			}
 		}
 		var removeMain = ()=>{
 			this._slides.splice(index, 1);
-			this._slidesById[slide.id] = undefined;
+			this._slideViews.splice(index, 1);
+			this._slideViewsById[(slideView as ThumbSlide).id] = undefined;
 			slide.removeAllLayers();
-			slide.obj.find("button").remove();
-			slide.obj.find("div.duration").remove();
-			slide.obj.find("div.joinArrow").remove();
-			slide.obj.off("click.slide");
-			slide.obj.off("dblclick.slide");
-			slide.obj.off("mousedown.slide");
-			slide.obj.remove();
-			slide = null;
+			slideView.obj.find("button").remove();
+			slideView.obj.find("div.duration").remove();
+			slideView.obj.find("div.joinArrow").remove();
+			slideView.obj.off("click.slide");
+			slideView.obj.off("dblclick.slide");
+			slideView.obj.off("mousedown.slide");
+			slideView.obj.remove();
+			slideView = null;
 		}
 
 		if(isAnimation){
 			this.obj.css("pointer-events","none");
-			slide.obj.fadeOut(200, () => {
+			slideView.obj.fadeOut(200, () => {
 				this.obj.css("pointer-events","");
 				removeMain();
 				this.sortSlideObjByIndex();
@@ -295,26 +316,27 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	}
 
 	public refresh(){
-		this._slides.forEach(slide=>{
+		this._slideViews.forEach(slide=>{
 			(slide as ThumbSlide).refresh();
 		})
 	}
 
 	//
 
-	private selectSlide(slide:SlideView = null){
+	private selectSlide(slide:Slide = null){
 		this._selectedSlide = undefined;
-		$.each(this._slides, (index:number, slide2:SlideView) => {
+
+		$.each(this._slideViews, (index:number, slide2:SlideView) => {
 			slide2.obj.off("click.slide");
 
-			if(slide2 == slide){
+			if(slide2.slide == slide){
 				slide2.selected = true;
-				this._selectedSlide = slide2;
+				this._selectedSlide = slide;
 
 			}else{
 				slide2.selected = false;
 				slide2.obj.on("click.slide", ()=>{
-					this.selectSlide(slide2);
+					this.selectSlide(slide2.slide);
 				}); 
 			}
 		})
@@ -329,17 +351,17 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			//	this.obj.animate({"scrollTop":this._selectedSlide.obj.position().top});
 			break;
 			case ViewerMode.EDIT:
-				this.obj.animate({"scrollLeft":this._selectedSlide.obj.position().left + this.obj.scrollLeft() - this.obj.width() / 2 + this._selectedSlide.obj.width() / 2});
+				this.obj.animate({"scrollLeft":this.selectedSlideView.obj.position().left + this.obj.scrollLeft() - this.obj.width() / 2 + this.selectedSlideView.obj.width() / 2});
 			break;
 		}
 	}
 
-	private updateSlideDuration(slide:SlideView){
+	private updateSlideDuration(slide:Slide){
 		var durationStr = "";
 		if(slide.durationRatio != 1){
 			durationStr = "x" + slide.durationRatio.toString().substr(0,3);
 		}
-		slide.obj.find(".duration > span").text(durationStr);
+		this.getSlideViewBySlide(slide).obj.find(".duration > span").text(durationStr);
 	}
 
 	private lockDoubleClick(){
@@ -351,13 +373,13 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	}
 
 	private sortSlideObjByIndex(){
-		if(this._slides.length == 0) return;
+		if(this._slideViews.length == 0) return;
 
-		$.each(this._slides, (i:number, slide:SlideView) => {
+		$.each(this._slideViews, (i:number, slide:SlideView) => {
 			this.obj.append(slide.obj);
 			slide.obj.removeClass("last");
 		});
-		this._slides[this._slides.length - 1].obj.addClass("last");
+		this._slideViews[this._slideViews.length - 1].obj.addClass("last");
 		this.obj.append(this.newSlideBtn);
 		this.obj.sortable("refresh");
 	}
@@ -366,7 +388,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 	private onSlideSort() {
 		this.obj.find(".slide").each((i:number, obj:any)=>{
-			this._slides[i] = this._slidesById[$(obj).data("id")];
+			this._slideViews[i] = this._slideViewsById[$(obj).data("id")];
 		});
 
 		this.sortSlideObjByIndex();
@@ -374,36 +396,31 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 	//
 
-	get selectedSlide():SlideView {
+	get selectedSlide():Slide {
 		return this._selectedSlide;
+	}
+	get selectedSlideView():SlideView {
+		return this.getSlideViewBySlide(this._selectedSlide);
 	}
 
 	get isActive():boolean {
 		return true;
 	}
 
-	public set slides(value:SlideView[]) {
+	public set slides(value:Slide[]) {
 		console.log("set slides at slidelist");
-		console.log(value);
 		this.initialize();
 
-		console.log(value);
-		$.each(value, (number, slide:SlideView)=>{
-			var slideObj = $('<div />');
-			var slide2 = new ThumbSlide(slideObj);
-			slide.layers.forEach(layer=>{
-				slide2.addLayer(layer.clone());
-			});
-
-			this.addSlide(slide2);
-		});
-
-		//Slide追加処理の後、slidesアレイ参照自体を置き換える
-		console.log(value);
+		this.initialize();
 		this._slides = value;
-		console.log(this._slides);
+		this._slides.forEach(slide=>{
+			this.addSlide(slide);
+		});
 	}
-	public get slides():SlideView[] { return this._slides; }
+
+	public get slides():Slide[] {
+		return this._slides;
+	}
 
 	get selectedSlideIndex():number{
 		if(this._selectedSlide == null){

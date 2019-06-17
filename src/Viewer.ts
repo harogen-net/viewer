@@ -1,15 +1,16 @@
-import {SlideView} from "./__core__/SlideView";
+import {SlideView} from "./__core__/view/SlideView";
 import {SlideList} from "./SlideList";
-import {Image} from "./__core__/layerModel/Image";
+import {ImageLayer} from "./__core__/model/ImageLayer";
 import { SlideStorage, HVDataType } from "./utils/SlideStorage";
 import { SlideShow } from "./SlideShow";
 import { Menu } from "./Menu";
 import { SlideCanvas } from "./SlideCanvas";
 import { ImageManager } from "./utils/ImageManager";
-import { VDoc } from "./__core__/VDoc";
+import { VDoc } from "./__core__/model/VDoc";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";
-import { Layer, LayerType } from "./__core__/layerModel/Layer";
+import { Layer, LayerType } from "./__core__/model/Layer";
+import { Slide } from "./__core__/model/Slide";
 
 declare var $:any;
 
@@ -23,6 +24,7 @@ export class Viewer {
 	
 	public static enforceAspectRatio = true;
 
+	//スライドのサイズ基本値として必要
 	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
 	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
@@ -80,10 +82,10 @@ export class Viewer {
 			}else if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 					this.canvas.slide.isActive = true;
-					this.list.selectedSlide.isLock = true;
+					//this.list.selectedSlide.isLock = true;
 //					this.canvas.slide.setData(this.list.selectedSlide.getData());
-					this.canvas.slide.layers = this.list.selectedSlide.layers;
-					this.list.selectedSlide.isLock = false;
+					this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
+					//this.list.selectedSlide.isLock = false;
 					this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				}else{
 					this.canvas.initialize();
@@ -94,10 +96,10 @@ export class Viewer {
 		this.list.addEventListener("edit", ()=>{
 			this.setMode(ViewerMode.EDIT);
 			if(this.list.selectedSlide){
-				this.list.selectedSlide.isLock = true;
+//				this.list.selectedSlide.isLock = true;
 //				this.canvas.slide.setData(this.list.selectedSlide.getData());
-				this.canvas.slide.layers = this.list.selectedSlide.layers;
-				this.list.selectedSlide.isLock = false;
+				this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
+//				this.list.selectedSlide.isLock = false;
 				this.canvas.setSlideData({name:this.list.selectedSlide.id});
 			}
 		});
@@ -121,7 +123,7 @@ export class Viewer {
 
 					var i:number = this.list.selectedSlideIndex;
 					var found:boolean = false;
-					var slide:SlideView = null;
+					var slide:Slide = null;
 					var updateFunc = (j:number, layer:Layer)=>{
 						if(found) return;
 						if(!layer.shared) return;
@@ -129,7 +131,7 @@ export class Viewer {
 						if(targetLayer.type != layer.type) return;
 						switch(targetLayer.type){
 							case LayerType.IMAGE:
-								if((layer as Image).imageId != (targetLayer as Image).imageId) return;
+								if((layer as ImageLayer).imageId != (targetLayer as ImageLayer).imageId) return;
 							break;
 							default:
 								if(layer.id != targetLayer.id) return;
@@ -145,7 +147,7 @@ export class Viewer {
 							layer.transform = targetLayer.transform;
 
 							if(layer.type == LayerType.IMAGE){
-								(layer as Image).clipRect = (targetLayer as Image).clipRect;
+								(layer as ImageLayer).clipRect = (targetLayer as ImageLayer).clipRect;
 							}
 						}
 						found = true;
@@ -175,14 +177,14 @@ export class Viewer {
 
 					var i:number = this.list.selectedSlideIndex;
 					var found:boolean = false;
-					var slide:SlideView = null;
+					var slide:Slide = null;
 					var findFunc = (j:number, layer:Layer)=>{
 						if(found) return;
 
 						if(targetLayer.type != layer.type) return;
 						switch(targetLayer.type){
 							case LayerType.IMAGE:
-								if((layer as Image).imageId == (targetLayer as Image).imageId) {
+								if((layer as ImageLayer).imageId == (targetLayer as ImageLayer).imageId) {
 									found = true;
 									return;
 								}
@@ -228,7 +230,7 @@ export class Viewer {
 		});
 
 		this.canvas.addEventListener("download", ()=>{
-			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.canvas.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, this.document.bgColor);
+			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.canvas.slide.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, this.document.bgColor);
 			DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.document.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
 		});
 
@@ -251,8 +253,8 @@ export class Viewer {
 				var startIndex:number = 0;
 				if(this.list.selectedSlideIndex != -1){
 					for(var i:number = 0; i < this.list.slides.length; i++){
+						if(i == this.list.selectedSlideIndex) break;
 						var slide = this.list.slides[i];
-						if(slide.selected) break;
 						if(!slide.disabled) startIndex++;
 					}
 				}
@@ -363,11 +365,13 @@ export class Viewer {
 	}
 
 	private newDocument(doc?:VDoc){
-		this.document = null;
-		this.list.initialize();
-		this.canvas.initialize();
-		this.setMode(ViewerMode.SELECT);
+		if(this.document){
+			this.document = null;
+			this.list.initialize();
+			this.canvas.initialize();
+		}
 
+		this.setMode(ViewerMode.SELECT);
 		if(!doc){
 			//ImageManager.shared.initialize();
 		}

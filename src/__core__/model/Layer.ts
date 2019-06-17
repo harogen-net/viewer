@@ -1,4 +1,3 @@
-import { ILayer } from "./ILayer";
 import { EventDispatcher } from "../../events/EventDispatcher";
 
 declare var $: any;
@@ -12,7 +11,7 @@ export enum LayerType {
 }
 
 
-export class Layer extends EventDispatcher implements ILayer{
+export class Layer extends EventDispatcher{
 
 	public static copyAttributes(toLayer:Layer, fromLayer:Layer):void {
 		toLayer.transform = fromLayer.transform;

@@ -1,16 +1,17 @@
 import { EventDispatcher } from "./events/EventDispatcher";
-import { SlideEditable } from "./__core__/slide/EditableSlide";
-import { SlideView } from "./__core__/SlideView";
-import { Image } from "./__core__/layerModel/Image";
+import { SlideEditable } from "./slide/EditableSlide";
+import { SlideView } from "./__core__/view/SlideView";
+import { ImageLayer } from "./__core__/model/ImageLayer";
 import { ImageManager } from "./utils/ImageManager";
 import { LayerListItem } from "./LayerListItem";
 import { PropertyInput } from "./PropertyInput";
 import { Viewer,ViewerMode } from "./Viewer";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";
-import { LayerType, Layer } from "./__core__/layerModel/Layer";
-import { TextLayer } from "./__core__/layerModel/TextLayer";
-import { LayerView } from "./__core__/layerView/LayerView";
+import { LayerType, Layer } from "./__core__/model/Layer";
+import { TextLayer } from "./__core__/model/TextLayer";
+import { LayerView } from "./__core__/view/LayerView";
+import { Slide } from "./__core__/model/Slide";
 
 
 declare var $:any;
@@ -50,7 +51,7 @@ export class SlideCanvas extends EventDispatcher {
 		});
 
 		this.obj.addClass("slideCanvas");
-		this.slide = new SlideEditable($('<div />').appendTo(this.obj));
+		this.slide = new SlideEditable(new Slide(), $('<div />').appendTo(this.obj));
 		this.slide.addEventListener("select", (any)=>{
 			$.each(this.UIsForImage, (number, obj:any)=>{
 				obj.prop("disabled", this.slide.selectedLayer == null);
@@ -161,7 +162,7 @@ export class SlideCanvas extends EventDispatcher {
 		});
 		$(".text").click(()=>{
 			var textLayer:TextLayer = new TextLayer(prompt("insert text layer:"));
-			this.slide.addLayer(textLayer);
+			this.slide.slide.addLayer(textLayer);
 			textLayer.moveTo(Viewer.SCREEN_WIDTH >> 1, Viewer.SCREEN_HEIGHT >> 1);
 		});
 
@@ -506,7 +507,7 @@ export class SlideCanvas extends EventDispatcher {
 				if(item.layerView.data.shared && window.confirm('delete all shared image. Are you sure?')){
 					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView, delete:true}}));
 				}
-				this.slide.removeLayer(item.layerView.data);
+				this.slide.slide.removeLayer(item.layerView.data);
 			break;
 			default:
 			break;

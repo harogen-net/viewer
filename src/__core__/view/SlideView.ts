@@ -1,54 +1,62 @@
-import { Image } from "./layerModel/Image";
-import {EventDispatcher} from "../events/EventDispatcher";
-import { ImageManager } from "../utils/ImageManager";
-import { Viewer } from "../Viewer";
-import { Layer, LayerType } from "./layerModel/Layer";
-import { TextLayer } from "./layerModel/TextLayer";
+import {EventDispatcher} from "../../events/EventDispatcher";
+import { Viewer } from "../../Viewer";
+import { Layer, LayerType } from "../model/Layer";
+import { Slide } from "../model/Slide";
+import { VDoc } from "../model/VDoc";
 
 declare var $: any;
 
 export class SlideView extends EventDispatcher {
-	static slideFromImage(img:Layer):SlideView {
-		var slide = new SlideView($('<div />'));
-		slide.addLayer(img);
-		return slide;
-	}
+	// static slideFromImage(img:Layer):SlideView {
+	// 	var slide = new SlideView($('<div />'));
+	// 	slide.addLayer(img);
+	// 	return slide;
+	// }
 
-	static centerX():number { return Viewer.SCREEN_WIDTH >> 1; }
-	static centerY():number { return Viewer.SCREEN_HEIGHT >> 1; }
+	// static centerX():number { return Viewer.SCREEN_WIDTH >> 1; }
+	// static centerY():number { return Viewer.SCREEN_HEIGHT >> 1; }
 
 	static readonly LAYER_NUM_MAX:number = 100;
 
 	//
 
-	protected _layers:Layer[];
+	//protected _layers:Layer[];
 	
 	public container:any;
 
 	
-	private _id:number;
+
+	//private _id:number;
 	private scale_min:number = 0.2;
 	private scale_max:number = 5;
 	protected scale_base:number = 1;
 	protected _scale:number = 1;
 	protected _selected:boolean = false;
 
-	private _isLock:boolean = false;
-	private _durationRatio:number = 1;
-	private _joining:boolean = false;
-	private _disabled:boolean = false;
+	// private _isLock:boolean = false;
+	// private _durationRatio:number = 1;
+	// private _joining:boolean = false;
+	// private _disabled:boolean = false;
 
 	
-	constructor(public obj:any){
+	constructor(protected _slide:Slide, public obj:any){
 		super();
-		
-		this._layers = [];
 
+/*		this._slide.addEventListener("layerAdd", (e)=>{
+
+		});
+		this._slide.addEventListener("layerRemove", (e)=>{
+
+		});
+		this._slide.addEventListener("layerUpdate", (e)=>{
+
+		});*/
+		
 		this.obj.addClass("slide");
 
 		this.container = $('<div class="container" />').appendTo(this.obj);
-		this.container.css("width",Viewer.SCREEN_WIDTH + "px");
-		this.container.css("height",Viewer.SCREEN_HEIGHT + "px");
+		this.container.css("width", _slide.width + "px");
+		this.container.css("height", _slide.height + "px");
 		
 		if(this.obj.width() == 0 && this.obj.height() == 0){
 			this.obj.ready(() => {
@@ -60,72 +68,72 @@ export class SlideView extends EventDispatcher {
 	}
 
 	public clone():this {
-		console.log("clone at slide : " + this.id);
+		console.log("clone at slide : " + this._slide.id);
 		var newObj:any = $('<div />');
-		var slide:this = new (this.constructor as any)(newObj);
+		var slideView:this = new (this.constructor as any)(this._slide.clone(), newObj);
 
-		slide.id = this.id;
-		slide.durationRatio = this.durationRatio;
-		slide.joining = this.joining;
-		slide.isLock = this.isLock;
-		slide.disabled = this.disabled;
-		console.log("this slide has " + this._layers.length + " layers.");
-		$.each(this._layers, (index:number, layer:Layer) => {
-			slide.addLayer(layer.clone());
-		});
+		// slideView.id = this.id;
+		// slideView.durationRatio = this.durationRatio;
+		// slideView.joining = this.joining;
+		// slideView.isLock = this.isLock;
+		// slideView.disabled = this.disabled;
+		// console.log("this slide has " + this._layers.length + " layers.");
+		// $.each(this._layers, (index:number, layer:Layer) => {
+		// 	slideView.addLayer(layer.clone());
+		// });
 
-		return slide;
+		return slideView;
 	}
 
 	//
 
-	public addLayer(layer:Layer, index:number = -1):Layer {
-		if(!layer) return layer;
-		if(index > this._layers.length - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
-			throw new Error("invalid index.");
-		}
-		if(this._layers.length >= SlideView.LAYER_NUM_MAX - (this._layers.indexOf(layer) != -1 ? 1 : 0)){
-			throw new Error("exceeds max layer num.");
-		}
+	// public addLayer(layer:Layer, index:number = -1):Layer {
+	// 	if(!layer) return layer;
+	// 	if(index > this._layers.length - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
+	// 		throw new Error("invalid index.");
+	// 	}
+	// 	if(this._layers.length >= SlideView.LAYER_NUM_MAX - (this._layers.indexOf(layer) != -1 ? 1 : 0)){
+	// 		throw new Error("exceeds max layer num.");
+	// 	}
 
-		// console.log("addLayer at slide");
-		// console.log(layer);
+	// 	// console.log("addLayer at slide");
+	// 	// console.log(layer);
 
-		if(this._layers.indexOf(layer) != -1){
-			this._layers.splice(this._layers.indexOf(layer), 1);
-		}
-		if(index != -1){
-			this._layers.push(layer);
-		}else{
-			this._layers.splice(index, 0, layer);
-		}
+	// 	if(this._layers.indexOf(layer) != -1){
+	// 		this._layers.splice(this._layers.indexOf(layer), 1);
+	// 	}
+	// 	if(index != -1){
+	// 		this._layers.push(layer);
+	// 	}else{
+	// 		this._layers.splice(index, 0, layer);
+	// 	}
 		
-		return layer;
-	}
+	// 	return layer;
+	// }
 
-	public removeLayer(layer:Layer):Layer {
-		if(!layer) return layer;
-		if(this._layers.indexOf(layer) != -1){
-			this._layers.splice(this._layers.indexOf(layer), 1);
-		}
-		return layer;
-	}
+	// public removeLayer(layer:Layer):Layer {
+	// 	if(!layer) return layer;
+	// 	if(this._layers.indexOf(layer) != -1){
+	// 		this._layers.splice(this._layers.indexOf(layer), 1);
+	// 	}
+	// 	return layer;
+	// }
 
-	public removeAllLayers() {
-		while(this._layers.length > 0){
-			this.removeLayer(this._layers[0]);
-		}
-	}
+	// public removeAllLayers() {
+	// 	while(this._layers.length > 0){
+	// 		this.removeLayer(this._layers[0]);
+	// 	}
+	// }
 
 	//
 
-	get id():number {
-		return this._id;
-	}
-	set id(value:number) {
-		this._id = value;
-		this.obj.data("id",value);
-	}
+	// get id():number {
+	// 	return this._id;
+	// }
+	// set id(value:number) {
+	// 	this._id = value;
+	// 	this.obj.data("id",value);
+	// }
 
 	get selected(){return this._selected;}
 	set selected(value:boolean){
@@ -135,74 +143,79 @@ export class SlideView extends EventDispatcher {
 	
 	get scale(){return this._scale;}
 	set scale(value:number){
+		if(!VDoc.shared) return;
 		//console.log("init",this._scale, this.scale_base);
 		this._scale = value > this.scale_min ? (value < this.scale_max ? value : this.scale_max) : this.scale_min;
 		var actualScale:number = this._scale * this.scale_base;
-		var containerWidth = Viewer.SCREEN_WIDTH * actualScale;
-		var containerHeight = Viewer.SCREEN_HEIGHT * actualScale;
-		var defX = -(Viewer.SCREEN_WIDTH * (1 - actualScale) / 2) + (this.obj.width() - containerWidth) / 2;
-		var defY = -(Viewer.SCREEN_HEIGHT * (1 - actualScale) / 2) + (this.obj.height() - containerHeight) / 2;
+		var containerWidth = VDoc.shared.width * actualScale;
+		var containerHeight = VDoc.shared.height * actualScale;
+		var defX = -(VDoc.shared.width * (1 - actualScale) / 2) + (this.obj.width() - containerWidth) / 2;
+		var defY = -(VDoc.shared.height * (1 - actualScale) / 2) + (this.obj.height() - containerHeight) / 2;
 		
 		this.container.css("transform","matrix(" + actualScale + ",0,0," + actualScale + "," + defX + "," + defY + ")");
 
 		this.dispatchEvent(new Event("scale"));
 	}
 	get width(){
-		return Viewer.SCREEN_WIDTH * this._scale * this.scale_base;
+		return this.obj.width() * this._scale * this.scale_base;
 	}
 	get height(){
-		return Viewer.SCREEN_HEIGHT * this._scale * this.scale_base;
+		return this.obj.height() * this._scale * this.scale_base;
+	}
+
+	get slide():Slide {
+		return this._slide;
 	}
 	
-	get durationRatio(){return this._durationRatio;}
-	set durationRatio(value:number){
-		this._durationRatio = Math.max(value, 0.4);
-		if(this.obj.attr("style")){
-			if(this.obj.attr("style").indexOf("width") != -1){
-				this.fitToHeight();
-			}
-		}
-	}
+	// get durationRatio(){return this._durationRatio;}
+	// set durationRatio(value:number){
+	// 	this._durationRatio = Math.max(value, 0.4);
+	// 	if(this.obj.attr("style")){
+	// 		if(this.obj.attr("style").indexOf("width") != -1){
+	// 			this.fitToHeight();
+	// 		}
+	// 	}
+	// }
 
-	set isLock(value:boolean){ this._isLock = value; }
-	get isLock():boolean{ return this._isLock; }
+	// set isLock(value:boolean){ this._isLock = value; }
+	// get isLock():boolean{ return this._isLock; }
 
-	set joining(value:boolean) {
-		this._joining = value;
-		if(this._joining){
-			this.obj.addClass("joining");
-		}else{
-			this.obj.removeClass("joining");
-		}
-	}
-	get joining():boolean { return this._joining; }
+	// set joining(value:boolean) {
+	// 	this._joining = value;
+	// 	if(this._joining){
+	// 		this.obj.addClass("joining");
+	// 	}else{
+	// 		this.obj.removeClass("joining");
+	// 	}
+	// }
+	// get joining():boolean { return this._joining; }
 
 	set backgroundColor(colorStr:string) {
 		this.container.css("backgroundColor", colorStr);
 	}
-	set disabled(value:boolean) {
-		this._disabled = value;
-		if(this._disabled){
-			this.obj.addClass("disabled");
-		}else{
-			this.obj.removeClass("disabled");
-		}
-	}
-	get disabled():boolean { return this._disabled; }
+	// set disabled(value:boolean) {
+	// 	this._disabled = value;
+	// 	if(this._disabled){
+	// 		this.obj.addClass("disabled");
+	// 	}else{
+	// 		this.obj.removeClass("disabled");
+	// 	}
+	// }
+	// get disabled():boolean { return this._disabled; }
 
-	get layers():Layer[] {
-		return this._layers;
-	}
-	set layers(value:Layer[]) {
-//		console.log("set layers called : " + value);
-		if(this._isLock) return;
-		this.setLayers(value);
-	}
+	//get layers():Layer[] {
+// 		return this._layers;
+// 	}
+// 	set layers(value:Layer[]) {
+// //		console.log("set layers called : " + value);
+// 		if(this._isLock) return;
+// 		this.setLayers(value);
+// 	}
 
 	//
 
 	public fitToWidth():void {
-		var fitHeight = (this.obj.width() / Viewer.SCREEN_WIDTH) * Viewer.SCREEN_HEIGHT;
+		var fitHeight = (this.obj.width() / VDoc.shared.width) * VDoc.shared.width;
 		//console.log("fitToWidth : ", this.obj.width());
 		
 		this.obj.css("width","");
@@ -212,11 +225,11 @@ export class SlideView extends EventDispatcher {
 	public fitToHeight():void {
 		//console.log("fitToHeight : ", this.obj.height());
 		this.obj.css("height","");
-		var durationCorrection:number = Math.atan(this._durationRatio - 1) * 0.5 + 1;
-		if(this._durationRatio < 1){
-			durationCorrection = Math.pow(this.durationRatio,0.4);
+		var durationCorrection:number = Math.atan(this._slide.durationRatio - 1) * 0.5 + 1;
+		if(this._slide.durationRatio < 1){
+			durationCorrection = Math.pow(this._slide.durationRatio,0.4);
 		}
-		var fitWidth = (this.obj.height() / Viewer.SCREEN_HEIGHT) * Viewer.SCREEN_WIDTH * durationCorrection;
+		var fitWidth = (this.obj.height() / VDoc.shared.height) * VDoc.shared.width * durationCorrection;
 		//var fitWidth = (this.obj.height() / Viewer.SCREEN_HEIGHT) * Viewer.SCREEN_WIDTH * Math.pow(this._durationRatio, 1/3);
 
 		//animate
@@ -235,7 +248,8 @@ export class SlideView extends EventDispatcher {
 		//this.scale = this._scale;
 	}
 	public updateSize():void {
-		this.scale_base = Math.min(this.obj.width() / Viewer.SCREEN_WIDTH, this.obj.height() / Viewer.SCREEN_HEIGHT);
+		if(!VDoc.shared) return;
+		this.scale_base = Math.min(this.obj.width() / VDoc.shared.width, this.obj.height() / VDoc.shared.height);
 		this.scale = this._scale;
 	}
 	
@@ -265,7 +279,7 @@ export class SlideView extends EventDispatcher {
 		var scale1:number = Math.min(scaleX, scaleY);
 		var scale2:number = Math.max(scaleX, scaleY);
 
-		if(layer.x == SlideView.centerX() && layer.y == SlideView.centerY()){
+		if(layer.x == this._slide.centerX && layer.y == this._slide.centerY){
 			var compRatio:number = Math.pow(10,10);
 			if(Math.round(layer.scale * compRatio) == Math.round(scale1 * compRatio)){
 				layer.scale = scale2;
@@ -274,8 +288,8 @@ export class SlideView extends EventDispatcher {
 			}
 		}else{
 			layer.scale = scale1;
-			layer.x = SlideView.centerX()
-			layer.y = SlideView.centerY();
+			layer.x = this._slide.centerX;
+			layer.y = this._slide.centerY;
 		}
 
 		return layer;
@@ -296,11 +310,11 @@ export class SlideView extends EventDispatcher {
 	// 	return this._layers;
 	// }
 
-	protected setLayers(aData:Layer[]){
+//	protected setLayers(aData:Layer[]){
 		// console.log("setData called : " + aData);
 		// if(this._isLock) return;
 
-		this._layers = aData;
+//		this._layers = aData;
 /*		this.removeAllLayers();
 		aData.forEach(layer => {
 			this.addLayer(layer);
@@ -390,7 +404,7 @@ export class SlideView extends EventDispatcher {
 //		console.log(this.id, "/=============");
 		*/
 	//	this._layers = aData;
-	}
+//	}
 
 
 }
