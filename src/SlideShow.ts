@@ -48,7 +48,7 @@ export class SlideShow extends EventDispatcher {
 		$(window).resize(()=>{
 			setTimeout(()=>{
 				$.each(this.slides, (index:number, slide:SlideView) =>{
-					slide.updateSize();
+				//	slide.updateSize();
 				})
 			},50);
 
@@ -207,7 +207,7 @@ export class SlideShow extends EventDispatcher {
 		if(this.data.length == 1){
 			$.each(this.slides, (index:number, slide:SlideView) =>{
 				slide.obj.css("opacity", 0);
-				slide.updateSize();
+//				slide.updateSize();
 				slide.obj.show();
 				slide.obj.animate({"opacity":1},1000);
 
@@ -224,7 +224,7 @@ export class SlideShow extends EventDispatcher {
 
 		$.each(this.slides, (index:number, slide:SlideView) =>{
 			slide.obj.css("opacity", 0);
-			slide.updateSize();
+			//slide.updateSize();
 		})
 
 		this.index = initIndex;

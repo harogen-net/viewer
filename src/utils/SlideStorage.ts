@@ -155,7 +155,8 @@ export class SlideStorage extends EventDispatcher {
 		getReq.onsuccess = (e:any)=>{
 //			//console.log(e.target.result); // {id : 'A1', name : 'test'}
 			var jsonStr:string = e.target.result.data;
-			this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr)}));
+			this.parseData(jsonStr)
+//			this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr)}));
 		}
 	}
 
@@ -361,117 +362,123 @@ export class SlideStorage extends EventDispatcher {
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
 
-			$.each(json.slideData, (number, slideDatum:any)=>{
-				var slide:Slide = new Slide(width, height);
-				//var slide:Slide = new Slide($('<div />'));
-				slide.durationRatio = slideDatum.durationRatio;
-				slide.joining = slideDatum.joining;
-//				slide.isLock = slideDatum.isLock;
-				slide.disabled = slideDatum.disabled;
-				
-				var layers:Layer[];
-//				if(json.version >= 2.1){
-					layers = slideDatum.layers;
-//				}else{
-//					layers = slideDatum.images;
-//				}
+			setTimeout(()=>{
 
-
-				$.each(layers, (j:number, layerDatum:any)=>{
-					switch(layerDatum.type){
-						case LayerType.TEXT:
-							var textLayer = new TextLayer(layerDatum.text, {
-								transX:layerDatum.transX,
-								transY:layerDatum.transY,
-								scaleX:layerDatum.scaleX,
-								scaleY:layerDatum.scaleY,
-								rotation:layerDatum.rotation,
-								mirrorH:layerDatum.mirrorH,
-								mirrorV:layerDatum.mirrorV,
-							});
-							if(layerDatum.opacity != undefined){
-								textLayer.opacity = layerDatum.opacity;						
-							}
-							if(layerDatum.locked != undefined){
-								textLayer.locked = layerDatum.locked;
-							}
-							if(layerDatum.shared != undefined){
-								textLayer.shared = layerDatum.shared;
-							}
-							// if(isScreenSizeChange){
-							// 	var offsetScale:number = Math.min(
-							// 		Viewer.SCREEN_WIDTH / json.screen.width,
-							// 		Viewer.SCREEN_HEIGHT / json.screen.height
-							// 	);
-							// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-							// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
-		
-							// 	textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
-							// 	textLayer.scaleBy(offsetScale);
-							// }
-							slide.addLayer(textLayer);
-						break;
-						case undefined:	//version < 2.1
-						case LayerType.IMAGE:
-							// var imgObj:any = $("<img />");
-							// imgObj.attr("src", json.imageData[layerDatum.imageId]);
-							// imgObj.data("imageId", layerDatum.imageId);
-							// if(layerDatum.name != undefined){
-							// 	imgObj.data("name",layerDatum.name);
-							// }
-							var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
-								transX:layerDatum.transX,
-								transY:layerDatum.transY,
-								scaleX:layerDatum.scaleX,
-								scaleY:layerDatum.scaleY,
-								rotation:layerDatum.rotation,
-								mirrorH:layerDatum.mirrorH,
-								mirrorV:layerDatum.mirrorV,
-							});
-							if(layerDatum.opacity != undefined){
-								img.opacity = layerDatum.opacity;						
-							}
-							if(layerDatum.locked != undefined){
-								img.locked = layerDatum.locked;
-							}
-							if(layerDatum.shared != undefined){
-								img.shared = layerDatum.shared;
-							}
-							if(layerDatum.clipRect != undefined){
-								img.clipRect = layerDatum.clipRect;
-							}
-							// if(isScreenSizeChange){
-							// 	var offsetScale:number = Math.min(
-							// 		Viewer.SCREEN_WIDTH / json.screen.width,
-							// 		Viewer.SCREEN_HEIGHT / json.screen.height
-							// 	);
-							// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-							// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
-		
-							// 	imgObj.ready(()=>{
-							// 		img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
-							// 		img.scaleBy(offsetScale);
-							// 	});
-							// }
-							slide.addLayer(img);
-						break;
-					}
+				$.each(json.slideData, (number, slideDatum:any)=>{
+					var slide:Slide = new Slide(width, height);
+					//var slide:Slide = new Slide($('<div />'));
+					slide.durationRatio = slideDatum.durationRatio;
+					slide.joining = slideDatum.joining;
+	//				slide.isLock = slideDatum.isLock;
+					slide.disabled = slideDatum.disabled;
+					
+					var layers:Layer[];
+	//				if(json.version >= 2.1){
+						layers = slideDatum.layers;
+	//				}else{
+	//					layers = slideDatum.images;
+	//				}
+	
+	
+					$.each(layers, (j:number, layerDatum:any)=>{
+						switch(layerDatum.type){
+							case LayerType.TEXT:
+								var textLayer = new TextLayer(layerDatum.text, {
+									transX:layerDatum.transX,
+									transY:layerDatum.transY,
+									scaleX:layerDatum.scaleX,
+									scaleY:layerDatum.scaleY,
+									rotation:layerDatum.rotation,
+									mirrorH:layerDatum.mirrorH,
+									mirrorV:layerDatum.mirrorV,
+								});
+								if(layerDatum.opacity != undefined){
+									textLayer.opacity = layerDatum.opacity;						
+								}
+								if(layerDatum.locked != undefined){
+									textLayer.locked = layerDatum.locked;
+								}
+								if(layerDatum.shared != undefined){
+									textLayer.shared = layerDatum.shared;
+								}
+								// if(isScreenSizeChange){
+								// 	var offsetScale:number = Math.min(
+								// 		Viewer.SCREEN_WIDTH / json.screen.width,
+								// 		Viewer.SCREEN_HEIGHT / json.screen.height
+								// 	);
+								// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+								// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+			
+								// 	textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
+								// 	textLayer.scaleBy(offsetScale);
+								// }
+								slide.addLayer(textLayer);
+							break;
+							case undefined:	//version < 2.1
+							case LayerType.IMAGE:
+								// var imgObj:any = $("<img />");
+								// imgObj.attr("src", json.imageData[layerDatum.imageId]);
+								// imgObj.data("imageId", layerDatum.imageId);
+								// if(layerDatum.name != undefined){
+								// 	imgObj.data("name",layerDatum.name);
+								// }
+								var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
+									transX:layerDatum.transX,
+									transY:layerDatum.transY,
+									scaleX:layerDatum.scaleX,
+									scaleY:layerDatum.scaleY,
+									rotation:layerDatum.rotation,
+									mirrorH:layerDatum.mirrorH,
+									mirrorV:layerDatum.mirrorV,
+								});
+								if(layerDatum.opacity != undefined){
+									img.opacity = layerDatum.opacity;						
+								}
+								if(layerDatum.locked != undefined){
+									img.locked = layerDatum.locked;
+								}
+								if(layerDatum.shared != undefined){
+									img.shared = layerDatum.shared;
+								}
+								if(layerDatum.clipRect != undefined){
+									img.clipRect = layerDatum.clipRect;
+								}
+								// if(isScreenSizeChange){
+								// 	var offsetScale:number = Math.min(
+								// 		Viewer.SCREEN_WIDTH / json.screen.width,
+								// 		Viewer.SCREEN_HEIGHT / json.screen.height
+								// 	);
+								// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+								// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+			
+								// 	imgObj.ready(()=>{
+								// 		img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
+								// 		img.scaleBy(offsetScale);
+								// 	});
+								// }
+								slide.addLayer(img);
+							break;
+						}
+					});
+					slides.push(slide);
 				});
-				slides.push(slide);
-			});
+	
+				if(json.bgColor) options.bgColor = json.bgColor;
+				if(json.createTime) options.createTime = json.createTime;
+				if(json.editTime) options.editTime = json.editTime;
+				//if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
+				//if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
+				//if(json.title) options.title = json.title;
+	
+	/*		return new Promise((resolve)=>{
+	
+			});*/
+			//return new VDoc(slides, options);
 
-			if(json.bgColor) options.bgColor = json.bgColor;
-			if(json.createTime) options.createTime = json.createTime;
-			if(json.editTime) options.editTime = json.editTime;
-			//if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
-			//if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
-			//if(json.title) options.title = json.title;
+				this.dispatchEvent(new CustomEvent("loaded", {detail:new VDoc(slides, options)}));
+			}, 500);
+
 		}
-
-/*		return new Promise((resolve)=>{
-
-		});*/
-		return new VDoc(slides, options);
 	}
 	//
 	

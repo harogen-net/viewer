@@ -1,8 +1,8 @@
 :root {
 	--slideBackgroundColor:#999999;
-	--slideListHeight:110px;
-	--slideWidth:1920px;
-	--slideHeight:1080px;
+	--slideThumbHeight:0;
+/*	--slideWidth:1920px;
+	--slideHeight:1080px;*/
 	--textGlowColor:black;
 }
 
@@ -122,8 +122,8 @@ label {
 	font-size:20px;
 	line-height: 50px;
 	position: absolute;
-	right:0;
-	top:40px;
+	right:40px;
+	top:0;
 	z-index: 2147483645;
 	cursor: pointer;
 }
@@ -134,8 +134,8 @@ label {
 	outline-style: none;
 }
 #images > button:active {
-	right:-1px;
-	top:41px;
+	right:39px;
+	top:1px;
 }
 #images .container {
 	display: none;
@@ -614,13 +614,13 @@ input.imageRef {
 	position: relative;
 }
 .slideList > .slide {
-	height:100%;
+	height:var(--slideThumbHeight);
 	box-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);
 	flex-shrink: 0;
 	cursor: pointer;
 	box-sizing: border-box;
 	overflow: hidden;
-	background-color:rgba(0,0,0,0.5);
+	background-color:var(--slideBackgroundColor);
 	margin-right: 10px;
 }
 .slideList >  .slide.selected {
@@ -776,10 +776,10 @@ input.imageRef {
 	margin-top: 5px;
 }*/
 .slideList > .newSlideBtn {
-	/*width:var(--slideListHeight);*/
+	/*width:var(--slideThumbHeight);*/
 	width:40px;
-	height:var(--slideListHeight);
-	line-height:var(--slideListHeight);
+	height:var(--slideThumbHeight);
+	line-height:var(--slideThumbHeight);
 	overflow:hidden;
 	font-size:32px;
 	color:rgba(255,255,255,0.2);
@@ -882,7 +882,7 @@ body.select .slideList {
 	align-content: flex-start;
 }
 body.select .slideList > .slide {
-	height:var(--slideListHeight);
+	height:var(--slideThumbHeight);
 	/*margin-right: 10px;*/
 	margin-bottom: 30px;
 }
@@ -899,7 +899,7 @@ body.edit .slideList {
 
 }
 body.edit .slideList > .slide {
-	height:var(--slideListHeight);
+	height:var(--slideThumbHeight);
 /*	margin-right: 10px;*/
 }
 body.edit .slideList > .slide button.edit {

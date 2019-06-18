@@ -40,6 +40,9 @@ export class Viewer {
 
 
     constructor(public obj:any){
+
+		
+
 //		if(localStorage.duration == undefined) localStorage.duration = 2000;
 //		if(localStorage.interval == undefined) localStorage.interval = 5000;
 
@@ -81,10 +84,11 @@ export class Viewer {
 
 			}else if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-					this.canvas.slide.isActive = true;
+					this.canvas.slideView.isActive = true;
 					//this.list.selectedSlide.isLock = true;
 //					this.canvas.slide.setData(this.list.selectedSlide.getData());
-					this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
+					//this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
+					this.canvas.slideView.slide = this.list.selectedSlide;
 					//this.list.selectedSlide.isLock = false;
 					this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				}else{
@@ -96,15 +100,16 @@ export class Viewer {
 		this.list.addEventListener("edit", ()=>{
 			this.setMode(ViewerMode.EDIT);
 			if(this.list.selectedSlide){
+//				console.log("to edit mode : " + this.list.selectedSlide.layers);
 //				this.list.selectedSlide.isLock = true;
 //				this.canvas.slide.setData(this.list.selectedSlide.getData());
-				this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
+				this.canvas.slideView.slide = this.list.selectedSlide;
 //				this.list.selectedSlide.isLock = false;
 				this.canvas.setSlideData({name:this.list.selectedSlide.id});
 			}
 		});
 
-		this.canvas.slide.addEventListener("update",()=>{
+		this.canvas.slideView.addEventListener("update",()=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 //					this.list.selectedSlide.setData(this.canvas.slide.getData());
@@ -113,7 +118,7 @@ export class Viewer {
 				}
 			}
 		});
-		this.canvas.slide.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
+		this.canvas.slideView.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 					var targetLayer:Layer = ce.detail.layer as Layer;
@@ -168,7 +173,7 @@ export class Viewer {
 				}
 			}
 		});
-		this.canvas.slide.addEventListener("sharedPaste",(ce:CustomEvent)=>{
+		this.canvas.slideView.addEventListener("sharedPaste",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 					var targetLayer:Layer = ce.detail.layer as Layer;
@@ -230,7 +235,7 @@ export class Viewer {
 		});
 
 		this.canvas.addEventListener("download", ()=>{
-			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.canvas.slide.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, this.document.bgColor);
+			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.canvas.slideView.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, 1, this.document.bgColor);
 			DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.document.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
 		});
 
@@ -305,6 +310,9 @@ export class Viewer {
 			});
 			$(".load").click(()=>{
 				if($('select.filename').val() == -1) return;
+				console.log(this);
+				console.log(this.list);
+				console.log(this.list.slides);
 				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
 					this.storage.load();
 				}
@@ -367,8 +375,8 @@ export class Viewer {
 	private newDocument(doc?:VDoc){
 		if(this.document){
 			this.document = null;
-			this.list.initialize();
 			this.canvas.initialize();
+			this.list.initialize();
 		}
 
 		this.setMode(ViewerMode.SELECT);
@@ -390,12 +398,12 @@ export class Viewer {
 			case ViewerMode.SELECT:
 				this.obj.addClass("select");
 				this.obj.removeClass("edit");
-				this.canvas.slide.isActive = false;
+				this.canvas.slideView.isActive = false;
 			break;
 			case ViewerMode.EDIT:
 				this.obj.removeClass("select");
 				this.obj.addClass("edit");
-				this.canvas.slide.isActive = true;
+				this.canvas.slideView.isActive = true;
 			break;
 /*			case ViewerMode.SLIDESHOW:
 			break;*/

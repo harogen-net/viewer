@@ -16,21 +16,18 @@ export class SlideView extends EventDispatcher {
 	// static centerX():number { return Viewer.SCREEN_WIDTH >> 1; }
 	// static centerY():number { return Viewer.SCREEN_HEIGHT >> 1; }
 
-	static readonly LAYER_NUM_MAX:number = 100;
+	// static readonly LAYER_NUM_MAX:number = 100;
 
 	//
 
 	//protected _layers:Layer[];
 	
-	public container:any;
+	//
 
 	
 
 	//private _id:number;
-	private scale_min:number = 0.2;
-	private scale_max:number = 5;
-	protected scale_base:number = 1;
-	protected _scale:number = 1;
+
 	protected _selected:boolean = false;
 
 	// private _isLock:boolean = false;
@@ -53,37 +50,25 @@ export class SlideView extends EventDispatcher {
 		});*/
 		
 		this.obj.addClass("slide");
-
-		this.container = $('<div class="container" />').appendTo(this.obj);
-		this.container.css("width", _slide.width + "px");
-		this.container.css("height", _slide.height + "px");
-		
-		if(this.obj.width() == 0 && this.obj.height() == 0){
-			this.obj.ready(() => {
-				this.updateSize();
-			});
-		}else {
-			this.updateSize();
-		}
 	}
 
-	public clone():this {
-		console.log("clone at slide : " + this._slide.id);
-		var newObj:any = $('<div />');
-		var slideView:this = new (this.constructor as any)(this._slide.clone(), newObj);
+	// public clone():this {
+	// 	console.log("clone at slide : " + this._slide.id);
+	// 	var newObj:any = $('<div />');
+	// 	var slideView:this = new (this.constructor as any)(this._slide.clone(), newObj);
 
-		// slideView.id = this.id;
-		// slideView.durationRatio = this.durationRatio;
-		// slideView.joining = this.joining;
-		// slideView.isLock = this.isLock;
-		// slideView.disabled = this.disabled;
-		// console.log("this slide has " + this._layers.length + " layers.");
-		// $.each(this._layers, (index:number, layer:Layer) => {
-		// 	slideView.addLayer(layer.clone());
-		// });
+	// 	// slideView.id = this.id;
+	// 	// slideView.durationRatio = this.durationRatio;
+	// 	// slideView.joining = this.joining;
+	// 	// slideView.isLock = this.isLock;
+	// 	// slideView.disabled = this.disabled;
+	// 	// console.log("this slide has " + this._layers.length + " layers.");
+	// 	// $.each(this._layers, (index:number, layer:Layer) => {
+	// 	// 	slideView.addLayer(layer.clone());
+	// 	// });
 
-		return slideView;
-	}
+	// 	return slideView;
+	// }
 
 	//
 
@@ -141,30 +126,16 @@ export class SlideView extends EventDispatcher {
 		(this._selected) ? this.obj.addClass("selected") : this.obj.removeClass("selected");
 	}
 	
-	get scale(){return this._scale;}
-	set scale(value:number){
-		if(!VDoc.shared) return;
-		//console.log("init",this._scale, this.scale_base);
-		this._scale = value > this.scale_min ? (value < this.scale_max ? value : this.scale_max) : this.scale_min;
-		var actualScale:number = this._scale * this.scale_base;
-		var containerWidth = VDoc.shared.width * actualScale;
-		var containerHeight = VDoc.shared.height * actualScale;
-		var defX = -(VDoc.shared.width * (1 - actualScale) / 2) + (this.obj.width() - containerWidth) / 2;
-		var defY = -(VDoc.shared.height * (1 - actualScale) / 2) + (this.obj.height() - containerHeight) / 2;
-		
-		this.container.css("transform","matrix(" + actualScale + ",0,0," + actualScale + "," + defX + "," + defY + ")");
 
-		this.dispatchEvent(new Event("scale"));
-	}
-	get width(){
-		return this.obj.width() * this._scale * this.scale_base;
-	}
-	get height(){
-		return this.obj.height() * this._scale * this.scale_base;
-	}
 
 	get slide():Slide {
 		return this._slide;
+	}
+	set slide(value:Slide) {
+		this.replaceSlide(value);
+	}
+	protected replaceSlide(newSlide:Slide){
+		this._slide = newSlide;
 	}
 	
 	// get durationRatio(){return this._durationRatio;}
@@ -190,9 +161,7 @@ export class SlideView extends EventDispatcher {
 	// }
 	// get joining():boolean { return this._joining; }
 
-	set backgroundColor(colorStr:string) {
-		this.container.css("backgroundColor", colorStr);
-	}
+
 	// set disabled(value:boolean) {
 	// 	this._disabled = value;
 	// 	if(this._disabled){
@@ -214,86 +183,17 @@ export class SlideView extends EventDispatcher {
 
 	//
 
-	public fitToWidth():void {
-		var fitHeight = (this.obj.width() / VDoc.shared.width) * VDoc.shared.width;
-		//console.log("fitToWidth : ", this.obj.width());
+	// public fitToWidth():void {
+	// 	var fitHeight = (this.obj.width() / this._slide.width) * this._slide.height;
+	// 	//console.log("fitToWidth : ", this.obj.width());
 		
-		this.obj.css("width","");
-		this.obj.height(fitHeight);
-		this.scale = this._scale;
-	}
-	public fitToHeight():void {
-		//console.log("fitToHeight : ", this.obj.height());
-		this.obj.css("height","");
-		var durationCorrection:number = Math.atan(this._slide.durationRatio - 1) * 0.5 + 1;
-		if(this._slide.durationRatio < 1){
-			durationCorrection = Math.pow(this._slide.durationRatio,0.4);
-		}
-		var fitWidth = (this.obj.height() / VDoc.shared.height) * VDoc.shared.width * durationCorrection;
-		//var fitWidth = (this.obj.height() / Viewer.SCREEN_HEIGHT) * Viewer.SCREEN_WIDTH * Math.pow(this._durationRatio, 1/3);
+	// 	this.obj.css("width","");
+	// 	this.obj.height(fitHeight);
+	// 	this.scale = this._scale;
+	// }
 
-		//animate
-		{
-			this.obj.stop();
-			if(this.obj.attr("style") && this.obj.attr("style").indexOf("width") != -1){
-				this.obj.animate({"width":fitWidth},{duration :200,step:()=>{
-					this.scale = this._scale;
-				}});
-			}else{
-				this.obj.width(fitWidth);
-				this.scale = this._scale;
-			}
-		}
-		//this.obj.width(fitWidth);
-		//this.scale = this._scale;
-	}
-	public updateSize():void {
-		if(!VDoc.shared) return;
-		this.scale_base = Math.min(this.obj.width() / VDoc.shared.width, this.obj.height() / VDoc.shared.height);
-		this.scale = this._scale;
-	}
 	
-	public fitLayer(layer:Layer):Layer {
-		console.log("fitLayer", layer, layer.width, layer.height);
-		if(layer.width == 0 || layer.height ==0)
-		{
-			return layer;
-		}
 
-/*		if(layer.width == Viewer.SCREEN_WIDTH && layer.height == Viewer.SCREEN_HEIGHT){
-			layer.x = Slide.centerX()
-			layer.y = Slide.centerY();
-			layer.scale = 1;
-			return layer;
-		}*/
-
-		var scaleX,scaleY;
-		if(layer.rotation == 90 || layer.rotation == -90){
-			scaleX = Viewer.SCREEN_WIDTH / layer.height;
-			scaleY = Viewer.SCREEN_HEIGHT / layer.width;
-		}else{
-			scaleX = Viewer.SCREEN_WIDTH / layer.width;
-			scaleY = Viewer.SCREEN_HEIGHT / layer.height;
-		}
-
-		var scale1:number = Math.min(scaleX, scaleY);
-		var scale2:number = Math.max(scaleX, scaleY);
-
-		if(layer.x == this._slide.centerX && layer.y == this._slide.centerY){
-			var compRatio:number = Math.pow(10,10);
-			if(Math.round(layer.scale * compRatio) == Math.round(scale1 * compRatio)){
-				layer.scale = scale2;
-			}else{
-				layer.scale = scale1;
-			}
-		}else{
-			layer.scale = scale1;
-			layer.x = this._slide.centerX;
-			layer.y = this._slide.centerY;
-		}
-
-		return layer;
-	}
 
 	//
 

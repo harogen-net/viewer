@@ -175,6 +175,7 @@ export class Layer extends EventDispatcher{
 	}
 	public set scale(value){
 		if(isNaN(value)) value = 1;
+		value = Math.max(Math.max(value, this._scaleX_min), this._scaleY_min);
 		this._scaleX = value;
 		this._scaleY = value;
 		this.dispatchEvent(new Event("update"));

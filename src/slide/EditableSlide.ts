@@ -55,6 +55,15 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		this.selectedLayer = null;
 		this.obj.addClass("editable");
 
+		
+		if(this.obj.width() == 0 && this.obj.height() == 0){
+			this.obj.ready(() => {
+				console.log("obj ready at SlideEditable")
+				this.updateSize();
+			});
+		}else {
+			this.updateSize();
+		}
 
 		//this.shadow = $('<div class="shadow" />').appendTo(this.obj);
 		this.border = $('<div class="border" />').appendTo(this.container);
@@ -121,12 +130,11 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 
 		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-			var imageId:string = e.detail as string;
-			var image:ImageLayer = new ImageLayer(imageId);
-			if(image.originHeight > (image.originWidth * 1.2)) {
-				image.rotation -= 90;
+			var layer = (new ImageLayer(e.detail));
+			if(layer.originHeight > (layer.originWidth * 1.2)) {
+				layer.rotation -= 90;
 			}
-			this.selectLayer(this._slide.addLayer(this.fitLayer(image)));
+			this.selectLayer(this._slide.fitLayer(this._slide.addLayer(layer)));
 		});
 
 
@@ -273,14 +281,14 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		this.dispatchEvent(new Event("select"));
 	}
 
-	initialize(){
-		// var tmpLayers:Layer[] = this._slide.layers.concat() as Layer[];
-		// $.each(tmpLayers, (index:number, layer:Layer)=>{
-		// 	this.removeLayer(layer);
-		// });
-		this._slide.layers = [];
-		this.isActive = false;
-	}
+	// initialize(){
+	// 	// var tmpLayers:Layer[] = this._slide.layers.concat() as Layer[];
+	// 	// $.each(tmpLayers, (index:number, layer:Layer)=>{
+	// 	// 	this.removeLayer(layer);
+	// 	// });
+	// 	this._slide.layers = [];
+	// 	this.isActive = false;
+	// }
 
 	cut(){
 		if(!this._isActive) return;
@@ -323,42 +331,64 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		this.updateControlsSize();
 	}
 
-	updateSize(){
-		super.updateSize();
+
+	public updateSize():void {
+		this.scale_base = Math.min(this.obj.width() / this._slide.width, this.obj.height() / this._slide.height);
+		this.scale = this._scale;
 		this.updateControlsSize();
 	}
+
 
 	fitSelectedLayer(){
 		if(!this.selectedLayer) return;
 		//this.selectedImg.rotation = 0;
-		this.fitLayer(this.selectedLayer);
+		this._slide.fitLayer(this.selectedLayer);
 
 		this.dispatchEvent(new Event("update"));
 
 		this.updateControlsSize();
 	}
 
-	forwardLayer(layer:Layer){
+	public changeLayerOrder(layer:Layer, direction:boolean) {
 		if(this._slide.layers.indexOf(layer) == -1) return;
-
-		var index:number = this._slide.layers.indexOf(layer);
-		this._slide.layers.splice(index,1);
-		this._slide.layers.splice(Math.min(index + 1, this._slide.layers.length),0,layer);
-
-		this.setLayersZIndex();
-		this.dispatchEvent(new Event("update"));
+		var index:number = this._slide.layers.indexOf(layer) + (direction ? 1 : -1);
+		if(index < 0) return;
+		if(index > this._slide.layers.length - 1) return;
+		this._slide.addLayer(layer, index);
 	}
 
-	backwordLayer(layer:Layer){
-		if(this._slide.layers.indexOf(layer) == -1) return;
+// 	forwardLayer(layer:Layer){
+// 		if(this._slide.layers.indexOf(layer) == -1) return;
 
-		var index:number = this._slide.layers.indexOf(layer);
-		this._slide.layers.splice(index,1);
-		this._slide.layers.splice(Math.max(index - 1, 0),0,layer);
+// 		var index:number = this._slide.layers.indexOf(layer);
+// 		if(index < this._slide.layers.length - 1){
+// 			this._slide.addLayer(layer, index + 1);
+// 		}
 
-		this.setLayersZIndex();
-		this.dispatchEvent(new Event("update"));
-	}
+
+// //		this._slide.layers.splice(index,1);
+// //		this._slide.layers.splice(Math.min(index + 1, this._slide.layers.length),0,layer);
+
+// //		this.setLayersZIndex();
+// //		this.dispatchEvent(new Event("update"));
+// //this.dispatchEvent(new Event("update"));
+// 	}
+
+
+// 	backwordLayer(layer:Layer){
+// 		if(this._slide.layers.indexOf(layer) == -1) return;
+
+// 		var index:number = this._slide.layers.indexOf(layer);
+// 		if(index > 0){
+// 			this._slide.addLayer(layer, index - 1);
+// 		}
+// 		// this._slide.layers.splice(index,1);
+// 		// this._slide.layers.splice(Math.max(index - 1, 0),0,layer);
+
+// 		// this.setLayersZIndex();
+// 		// this.dispatchEvent(new Event("update"));
+// 		//this.dispatchEvent(new Event("update"));
+// 	}
 
 	//
 
@@ -371,6 +401,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		var mouseX = e.screenX;
 		var mouseY = e.screenY;
 
+		$(document).css("pointer-events","none");
 		$(document).off("mousemove.layer_drag");
 		$(document).off("mouseup.layer_drag");
 		$(document).on("mousemove.layer_drag", (e:any) => {
@@ -386,6 +417,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 			if(!this.isDrag) return;
 
 			this.isDrag = false;
+			$(document).css("pointer-events","auto");
 			$(document).off("mousemove.layer_drag");
 			$(document).off("mouseup.layer_drag");
 
@@ -405,9 +437,10 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		var mouseX = e.screenX;
 		var mouseY = e.screenY;
 
-		var controlX = (this.selectedLayer.width / 2) * (this.selectedLayer.scaleX);
-		var controlY = (this.selectedLayer.height / 2) * (this.selectedLayer.scaleY);
+		var controlX = (this.selectedLayer.originWidth / 2) * (this.selectedLayer.scaleX);
+		var controlY = (this.selectedLayer.originHeight / 2) * (this.selectedLayer.scaleY);
 
+		$(document).css("pointer-events","none");
 		$(document).off("mousemove.layer_scale");
 		$(document).off("mouseup.layer_scale");
 		$(document).on("mousemove.layer_scale", (e:any) => {
@@ -428,8 +461,8 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 			if(this.selectedLayer.mirrorH) xDirection *= -1;
 			if(this.selectedLayer.mirrorV) yDirection *= -1;
 
-			scaleX = (controlX + (defX2 * xDirection)) / (this.selectedLayer.width / 2);
-			scaleY = (controlY + (defY2 * yDirection)) / (this.selectedLayer.height / 2);
+			scaleX = (controlX + (defX2 * xDirection)) / (this.selectedLayer.originWidth / 2);
+			scaleY = (controlY + (defY2 * yDirection)) / (this.selectedLayer.originHeight / 2);
 
 			if(KeyboardManager.isDown(16) || this.ENFORCE_ASPECT_RATIO) {
 				var scale = Math.min(scaleX, scaleY);
@@ -443,6 +476,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		$(document).on("mouseup.layer_scale", (e:any) => {
 			if(!this.isDrag) return;
 			this.isDrag = false;
+			$(document).css("pointer-events","auto");
 			$(document).off("mousemove.layer_scale");
 			$(document).off("mouseup.layer_scale");
 
@@ -501,6 +535,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 	}
 
 	//
+
 
 // 	setData(aData:any[]){
 // 		super.setData(aData);

@@ -66,7 +66,7 @@ export class DropHelper extends EventDispatcher {
 						imgObj.unbind("load");
 						$("body").append(imgObj);
 						imgObj.ready(()=>{
-							ImageManager.shared.registImageData(shaObj.getHash("HEX"), imgObj.attr("src"), imgObj.width(), imgObj.height());
+							ImageManager.shared.registImageData(shaObj.getHash("HEX"), imgObj.attr("src"), Math.round(imgObj.width()), Math.round(imgObj.height()));
 							var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:shaObj.getHash("HEX")});
 							this.dispatchEvent(e);
 							

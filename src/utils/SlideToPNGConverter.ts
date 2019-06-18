@@ -47,19 +47,19 @@ export class SlideToPNGConverter {
 			pages.push(doc.slides.indexOf(slides.shift()));
 		}
 
-		var canvas:HTMLCanvasElement = this.slide2canvas(doc.slides[pages[0]], width, height, doc.bgColor);
+		var canvas:HTMLCanvasElement = this.slide2canvas(doc.slides[pages[0]], width, height, 1, doc.bgColor);
 		return canvas.toDataURL();
 	}
 
-	public slide2canvas(slide:Slide, width:number, height:number, bgColor?:string):HTMLCanvasElement {
+	public slide2canvas(slide:Slide, width:number, height:number, scale?:number, bgColor?:string):HTMLCanvasElement {
 		var canvas:HTMLCanvasElement = document.createElement("canvas") as HTMLCanvasElement;
 		canvas.width = width;
 		canvas.height = height;
-		this.drawSlide2Canvas(slide,canvas,width,height,1,bgColor);
+		this.drawSlide2Canvas(slide,canvas,scale,bgColor);
 		return canvas;
 	}
 
-	public drawSlide2Canvas(slide:Slide, canvas:HTMLCanvasElement, width:number, height:number, slideScale?:number, bgColor?:string) {
+	public drawSlide2Canvas(slide:Slide, canvas:HTMLCanvasElement, slideScale?:number, bgColor?:string) {
 		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
 		if(bgColor){
 			ctx.fillStyle = bgColor;
@@ -97,8 +97,9 @@ export class SlideToPNGConverter {
 
 			ctx.globalAlpha = image.opacity;
 			//ctx.drawImage(image.imageElement, 0, 0);
-			var element = ImageManager.shared.getImageById(image.imageId).imgObj[0] as HTMLImageElement;
-			ctx.drawImage(element, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,0,0,image.width, image.height);
+			var element = ImageManager.shared.getImageElementById(image.imageId);
+			ctx.drawImage(element, 0,0);
+//			ctx.drawImage(element, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,0,0,image.width, image.height);
 		});
 	}
 

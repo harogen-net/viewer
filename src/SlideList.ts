@@ -1,11 +1,11 @@
 import { SlideView } from "./__core__/view/SlideView";
-import {ImageLayer} from "./__core__/model/ImageLayer";
+import { ImageLayer } from "./__core__/model/ImageLayer";
 import { EventDispatcher } from "./events/EventDispatcher";
 import { DropHelper } from "./utils/DropHelper";
 import { IDroppable } from "./interface/IDroppable";
 import { Viewer, ViewerMode } from "./Viewer";
 import { join } from "path";
-import { ThumbSlide } from "./slide/ThumbSlide";
+import { ThumbSlide, ThumbSlide2 } from "./slide/ThumbSlide";
 import { Slide } from "./__core__/model/Slide";
 import { VDoc } from "./__core__/model/VDoc";
 
@@ -14,20 +14,20 @@ declare var $: any;
 export class SlideList extends EventDispatcher implements IDroppable {
 
 	private _slides:Slide[];
-	private _slideViews:ThumbSlide[];
+	private _slideViews:ThumbSlide2[];
 	private _slideViewsById:any;
 	private _selectedSlide:Slide;
 
 	private _mode:ViewerMode;
 
-	private doubleClickLock:boolean;
-	private doubleClickTimer:NodeJS.Timer;
+
 	
 	private newSlideBtn:any;
 
 
 	constructor(public obj:any) {
 		super();
+		document.documentElement.style.setProperty("--slideThumbHeight", ThumbSlide2.HEIGHT + "px");
 
 		this.obj.addClass("slideList");
 		this.obj.sortable({
@@ -37,7 +37,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			distance:10,
 			cursor:"move",
 			tolerance:"pointer",
-			helper:"clone",
+			//helper:"clone",
 			forcePlaceholderSize:true,
 			forceHelperSize:true,
 			 update:()=>{
@@ -55,23 +55,19 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			if(layer.originHeight > (layer.originWidth * 1.2)) {
 				layer.rotation -= 90;
 			}
-			var slide = new Slide(VDoc.shared.width, VDoc.shared.height,[layer]);
-			var slideObj = $('<div />');
-			var slideView = new ThumbSlide(slide, slideObj);
-			//slide.updateSize();
+			var slide = new Slide(null,null,[layer]);
+			slide.fitLayer(layer);
 			this.addSlide(slide);
 
-			slideView.fitLayer(layer);
-			slideView.refresh();
+//			slideView.refresh();
 		}); 
 
 		$(window).resize(()=>{
 			setTimeout(()=>{
-				$.each(this._slideViews, (index:number, slide:SlideView) =>{
+				$.each(this._slideViews, (index:number, slide:ThumbSlide2) =>{
 					var bool:boolean = slide.selected;
 					slide.selected = false;
 					slide.fitToHeight();
-					slide.updateSize();
 					slide.selected = bool;
 				})
 			},50);
@@ -97,16 +93,22 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		this._mode = mode;
 		switch(mode){
 			case ViewerMode.SELECT:
-				$.each(this._slideViews, (index:number, slide:SlideView)=>{
-					slide.fitToHeight();
+				this._slideViews.forEach(slideView=>{
+					slideView.fitToHeight();
 				});
+				// $.each(this._slideViews, (index:number, slide:SlideView)=>{
+				// 	slide.fitToHeight();
+				// });
 				//this.obj.sortable("refresh");
 				//this.obj.sortable("enable");
 			break;
 			case ViewerMode.EDIT:
-				$.each(this._slideViews, (index:number, slide:SlideView)=>{
-					slide.fitToHeight();
+				this._slideViews.forEach(slideView=>{
+					slideView.fitToHeight();
 				});
+				// 	$.each(this._slideViews, (index:number, slide:SlideView)=>{
+				// 	slide.fitToHeight();
+				// });
 				//this.obj.sortable("disable");
 				//this.obj.sortable("refresh");
 				//this.obj.sortable("enable");
@@ -118,7 +120,6 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	} 
 
 	initialize():void {
-		if(!this._slides) return;
 		while(this.slides.length > 0){
 			this.removeSlide(this.slides[0]);
 		}
@@ -141,18 +142,18 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		});*/
 //		this._slideViewsById[slide.id] = slide;
 
+		this.setSlideUp(slide, index);
 		this.sortSlideObjByIndex();
-		this.setSlideUp(slide);
 
 		return slide;
 	}
 
-	private getSlideViewBySlide(slide:Slide):SlideView {
+	private getSlideViewBySlide(slide:Slide):ThumbSlide2 {
 		return this._slideViews[this._slides.indexOf(slide)] || null;
 	}
 
 	private setSlideUp(slide:Slide, index:number = -1) {
-		var slideView:ThumbSlide = new ThumbSlide(slide, $('<div />'));
+		var slideView:ThumbSlide2 = new ThumbSlide2(slide, $('<div />'));
 		if(index != -1 && index < this._slides.length){
 			this._slideViews.splice(index,0,slideView);
 		}else{
@@ -161,106 +162,111 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		this._slideViewsById[slideView.id] = slideView;
 
 		slideView.obj.appendTo(this.obj);
-		this.sortSlideObjByIndex();
-
 		slideView.fitToHeight();
-
-		slide.addEventListener("update", this.onSlideUpdate);
-		slide.addEventListener("update", (e)=>{
-			console.log("a");
-			console.log(e);
-		});
+		this.sortSlideObjByIndex();
+		console.log("slide append : " + new Date().getTime());
 
 
-		var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(slideView.obj);
-		deleteBtn.click(()=>{
-			//if(window.confirm('Are you sure?')){
-				this.removeSlide(slideView.slide ,true);
-			//}
-			return false;
-		});
-		var cloneBtn = $('<button class="clone"><i class="fas fa-plus"></i></button>').appendTo(slideView.obj);
-		cloneBtn.click(()=>{
-			this.clonseSlide(slideView.slide);
-			return false;
-		});
-		var editBtn = $('<button class="edit"><i class="fas fa-edit"></i></button>').appendTo(slideView.obj);
-		editBtn.click(()=>{
-			this.dispatchEvent(new Event("edit"));
-			return false;
-		});
+		// slide.addEventListener("update", this.onSlideUpdate);
+		// this.updateSlideProps(slideView.slide);
+
+		slideView.addEventListener("select", this.onSlideSelect);
+		slideView.addEventListener("edit", this.onSlideEdit);
+		slideView.addEventListener("clone", this.onSlideClone);
+		slideView.addEventListener("delete", this.onSlideDelete);
+
+		slideView.show();
+
+// 		var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(slideView.obj);
+// 		deleteBtn.click(()=>{
+// 			//if(window.confirm('Are you sure?')){
+// 				this.removeSlide(slideView.slide ,true);
+// 			//}
+// 			return false;
+// 		});
+// 		var cloneBtn = $('<button class="clone"><i class="fas fa-plus"></i></button>').appendTo(slideView.obj);
+// 		cloneBtn.click(()=>{
+// 			this.clonseSlide(slideView.slide);
+// 			return false;
+// 		});
+// 		var editBtn = $('<button class="edit"><i class="fas fa-edit"></i></button>').appendTo(slideView.obj);
+// 		editBtn.click(()=>{
+// 			this.dispatchEvent(new Event("edit"));
+// 			return false;
+// 		});
 		
-		var durationDiv = $('<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>').appendTo(slideView.obj);
-		durationDiv.find("button.up").click((e:any)=>{
-			this.lockDoubleClick();
-			if(slide.durationRatio < 9){
-				if(slide.durationRatio >= 2){
-					slide.durationRatio += 1;
-				}else if(slide.durationRatio >= 1){
-					slide.durationRatio += 0.5;
-				}else{
-					slide.durationRatio += 0.2;
-				}
-/* 				setTimeout(()=>{
-					this.scrollToSelected();
-				},200); */
-				this.updateSlideDuration(slideView.slide);
-			};
-		});
-		durationDiv.find("button.down").click((e:any)=>{
-			this.lockDoubleClick();
-			if(slide.durationRatio > 0.2){
-				if(slide.durationRatio > 2){
-					slide.durationRatio -= 1;
-				}else if(slide.durationRatio > 1){
-					slide.durationRatio -= 0.5;
-				}else{
-					slide.durationRatio -= 0.2;
-				}
-/* 				setTimeout(()=>{
-					this.scrollToSelected();
-				},200); */
-				this.updateSlideDuration(slideView.slide);
-			};
-		});
-		this.updateSlideDuration(slideView.slide);
-
-		var joinArrow = $('<div class="joinArrow"></div>').appendTo(slideView.obj);
-		//var joinArrow = $('<div class="joinArrow"><i class="fas fa-arrow-right"></i></div>').appendTo(slide.obj);
-		joinArrow.on("click.slide", (e:any)=>{
-			slideView.slide.joining = !slideView.slide.joining;
-			e.preventDefault();
-			e.stopImmediatePropagation();
-		});
+// 		var durationDiv = $('<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>').appendTo(slideView.obj);
+// 		durationDiv.find("button.up").click((e:any)=>{
+// 			this.lockDoubleClick();
+// 			if(slide.durationRatio < 9){
+// 				if(slide.durationRatio >= 2){
+// 					slide.durationRatio += 1;
+// 				}else if(slide.durationRatio >= 1){
+// 					slide.durationRatio += 0.5;
+// 				}else{
+// 					slide.durationRatio += 0.2;
+// 				}
+// /* 				setTimeout(()=>{
+// 					this.scrollToSelected();
+// 				},200); */
+// 			//	this.updateSlideDuration(slideView.slide);
+// 			};
+// 		});
+// 		durationDiv.find("button.down").click((e:any)=>{
+// 			this.lockDoubleClick();
+// 			if(slide.durationRatio > 0.2){
+// 				if(slide.durationRatio > 2){
+// 					slide.durationRatio -= 1;
+// 				}else if(slide.durationRatio > 1){
+// 					slide.durationRatio -= 0.5;
+// 				}else{
+// 					slide.durationRatio -= 0.2;
+// 				}
+// /* 				setTimeout(()=>{
+// 					this.scrollToSelected();
+// 				},200); */
+// 			//	this.updateSlideDuration(slideView.slide);
+// 			};
+// 		});
 
 
-		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(slideView.obj);
-		enableCheck.on("click.slide", (e:any)=>{
-			slideView.slide.disabled = !enableCheck.prop("checked");
-			e.stopImmediatePropagation();
-		});
-		enableCheck.prop("checked", !slideView.slide.disabled);
+// 		var joinArrow = $('<div class="joinArrow"></div>').appendTo(slideView.obj);
+// 		//var joinArrow = $('<div class="joinArrow"><i class="fas fa-arrow-right"></i></div>').appendTo(slide.obj);
+// 		joinArrow.on("click.slide", (e:any)=>{
+// 			slideView.slide.joining = !slideView.slide.joining;
+// 			e.preventDefault();
+// 			e.stopImmediatePropagation();
+// 		});
 
 
-		//
+// 		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(slideView.obj);
+// 		enableCheck.on("click.slide", (e:any)=>{
+// 			slideView.slide.disabled = !enableCheck.prop("checked");
+// 			e.stopImmediatePropagation();
+// 		});
+// 		enableCheck.prop("checked", !slideView.slide.disabled);
 
-		slideView.obj.on("mousedown.slide",(e:any)=>{
-			//e.stopPropagation();
-		});
-		slideView.obj.on("click.slide", ()=>{
-			this.selectSlide(slideView.slide);
-		});
-		slideView.obj.on("dblclick.slide", ()=>{
-			if(this.doubleClickLock) return;
-			this.dispatchEvent(new Event("edit"));
-			return false;
-		});
-		slideView.obj.hide().fadeIn(300, () => {
-		});
+
+// 		//
+
+// 		slideView.obj.on("mousedown.slide",(e:any)=>{
+// 			//e.stopPropagation();
+// 		});
+// 		slideView.obj.on("click.slide", ()=>{
+// 			this.selectSlide(slideView.slide);
+// 		});
+// 		slideView.obj.on("dblclick.slide", ()=>{
+// 			if(this.doubleClickLock) return;
+// 			this.dispatchEvent(new Event("edit"));
+// 			return false;
+// 		});
+// 		slideView.obj.hide().fadeIn(300, () => {
+// 		});
 	}
 
 	clonseSlide(slide:Slide):Slide {
 		if(this._slides.indexOf(slide) == -1) return;
+		console.log("clonseSlide called : " + new Date().getTime());
 
 		var clonedSlide:Slide = slide.clone();
 		this.addSlide(clonedSlide, this._slides.indexOf(slide) + 1);
@@ -273,16 +279,36 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return clonedSlide;
 	}
 
-	private onSlideUpdate = (ce:CustomEvent)=>{
-		this.updateSlideProps(ce.detail);
+	// private onSlideUpdate = (ce:CustomEvent)=>{
+	// 	this.updateSlideProps(ce.detail as Slide);
+	// }
+	private onSlideSelect = (ce:CustomEvent)=>{
+		this.selectSlide(ce.detail as Slide);
 	}
+	private onSlideEdit = (ce:CustomEvent)=>{
+		this.dispatchEvent(new Event("edit"));
+	}
+	private onSlideClone = (ce:CustomEvent)=>{
+		this.clonseSlide(ce.detail as Slide);
+	}
+	private onSlideDelete = (ce:CustomEvent)=>{
+		this.removeSlide(ce.detail as Slide, true);
+	}
+
+
 	removeSlide(slide:Slide, isAnimation:boolean = false):Slide{
 		var index:number = this._slides.indexOf(slide);
 		if(index == -1) return;
 
 
-		var slideView:SlideView = this.getSlideViewBySlide(slide);
-		slide.removeEventListener("update", this.onSlideUpdate);
+		var slideView:ThumbSlide2 = this.getSlideViewBySlide(slide);
+//		slide.removeEventListener("update", this.onSlideUpdate);
+		slideView.removeEventListener("select", this.onSlideSelect);
+		slideView.removeEventListener("edit", this.onSlideEdit);
+		slideView.removeEventListener("clone", this.onSlideClone);
+		slideView.removeEventListener("delete", this.onSlideDelete);
+
+
 		var nextSlide:Slide = null;
 		if(slideView.selected){
 			if(index < this._slideViews.length - 1) {
@@ -296,12 +322,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			this._slideViews.splice(index, 1);
 			this._slideViewsById[(slideView as ThumbSlide).id] = undefined;
 			slide.removeAllLayers();
-			slideView.obj.find("button").remove();
-			slideView.obj.find("div.duration").remove();
-			slideView.obj.find("div.joinArrow").remove();
-			slideView.obj.off("click.slide");
-			slideView.obj.off("dblclick.slide");
-			slideView.obj.off("mousedown.slide");
+			slideView.destroy();
 			slideView.obj.remove();
 			slideView = null;
 		}
@@ -332,21 +353,28 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return slide;
 	}
 
-	private updateSlideProps(slide:Slide){
-		var slideView:SlideView = this.getSlideViewBySlide(slide);
-		if(!slideView) return;
+	// private updateSlideProps(slide){
+	// 	var slideView:ThumbSlide2 = this.getSlideViewBySlide(slide);
+	// 	if(!slideView) return;
 
-		if(slideView.slide.disabled){
-			slideView.obj.addClass("disabled");
-		}else{
-			slideView.obj.removeClass("disabled");
-		}
-		if(slideView.slide.joining){
-			slideView.obj.addClass("joining");
-		}else{
-			slideView.obj.removeClass("joining");
-		}
-	}
+	// 	if(slide.disabled){
+	// 		slideView.obj.addClass("disabled");
+	// 	}else{
+	// 		slideView.obj.removeClass("disabled");
+	// 	}
+	// 	if(slide.joining){
+	// 		slideView.obj.addClass("joining");
+	// 	}else{
+	// 		slideView.obj.removeClass("joining");
+	// 	}
+	// 	var durationStr = "";
+	// 	if(slide.durationRatio != 1){
+	// 		durationStr = "x" + slide.durationRatio.toString().substr(0,3);
+	// 	}
+	// 	slideView.obj.find(".duration > span").text(durationStr);
+
+	// 	slideView.fitToHeight();
+	// }
 
 	public refresh(){
 		this._slideViews.forEach(slide=>{
@@ -357,22 +385,26 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	//
 
 	private selectSlide(slide:Slide = null){
-		this._selectedSlide = undefined;
+		this._selectedSlide = slide;
 
-		$.each(this._slideViews, (index:number, slide2:SlideView) => {
-			slide2.obj.off("click.slide");
+		this._slideViews.forEach(slideView=>{
+			slideView.selected = (slide == slideView.slide);
+		});
 
-			if(slide2.slide == slide){
-				slide2.selected = true;
-				this._selectedSlide = slide;
+		// $.each(this._slideViews, (index:number, slide2:ThumbSlide2) => {
+		// 	//slide2.obj.off("click.slide");
 
-			}else{
-				slide2.selected = false;
-				slide2.obj.on("click.slide", ()=>{
-					this.selectSlide(slide2.slide);
-				}); 
-			}
-		})
+		// 	if(slide2.slide == slide){
+		// 		slide2.selected = true;
+		// 		this._selectedSlide = slide;
+
+		// 	}else{
+		// 		slide2.selected = false;
+		// 	/*	slide2.obj.on("click.slide", ()=>{
+		// 			this.selectSlide(slide2.slide);
+		// 		}); */
+		// 	}
+		// })
 		this.dispatchEvent(new Event("select"));
 		this.scrollToSelected();
 	}
@@ -389,26 +421,12 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		}
 	}
 
-	private updateSlideDuration(slide:Slide){
-		var durationStr = "";
-		if(slide.durationRatio != 1){
-			durationStr = "x" + slide.durationRatio.toString().substr(0,3);
-		}
-		this.getSlideViewBySlide(slide).obj.find(".duration > span").text(durationStr);
-	}
 
-	private lockDoubleClick(){
-		if(this.doubleClickTimer) clearTimeout(this.doubleClickTimer);
-		this.doubleClickLock = true;
-		this.doubleClickTimer = setTimeout(()=>{
-			this.doubleClickLock = false;
-		},100);
-	}
 
 	private sortSlideObjByIndex(){
 		if(this._slideViews.length == 0) return;
 
-		$.each(this._slideViews, (i:number, slide:SlideView) => {
+		$.each(this._slideViews, (i:number, slide:ThumbSlide2) => {
 			this.obj.append(slide.obj);
 			slide.obj.removeClass("last");
 		});
@@ -428,7 +446,8 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	}
 
 	//
-
+	// getset
+	//
 	get selectedSlide():Slide {
 		return this._selectedSlide;
 	}
@@ -444,13 +463,11 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		console.log("set slides at slidelist");
 		this.initialize();
 
-		this.initialize();
 		this._slides = value;
 		this._slides.forEach(slide=>{
 			this.addSlide(slide);
 		});
 	}
-
 	public get slides():Slide[] {
 		return this._slides;
 	}

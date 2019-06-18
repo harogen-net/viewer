@@ -26,6 +26,8 @@ export class Slide extends EventDispatcher {
 
 	
 	private _id:number;
+	private _width:number = 0;
+	private _height:number = 0;
 	// private scale_min:number = 0.2;
 	// private scale_max:number = 5;
 	// protected scale_base:number = 1;
@@ -38,11 +40,15 @@ export class Slide extends EventDispatcher {
 	private _disabled:boolean = false;
 
 	
-	constructor(private _width:number = 0, private _height:number = 0, protected _layers:Layer[] = []){
+	constructor(width:number = 0, height:number = 0, protected _layers:Layer[] = []){
 		super();
 
-		if(this._width == 0) this._width = Viewer.SCREEN_WIDTH;
-		if(this._height == 0) this._height = Viewer.SCREEN_HEIGHT;
+		this._width = width || Viewer.SCREEN_WIDTH;
+		this._height = height || Viewer.SCREEN_HEIGHT;
+		
+		this._layers.forEach(layer=>{
+			layer.addEventListener("update", this.onLayerUpdate);
+		});
 		
 //		this._layers = [];
 
@@ -65,17 +71,19 @@ export class Slide extends EventDispatcher {
 		console.log("clone at slide : " + this.id);
 //		var newObj:any = $('<div />');
 //		var slide:this = new (this.constructor as any)(newObj);
-		var slide:this = new (this.constructor as any)(this._width, this._height);
+		var slide:this = new (this.constructor as any)(this._width, this._height, this._layers.map(layer=>{
+			return layer.clone();
+		}));
 
 		slide.id = this.id;
 		slide.durationRatio = this.durationRatio;
 		slide.joining = this.joining;
 		slide.disabled = this.disabled;
 		console.log("this slide has " + this._layers.length + " layers.");
-
-		this._layers.forEach(layer=>{
+		console.log(this == slide);
+/*		this._layers.forEach(layer=>{
 			slide.addLayer(layer.clone());
-		});
+		});*/
 
 		return slide;
 	}
@@ -93,13 +101,13 @@ export class Slide extends EventDispatcher {
 		}
 
 		var isAdd = (this._layers.indexOf(layer) == -1);
-		// console.log("addLayer at slide");
+		console.log("addLayer at slide", layer, index, isAdd);
 		// console.log(layer);
 
 		if(!isAdd){
 			this._layers.splice(this._layers.indexOf(layer), 1);
 		}
-		if(index != -1){
+		if(index == -1){
 			this._layers.push(layer);
 		}else{
 			this._layers.splice(index, 0, layer);
@@ -107,7 +115,9 @@ export class Slide extends EventDispatcher {
 
 		if(isAdd){
 			layer.addEventListener("update", this.onLayerUpdate);
-			this.dispatchEvent(new CustomEvent("layerAdd", {detail:{layer:layer}}));
+			this.dispatchEvent(new CustomEvent("layerAdd", {detail:{slide:this, layer:layer}}));
+		}else{
+			this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:layer}}));
 		}
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
 
@@ -119,7 +129,7 @@ export class Slide extends EventDispatcher {
 		if(this._layers.indexOf(layer) != -1){
 			this._layers.splice(this._layers.indexOf(layer), 1);
 			layer.removeEventListener("update", this.onLayerUpdate);
-			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{layer:layer}}));
+			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));
 			this.dispatchEvent(new CustomEvent("update", {detail:this}));
 
 		}
@@ -133,12 +143,57 @@ export class Slide extends EventDispatcher {
 	}
 
 
+	public fitLayer(layer:Layer):Layer {
+		console.log("fitLayer", layer, layer.width, layer.height);
+		if(layer.width == 0 || layer.height ==0)
+		{
+			return layer;
+		}
+
+/*		if(layer.width == Viewer.SCREEN_WIDTH && layer.height == Viewer.SCREEN_HEIGHT){
+			layer.x = Slide.centerX()
+			layer.y = Slide.centerY();
+			layer.scale = 1;
+			return layer;
+		}*/
+
+		var scaleX,scaleY;
+		if(layer.rotation == 90 || layer.rotation == -90){
+			scaleX = this._width / layer.height;
+			scaleY = this._height / layer.width;
+		}else{
+			scaleX = this._width / layer.width;
+			scaleY = this._height / layer.height;
+		}
+
+		var scale1:number = Math.min(scaleX, scaleY);
+		var scale2:number = Math.max(scaleX, scaleY);
+
+		if(layer.x == this.centerX && layer.y == this.centerY){
+			var compRatio:number = Math.pow(10,10);
+			if(Math.round(layer.scale * compRatio) == Math.round(scale1 * compRatio)){
+				layer.scale = scale2;
+			}else{
+				layer.scale = scale1;
+			}
+		}else{
+			layer.scale = scale1;
+			layer.x = this.centerX;
+			layer.y = this.centerY;
+		}
+		console.log(scale1);
+
+		return layer;
+	}
+
+
 	//
 	// private methods
 	//
-	private onLayerUpdate(e:Event){
+	private onLayerUpdate = (ce:CustomEvent)=>{
 		//this.dispatchEvent(new Event("layerUpdate"));
-		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{layer:e.target}}));
+		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(ce.detail)}}));
 	}
 
 
@@ -209,6 +264,7 @@ export class Slide extends EventDispatcher {
 
 	set joining(value:boolean) {
 		this._joining = value;
+//		this.dispatchEvent(new Event("update"));
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
 
 		// if(this._joining){
@@ -224,6 +280,7 @@ export class Slide extends EventDispatcher {
 	// }
 	set disabled(value:boolean) {
 		this._disabled = value;
+//		this.dispatchEvent(new Event("update"));
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
 
 

@@ -11,11 +11,10 @@ export class ImageLayer extends Layer {
 	
 	constructor(private _imageId:string, transform:any = null, id:number = -1){
 		super(transform, id);
-		console.log("Image const:" , _imageId);
 		this._type = LayerType.IMAGE;
-
 		this._originWidth = ImageManager.shared.getImageById(_imageId).width;
 		this._originHeight = ImageManager.shared.getImageById(_imageId).height;
+	//	console.log("Image const:" , _imageId.slice(0,3) + "..", this._originWidth, this._originHeight);
 	}
 
 	//
@@ -37,33 +36,41 @@ export class ImageLayer extends Layer {
 	public get imageId():string {return this._imageId;}
 	public set imageId(value:string) {
 		this._imageId = this.imageId;
+		this._originWidth = ImageManager.shared.getImageById(this._imageId).width;
+		this._originHeight = ImageManager.shared.getImageById(this._imageId).height;
+		this.dispatchEvent(new Event("update"));
 	}	
 	public set clipRect(value:number[]){
 		this._clipRect = value.slice(0,4);
+		this.dispatchEvent(new Event("update"));
 	}
 	public get clipRect():number[]{
 		return this._clipRect;
 	}
 	public set clipT(value:number){
 		this._clipRect[0] = value;
+		this.dispatchEvent(new Event("update"));
 	}
 	public get clipT():number {
 		return this._clipRect[0];
 	}
 	public set clipR(value:number){
 		this._clipRect[1] = value;
+		this.dispatchEvent(new Event("update"));
 	}
 	public get clipR():number {
 		return this._clipRect[1];
 	}
 	public set clipB(value:number){
 		this._clipRect[2] = value;
+		this.dispatchEvent(new Event("update"));
 	}
 	public get clipB():number {
 		return this._clipRect[2];
 	}
 	public set clipL(value:number){
 		this._clipRect[3] = value;
+		this.dispatchEvent(new Event("update"));
 	}
 	public get clipL():number {
 		return this._clipRect[3];

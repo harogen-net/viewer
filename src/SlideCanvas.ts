@@ -19,7 +19,7 @@ declare var jsSHA:any;
 
 export class SlideCanvas extends EventDispatcher {
 
-	public slide:SlideEditable;
+	public slideView:SlideEditable;
 
 	private shadow:any;
 	private UIsForImage:any[];
@@ -51,118 +51,119 @@ export class SlideCanvas extends EventDispatcher {
 		});
 
 		this.obj.addClass("slideCanvas");
-		this.slide = new SlideEditable(new Slide(), $('<div />').appendTo(this.obj));
-		this.slide.addEventListener("select", (any)=>{
+
+		this.slideView = new SlideEditable(new Slide(), $('<div />').appendTo(this.obj));
+		this.slideView.addEventListener("select", (any)=>{
 			$.each(this.UIsForImage, (number, obj:any)=>{
-				obj.prop("disabled", this.slide.selectedLayer == null);
+				obj.prop("disabled", this.slideView.selectedLayer == null);
 				obj.removeClass("on");
 			});
 			
-			$("button.imageRef").prop("disabled", !(this.slide.selectedLayer != null && this.slide.selectedLayer.type == LayerType.IMAGE));
-			$(".property .clip dd input").prop("disabled", !(this.slide.selectedLayer != null && this.slide.selectedLayer.type == LayerType.IMAGE));
+			$("button.imageRef").prop("disabled", !(this.slideView.selectedLayer != null && this.slideView.selectedLayer.type == LayerType.IMAGE));
+			$(".property .clip dd input").prop("disabled", !(this.slideView.selectedLayer != null && this.slideView.selectedLayer.type == LayerType.IMAGE));
 
-			if(this.slide.selectedLayer != null){
-				if(this.slide.selectedLayer.mirrorH){
+			if(this.slideView.selectedLayer != null){
+				if(this.slideView.selectedLayer.mirrorH){
 					$("button.mirrorH").addClass("on");
 				}
-				if(this.slide.selectedLayer.mirrorV){
+				if(this.slideView.selectedLayer.mirrorV){
 					$("button.mirrorV").addClass("on");
 				}
 			}
 
-			this.updateMenu(this.slide.layerViews);
+			this.updateMenu(this.slideView.layerViews);
 		});
-		this.slide.addEventListener("update",(any)=>{
-			this.updateMenu(this.slide.layerViews);
+		this.slideView.addEventListener("update",(any)=>{
+			this.updateMenu(this.slideView.layerViews);
 		});
-		this.slide.addEventListener("scale",(any)=>{
+		this.slideView.addEventListener("scale",(any)=>{
 			this.updateShadow();
 		});
 
-		this.shadow = $('<div class="shadow" />').appendTo(this.obj);
+		this.shadow = $('<div class="shadow" />')//.appendTo(this.obj);
 
 
 
 		//
 
 		$(".zoomIn").click(() => {
-			this.slide.scale *= 1.1;
+			this.slideView.scale *= 1.1;
 		});
 		$(".showAll").click(() => {
-			this.slide.scale = SlideEditable.SCALE_DEFAULT;
+			this.slideView.scale = SlideEditable.SCALE_DEFAULT;
 		});
 		$(".zoomOut").click(() => {
-			this.slide.scale /= 1.1;
+			this.slideView.scale /= 1.1;
 		});
 
 		$(".cut").click(() => {
-			this.slide.cut();
+			this.slideView.cut();
 		});
 		$(".copy").click(() => {
-			this.slide.copy();
+			this.slideView.copy();
 		});
 		$(".paste").click(() => {
-			this.slide.paste();
+			this.slideView.paste();
 		});
 		
 		$(".rotateL").click(() => {
-			if(this.slide.selectedLayer && !this.slide.selectedLayer.locked && this.slide.selectedLayer.visible) {
-				this.slide.selectedLayer.rotation -= 90;
-				this.slide.dispatchEvent(new Event("update"));
+			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
+				this.slideView.selectedLayer.rotation -= 90;
+				this.slideView.dispatchEvent(new Event("update"));
 
-				if(this.slide.selectedLayer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slide.selectedLayer}}));
+				if(this.slideView.selectedLayer.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
 				}
 			}
 		});
 		$(".rotateR").click(() => {
-			if(this.slide.selectedLayer && !this.slide.selectedLayer.locked && this.slide.selectedLayer.visible) {
-				this.slide.selectedLayer.rotation += 90;
-				this.slide.dispatchEvent(new Event("update"));
+			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
+				this.slideView.selectedLayer.rotation += 90;
+				this.slideView.dispatchEvent(new Event("update"));
 
-				if(this.slide.selectedLayer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slide.selectedLayer}}));
+				if(this.slideView.selectedLayer.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
 				}
 			}
 		});
 
 		$(".mirrorH").click(() => {
-			if(this.slide.selectedLayer && !this.slide.selectedLayer.locked && this.slide.selectedLayer.visible) {
-				this.slide.selectedLayer.mirrorH = !this.slide.selectedLayer.mirrorH;
-				this.slide.dispatchEvent(new Event("update"));
-				if(this.slide.selectedLayer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slide.selectedLayer}}));
+			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
+				this.slideView.selectedLayer.mirrorH = !this.slideView.selectedLayer.mirrorH;
+				this.slideView.dispatchEvent(new Event("update"));
+				if(this.slideView.selectedLayer.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
 				}
 				$(".mirrorH").toggleClass("on");
 			}
 		});
 		$(".mirrorV").click(() => {
-			if(this.slide.selectedLayer && !this.slide.selectedLayer.locked && this.slide.selectedLayer.visible) {
-				this.slide.selectedLayer.mirrorV = !this.slide.selectedLayer.mirrorV;
-				this.slide.dispatchEvent(new Event("update"));
-				if(this.slide.selectedLayer.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slide.selectedLayer}}));
+			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
+				this.slideView.selectedLayer.mirrorV = !this.slideView.selectedLayer.mirrorV;
+				this.slideView.dispatchEvent(new Event("update"));
+				if(this.slideView.selectedLayer.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
 				}
 				$(".mirrorV").toggleClass("on");
 			}
 		});
 
 		$(".copyTrans").click(() => {
-			this.slide.copyTrans();
+			this.slideView.copyTrans();
 		});
 		$(".pasteTrans").click(() => {
-			this.slide.pasteTrans();
+			this.slideView.pasteTrans();
 		});
 	
 		$(".fit").click(() => {
-			this.slide.fitSelectedLayer();
+			this.slideView.fitSelectedLayer();
 		});
 		$(".slideDownload").click(()=>{
 			this.dispatchEvent(new Event("download"));
 		});
 		$(".text").click(()=>{
 			var textLayer:TextLayer = new TextLayer(prompt("insert text layer:"));
-			this.slide.slide.addLayer(textLayer);
+			this.slideView.slide.addLayer(textLayer);
 			textLayer.moveTo(Viewer.SCREEN_WIDTH >> 1, Viewer.SCREEN_HEIGHT >> 1);
 		});
 
@@ -216,25 +217,24 @@ export class SlideCanvas extends EventDispatcher {
 		});
 
 		$("button.download").click(()=>{
-/*			if(this.slide.selectedLayer == null) return;
+			if(this.slideView.selectedLayer == null) return;
+			if(this.slideView.selectedLayer.type != LayerType.IMAGE) return;
 
 			var a = document.createElement("a");
-			a.href = this.slide.selectedLayer.data.src;
+			a.href = ImageManager.shared.getSrcById((this.slideView.selectedLayer as ImageLayer).imageId);
 			a.target = '_blank';
-			a.download = this.slide.selectedLayer.name;
+			a.download = this.slideView.selectedLayer.name;
 			a.click();
-			window.URL.revokeObjectURL(a.href);*/
+			window.URL.revokeObjectURL(a.href);
 		});
 
 
 
 		$("button.up").click(()=>{
-			if(this.slide.selectedLayer == null) return;
-			this.slide.forwardLayer(this.slide.selectedLayer);
+			this.slideView.changeLayerOrder(this.slideView.selectedLayer, true);
 		});
 		$("button.down").click(()=>{
-			if(this.slide.selectedLayer == null) return;
-			this.slide.backwordLayer(this.slide.selectedLayer);
+			this.slideView.changeLayerOrder(this.slideView.selectedLayer, false);
 		});
 
 		$(".close").click(() => {
@@ -242,13 +242,14 @@ export class SlideCanvas extends EventDispatcher {
 		});
 		
 
-		this.constructMenu(this.slide);
+		this.constructMenu(this.slideView);
 	}
 
 	//
 
 	initialize(){
-		this.slide.initialize();
+		//this.slide.initialize();
+		this.slideView.slide = new Slide();
 
 		$(".slideCanvas .menu span.name").text("");
 	}
@@ -257,10 +258,10 @@ export class SlideCanvas extends EventDispatcher {
 		const width:number = this.shadow.width();
 		const height:number = this.shadow.height();
 
-		var p_l:number = (width - this.slide.width) / (width * 2);
-		var p_r:number = p_l + (this.slide.width / width);
-		var p_t:number = (height - this.slide.height) / (height * 2);
-		var p_b:number = p_t + (this.slide.height / height);
+		var p_l:number = (width - this.slideView.width) / (width * 2);
+		var p_r:number = p_l + (this.slideView.width / width);
+		var p_t:number = (height - this.slideView.height) / (height * 2);
+		var p_b:number = p_t + (this.slideView.height / height);
 
 		if(p_l < 0) p_l = 0;
 		if(p_r > 1) p_r = 1;
@@ -337,7 +338,7 @@ export class SlideCanvas extends EventDispatcher {
 	private propertyInputs:PropertyInput[];
 	private items:LayerListItem[];
 
-	private constructMenu(slide:SlideView):void{
+	private constructMenu(slideView:SlideView):void{
 
 		this.inputTransX = new PropertyInput($(".property .position input").eq(0), "x", {v:-25});
 		this.inputTransY = new PropertyInput($(".property .position input").eq(1), "y", {v:-25});
@@ -360,7 +361,7 @@ export class SlideCanvas extends EventDispatcher {
 		//
 
 		this.items = [];
-		for(var i:number = 0; i < SlideView.LAYER_NUM_MAX; i++){
+		for(var i:number = 0; i < Slide.LAYER_NUM_MAX; i++){
 			var item = new LayerListItem();
 			item.addEventListener("update", this.onLayerUpdate);
 			this.items.push(item);
@@ -382,22 +383,22 @@ export class SlideCanvas extends EventDispatcher {
 			}
 		});
 
-		slide.addEventListener("select", (any)=>{
+		slideView.addEventListener("select", (any)=>{
 			this.updateMenuSelection();
 			setTimeout(()=>{
 				this.updateProperty();
 			},2);
 		});
-		slide.addEventListener("update",(any)=>{
-			this.updateMenu(this.slide.layerViews);
+		slideView.addEventListener("update",(any)=>{
+			this.updateMenu(this.slideView.layerViews);
 			this.updateProperty();
 		});
 
 		var bg:any = $('<div class="bg" />');
 		$(".layer").append(bg);
 		bg.on("click",(any)=>{
-			if(this.slide.selectedLayer != null){
-				this.slide.selectLayer(null);
+			if(this.slideView.selectedLayer != null){
+				this.slideView.selectLayer(null);
 			}
 		});
 	}
@@ -406,7 +407,7 @@ export class SlideCanvas extends EventDispatcher {
 
 	private updateMenu(layers:LayerView[] = null):void{
 //	private updateMenu(images:Image[]):void{
-		layers = this.slide.layerViews;
+		layers = this.slideView.layerViews;
 		$.each(this.items, (number, item:LayerListItem)=>{
 			item.obj.detach();
 			item.layerView = null;
@@ -427,11 +428,11 @@ export class SlideCanvas extends EventDispatcher {
 
 
 	private updateProperty(){
-		var selectedSlideExists:boolean = this.slide.selectedLayer != null;
+		var selectedSlideExists:boolean = this.slideView.selectedLayer != null;
 		$.each(this.propertyInputs, (number, input:PropertyInput)=>{
 			input.disabled = !selectedSlideExists;
-			if(selectedSlideExists && this.slide.selectedLayer[input.key] != undefined){
-				input.value = this.slide.selectedLayer[input.key];
+			if(selectedSlideExists && this.slideView.selectedLayer[input.key] != undefined){
+				input.value = this.slideView.selectedLayer[input.key];
 			}else{
 				input.disabled = true;
 			}
@@ -441,12 +442,12 @@ export class SlideCanvas extends EventDispatcher {
 	//
 
 	private onPropertyUpdate = (ce:CustomEvent)=>{
-		if(this.slide.selectedLayer == null) return;
-		this.slide.selectedLayer[ce.detail.key] = ce.detail.value;
+		if(this.slideView.selectedLayer == null) return;
+		this.slideView.selectedLayer[ce.detail.key] = ce.detail.value;
 
-		this.slide.dispatchEvent(new Event("update"));
-		if(this.slide.selectedLayer.shared){
-			this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slide.selectedLayer}}));
+		this.slideView.dispatchEvent(new Event("update"));
+		if(this.slideView.selectedLayer.shared){
+			this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
 
 		}
 	};
@@ -457,57 +458,57 @@ export class SlideCanvas extends EventDispatcher {
 		switch(e.detail.subType){
 			case "lock_on":
 				item.layerView.data.locked = true;
-				if(item.layerView == this.slide.selectedLayerView){
-					this.slide.selectLayer(null);
+				if(item.layerView == this.slideView.selectedLayerView){
+					this.slideView.selectLayer(null);
 				}
-				this.slide.dispatchEvent(new Event("update"));
+				this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "lock_off":
 			item.layerView.data.locked = false;
-				this.slide.dispatchEvent(new Event("update"));
+				this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "eye_on":
 				item.layerView.data.visible = true;
-				this.slide.dispatchEvent(new Event("update"));
+				this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "eye_off":
 				item.layerView.data.visible = false;
-				if(item.layerView == this.slide.selectedLayerView){
-					this.slide.selectLayer(null);
+				if(item.layerView == this.slideView.selectedLayerView){
+					this.slideView.selectLayer(null);
 				}
-				this.slide.dispatchEvent(new Event("update"));
+				this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "share_on":
 				item.layerView.data.shared = true;
-				this.slide.dispatchEvent(new Event("update"));
+				this.slideView.dispatchEvent(new Event("update"));
 				if(window.confirm('copy image to all slide (within the image not exists). Are you sure?')){
-					this.slide.dispatchEvent(new CustomEvent("sharedPaste", {detail:{layer:item.layerView}}));
+					this.slideView.dispatchEvent(new CustomEvent("sharedPaste", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "share_off":
 				item.layerView.data.shared = false;
-				this.slide.dispatchEvent(new Event("update"));
+				this.slideView.dispatchEvent(new Event("update"));
 				break;
 			case "select":
-				this.slide.selectLayer(item.layerView.data);
+				this.slideView.selectLayer(item.layerView.data);
 				break;
 			case "delete":
 				if(item.layerView.data.shared && window.confirm('delete all shared image. Are you sure?')){
-					this.slide.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView, delete:true}}));
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView, delete:true}}));
 				}
-				this.slide.slide.removeLayer(item.layerView.data);
+				this.slideView.slide.removeLayer(item.layerView.data);
 			break;
 			default:
 			break;
@@ -516,7 +517,7 @@ export class SlideCanvas extends EventDispatcher {
 
 	private set sideMenuWidth(value:number) {
 		$(".sideMenu").width(value);
-		this.slide.obj.css("width", "calc(100% - " + value + "px)");
+		this.slideView.obj.css("width", "calc(100% - " + value + "px)");
 		this.shadow.css("width", "calc(100% - " + value + "px)");
 
 	}

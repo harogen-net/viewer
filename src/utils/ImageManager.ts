@@ -129,10 +129,16 @@ export class ImageManager extends EventDispatcher {
 		}
 	}
 
-	public getSrcById(id):string {
+	public getSrcById(id:string):string {
 		var imgObjData = this._imageById[id];
 		if(imgObjData == undefined) return null;
 		return imgObjData.imgObj.attr("src");
+	}
+
+	public getImageElementById(id:string):HTMLImageElement {
+		var imgObjData = this._imageById[id];
+		if(imgObjData == undefined) return null;
+		return imgObjData.imgObj[0] as HTMLImageElement;
 	}
 
 
