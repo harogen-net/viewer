@@ -144,8 +144,8 @@ export class Slide extends EventDispatcher {
 
 
 	public fitLayer(layer:Layer):Layer {
-		console.log("fitLayer", layer, layer.width, layer.height);
-		if(layer.width == 0 || layer.height ==0)
+		console.log("fitLayer", layer, layer.originWidth, layer.originHeight);
+		if(layer.originWidth == 0 || layer.originHeight ==0)
 		{
 			return layer;
 		}
@@ -159,11 +159,11 @@ export class Slide extends EventDispatcher {
 
 		var scaleX,scaleY;
 		if(layer.rotation == 90 || layer.rotation == -90){
-			scaleX = this._width / layer.height;
-			scaleY = this._height / layer.width;
+			scaleX = this._width / layer.originHeight;
+			scaleY = this._height / layer.originWidth;
 		}else{
-			scaleX = this._width / layer.width;
-			scaleY = this._height / layer.height;
+			scaleX = this._width / layer.originWidth;
+			scaleY = this._height / layer.originHeight;
 		}
 
 		var scale1:number = Math.min(scaleX, scaleY);

@@ -41,8 +41,8 @@ export class Layer extends EventDispatcher{
 	protected _mirrorH:boolean = false;
 	protected _mirrorV:boolean = false;
 
-	protected _scaleX_min:number = 1;
-	protected _scaleY_min:number = 1;
+	protected _scaleX_min:number = 0.1;
+	protected _scaleY_min:number = 0.1;
 	
 	protected _locked:boolean = false;
 	protected _visible:boolean = true;

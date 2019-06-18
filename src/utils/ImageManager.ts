@@ -78,28 +78,31 @@ export class ImageManager extends EventDispatcher {
 			if(this._imageById[id] != undefined) {
 				resolve();
 			}else{
-				var imgObj = $('<img />');
+				var imgDom = new Image();
+				imgDom.src = src;
+
+				var imgObj = $(imgDom);
 				this.container.append(imgObj);
 				this._imageById[id] = {
-					width:Math.round(width),
-					height:Math.round(height),
+					width:Math.round(imgDom.width),
+					height:Math.round(imgDom.height),
 					imgObj:imgObj
 				};
 				if(width == 0 || height == 0){
 					imgObj.ready(()=>{
-						this._imageById[id].width = Math.round(imgObj.width());
-						this._imageById[id].height = Math.round(imgObj.height());
+//						this._imageById[id].width = Math.round(imgObj.width());
+//						this._imageById[id].height = Math.round(imgObj.height());
 						resolve();
 					});
 				}else{
-					this._imageById[id] = {
+/*					this._imageById[id] = {
 						width:width,
 						height:height,
 						imgObj:imgObj
-					};
+					};*/
 					resolve();
 				}
-				imgObj.attr("src", src);
+				//imgObj.attr("src", src);
 			}
 		});
 	}
