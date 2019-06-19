@@ -12,6 +12,7 @@ export class ThumbSlide extends SlideView {
 
 	protected thumbnail:any;
 	protected converter:SlideToPNGConverter;
+	protected canvas:HTMLCanvasElement;
 
 	constructor(protected _slide:Slide, public obj:any){
 		super(_slide, obj);
@@ -19,20 +20,41 @@ export class ThumbSlide extends SlideView {
 		this._id = Math.floor(Math.random() * 100000000000);
 		obj.data("id",this._id);
 
-		// this._slide.addEventListener("update", (e)=>{
-		// 	this.refresh();
-		// });
-
 
 		 this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
 
-		this.converter = new SlideToPNGConverter();
+		 this.converter = new SlideToPNGConverter();
+
+
+		 var width = Math.round((ThumbSlide2.HEIGHT / this._slide.height) * this._slide.width * 1);
+		 var scale = ThumbSlide2.HEIGHT / this._slide.height;
+
+		 this.canvas = this.converter.slide2canvas(this._slide, width, ThumbSlide2.HEIGHT, scale);
+		 this.thumbnail = $(this.canvas);
+		 this.obj.append(this.thumbnail);
+		 this.thumbnail.css({
+			 "witdh":"100%",
+			 "height":"100%",
+			 "display":"block",
+			 "margin":"0 auto"
+		 });
+		 
 		this.refresh();
 	}
 	private onLayerUpdate = (e)=>{
 		this.refresh();
 	};
 
+
+	public destroy(){
+		this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
+		this.converter = null;
+		this.thumbnail.remove();
+		this.thumbnail = null;
+		this.canvas = null;
+
+		super.destroy();
+	}
 	//
 
 	// public addLayer(layer:Layer, index:number = -1):Layer {
@@ -59,21 +81,8 @@ export class ThumbSlide extends SlideView {
 	//
 
 	public refresh(){
-		if(this.thumbnail){
-			this.thumbnail.remove();
-			this.thumbnail = null;
-		}
-		var width = Math.round((ThumbSlide2.HEIGHT / this._slide.height) * this._slide.width * 1);
-		var scale = ThumbSlide2.HEIGHT / this._slide.height;
-		var canvas = this.converter.slide2canvas(this._slide, width, ThumbSlide2.HEIGHT, scale);
-		this.thumbnail = $(canvas);
-		this.obj.append(this.thumbnail);
-		this.thumbnail.css({
-			"witdh":"100%",
-			"height":"100%",
-			"display":"block",
-			"margin":"0 auto"
-		});
+		this.converter.drawSlide2Canvas(this._slide, this.canvas, ThumbSlide2.HEIGHT / this._slide.height);
+
 	//	this.thumbnail.hide().fadeIn(100);
 	}
 
@@ -81,11 +90,11 @@ export class ThumbSlide extends SlideView {
 		return this._id;
 	}
 
-	protected replaceSlide(newSlide:Slide) {
-		this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
-		this._slide = newSlide;
-		this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
-	}
+	// protected replaceSlide(newSlide:Slide) {
+	// 	this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
+	// 	this._slide = newSlide;
+	// 	this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
+	// }
 }
 
 export class ThumbSlide2 extends ThumbSlide {
@@ -224,13 +233,15 @@ export class ThumbSlide2 extends ThumbSlide {
 
 	public destroy() {
 		this._slide.removeEventListener("update", this.onSlideUpdate);
-
+		this.obj.stop();
 		this.obj.find("button").remove();
 		this.obj.find("div.duration").remove();
 		this.obj.find("div.joinArrow").remove();
 		this.obj.off("click.slide");
 		this.obj.off("dblclick.slide");
 		this.obj.off("mousedown.slide");
+
+		super.destroy();
 	}
 
 	//

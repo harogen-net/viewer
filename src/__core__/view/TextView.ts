@@ -9,41 +9,53 @@ export class TextView extends LayerView {
 
 	public textObj:any;
 
-	//private _textData:TextLayer;
-
 
 	constructor(protected _textData:TextLayer, public obj:any) {
 		super(_textData, obj);
-//		this._textData = (_data as TextLayer);
 
+		this._data.addEventListener("textUpdate", this.onTextUpdate);
 		this.textObj = $('<div class="text" contenteditable="false" spellcheck="false"></div>');
 		this.obj.append(this.textObj);
-		this.opacityObj = this.textObj;
-		this._data.opacity = this._data.opacity;
 
-		this.setText();
+		this.opacityObj = this.textObj;
+		this.opacityObj.css("opacity",this._data.opacity);
+
+		this.updateText();
+	}
+
+	public destroy(){
+		this._data.removeEventListener("textUpdate", this.onTextUpdate);
+		this.textObj.remove();
+		this.textObj = null;
+
+		super.destroy();
 	}
 
 
+	protected updateView():void {
+		super.updateView();
+		//updateTextを入れると循環するので別口で
+	}
 
-	private setText() {
+	private updateText() {
 		this.textObj.html(this._textData.text);
-
 		this._data.originWidth = this.textObj.width();
 		this._data.originHeight = this.textObj.height();
-		// this._data.scaleX_min = 1;
-		// this._data.scaleY_min = 1;
-	}
-
-	public get text():string{ return this._textData.text; }
-	public set text(value:string){
-		this._textData.text = value;
-		this.setText();
-	}
-
-	public get plainText():string {
-		return this.textObj.text();
 	}
 
 
+	//
+	// set get
+	//
+	private get textData():TextLayer {
+		return this._data as TextLayer;
+	}
+
+
+	//
+	// event handlers
+	//
+	private onTextUpdate = ()=>{
+		this.updateText();
+	};
 }

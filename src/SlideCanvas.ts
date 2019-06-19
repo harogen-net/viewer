@@ -76,10 +76,11 @@ export class SlideCanvas extends EventDispatcher {
 		this.slideView.addEventListener("update",(any)=>{
 			this.updateMenu(this.slideView.layerViews);
 		});
-		this.slideView.addEventListener("scale",(any)=>{
-			this.updateShadow();
-		});
 
+
+		this.slideView.addEventListener("scale",(any)=>{
+//			this.updateShadow();
+		});
 		this.shadow = $('<div class="shadow" />')//.appendTo(this.obj);
 
 
@@ -248,9 +249,7 @@ export class SlideCanvas extends EventDispatcher {
 	//
 
 	initialize(){
-		//this.slide.initialize();
 		this.slideView.slide = new Slide();
-
 		$(".slideCanvas .menu span.name").text("");
 	}
 

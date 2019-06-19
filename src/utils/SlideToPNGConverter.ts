@@ -61,6 +61,7 @@ export class SlideToPNGConverter {
 
 	public drawSlide2Canvas(slide:Slide, canvas:HTMLCanvasElement, slideScale?:number, bgColor?:string) {
 		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
+		ctx.setTransform(1,0,0,1,0,0);
 		if(bgColor){
 			ctx.fillStyle = bgColor;
 			ctx.fillRect(0,0,canvas.width, canvas.height);
@@ -98,8 +99,11 @@ export class SlideToPNGConverter {
 			ctx.globalAlpha = image.opacity;
 			//ctx.drawImage(image.imageElement, 0, 0);
 			var element = ImageManager.shared.getImageElementById(image.imageId);
-			ctx.drawImage(element, 0,0);
-//			ctx.drawImage(element, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,0,0,image.width, image.height);
+			//if(image.isClipped){
+				ctx.drawImage(element, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,image.clipRect[3],image.clipRect[0],image.clipedWidth, image.clipedHeight);
+			//}else{
+			//	ctx.drawImage(element, 0,0);
+			//}
 		});
 	}
 

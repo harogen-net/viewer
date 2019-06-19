@@ -50,6 +50,8 @@ export class Slide extends EventDispatcher {
 			layer.addEventListener("update", this.onLayerUpdate);
 		});
 		
+		this._id = Math.floor(Math.random() * 10000) + 90000;
+
 //		this._layers = [];
 
 //		this.obj.addClass("slide");
@@ -69,21 +71,13 @@ export class Slide extends EventDispatcher {
 
 	public clone():this {
 		console.log("clone at slide : " + this.id);
-//		var newObj:any = $('<div />');
-//		var slide:this = new (this.constructor as any)(newObj);
 		var slide:this = new (this.constructor as any)(this._width, this._height, this._layers.map(layer=>{
 			return layer.clone();
 		}));
 
-		slide.id = this.id;
 		slide.durationRatio = this.durationRatio;
 		slide.joining = this.joining;
 		slide.disabled = this.disabled;
-		console.log("this slide has " + this._layers.length + " layers.");
-		console.log(this == slide);
-/*		this._layers.forEach(layer=>{
-			slide.addLayer(layer.clone());
-		});*/
 
 		return slide;
 	}
@@ -112,6 +106,7 @@ export class Slide extends EventDispatcher {
 		}else{
 			this._layers.splice(index, 0, layer);
 		}
+//		layer.parent = this;
 
 		if(isAdd){
 			layer.addEventListener("update", this.onLayerUpdate);
@@ -127,11 +122,11 @@ export class Slide extends EventDispatcher {
 	public removeLayer(layer:Layer):Layer {
 		if(!layer) return layer;
 		if(this._layers.indexOf(layer) != -1){
+//			layer.parent = null;
 			this._layers.splice(this._layers.indexOf(layer), 1);
 			layer.removeEventListener("update", this.onLayerUpdate);
 			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));
 			this.dispatchEvent(new CustomEvent("update", {detail:this}));
-
 		}
 		return layer;
 	}

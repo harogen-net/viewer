@@ -53,7 +53,7 @@ export class ImageManager extends EventDispatcher {
 	//
 
 	private allImages:ImageLayer[];
-	private _imageById:{[key:string]:{width:number, height:number, imgObj:any}};
+	private _imageById:{[key:string]:{width:number, height:number, name:string, imgObj:any}};
 
 	private constructor(private container:any){
 		super();
@@ -71,38 +71,29 @@ export class ImageManager extends EventDispatcher {
 		// this.allImages = [];
 	}
 
-	public registImageData(id:string, src:string, width:number = 0, height:number = 0) {
-		//console.log("registImageData : ", id, src, width, height);
-
+	public registImageData(id:string, src:string, name:string = "") {
 		return new Promise((resolve)=>{
 			if(this._imageById[id] != undefined) {
 				resolve();
 			}else{
 				var imgDom = new Image();
-				imgDom.src = src;
-
 				var imgObj = $(imgDom);
+				var onImageLoad = (e:Event)=>{
+					var imgDom = (e.target as HTMLImageElement);
+					imgDom.removeEventListener("load", onImageLoad);
+					this._imageById[id].width = Math.round(imgDom.naturalWidth);
+					this._imageById[id].height = Math.round(imgDom.naturalHeight);
+					resolve();
+				};
+				imgDom.addEventListener("load", onImageLoad);
 				this.container.append(imgObj);
 				this._imageById[id] = {
-					width:Math.round(imgDom.width),
-					height:Math.round(imgDom.height),
-					imgObj:imgObj
+					width:imgDom.naturalWidth,
+					height:imgDom.naturalHeight,
+					imgObj:imgObj,
+					name:name
 				};
-				if(width == 0 || height == 0){
-					imgObj.ready(()=>{
-//						this._imageById[id].width = Math.round(imgObj.width());
-//						this._imageById[id].height = Math.round(imgObj.height());
-						resolve();
-					});
-				}else{
-/*					this._imageById[id] = {
-						width:width,
-						height:height,
-						imgObj:imgObj
-					};*/
-					resolve();
-				}
-				//imgObj.attr("src", src);
+				imgDom.src = src;
 			}
 		});
 	}
@@ -121,21 +112,32 @@ export class ImageManager extends EventDispatcher {
 		}
 	}
 
-	public getImageById(id:string):{width:number, height:number, imgObj:any} {
+	public getImageById(id:string):{width:number, height:number, name:string, imgObj:any} {
 		var imgObjData = this._imageById[id];
 		if(imgObjData == undefined) return null;
 
 		return {
 			width:imgObjData.width,
 			height:imgObjData.height,
+			name:"",
 			imgObj:imgObjData.imgObj.clone()
+		}
+	}
+	public getImagePropsById(id:string):{width:number, height:number, name:string} {
+		var imgObjData = this._imageById[id];
+		if(imgObjData == undefined) return null;
+
+		return {
+			width:imgObjData.width,
+			height:imgObjData.height,
+			name:""
 		}
 	}
 
 	public getSrcById(id:string):string {
 		var imgObjData = this._imageById[id];
 		if(imgObjData == undefined) return null;
-		return imgObjData.imgObj.attr("src");
+		return (imgObjData.imgObj[0] as HTMLImageElement).src;
 	}
 
 	public getImageElementById(id:string):HTMLImageElement {

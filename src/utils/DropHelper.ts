@@ -53,30 +53,34 @@ export class DropHelper extends EventDispatcher {
 				}
 			}
 
-			let loadFile = (file:any) => {
+			let loadFile = async (file:any) => {
                 var reader = new FileReader();
-				reader.addEventListener('load', (e:any) => {
-					var imgObj = $('<img src="' + reader.result + '" />');
+				reader.addEventListener('load', async (e:any) => {
+					//var imgObj = $('<img src="' + reader.result + '" />');
 
+					var imgSrc:string|ArrayBuffer = reader.result;
  					var shaObj = new jsSHA("SHA-256","TEXT");
-					shaObj.update(reader.result);
+					shaObj.update(imgSrc);
+
+					var imageId:string = shaObj.getHash("HEX");
 					//var sha256digest = shaObj.getHash("HEX"); 
 
-					imgObj.bind("load",()=>{
-						imgObj.unbind("load");
-						$("body").append(imgObj);
-						imgObj.ready(()=>{
-							ImageManager.shared.registImageData(shaObj.getHash("HEX"), imgObj.attr("src"), Math.round(imgObj.width()), Math.round(imgObj.height()));
-							var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:shaObj.getHash("HEX")});
-							this.dispatchEvent(e);
+//					imgObj.bind("load",()=>{
+//						imgObj.unbind("load");
+//						$("body").append(imgObj);
+//						imgObj.ready(()=>{
+							await ImageManager.shared.registImageData(imageId, imgSrc as string, file.name);
+							var ce:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:imageId});
+							//var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:shaObj.getHash("HEX")});
+							this.dispatchEvent(ce);
 							
 							if(files.length > 0){
 								loadFile(files.shift());
 							}else{
 								console.log("drop complete");
 							}
-                        });
-					});
+                        //});
+//					});
 					//imgのjqueryオブジェクトに画像バイナリデータから生成したハッシュ値を固有IDとしてセット
 //					imgObj.data("imageId",shaObj.getHash("HEX"));
 //					imgObj.data("name",file.name);
@@ -84,7 +88,7 @@ export class DropHelper extends EventDispatcher {
 				try{
 					reader.readAsDataURL(file);
 				}
-				catch(e){
+				catch(Error){
 					
 				}
 			}

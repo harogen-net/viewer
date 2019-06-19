@@ -198,8 +198,8 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 
 	//
 
-	protected addDomLayer(layer:Layer):LayerView{
-		var layerView = super.addDomLayer(layer);
+	protected addLayerView(layer:Layer):LayerView{
+		var layerView = super.addLayerView(layer);
 
 		layerView.obj.on("mousedown.layer_preselect", (e:any) => {
 			if(layerView.selected) return;
@@ -224,8 +224,8 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 
 		return layerView;
 	}
-	protected removeDomLayer(layer:Layer):LayerView{
-		var layerView = super.removeDomLayer(layer);
+	protected removeLayerView(layer:Layer):LayerView{
+		var layerView = super.removeLayerView(layer);
 
 		if(layerView.data == this.selectedLayer){
 			this.selectLayer();
@@ -357,6 +357,11 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		this._slide.addLayer(layer, index);
 	}
 
+	protected replaceSlide(newSlide:Slide) {
+		this.selectLayer();
+		super.replaceSlide(newSlide);
+	}
+
 // 	forwardLayer(layer:Layer){
 // 		if(this._slide.layers.indexOf(layer) == -1) return;
 
@@ -401,7 +406,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		var mouseX = e.screenX;
 		var mouseY = e.screenY;
 
-		$(document).css("pointer-events","none");
+//		$(document).css("pointer-events","none");
 		$(document).off("mousemove.layer_drag");
 		$(document).off("mouseup.layer_drag");
 		$(document).on("mousemove.layer_drag", (e:any) => {
@@ -417,7 +422,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 			if(!this.isDrag) return;
 
 			this.isDrag = false;
-			$(document).css("pointer-events","auto");
+//			$(document).css("pointer-events","auto");
 			$(document).off("mousemove.layer_drag");
 			$(document).off("mouseup.layer_drag");
 
@@ -440,7 +445,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		var controlX = (this.selectedLayer.originWidth / 2) * (this.selectedLayer.scaleX);
 		var controlY = (this.selectedLayer.originHeight / 2) * (this.selectedLayer.scaleY);
 
-		$(document).css("pointer-events","none");
+//		$(document).css("pointer-events","none");
 		$(document).off("mousemove.layer_scale");
 		$(document).off("mouseup.layer_scale");
 		$(document).on("mousemove.layer_scale", (e:any) => {
@@ -476,7 +481,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 		$(document).on("mouseup.layer_scale", (e:any) => {
 			if(!this.isDrag) return;
 			this.isDrag = false;
-			$(document).css("pointer-events","auto");
+//			$(document).css("pointer-events","auto");
 			$(document).off("mousemove.layer_scale");
 			$(document).off("mouseup.layer_scale");
 
@@ -493,7 +498,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 
 		if(this.selectedLayer.type == LayerType.TEXT){
 			var textView:TextView = this.getLayerViewByLayer(this.selectedLayer) as TextView;
-			var text = textView.text;
+			var text = (textView.data as TextLayer).text;
 			textView.textObj.attr("contenteditable","true");
 			textView.textObj.focus();
 
@@ -503,7 +508,7 @@ export class SlideEditable extends DOMSlide implements IDroppable {
 				textView.textObj.off("focusout.textLayer_edit");
 
 				setTimeout(()=>{
-					if(text != textView.text){
+					if(text != (textView.data as TextLayer).text){
 						this.dispatchEvent(new Event("update"));
 					}
 				},10)

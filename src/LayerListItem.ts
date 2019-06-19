@@ -111,7 +111,7 @@ export class LayerListItem extends EventDispatcher {
 				}
 			break;
 			case LayerType.TEXT:
-				this.label.text((this._layerView as TextView).text);
+				this.label.text(((this._layerView as TextView).data as TextLayer).text);
 				//this.label.text((this._layer as TextLayer).plainText);
 			break;
 		}
@@ -153,7 +153,7 @@ export class LayerListItem extends EventDispatcher {
 		if(this._layerView != null){
 			switch(this._layerView.type){
 				case LayerType.IMAGE:
-					this.thumbnail.attr("src", ImageManager.shared.getSrcById((this._layerView as ImageView).imageId));
+					this.thumbnail.attr("src", ImageManager.shared.getSrcById(((this._layerView as ImageView).data as ImageLayer).imageId));
 					this.thumbnail.show();
 				break;
 				case LayerType.TEXT:

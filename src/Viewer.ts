@@ -109,15 +109,15 @@ export class Viewer {
 			}
 		});
 
-		this.canvas.slideView.addEventListener("update",()=>{
-			if(this._mode == ViewerMode.EDIT){
-				if(this.list.selectedSlide){
-//					this.list.selectedSlide.setData(this.canvas.slide.getData());
-					//this.list.selectedSlide.layers = this.canvas.slide.layers;
-					this.list.refresh();
-				}
-			}
-		});
+// 		this.canvas.slideView.addEventListener("update",()=>{
+// 			if(this._mode == ViewerMode.EDIT){
+// 				if(this.list.selectedSlide){
+// //					this.list.selectedSlide.setData(this.canvas.slide.getData());
+// 					//this.list.selectedSlide.layers = this.canvas.slide.layers;
+// 					this.list.refresh();
+// 				}
+// 			}
+// 		});
 		this.canvas.slideView.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
@@ -310,9 +310,6 @@ export class Viewer {
 			});
 			$(".load").click(()=>{
 				if($('select.filename').val() == -1) return;
-				console.log(this);
-				console.log(this.list);
-				console.log(this.list.slides);
 				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
 					this.storage.load();
 				}
@@ -373,15 +370,15 @@ export class Viewer {
 	}
 
 	private newDocument(doc?:VDoc){
-		if(this.document){
-			this.document = null;
+		 if(this.document){
+		 	this.document = null;
 			this.canvas.initialize();
-			this.list.initialize();
+		 	this.list.initialize();
 		}
 
 		this.setMode(ViewerMode.SELECT);
 		if(!doc){
-			//ImageManager.shared.initialize();
+			ImageManager.shared.deleteAllImageData();
 		}
 
 		//

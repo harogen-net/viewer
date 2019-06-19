@@ -13,6 +13,7 @@ import { ThumbSlide } from "../slide/ThumbSlide";
 import { ImageManager } from "./ImageManager";
 import { Slide } from "../__core__/model/Slide";
 
+
 declare var $:any;
 declare var jsSHA:any;
 declare var JSZip:any;
@@ -25,7 +26,7 @@ export enum HVDataType {
 
 export class SlideStorage extends EventDispatcher {
 
-	private static readonly VERSION:number = 2.1;
+	private static readonly VERSION:number = 3;
 	private static readonly SAVE_KEY:string = "viewer.slideData";
 	private static readonly DBNAME:string = "viewer";
 	private static readonly PNG_DATA_FILE_PREFIX:string = "[hv]";
@@ -152,54 +153,93 @@ export class SlideStorage extends EventDispatcher {
 		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.dataStore = transaction.objectStore("slideData");
 		var getReq = this.dataStore.get(title);
-		getReq.onsuccess = (e:any)=>{
+		getReq.onsuccess = async (e:any)=>{
 //			//console.log(e.target.result); // {id : 'A1', name : 'test'}
 			var jsonStr:string = e.target.result.data;
-			this.parseData(jsonStr)
-//			this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr)}));
+			this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(jsonStr)}));
 		}
 	}
 
 
-	public import(file:any){
+	public async import(file:any){
 		
 		if(file.name.indexOf(".png") != -1){
 			var reader = new FileReader();
-			reader.addEventListener("load", (e:any)=>{
+			var loadFunc = (reader, filePath)=>{
+				return new Promise(resolve=>{
+					reader.addEventListener("load", (e:any)=>{
+						resolve();
+					});
+					reader.readAsDataURL(filePath);
+				});
+			}
+
+			try{
+				await loadFunc(reader, file);
 				var u8a = this.embedder.extract(reader.result as string);
 				var zip = new JSZip();
-				zip.loadAsync(u8a).then((zip)=>{
-					zip.file("data.hvd").async("uint8array").then((obj)=>{
-						//console.log(new TextDecoder().decode(obj));
-						var jsonStr:string = new TextDecoder().decode(obj);
-						if(!jsonStr) {
-							alert("not data png file.");
-							return;
-						}
-						var title:string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
-						this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(jsonStr, {title:title})}));
-					});
-				})
-			});
-			try{
-				reader.readAsDataURL(file);
+				await zip.loadAsync(u8a);
+
+				var obj = await zip.file("data.hvd").async("uint8array");
+				var jsonStr:string = new TextDecoder().decode(obj);
+				if(!jsonStr) {
+					alert("not data png file.");
+					return;
+				}
+				var title:string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
+				this.dispatchEvent(new CustomEvent("loaded", {detail: await this.parseData(jsonStr, {title:title})}));
 			}
 			catch(e){
 			}
+
+			// var reader = new FileReader();
+			// reader.addEventListener("load", (e:any)=>{
+			// 	var u8a = this.embedder.extract(reader.result as string);
+			// 	var zip = new JSZip();
+			// 	zip.loadAsync(u8a).then((zip)=>{
+			// 		zip.file("data.hvd").async("uint8array").then(async (obj)=>{
+			// 			//console.log(new TextDecoder().decode(obj));
+			// 			var jsonStr:string = new TextDecoder().decode(obj);
+			// 			if(!jsonStr) {
+			// 				alert("not data png file.");
+			// 				return;
+			// 			}
+			// 			var title:string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
+			// 			this.dispatchEvent(new CustomEvent("loaded", {detail: await this.parseData(jsonStr, {title:title})}));
+			// 		});
+			// 	})
+			// });
+			// try{
+			// 	reader.readAsDataURL(file);
+			// }
+			// catch(e){
+			// }
+
+
 		}else if(file.name.indexOf(".hvz") != -1){
-			JSZip.loadAsync(file).then((zip)=>{
-				zip.forEach((a,b)=>{
-					b.async("string").then((data:string)=>{
-						this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(data)}));
-					});
+			try{
+				var zip = await JSZip.loadAsync(file);
+				zip.forEach(async (a,b)=>{
+					var data:string = await b.async("string");
+					this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(data)}));
 				});
-			},(e)=>{
-				//console.log("error at zip load : " + e);
-			});
+			}
+			catch(e){
+
+			}
+			// JSZip.loadAsync(file).then((zip)=>{
+			// 	zip.forEach((a,b)=>{
+			// 		b.async("string").then(async (data:string)=>{
+			// 			this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(data)}));
+			// 		});
+			// 	});
+			// },(e)=>{
+			// 	//console.log("error at zip load : " + e);
+			// });
 		}else if(file.name.indexOf(".hvd") != -1){
 			var reader = new FileReader();
-			reader.addEventListener("load", (e:any)=>{
-				this.dispatchEvent(new CustomEvent("loaded", {detail:this.parseData(reader.result as string)}));
+			reader.addEventListener("load", async (e:any)=>{
+				this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(reader.result as string)}));
 			});
 			try{
 				reader.readAsText(file);
@@ -229,9 +269,9 @@ export class SlideStorage extends EventDispatcher {
 
 	//
 
-	private stringifyData(document:VDoc):string {
+	private stringifyData(doc:VDoc):string {
 		//MARK : 更新時間上書き
-		document.editTime = new Date().getTime();
+		doc.editTime = new Date().getTime();
 
 		//
 
@@ -239,11 +279,11 @@ export class SlideStorage extends EventDispatcher {
 
 		var json:any = {};
 		json.version = SlideStorage.VERSION;
-		json.screen = {width:Viewer.SCREEN_WIDTH, height:Viewer.SCREEN_HEIGHT};
+		json.screen = {width:doc.width, height:doc.height};
 		
-		if(document.bgColor) json.bgColor = document.bgColor;
-		if(document.createTime) json.createTime = document.createTime;
-		if(document.editTime) json.editTime = document.editTime;
+		if(doc.bgColor) json.bgColor = doc.bgColor;
+		if(doc.createTime) json.createTime = doc.createTime;
+		if(doc.editTime) json.editTime = doc.editTime;
 
 		//ver1
 		// if(SlideStorage.VERSION == 1){
@@ -259,226 +299,222 @@ export class SlideStorage extends EventDispatcher {
 		// 	json.data = slideData;
 		// }
 
-		//ver2
-		if(SlideStorage.VERSION >= 2){
-			var slideData:any[] = [];
-			var imageSrcData:any = {};
-			
-			var imageNum:number = 0;
-			//console.log("total slide num : " + document.slides.length);
-			$.each(document.slides, (i:number, slide:Slide)=>{
-				var slideDatum:any = {};
-				slideDatum.id = slide.id;
-				slideDatum.durationRatio = slide.durationRatio;
-				slideDatum.joining = slide.joining;
+		var slideData:any[] = [];
+		var imageData:any = {};
+		
+		//var imageNum:number = 0;
+		//console.log("total slide num : " + document.slides.length);
+		//$.each(doc.slides, (i:number, slide:Slide)=>{
+		doc.slides.forEach(slide=>{
+			var slideDatum:any = {};
+			slideDatum.id = slide.id;
+			slideDatum.durationRatio = slide.durationRatio;
+			slideDatum.joining = slide.joining;
 //				slideDatum.isLock = slide.isLock;
-				slideDatum.disabled = slide.disabled;
+			slideDatum.disabled = slide.disabled;
 
-				var layers:Layer[] = [];
 //				if(SlideStorage.VERSION >= 2.1){
-					slideDatum.layers = layers;
 //				}else{
 //					slideDatum.images = layers;
 //				}
 
-				//console.log(" - slide" + (i + 1) + "("+ slide.id + ")" + " has " + slide.images.length + " images");
+			//console.log(" - slide" + (i + 1) + "("+ slide.id + ")" + " has " + slide.images.length + " images");
 
-				$.each(slide.layers, (number, layer:Layer)=>{
-					//delete layerDatum.class;
-					//delete datum.id;
-					var layerDatum:any = {};
-
-/*					if(layer.type == LayerType.IMAGE && imageSrcData[layerDatum.imageId] == undefined){
-						imageSrcData[layerDatum.imageId] = layerDatum.src;
-						imageNum++;
+			slideDatum.layers = [];
+			slide.layers.forEach(layer=>{
+				slideDatum.layers.push(layer.getData());
+				if(layer.type == LayerType.IMAGE) {
+					var imageLayer:ImageLayer = layer as ImageLayer;
+					if(imageData[imageLayer.imageId] == undefined){
+						imageData[imageLayer.imageId] = ImageManager.shared.getSrcById(imageLayer.imageId);
 					}
-					delete layerDatum.src;*/
-					layers.push(layer);
-				});
-				slideData.push(slideDatum);
+				}
 			});
+			slideData.push(slideDatum);
+
+
 			json.slideData = slideData;
-			json.imageData = imageSrcData;
+			json.imageData = imageData;
 
 			//console.log("total image num : " + imageNum);
 			
-		}
+		});
 
 		var jsonStr:string = JSON.stringify(json);
 
 		//MARK: - debug用トレース
 		delete json.imageData;
-		//console.log(JSON.stringify(json));
+		console.log(JSON.stringify(json));
 
 		return jsonStr;
 	}
 
 	private async parseData(jsonStr:string, options?:any) {
 
-		var slides:Slide[] = [];
-		options = options || {};
-
-		var json:any = JSON.parse(jsonStr);
-
-		ImageManager.shared.deleteAllImageData();
-
-		//ver1
-		if(json.version == 1 || json.version == undefined){
-			// $.each(json.data, (i:number, imageData:any)=>{
-			// 	var slide:SlideView = new ThumbSlide($('<div />'));
-			// 	//var slide:Slide = new Slide($('<div />'));
-			// 	$.each(imageData, (j:number, datum:any)=>{
-			// 		var imgObj:any = $("<img />");
-			// 		imgObj.attr("src",datum.src);
-			// 		if(datum.imageId == undefined || datum.imageId == ""){
-			// 			var shaObj = new jsSHA("SHA-256","TEXT");
-			// 			shaObj.update(datum.src);
-			// 			datum.imageId = shaObj.getHash("HEX");
-			// 		}
-			// 		imgObj.data("imageId",datum.imageId);
-			// 		var img:Image = new Image(imgObj, {
-			// 			transX:datum.transX,
-			// 			transY:datum.transY,
-			// 			scaleX:datum.scaleX,
-			// 			scaleY:datum.scaleY,
-			// 			rotation:datum.rotation
-			// 		});
-			// 		slide.addLayer(img);
-			// 	});
-			// 	slides.push(slide);
-			// });
-		}
-
-		//ver2
-		if(json.version >= 2){
-//			var isScreenSizeChange:boolean = (json.screen.width != Viewer.SCREEN_WIDTH || json.screen.height != Viewer.SCREEN_HEIGHT);
-
-			const width:number = json.width && !isNaN(parseInt(json.width)) ? parseInt(json.width) : Viewer.SCREEN_WIDTH;
-			const height:number = json.height && !isNaN(parseInt(json.height)) ? parseInt(json.height) : Viewer.SCREEN_HEIGHT;
-			options.width = width;
-			options.height = height;
-
-			for (let imageId in json.imageData){
-				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+			var slides:Slide[] = [];
+			options = options || {};
+	
+			var json:any = JSON.parse(jsonStr);
+	
+			ImageManager.shared.deleteAllImageData();
+	
+			//ver1
+			if(json.version == 1 || json.version == undefined){
+				// $.each(json.data, (i:number, imageData:any)=>{
+				// 	var slide:SlideView = new ThumbSlide($('<div />'));
+				// 	//var slide:Slide = new Slide($('<div />'));
+				// 	$.each(imageData, (j:number, datum:any)=>{
+				// 		var imgObj:any = $("<img />");
+				// 		imgObj.attr("src",datum.src);
+				// 		if(datum.imageId == undefined || datum.imageId == ""){
+				// 			var shaObj = new jsSHA("SHA-256","TEXT");
+				// 			shaObj.update(datum.src);
+				// 			datum.imageId = shaObj.getHash("HEX");
+				// 		}
+				// 		imgObj.data("imageId",datum.imageId);
+				// 		var img:Image = new Image(imgObj, {
+				// 			transX:datum.transX,
+				// 			transY:datum.transY,
+				// 			scaleX:datum.scaleX,
+				// 			scaleY:datum.scaleY,
+				// 			rotation:datum.rotation
+				// 		});
+				// 		slide.addLayer(img);
+				// 	});
+				// 	slides.push(slide);
+				// });
 			}
-
-			setTimeout(()=>{
-
-				$.each(json.slideData, (number, slideDatum:any)=>{
-					var slide:Slide = new Slide(width, height);
-					//var slide:Slide = new Slide($('<div />'));
-					slide.durationRatio = slideDatum.durationRatio;
-					slide.joining = slideDatum.joining;
-	//				slide.isLock = slideDatum.isLock;
-					slide.disabled = slideDatum.disabled;
-					
-					var layers:Layer[];
-	//				if(json.version >= 2.1){
-						layers = slideDatum.layers;
-	//				}else{
-	//					layers = slideDatum.images;
-	//				}
 	
+			//ver2
+			if(json.version >= 2){
+	//			var isScreenSizeChange:boolean = (json.screen.width != Viewer.SCREEN_WIDTH || json.screen.height != Viewer.SCREEN_HEIGHT);
 	
-					$.each(layers, (j:number, layerDatum:any)=>{
-						switch(layerDatum.type){
-							case LayerType.TEXT:
-								var textLayer = new TextLayer(layerDatum.text, {
-									transX:layerDatum.transX,
-									transY:layerDatum.transY,
-									scaleX:layerDatum.scaleX,
-									scaleY:layerDatum.scaleY,
-									rotation:layerDatum.rotation,
-									mirrorH:layerDatum.mirrorH,
-									mirrorV:layerDatum.mirrorV,
-								});
-								if(layerDatum.opacity != undefined){
-									textLayer.opacity = layerDatum.opacity;						
-								}
-								if(layerDatum.locked != undefined){
-									textLayer.locked = layerDatum.locked;
-								}
-								if(layerDatum.shared != undefined){
-									textLayer.shared = layerDatum.shared;
-								}
-								// if(isScreenSizeChange){
-								// 	var offsetScale:number = Math.min(
-								// 		Viewer.SCREEN_WIDTH / json.screen.width,
-								// 		Viewer.SCREEN_HEIGHT / json.screen.height
-								// 	);
-								// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-								// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
-			
-								// 	textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
-								// 	textLayer.scaleBy(offsetScale);
-								// }
-								slide.addLayer(textLayer);
-							break;
-							case undefined:	//version < 2.1
-							case LayerType.IMAGE:
-								// var imgObj:any = $("<img />");
-								// imgObj.attr("src", json.imageData[layerDatum.imageId]);
-								// imgObj.data("imageId", layerDatum.imageId);
-								// if(layerDatum.name != undefined){
-								// 	imgObj.data("name",layerDatum.name);
-								// }
-								var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
-									transX:layerDatum.transX,
-									transY:layerDatum.transY,
-									scaleX:layerDatum.scaleX,
-									scaleY:layerDatum.scaleY,
-									rotation:layerDatum.rotation,
-									mirrorH:layerDatum.mirrorH,
-									mirrorV:layerDatum.mirrorV,
-								});
-								if(layerDatum.opacity != undefined){
-									img.opacity = layerDatum.opacity;						
-								}
-								if(layerDatum.locked != undefined){
-									img.locked = layerDatum.locked;
-								}
-								if(layerDatum.shared != undefined){
-									img.shared = layerDatum.shared;
-								}
-								if(layerDatum.clipRect != undefined){
-									img.clipRect = layerDatum.clipRect;
-								}
-								// if(isScreenSizeChange){
-								// 	var offsetScale:number = Math.min(
-								// 		Viewer.SCREEN_WIDTH / json.screen.width,
-								// 		Viewer.SCREEN_HEIGHT / json.screen.height
-								// 	);
-								// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-								// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
-			
-								// 	imgObj.ready(()=>{
-								// 		img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
-								// 		img.scaleBy(offsetScale);
-								// 	});
-								// }
-								slide.addLayer(img);
-							break;
+				const width:number = json.width && !isNaN(parseInt(json.width)) ? parseInt(json.width) : Viewer.SCREEN_WIDTH;
+				const height:number = json.height && !isNaN(parseInt(json.height)) ? parseInt(json.height) : Viewer.SCREEN_HEIGHT;
+				options.width = width;
+				options.height = height;
+	
+				for (let imageId in json.imageData){
+					await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+				}
+	
+				//setTimeout(()=>{
+	
+					$.each(json.slideData, (number, slideDatum:any)=>{
+						var slide:Slide = new Slide(width, height);
+						//var slide:Slide = new Slide($('<div />'));
+						slide.durationRatio = slideDatum.durationRatio;
+						slide.joining = slideDatum.joining;
+		//				slide.isLock = slideDatum.isLock;
+						slide.disabled = slideDatum.disabled;
+						
+						var layers:any[];
+						if(json.version >= 2.1){
+							layers = slideDatum.layers;
+						}else{
+							layers = slideDatum.images;
 						}
+		
+		
+						$.each(layers, (j:number, layerDatum:any)=>{
+							switch(layerDatum.type){
+								case LayerType.TEXT:
+									var textLayer = new TextLayer(layerDatum.text, {
+										transX:layerDatum.transX,
+										transY:layerDatum.transY,
+										scaleX:layerDatum.scaleX,
+										scaleY:layerDatum.scaleY,
+										rotation:layerDatum.rotation,
+										mirrorH:layerDatum.mirrorH,
+										mirrorV:layerDatum.mirrorV,
+									});
+									if(layerDatum.opacity != undefined){
+										textLayer.opacity = layerDatum.opacity;						
+									}
+									if(layerDatum.locked != undefined){
+										textLayer.locked = layerDatum.locked;
+									}
+									if(layerDatum.shared != undefined){
+										textLayer.shared = layerDatum.shared;
+									}
+									// if(isScreenSizeChange){
+									// 	var offsetScale:number = Math.min(
+									// 		Viewer.SCREEN_WIDTH / json.screen.width,
+									// 		Viewer.SCREEN_HEIGHT / json.screen.height
+									// 	);
+									// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+									// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+				
+									// 	textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
+									// 	textLayer.scaleBy(offsetScale);
+									// }
+									slide.addLayer(textLayer);
+								break;
+								case undefined:	//version < 2.1
+								case LayerType.IMAGE:
+									// var imgObj:any = $("<img />");
+									// imgObj.attr("src", json.imageData[layerDatum.imageId]);
+									// imgObj.data("imageId", layerDatum.imageId);
+									// if(layerDatum.name != undefined){
+									// 	imgObj.data("name",layerDatum.name);
+									// }
+									var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
+										transX:layerDatum.transX,
+										transY:layerDatum.transY,
+										scaleX:layerDatum.scaleX,
+										scaleY:layerDatum.scaleY,
+										rotation:layerDatum.rotation,
+										mirrorH:layerDatum.mirrorH,
+										mirrorV:layerDatum.mirrorV,
+									});
+									if(layerDatum.opacity != undefined){
+										img.opacity = layerDatum.opacity;						
+									}
+									if(layerDatum.locked != undefined){
+										img.locked = layerDatum.locked;
+									}
+									if(layerDatum.shared != undefined){
+										img.shared = layerDatum.shared;
+									}
+									if(layerDatum.clipRect != undefined){
+										img.clipRect = layerDatum.clipRect;
+									}
+									// if(isScreenSizeChange){
+									// 	var offsetScale:number = Math.min(
+									// 		Viewer.SCREEN_WIDTH / json.screen.width,
+									// 		Viewer.SCREEN_HEIGHT / json.screen.height
+									// 	);
+									// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
+									// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
+				
+									// 	imgObj.ready(()=>{
+									// 		img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
+									// 		img.scaleBy(offsetScale);
+									// 	});
+									// }
+									slide.addLayer(img);
+								break;
+							}
+						});
+						slides.push(slide);
 					});
-					slides.push(slide);
-				});
+		
+					if(json.bgColor) options.bgColor = json.bgColor;
+					if(json.createTime) options.createTime = json.createTime;
+					if(json.editTime) options.editTime = json.editTime;
+					//if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
+					//if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
+					//if(json.title) options.title = json.title;
+		
+		/*		return new Promise((resolve)=>{
+		
+				});*/
+				//return new VDoc(slides, options);
 	
-				if(json.bgColor) options.bgColor = json.bgColor;
-				if(json.createTime) options.createTime = json.createTime;
-				if(json.editTime) options.editTime = json.editTime;
-				//if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
-				//if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
-				//if(json.title) options.title = json.title;
-	
-	/*		return new Promise((resolve)=>{
-	
-			});*/
-			//return new VDoc(slides, options);
-
-				this.dispatchEvent(new CustomEvent("loaded", {detail:new VDoc(slides, options)}));
-			}, 500);
-
-		}
+					//this.dispatchEvent(new CustomEvent("loaded", {detail:new VDoc(slides, options)}));
+					return new VDoc(slides, options);
+			//	}, 500);
+			}
 	}
 	//
 	

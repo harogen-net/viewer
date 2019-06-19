@@ -23,11 +23,21 @@ export class TextLayer extends Layer {
 		return ret;
 	}
 
+	public getData():any {
+		var ret:any = super.getData();
+		ret.text = this._text;
+		return ret;
+	}
+
 	//
 	// getset
 	//
 	public get text():string{ return this._text; }
 	public set text(value:string){
 		this._text = value;
+		this.dispatchEvent(new Event("textUpdate"));
+	}
+	public get plainText():string {
+		return this._text.split("\n").join().split("\r").join();
 	}
 }

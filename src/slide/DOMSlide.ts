@@ -46,7 +46,7 @@ export class DOMSlide extends SlideView {
 		this._slide.addEventListener("layerRemove", this.onLayerRemove);
 		this._slide.addEventListener("update", this.onSlideUpdate);
 		this._slide.layers.forEach(layer=>{
-			this.addDomLayer(layer);
+			this.addLayerView(layer);
 		});
 	}
 
@@ -90,7 +90,7 @@ export class DOMSlide extends SlideView {
 	// 	return layer;
 	// }
 
-	protected addDomLayer(layer:Layer):LayerView {
+	protected addLayerView(layer:Layer):LayerView {
 		var layerView:LayerView = LayerViewFactory.layerViewFromData(layer);
 		this.layerViews.push(layerView);
 		this.container.append(layerView.obj);
@@ -98,11 +98,9 @@ export class DOMSlide extends SlideView {
 		// console.log(this.container);
 		return layerView;
 	}
-	protected removeDomLayer(layer:Layer):LayerView {
+	protected removeLayerView(layer:Layer):LayerView {
 		var layerView:LayerView = this.getLayerViewByLayer(layer);
 		this.layerViews.splice(this.layerViews.indexOf(layerView),1);
-		layerView.obj.remove();
-
 		return layerView;
 	}
 
@@ -143,22 +141,25 @@ export class DOMSlide extends SlideView {
 	}
 
 	protected replaceSlide(newSlide:Slide) {
-		this._slide.removeEventListener("layerAdd", this.onLayerAdd);
-		this._slide.removeEventListener("layerRemove", this.onLayerRemove);
-		this._slide.removeEventListener("update", this.onSlideUpdate);
-		for(var i = 0; i < this._slide.layers.length; i++){
-			this.removeDomLayer(this._slide.layers[i]);
+		if(this._slide != null){
+			this._slide.removeEventListener("layerAdd", this.onLayerAdd);
+			this._slide.removeEventListener("layerRemove", this.onLayerRemove);
+			this._slide.removeEventListener("update", this.onSlideUpdate);
+			for(var i = 0; i < this._slide.layers.length; i++){
+				this.removeLayerView(this._slide.layers[i]).destroy();
+			}
 		}
 
 		this._slide = newSlide;
 
-		this._slide.addEventListener("layerAdd", this.onLayerAdd);
-		this._slide.addEventListener("layerRemove", this.onLayerRemove);
-		this._slide.addEventListener("update", this.onSlideUpdate);
-		this._slide.layers.forEach(layer=>{
-			this.addDomLayer(layer);
-		});
-
+		if(this._slide != null){
+			this._slide.addEventListener("layerAdd", this.onLayerAdd);
+			this._slide.addEventListener("layerRemove", this.onLayerRemove);
+			this._slide.addEventListener("update", this.onSlideUpdate);
+			this._slide.layers.forEach(layer=>{
+				this.addLayerView(layer);
+			});
+		}
 	}
 
 	//
@@ -193,10 +194,10 @@ export class DOMSlide extends SlideView {
 	// event handlers
 	//
 	private onLayerAdd = (ce:CustomEvent)=>{
-		this.addDomLayer(ce.detail.layer);
+		this.addLayerView(ce.detail.layer);
 	};
 	private onLayerRemove = (ce:CustomEvent)=>{
-		this.removeDomLayer(ce.detail.layer);
+		this.removeLayerView(ce.detail.layer).destroy();
 	};
 	private onSlideUpdate = (ce:CustomEvent)=>{
 		this.setLayersZIndex();

@@ -12,8 +12,10 @@ export class ImageLayer extends Layer {
 	constructor(private _imageId:string, transform:any = null, id:number = -1){
 		super(transform, id);
 		this._type = LayerType.IMAGE;
-		this._originWidth = ImageManager.shared.getImageById(_imageId).width;
-		this._originHeight = ImageManager.shared.getImageById(_imageId).height;
+		var props = ImageManager.shared.getImagePropsById(_imageId);
+		this._originWidth = props.width;
+		this._originHeight = props.height;
+		this._name = props.name;
 	//	console.log("Image const:" , _imageId.slice(0,3) + "..", this._originWidth, this._originHeight);
 	}
 
@@ -30,6 +32,13 @@ export class ImageLayer extends Layer {
 		return ret;
 	}
 
+	public getData():any {
+		var ret:any = super.getData();
+		ret.imageId = this._imageId;
+		ret.clipRect = this._clipRect.concat();
+		return ret;
+	}
+
 	//
 	// getset
 	//
@@ -38,7 +47,7 @@ export class ImageLayer extends Layer {
 		this._imageId = this.imageId;
 		this._originWidth = ImageManager.shared.getImageById(this._imageId).width;
 		this._originHeight = ImageManager.shared.getImageById(this._imageId).height;
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new Event("imageUpdate"));
 	}	
 	public set clipRect(value:number[]){
 		this._clipRect = value.slice(0,4);
@@ -80,6 +89,11 @@ export class ImageLayer extends Layer {
 	}
 	public get clipedHeight(){
 		return this._originHeight - (this._clipRect[0] + this._clipRect[2]);
+	}
+	public get isClipped():boolean {
+		return this._clipRect.some(value=>{
+			return value != 0;
+		});
 	}
 
 	//

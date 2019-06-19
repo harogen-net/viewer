@@ -10,9 +10,10 @@ export class ImageView extends LayerView {
 
 	private imgObj:any;
 
-	constructor(protected _imageData:ImageLayer, public obj:any) {
-		super(_imageData, obj);
-		this.setImgObj();
+	constructor(protected _data:ImageLayer, public obj:any) {
+		super(_data, obj);
+		this._data.addEventListener("imageUpdate", this.onImageUpdate);
+		this.updateImage();
 
 		//console.log(imgObj, this._id, this._type);
 
@@ -28,6 +29,13 @@ export class ImageView extends LayerView {
 		this.opacityObj = imgObj;*/
 	}
 
+	public destroy(){
+		this._data.removeEventListener("imageUpdate", this.onImageUpdate);
+		this.imgObj.remove();
+		this.imgObj = null;
+		super.destroy();
+	}
+
 
 	//public swap(imgObj:any) {
 	/*public swap(newImageId:string) {
@@ -40,16 +48,36 @@ export class ImageView extends LayerView {
 		}
 	}*/
 
-	private setImgObj() {
-		var imageData:{width:number, height:number, imgObj:any} = ImageManager.instance.getImageById(this._imageData.imageId);
-		this._data.originWidth = imageData.width;
-		this._data.originHeight = imageData.height;
+	private updateImage() {
+		if(this.imgObj){
+			this.imgObj.remove();
+			this.imgObj = null;		
+		}
+		var imageData:{width:number, height:number, imgObj:any} = ImageManager.instance.getImageById(this._data.imageId);
 		this.imgObj = imageData.imgObj;
 		this.obj.append(this.imgObj);
 
-		//NOTE : opacityのみimgObjへの指定なので再設定
 		this.opacityObj = this.imgObj;
-		this._data.opacity = this._data.opacity;
+		this.opacityObj.css("opacity",this._data.opacity);
+	}
+
+	protected updateView():void {
+		super.updateView();
+
+		if(this.imageData.isClipped){
+			var clipStr:string = "inset(" + this._data.clipRect.map(value=>{return value + "px"}).join(" ") + ")";
+			this.imgObj.css({
+				"-webkit-clip-path":clipStr,
+				"clip-path":clipStr
+			});
+		}else{
+			if(this.imgObj.css("clip-path")){
+				this.imgObj.css({
+					"-webkit-clip-path":"",
+					"clip-path":""
+				});
+			}
+		}
 	}
 
 	//
@@ -70,7 +98,7 @@ export class ImageView extends LayerView {
 	//
 	// getset
 	//
-	public get imageId():string {return this._imageData.imageId;}
+	/*public get imageId():string {return this._imageData.imageId;}
 	public set imageId(value:string) {
 		this._imageData.imageId = this.imageId;
 	}	
@@ -109,7 +137,7 @@ export class ImageView extends LayerView {
 	}
 	public get clipedHeight(){
 		return this._imageData.originHeight - (this._imageData.clipRect[0] + this._imageData.clipRect[2]);
-	}
+	}*/
 
 
 	//
@@ -128,4 +156,16 @@ export class ImageView extends LayerView {
 			return this.obj.height();
 		}
 	}
+
+	private get imageData():ImageLayer{
+		return this._data as ImageLayer;
+	}
+
+
+	//
+	// event handlers
+	//
+	private onImageUpdate = ()=>{
+		this.updateImage();
+	};
 }

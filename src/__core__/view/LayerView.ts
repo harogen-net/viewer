@@ -1,4 +1,5 @@
 import { Layer, LayerType } from "../model/Layer";
+import { setTimeout } from "timers";
 //import { ILayer } from "../layerModel/ILayer";
 
 
@@ -14,35 +15,27 @@ export class LayerView {
 
 
 	constructor(protected _data:Layer, public obj:any) {
-		_data.addEventListener("update", ()=>{
-			console.log("layer update");
-			if(!this._data.visible){
-				this.obj.addClass("invisible");
-			}else{
-				this.obj.removeClass("invisible");
-			}
-			if(this._data.locked){
-				this.obj.addClass("locked");
-			}else{
-				this.obj.removeClass("locked");
-			}
-			if(this.opacityObj){
-				if(this._data.opacity == 1){
-					this.opacityObj.css("opacity","");
-				}else{
-					this.opacityObj.css("opacity",this._data.opacity);
-				}
-			}
-			this.updateMatrix();
-		});
-//	constructor(aData:any, protected obj:any) {
-//		this._data = aData;
-		this.updateMatrix();
+		if(_data == null || obj == null || obj.length != 1) throw new Error("");
+
+		this._data.addEventListener("update", this.onLayerUpdate);
+		
+		//子クラスで初期化が終わった後に処理を行うため別スレッドに
+		this.obj.hide();
+		setTimeout(()=>{
+			this.updateView();
+			this.obj.show();
+		},1);
 	}
 
-	public clone():this {
-		var ret:this = new (this.constructor as any)(this._data, this.obj.clone());
-		return ret;
+	// public clone():this {
+	// 	var ret:this = new (this.constructor as any)(this._data, this.obj.clone());
+	// 	return ret;
+	// }
+
+	public destroy(){
+		this._data.removeEventListener("update", this.onLayerUpdate);
+		this.obj.remove();
+		this.obj = null;
 	}
 
 	//
@@ -65,10 +58,31 @@ export class LayerView {
 		this.updateMatrix();
 	}*/
 
-	protected updateMatrix():void{
+	protected updateMatrix() {
 		var matrix:number[] = this._data.matrix;
 		var cssMat:string = "matrix(" + matrix.join(",") + ")";
 		this.obj.css("transform", cssMat);
+	}
+
+	protected updateView() {
+		if(!this._data.visible){
+			this.obj.addClass("invisible");
+		}else{
+			this.obj.removeClass("invisible");
+		}
+		if(this._data.locked){
+			this.obj.addClass("locked");
+		}else{
+			this.obj.removeClass("locked");
+		}
+		if(this.opacityObj){
+			if(this._data.opacity == 1){
+				this.opacityObj.css("opacity","");
+			}else{
+				this.opacityObj.css("opacity",this._data.opacity);
+			}
+		}
+		this.updateMatrix();
 	}
 
 
@@ -213,4 +227,14 @@ export class LayerView {
 	public set selected(value:boolean){
 		this._selected = value;
 	}
+
+
+
+	//
+	// event handlers
+	//
+	private onLayerUpdate = ()=>{
+		this.updateView();
+	};
+
 }

@@ -1,4 +1,5 @@
 import { EventDispatcher } from "../../events/EventDispatcher";
+import { Slide } from "./Slide";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -48,6 +49,8 @@ export class Layer extends EventDispatcher{
 	protected _visible:boolean = true;
 	protected _opacity:number = 1;
 	protected _shared:boolean = false;
+
+	protected _parent:Slide;
 
 	//
 
@@ -100,6 +103,11 @@ export class Layer extends EventDispatcher{
 		return ret;
 	}
 
+	public getData():any {
+		var ret:any = this.transform;
+		ret.type = this._type.toString();
+		return ret;
+	}
 
 	//
 	// getter / setter
@@ -256,4 +264,11 @@ export class Layer extends EventDispatcher{
 		var matrix = Matrix4.identity().translate(this._transX, this._transY,0).rotateZ(this._rotation * Math.PI / 180).scale(this._scaleX * (this._mirrorH ? -1 : 1),this._scaleY * (this._mirrorV ? -1 : 1),1);
 		return [matrix.values[0],matrix.values[1],matrix.values[4],matrix.values[5],matrix.values[12],matrix.values[13]];
 	}
+
+	public set parent(value:Slide) {
+		if(value != null && this._parent != null) throw new Error("");
+		this._parent = value;
+	}
+	public get parent():Slide {return this._parent;}
+
 }

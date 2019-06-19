@@ -120,6 +120,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	} 
 
 	initialize():void {
+		//documentの固有プロパティslidesをslideListが操作している悪い例
 		while(this.slides.length > 0){
 			this.removeSlide(this.slides[0]);
 		}
@@ -318,13 +319,13 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			}
 		}
 		var removeMain = ()=>{
-			this._slides.splice(index, 1);
 			this._slideViews.splice(index, 1);
-			this._slideViewsById[(slideView as ThumbSlide).id] = undefined;
-			slide.removeAllLayers();
+			delete this._slideViewsById[(slideView as ThumbSlide).id];
 			slideView.destroy();
-			slideView.obj.remove();
 			slideView = null;
+
+			this._slides.splice(index, 1);
+			slide.removeAllLayers();
 		}
 
 		if(isAnimation){
@@ -460,13 +461,17 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	}
 
 	public set slides(value:Slide[]) {
-		console.log("set slides at slidelist");
+		if(!value) return;
 		this.initialize();
 
 		this._slides = value;
-		this._slides.forEach(slide=>{
-			this.addSlide(slide);
-		});
+
+		//valueの参照を消さずに、valueの中のslideがaddSlideされた後のようにする
+		//割とめんどくさい処理
+		for(var i = 0; i < this._slides.length; i++){
+			this.setSlideUp(this._slides[i]);
+		}
+		this.sortSlideObjByIndex();
 	}
 	public get slides():Slide[] {
 		return this._slides;

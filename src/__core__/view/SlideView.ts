@@ -52,6 +52,12 @@ export class SlideView extends EventDispatcher {
 		this.obj.addClass("slide");
 	}
 
+	public destroy(){
+		this._slide = null;
+		this.obj.remove();
+		this.obj = null;
+	}
+
 	// public clone():this {
 	// 	console.log("clone at slide : " + this._slide.id);
 	// 	var newObj:any = $('<div />');
@@ -135,7 +141,7 @@ export class SlideView extends EventDispatcher {
 		this.replaceSlide(value);
 	}
 	protected replaceSlide(newSlide:Slide){
-		this._slide = newSlide;
+		throw new Error("");
 	}
 	
 	// get durationRatio(){return this._durationRatio;}
