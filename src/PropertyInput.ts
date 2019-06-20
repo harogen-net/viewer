@@ -1,8 +1,11 @@
 import { EventDispatcher } from "./events/EventDispatcher";
+import { TypeChecker } from "./utils/TypeChecker";
 
 declare var $:any;
 
-export class PropertyInput extends EventDispatcher {
+export class PropertyInput {
+
+	public locked:boolean = false;
 
 	private isFocus:boolean;
 	private _value:number = 0;
@@ -12,12 +15,16 @@ export class PropertyInput extends EventDispatcher {
 	private min:number = -Infinity;
 	private max:number = Infinity;
 
-	constructor(public obj:any, public key:string, option:any = {}){
-		super();
+	private _targetObject:EventDispatcher;
+	private _targetKey:string = "";
+
+
+	constructor(public obj:any, option:any = {}){
 
 		if(!isNaN(parseFloat(option.init))) this.init = option.init;
 		if(!isNaN(parseFloat(option.min))) this.min = option.min;
 		if(!isNaN(parseFloat(option.max))) this.max = option.max;
+		if(option.key != undefined && TypeChecker.isString(option.key)) this._targetKey = option.key; 
 
 		this._value = this.init;
 
@@ -28,7 +35,7 @@ export class PropertyInput extends EventDispatcher {
 		this.obj.blur(()=>{
 			this.isFocus = false;
 			this.value = parseFloat(this.obj.val());
-			this.dispatchUpdate();
+			this.setProperty();
 		});
 
 		//var acceleration:number = option.acceleration || 1;
@@ -40,7 +47,7 @@ export class PropertyInput extends EventDispatcher {
 
 			if(e.keyCode == 13) {
 				this.value = parseFloat(this.obj.val());
-				this.dispatchUpdate();
+				this.setProperty();
 				this.obj.select();
 			}else if(e.keyCode == 38){
 				if(option.type == "multiply"){
@@ -48,7 +55,7 @@ export class PropertyInput extends EventDispatcher {
 				}else{
 					this.value += v;
 				}
-				this.dispatchUpdate();
+				this.setProperty();
 				this.obj.select();
 			}else if(e.keyCode == 40){
 				if(option.type == "multiply"){
@@ -56,7 +63,7 @@ export class PropertyInput extends EventDispatcher {
 				}else{
 					this.value -= v;
 				}
-				this.dispatchUpdate();
+				this.setProperty();
 				this.obj.select();
 			}
 		});
@@ -93,17 +100,43 @@ export class PropertyInput extends EventDispatcher {
 			}else{
 				this.value += delta;
 			}
-			this.dispatchUpdate();
+			this.setProperty();
 		});
-}
+	}
 
 	public destroy(){
+		this.targetObject = null;
+
 		this.obj.on("keydown.PropertyInput");
 		this.obj.of("mousedown.PropertyInput");
 		this.obj = null;
+		
 		$(window).off("mousemove.PropertyInput");
 		$(window).off("mouseup.PropertyInput");
 		$(window).off("wheel.PropertyInput");
+	}
+
+	public setTarget(newTarget:EventDispatcher, newKey:string) {
+		this._targetKey = "";
+		this.targetObject = newTarget;
+		this.targetKey = newKey;
+
+		// if(newTarget != null && key != "" && !(newTarget[key] instanceof Number)){
+		// 	throw new Error();
+		// }
+		// if(this._targetObject){
+		// 	this._targetObject.removeEventListener("update", this.onPropertyUpdate);
+		// }
+		// this._targetObject = newTarget;
+		// this._targetKey = key;
+
+		// if(this._targetObject){
+		// 	this.disabled = false;
+		// 	this.update();
+		// 	this._targetObject.addEventListener("update", this.onPropertyUpdate);
+		// }else{
+		// 	this.disabled = true;
+		// }
 	}
 
 	private restrictValue(){
@@ -112,22 +145,59 @@ export class PropertyInput extends EventDispatcher {
 		if(this._value < this.min) this._value = this.min;
 	}
 
-	private dispatchUpdate(){
-		this.dispatchEvent(new CustomEvent("update", {detail:{target:this, key:this.key, value:this._value}}));
+	private setProperty(){
+		if(!this._targetObject) return;
+
+		this.locked = true;
+		this._targetObject[this._targetKey] = this._value;
+		this.locked = false;
+	//	this.dispatchEvent(new CustomEvent("update", {detail:{target:this, key:this.key, value:this._value}}));
+	}
+
+	private update() {
+		this.value = this._targetObject[this._targetKey];
 	}
 
 	//
+	//	get set
+	//
+	public set targetObject(value:EventDispatcher) {
+		if(value != null && this._targetKey != "" && !TypeChecker.isNumber(value[this._targetKey])){
+			//throw new Error("target object has no [" + this._targetKey + "] key.");
+			this._targetKey = "";
+		}
+		if(this._targetObject){
+			this._targetObject.removeEventListener("update", this.onPropertyUpdate);
+		}
+		this._targetObject = value;
 
-	public set value(val:number){
+		if(this._targetObject && this._targetKey != ""){
+			this.disabled = false;
+			this.update();
+			this._targetObject.addEventListener("update", this.onPropertyUpdate);
+		}else{
+			this.disabled = true;
+		}
+	}
+
+	public set targetKey(value:string) {
+		if(this._targetObject){
+			if(value != "" && !TypeChecker.isNumber(value[this._targetKey])){
+				throw new Error("target object has no [" + value + "] key.");
+			}
+		}
+		this._targetKey = value;
+	}
+
+	private set value(val:number){
 		this._value = val;
 		this.restrictValue();
 		this.obj.val(Math.floor(this._value * 100)/100);
 	}
-	public get value():number {
+	private get value():number {
 		return this._value;
 	}
-
-	public set disabled(value:boolean){
+	private set disabled(value:boolean){
 		if(this._disabled == value) return;
 		
 		this._disabled = value;
@@ -137,5 +207,12 @@ export class PropertyInput extends EventDispatcher {
 		}else{
 			this.value = this.value;
 		}
+	}
+
+	//
+	// event handlers
+	//
+	private onPropertyUpdate = (ce:CustomEvent)=>{
+		this.update();
 	}
 }

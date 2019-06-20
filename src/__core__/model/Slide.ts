@@ -106,7 +106,7 @@ export class Slide extends EventDispatcher {
 		}else{
 			this._layers.splice(index, 0, layer);
 		}
-//		layer.parent = this;
+		layer.parent = this;
 
 		if(isAdd){
 			layer.addEventListener("update", this.onLayerUpdate);
@@ -122,7 +122,7 @@ export class Slide extends EventDispatcher {
 	public removeLayer(layer:Layer):Layer {
 		if(!layer) return layer;
 		if(this._layers.indexOf(layer) != -1){
-//			layer.parent = null;
+			layer.parent = null;
 			this._layers.splice(this._layers.indexOf(layer), 1);
 			layer.removeEventListener("update", this.onLayerUpdate);
 			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));

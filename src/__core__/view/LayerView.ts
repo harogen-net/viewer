@@ -1,12 +1,12 @@
 import { Layer, LayerType } from "../model/Layer";
 import { setTimeout } from "timers";
-//import { ILayer } from "../layerModel/ILayer";
+import { EventDispatcher } from "../../events/EventDispatcher";
 
 
 declare var $: any;
 declare var Matrix4: any;
 
-export class LayerView {
+export class LayerView extends EventDispatcher {
 
 //	protected _data:Layer;
 
@@ -15,11 +15,14 @@ export class LayerView {
 
 
 	constructor(protected _data:Layer, public obj:any) {
+		super();
 		if(_data == null || obj == null || obj.length != 1) throw new Error("");
 
 		this._data.addEventListener("update", this.onLayerUpdate);
 		
 		//子クラスで初期化が終わった後に処理を行うため別スレッドに
+		//こうしないと小クラスの初期化が呼ばれる前に小クラスで継承されたupdateViewを呼ばれてエラーが出る
+		//superを最初に書かないと怒られる弊害
 		this.obj.hide();
 		setTimeout(()=>{
 			this.updateView();
@@ -33,6 +36,7 @@ export class LayerView {
 	// }
 
 	public destroy(){
+		this.clearEventListener();
 		this._data.removeEventListener("update", this.onLayerUpdate);
 		this.obj.remove();
 		this.obj = null;
@@ -225,7 +229,13 @@ export class LayerView {
 
 	public get selected():boolean{ return this._selected;}
 	public set selected(value:boolean){
+		if(this._selected == value) return;
 		this._selected = value;
+		if(this._selected){
+			this.dispatchEvent(new CustomEvent("select", {detail:this}));
+		}else{
+			this.dispatchEvent(new CustomEvent("unselect", {detail:this}));
+		}
 	}
 
 

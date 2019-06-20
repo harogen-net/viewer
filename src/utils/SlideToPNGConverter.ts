@@ -61,7 +61,12 @@ export class SlideToPNGConverter {
 
 	public drawSlide2Canvas(slide:Slide, canvas:HTMLCanvasElement, slideScale?:number, bgColor?:string) {
 		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
-		ctx.setTransform(1,0,0,1,0,0);
+
+		//テスト実装なので、コンパイル時にエラーが出る
+		//ctx.resetTransform();
+		//よって無理やり実行
+		ctx["resetTransform"]();
+
 		if(bgColor){
 			ctx.fillStyle = bgColor;
 			ctx.fillRect(0,0,canvas.width, canvas.height);
@@ -76,7 +81,8 @@ export class SlideToPNGConverter {
 			if (!image.visible) return;
 
 			var matrix:number[] = layer.matrix;
-			ctx.setTransform(1,0,0,1,0,0);
+			ctx["resetTransform"]();
+
 
 			//※アフィン変換は逆に行われる
 

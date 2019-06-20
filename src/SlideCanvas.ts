@@ -1,9 +1,9 @@
 import { EventDispatcher } from "./events/EventDispatcher";
-import { SlideEditable } from "./slide/EditableSlide";
+import { EditableSlide } from "./slide/EditableSlide";
 import { SlideView } from "./__core__/view/SlideView";
 import { ImageLayer } from "./__core__/model/ImageLayer";
 import { ImageManager } from "./utils/ImageManager";
-import { LayerListItem } from "./LayerListItem";
+import { SELayerListItem } from "./SELayerListItem";
 import { PropertyInput } from "./PropertyInput";
 import { Viewer,ViewerMode } from "./Viewer";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
@@ -12,6 +12,8 @@ import { LayerType, Layer } from "./__core__/model/Layer";
 import { TextLayer } from "./__core__/model/TextLayer";
 import { LayerView } from "./__core__/view/LayerView";
 import { Slide } from "./__core__/model/Slide";
+import { SEPropDiv } from "./SEPropDiv";
+import { SELayerDiv } from "./SELayerDiv";
 
 
 declare var $:any;
@@ -19,7 +21,10 @@ declare var jsSHA:any;
 
 export class SlideCanvas extends EventDispatcher {
 
-	public slideView:SlideEditable;
+	public slideView:EditableSlide;
+
+	private propDiv:SEPropDiv;
+	private layerDiv:SELayerDiv;
 
 	private shadow:any;
 	private UIsForImage:any[];
@@ -29,6 +34,7 @@ export class SlideCanvas extends EventDispatcher {
 
 	constructor(public obj:any){
 		super();
+		this.obj.addClass("slideCanvas");
 
 		this.UIsForImage = [
 			$("#main button.cut"),
@@ -46,41 +52,52 @@ export class SlideCanvas extends EventDispatcher {
 			$("#main button.up"),
 			$("#main button.down")
 		];
-		$.each(this.UIsForImage, (number, obj:any)=>{
-			obj.prop("disabled", true);
-		});
+		this.UIsForImage.forEach(obj=>{obj.prop("disabled", true);});
 
-		this.obj.addClass("slideCanvas");
+		//
 
-		this.slideView = new SlideEditable(new Slide(), $('<div />').appendTo(this.obj));
+		this.slideView = new EditableSlide(new Slide(), $('<div />').appendTo(this.obj));
+		this.propDiv = new SEPropDiv($(".property"));
+		this.layerDiv = new SELayerDiv($(".layer"));
+
+		//
+
 		this.slideView.addEventListener("select", (any)=>{
 			$.each(this.UIsForImage, (number, obj:any)=>{
-				obj.prop("disabled", this.slideView.selectedLayer == null);
+				obj.prop("disabled", this.slideView.selectedLayerView == null);
 				obj.removeClass("on");
 			});
 			
-			$("button.imageRef").prop("disabled", !(this.slideView.selectedLayer != null && this.slideView.selectedLayer.type == LayerType.IMAGE));
-			$(".property .clip dd input").prop("disabled", !(this.slideView.selectedLayer != null && this.slideView.selectedLayer.type == LayerType.IMAGE));
+			$("button.imageRef").prop("disabled", !(this.slideView.selectedLayerView != null && this.slideView.selectedLayerView.type == LayerType.IMAGE));
+			$(".property .clip dd input").prop("disabled", !(this.slideView.selectedLayerView != null && this.slideView.selectedLayerView.type == LayerType.IMAGE));
 
-			if(this.slideView.selectedLayer != null){
-				if(this.slideView.selectedLayer.mirrorH){
+			if(this.slideView.selectedLayerView != null){
+				if(this.slideView.selectedLayerView.data.mirrorH){
 					$("button.mirrorH").addClass("on");
 				}
-				if(this.slideView.selectedLayer.mirrorV){
+				if(this.slideView.selectedLayerView.data.mirrorV){
 					$("button.mirrorV").addClass("on");
 				}
 			}
 
-			this.updateMenu(this.slideView.layerViews);
-		});
-		this.slideView.addEventListener("update",(any)=>{
-			this.updateMenu(this.slideView.layerViews);
+			try{
+				this.propDiv.targetLayer = this.slideView.selectedLayerView.data;
+			}
+			catch {
+				this.propDiv.targetLayer = null;
+			}
+			
+			//this.updateMenu(this.slideView.layerViews);
 		});
 
+		// this.slideView.addEventListener("update",(any)=>{
+		// 	this.updateMenu(this.slideView.layerViews);
+		// });
 
-		this.slideView.addEventListener("scale",(any)=>{
+
+//		this.slideView.addEventListener("scale",(any)=>{
 //			this.updateShadow();
-		});
+//		});
 		this.shadow = $('<div class="shadow" />')//.appendTo(this.obj);
 
 
@@ -91,7 +108,7 @@ export class SlideCanvas extends EventDispatcher {
 			this.slideView.scale *= 1.1;
 		});
 		$(".showAll").click(() => {
-			this.slideView.scale = SlideEditable.SCALE_DEFAULT;
+			this.slideView.scale = EditableSlide.SCALE_DEFAULT;
 		});
 		$(".zoomOut").click(() => {
 			this.slideView.scale /= 1.1;
@@ -108,42 +125,42 @@ export class SlideCanvas extends EventDispatcher {
 		});
 		
 		$(".rotateL").click(() => {
-			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.rotation -= 90;
-				this.slideView.dispatchEvent(new Event("update"));
+			if(this.slideView.selectedLayerView && !this.slideView.selectedLayerView.data.locked && this.slideView.selectedLayerView.data.visible) {
+				this.slideView.selectedLayerView.data.rotation -= 90;
+				// this.slideView.dispatchEvent(new Event("update"));
 
-				if(this.slideView.selectedLayer.shared){
-					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
+				if(this.slideView.selectedLayerView.data.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayerView}}));
 				}
 			}
 		});
 		$(".rotateR").click(() => {
-			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.rotation += 90;
-				this.slideView.dispatchEvent(new Event("update"));
+			if(this.slideView.selectedLayerView && !this.slideView.selectedLayerView.data.locked && this.slideView.selectedLayerView.data.visible) {
+				this.slideView.selectedLayerView.data.rotation += 90;
+				// this.slideView.dispatchEvent(new Event("update"));
 
-				if(this.slideView.selectedLayer.shared){
-					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
+				if(this.slideView.selectedLayerView.data.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayerView}}));
 				}
 			}
 		});
 
 		$(".mirrorH").click(() => {
-			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.mirrorH = !this.slideView.selectedLayer.mirrorH;
-				this.slideView.dispatchEvent(new Event("update"));
-				if(this.slideView.selectedLayer.shared){
-					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
+			if(this.slideView.selectedLayerView && !this.slideView.selectedLayerView.data.locked && this.slideView.selectedLayerView.data.visible) {
+				this.slideView.selectedLayerView.data.mirrorH = !this.slideView.selectedLayerView.data.mirrorH;
+				// this.slideView.dispatchEvent(new Event("update"));
+				if(this.slideView.selectedLayerView.data.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayerView}}));
 				}
 				$(".mirrorH").toggleClass("on");
 			}
 		});
 		$(".mirrorV").click(() => {
-			if(this.slideView.selectedLayer && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.mirrorV = !this.slideView.selectedLayer.mirrorV;
-				this.slideView.dispatchEvent(new Event("update"));
-				if(this.slideView.selectedLayer.shared){
-					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
+			if(this.slideView.selectedLayerView && !this.slideView.selectedLayerView.data.locked && this.slideView.selectedLayerView.data.visible) {
+				this.slideView.selectedLayerView.data.mirrorV = !this.slideView.selectedLayerView.data.mirrorV;
+				// this.slideView.dispatchEvent(new Event("update"));
+				if(this.slideView.selectedLayerView.data.shared){
+					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayerView}}));
 				}
 				$(".mirrorV").toggleClass("on");
 			}
@@ -218,13 +235,13 @@ export class SlideCanvas extends EventDispatcher {
 		});
 
 		$("button.download").click(()=>{
-			if(this.slideView.selectedLayer == null) return;
-			if(this.slideView.selectedLayer.type != LayerType.IMAGE) return;
+			if(this.slideView.selectedLayerView == null) return;
+			if(this.slideView.selectedLayerView.type != LayerType.IMAGE) return;
 
 			var a = document.createElement("a");
-			a.href = ImageManager.shared.getSrcById((this.slideView.selectedLayer as ImageLayer).imageId);
+			a.href = ImageManager.shared.getSrcById((this.slideView.selectedLayerView.data as ImageLayer).imageId);
 			a.target = '_blank';
-			a.download = this.slideView.selectedLayer.name;
+			a.download = this.slideView.selectedLayerView.data.name;
 			a.click();
 			window.URL.revokeObjectURL(a.href);
 		});
@@ -232,10 +249,10 @@ export class SlideCanvas extends EventDispatcher {
 
 
 		$("button.up").click(()=>{
-			this.slideView.changeLayerOrder(this.slideView.selectedLayer, true);
+			this.slideView.changeLayerOrder(this.slideView.selectedLayerView.data, true);
 		});
 		$("button.down").click(()=>{
-			this.slideView.changeLayerOrder(this.slideView.selectedLayer, false);
+			this.slideView.changeLayerOrder(this.slideView.selectedLayerView.data, false);
 		});
 
 		$(".close").click(() => {
@@ -243,65 +260,74 @@ export class SlideCanvas extends EventDispatcher {
 		});
 		
 
-		this.constructMenu(this.slideView);
+		//this.constructMenu(this.slideView);
+
+
 	}
 
 	//
 
 	initialize(){
 		this.slideView.slide = new Slide();
+		this.propDiv.targetLayer = null;
+
 		$(".slideCanvas .menu span.name").text("");
 	}
 
-	private updateShadow(){
-		const width:number = this.shadow.width();
-		const height:number = this.shadow.height();
+	// private updateShadow(){
+	// 	const width:number = this.shadow.width();
+	// 	const height:number = this.shadow.height();
 
-		var p_l:number = (width - this.slideView.width) / (width * 2);
-		var p_r:number = p_l + (this.slideView.width / width);
-		var p_t:number = (height - this.slideView.height) / (height * 2);
-		var p_b:number = p_t + (this.slideView.height / height);
+	// 	var p_l:number = (width - this.slideView.width) / (width * 2);
+	// 	var p_r:number = p_l + (this.slideView.width / width);
+	// 	var p_t:number = (height - this.slideView.height) / (height * 2);
+	// 	var p_b:number = p_t + (this.slideView.height / height);
 
-		if(p_l < 0) p_l = 0;
-		if(p_r > 1) p_r = 1;
-		if(p_t < 0) p_t = 0;
-		if(p_b > 1) p_b = 1;
+	// 	if(p_l < 0) p_l = 0;
+	// 	if(p_r > 1) p_r = 1;
+	// 	if(p_t < 0) p_t = 0;
+	// 	if(p_b > 1) p_b = 1;
 
-		const p_l_s:string = Math.round(p_l * 10000) / 100 + "%";
-		const p_r_s:string = Math.round(p_r * 10000) / 100 + "%";
-		const p_t_s:string = Math.round(p_t * 10000) / 100 + "%";
-		const p_b_s:string = Math.round(p_b * 10000) / 100 + "%";
+	// 	const p_l_s:string = Math.round(p_l * 10000) / 100 + "%";
+	// 	const p_r_s:string = Math.round(p_r * 10000) / 100 + "%";
+	// 	const p_t_s:string = Math.round(p_t * 10000) / 100 + "%";
+	// 	const p_b_s:string = Math.round(p_b * 10000) / 100 + "%";
 
-		const cssStr:string = [
-			"0% 0%",
-			"0% 100%",
-			p_l_s + " 100%",
-			p_l_s + " " + p_t_s,
-			p_r_s + " " + p_t_s,
-			p_r_s + " " + p_b_s,
-			p_l_s + " " + p_b_s,
-			p_l_s + " 100%",
-			"100% 100%",
-			"100% 0%",
-		].join(",");
+	// 	const cssStr:string = [
+	// 		"0% 0%",
+	// 		"0% 100%",
+	// 		p_l_s + " 100%",
+	// 		p_l_s + " " + p_t_s,
+	// 		p_r_s + " " + p_t_s,
+	// 		p_r_s + " " + p_b_s,
+	// 		p_l_s + " " + p_b_s,
+	// 		p_l_s + " 100%",
+	// 		"100% 100%",
+	// 		"100% 0%",
+	// 	].join(",");
 
-		this.shadow.css({
-			"clip-path":"polygon(" + cssStr + ")"
-		});
-	}
+	// 	this.shadow.css({
+	// 		"clip-path":"polygon(" + cssStr + ")"
+	// 	});
+	// }
 
 	setMode(mode:ViewerMode):void {
-		switch(mode){
-			case ViewerMode.SELECT:
-				this.shadow.css("min-height",this.shadow.height());
-			break;
-			case ViewerMode.EDIT:
-				setTimeout(()=>{
-					this.shadow.css("min-height","");
-				},300);
-			break;
-		}
+		// switch(mode){
+		// 	case ViewerMode.SELECT:
+		// 		this.shadow.css("min-height",this.shadow.height());
+		// 	break;
+		// 	case ViewerMode.EDIT:
+		// 		setTimeout(()=>{
+		// 			this.shadow.css("min-height","");
+		// 		},300);
+		// 	break;
+		// }
 	} 
+
+	public setSlide(newSlide:Slide) {
+		this.slideView.slide = newSlide;
+		this.layerDiv.layerViews = this.slideView.layerViews;
+	}
 
 	public setSlideData(aData:any){
 		if(aData.name){
@@ -322,7 +348,7 @@ export class SlideCanvas extends EventDispatcher {
 
 	//分割予定
 	//image property ui
-
+/*
 	private inputTransX:PropertyInput;
 	private inputTransY:PropertyInput;
 	private inputScaleX:PropertyInput;
@@ -342,7 +368,7 @@ export class SlideCanvas extends EventDispatcher {
 		this.inputTransX = new PropertyInput($(".property .position input").eq(0), "x", {v:-25});
 		this.inputTransY = new PropertyInput($(".property .position input").eq(1), "y", {v:-25});
 		this.inputScaleX = new PropertyInput($(".property .scale input").eq(0), "scale", {init:1, min:0.1, max:20, type:"multiply", v:0.1});
-		/*this.inputScaleY = new PropertyInput($(".property .scale input").eq(1), "scaleY", 1,10,-10,{type:"multipy"});*/
+		//this.inputScaleY = new PropertyInput($(".property .scale input").eq(1), "scaleY", 1,10,-10,{type:"multipy"});
 		this.inputRotation = new PropertyInput($(".property .rotation input").eq(0), "rotation", {min:-180, max:180, v:5});
 		this.inputOpacity = new PropertyInput($(".property .opacity input").eq(0), "opacity", {min:0, max:1, v:0.1});
 
@@ -444,7 +470,7 @@ export class SlideCanvas extends EventDispatcher {
 		if(this.slideView.selectedLayer == null) return;
 		this.slideView.selectedLayer[ce.detail.key] = ce.detail.value;
 
-		this.slideView.dispatchEvent(new Event("update"));
+		// this.slideView.dispatchEvent(new Event("update"));
 		if(this.slideView.selectedLayer.shared){
 			this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:this.slideView.selectedLayer}}));
 
@@ -460,21 +486,21 @@ export class SlideCanvas extends EventDispatcher {
 				if(item.layerView == this.slideView.selectedLayerView){
 					this.slideView.selectLayer(null);
 				}
-				this.slideView.dispatchEvent(new Event("update"));
+				// this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
 					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "lock_off":
 			item.layerView.data.locked = false;
-				this.slideView.dispatchEvent(new Event("update"));
+				// this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
 					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "eye_on":
 				item.layerView.data.visible = true;
-				this.slideView.dispatchEvent(new Event("update"));
+				// this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
 					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
@@ -484,21 +510,21 @@ export class SlideCanvas extends EventDispatcher {
 				if(item.layerView == this.slideView.selectedLayerView){
 					this.slideView.selectLayer(null);
 				}
-				this.slideView.dispatchEvent(new Event("update"));
+				// this.slideView.dispatchEvent(new Event("update"));
 				if(item.layerView.data.shared){
 					this.slideView.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "share_on":
 				item.layerView.data.shared = true;
-				this.slideView.dispatchEvent(new Event("update"));
+				// this.slideView.dispatchEvent(new Event("update"));
 				if(window.confirm('copy image to all slide (within the image not exists). Are you sure?')){
 					this.slideView.dispatchEvent(new CustomEvent("sharedPaste", {detail:{layer:item.layerView}}));
 				}
 				break;
 			case "share_off":
 				item.layerView.data.shared = false;
-				this.slideView.dispatchEvent(new Event("update"));
+				// this.slideView.dispatchEvent(new Event("update"));
 				break;
 			case "select":
 				this.slideView.selectLayer(item.layerView.data);
@@ -520,5 +546,5 @@ export class SlideCanvas extends EventDispatcher {
 		this.shadow.css("width", "calc(100% - " + value + "px)");
 
 	}
-
+*/
 }

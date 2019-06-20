@@ -21,7 +21,8 @@ export class ThumbSlide extends SlideView {
 		obj.data("id",this._id);
 
 
-		 this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
+		// this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
+		 this._slide.addEventListener("update", this.onLayerUpdate);
 
 		 this.converter = new SlideToPNGConverter();
 
@@ -47,7 +48,8 @@ export class ThumbSlide extends SlideView {
 
 
 	public destroy(){
-		this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
+	//	this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
+		this._slide.removeEventListener("update", this.onLayerUpdate);
 		this.converter = null;
 		this.thumbnail.remove();
 		this.thumbnail = null;

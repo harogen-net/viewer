@@ -88,8 +88,10 @@ export class Viewer {
 					//this.list.selectedSlide.isLock = true;
 //					this.canvas.slide.setData(this.list.selectedSlide.getData());
 					//this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
-					this.canvas.slideView.slide = this.list.selectedSlide;
+					//this.canvas.slideView.slide = this.list.selectedSlide;
 					//this.list.selectedSlide.isLock = false;
+
+					this.canvas.setSlide(this.list.selectedSlide);
 					this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				}else{
 					this.canvas.initialize();
@@ -103,9 +105,10 @@ export class Viewer {
 //				console.log("to edit mode : " + this.list.selectedSlide.layers);
 //				this.list.selectedSlide.isLock = true;
 //				this.canvas.slide.setData(this.list.selectedSlide.getData());
-				this.canvas.slideView.slide = this.list.selectedSlide;
+//				this.canvas.slideView.slide = this.list.selectedSlide;
 //				this.list.selectedSlide.isLock = false;
-				this.canvas.setSlideData({name:this.list.selectedSlide.id});
+			this.canvas.setSlide(this.list.selectedSlide);
+			this.canvas.setSlideData({name:this.list.selectedSlide.id});
 			}
 		});
 
