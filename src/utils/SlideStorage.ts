@@ -437,7 +437,9 @@ export class SlideStorage extends EventDispatcher {
 									if(layerDatum.shared != undefined){
 										textLayer.shared = layerDatum.shared;
 									}
-									// if(isScreenSizeChange){
+									if(layerDatum.visible != undefined){
+										textLayer.visible = layerDatum.visible;
+									}									// if(isScreenSizeChange){
 									// 	var offsetScale:number = Math.min(
 									// 		Viewer.SCREEN_WIDTH / json.screen.width,
 									// 		Viewer.SCREEN_HEIGHT / json.screen.height
@@ -475,6 +477,9 @@ export class SlideStorage extends EventDispatcher {
 									}
 									if(layerDatum.shared != undefined){
 										img.shared = layerDatum.shared;
+									}
+									if(layerDatum.visible != undefined){
+										img.visible = layerDatum.visible;
 									}
 									if(layerDatum.clipRect != undefined){
 										img.clipRect = layerDatum.clipRect;

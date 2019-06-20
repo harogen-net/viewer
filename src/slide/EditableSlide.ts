@@ -295,7 +295,7 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 	cut(){
 		if(!this._isActive) return;
 		if(this.selectedLayerView){
-			this.copyedLayer = this.selectedLayerView.data;
+			this.copyedLayer = this.selectedLayerView.data.clone();
 			this._slide.removeLayer(this.selectedLayerView.data);
 		}
 	}
@@ -303,7 +303,7 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 	copy(){
 		if(!this._isActive) return;
 		if(this.selectedLayerView){
-			this.copyedLayer = this.selectedLayerView.data;
+			this.copyedLayer = this.selectedLayerView.data.clone();
 		}
 	}
 
@@ -615,6 +615,14 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 
 	private get actualScale():number {
 		return this._scale * this.scale_base;
+	}
+
+	public get selectedLayer():Layer {
+		if(this.selectLayerView) {
+			return this.selectedLayerView.data;
+		}else{
+			return null;
+		}
 	}
 
 	//

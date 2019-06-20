@@ -45,10 +45,16 @@ export class Layer extends EventDispatcher{
 	protected _scaleX_min:number = 0.1;
 	protected _scaleY_min:number = 0.1;
 	
-	protected _locked:boolean = false;
-	protected _visible:boolean = true;
-	protected _opacity:number = 1;
-	protected _shared:boolean = false;
+
+	private readonly LOCKED:boolean = false;
+	private readonly VISIBLE:boolean = true;
+	private readonly OPACITY:number = 1;
+	private readonly SHARED:boolean = false;
+
+	protected _locked:boolean = this.LOCKED;
+	protected _visible:boolean = this.VISIBLE;
+	protected _opacity:number = this.OPACITY;
+	protected _shared:boolean = this.SHARED;
 
 	protected _parent:Slide;
 
@@ -106,6 +112,10 @@ export class Layer extends EventDispatcher{
 	public getData():any {
 		var ret:any = this.transform;
 		ret.type = this._type.toString();
+		if (this._visible != this.VISIBLE) ret.visible = this._visible;
+		if (this._locked != this.LOCKED) ret.locked = this._locked;
+		if (this._opacity != this.OPACITY) ret.opacity = this._opacity;
+		if (this._shared != this.SHARED) ret.shared = this._shared;
 		return ret;
 	}
 
@@ -266,7 +276,7 @@ export class Layer extends EventDispatcher{
 	}
 
 	public set parent(value:Slide) {
-		if(value != null && this._parent != null) throw new Error("");
+	//	if(value != null && this._parent != null) throw new Error("");
 		this._parent = value;
 	}
 	public get parent():Slide {return this._parent;}
