@@ -17,17 +17,20 @@ export class LayerView extends EventDispatcher {
 	constructor(protected _data:Layer, public obj:any) {
 		super();
 		if(_data == null || obj == null || obj.length != 1) throw new Error("");
-
-		this._data.addEventListener("update", this.onLayerUpdate);
-		
 		//子クラスで初期化が終わった後に処理を行うため別スレッドに
 		//こうしないと小クラスの初期化が呼ばれる前に小クラスで継承されたupdateViewを呼ばれてエラーが出る
 		//superを最初に書かないと怒られる弊害
-		this.obj.hide();
-		setTimeout(()=>{
-			this.updateView();
-			this.obj.show();
-		},1);
+		// this.obj.hide();
+		// setTimeout(()=>{
+		// 	this.obj.show();
+		// },1);
+		//↑を解消するためにこうしたよ、コンストラクタ処理のメインを別メソッドに分けて継承してもらう
+		this.constructMain();
+		this.updateView();
+	}
+	protected constructMain() {
+		//override me
+		this._data.addEventListener("update", this.onLayerUpdate);
 	}
 
 	// public clone():this {

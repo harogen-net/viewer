@@ -12,6 +12,10 @@ export class ImageView extends LayerView {
 
 	constructor(protected _data:ImageLayer, public obj:any) {
 		super(_data, obj);
+	}
+	protected constructMain(){
+		super.constructMain();
+		
 		this._data.addEventListener("imageUpdate", this.onImageUpdate);
 		this.updateImage();
 
@@ -28,6 +32,8 @@ export class ImageView extends LayerView {
 		}
 		this.opacityObj = imgObj;*/
 	}
+
+	//
 
 	public destroy(){
 		this._data.removeEventListener("imageUpdate", this.onImageUpdate);

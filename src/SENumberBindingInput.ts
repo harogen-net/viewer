@@ -1,5 +1,6 @@
 import { EventDispatcher } from "./events/EventDispatcher";
 import { TypeChecker } from "./utils/TypeChecker";
+import { PropertyEvent } from "./events/LayerEvent";
 
 declare var $:any;
 
@@ -124,7 +125,7 @@ export class PropertyInput {
 		// 	throw new Error();
 		// }
 		// if(this._targetObject){
-		// 	this._targetObject.removeEventListener("update", this.onPropertyUpdate);
+		// 	this._targetObject.removeEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
 		// }
 		// this._targetObject = newTarget;
 		// this._targetKey = key;
@@ -132,7 +133,7 @@ export class PropertyInput {
 		// if(this._targetObject){
 		// 	this.disabled = false;
 		// 	this.update();
-		// 	this._targetObject.addEventListener("update", this.onPropertyUpdate);
+		// 	this._targetObject.addEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
 		// }else{
 		// 	this.disabled = true;
 		// }
@@ -150,7 +151,7 @@ export class PropertyInput {
 		this.locked = true;
 		this._targetObject[this._targetKey] = this._value;
 		this.locked = false;
-	//	this.dispatchEvent(new CustomEvent("update", {detail:{target:this, key:this.key, value:this._value}}));
+	//	this.dispatchEvent(new CustomEvent(PropertyEvent.UPDATE, {detail:{target:this, key:this.key, value:this._value}}));
 	}
 
 	private update() {
@@ -161,19 +162,15 @@ export class PropertyInput {
 	//	get set
 	//
 	public set targetObject(value:EventDispatcher) {
-		if(value != null && this._targetKey != "" && !TypeChecker.isNumber(value[this._targetKey])){
-			//throw new Error("target object has no [" + this._targetKey + "] key.");
-			this._targetKey = "";
-		}
 		if(this._targetObject){
-			this._targetObject.removeEventListener("update", this.onPropertyUpdate);
+			this._targetObject.removeEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
 		}
 		this._targetObject = value;
 
-		if(this._targetObject && this._targetKey != ""){
+		if(this._targetObject && this._targetKey != "" && value[this._targetKey] != undefined && TypeChecker.isNumber(value[this._targetKey])){
 			this.disabled = false;
 			this.update();
-			this._targetObject.addEventListener("update", this.onPropertyUpdate);
+			this._targetObject.addEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
 		}else{
 			this.disabled = true;
 		}
@@ -211,7 +208,12 @@ export class PropertyInput {
 	//
 	// event handlers
 	//
-	private onPropertyUpdate = (ce:CustomEvent)=>{
-		this.update();
+	private onPropertyUpdate = (pe:PropertyEvent)=>{
+		if(this.locked) return;
+		if(this._targetKey == "") return;
+		if(pe.targe != this._targetObject) return;
+		if(pe.propKeys.length == 0 || pe.propKeys.indexOf(this._targetKey) != -1){
+			this.update();
+		}
 	}
 }

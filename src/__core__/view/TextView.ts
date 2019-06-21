@@ -12,7 +12,10 @@ export class TextView extends LayerView {
 
 	constructor(protected _textData:TextLayer, public obj:any) {
 		super(_textData, obj);
-
+	}
+	protected constructMain() {
+		super.constructMain();
+		
 		this._data.addEventListener("textUpdate", this.onTextUpdate);
 		this.textObj = $('<div class="text" contenteditable="false" spellcheck="false"></div>');
 		this.obj.append(this.textObj);

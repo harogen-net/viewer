@@ -630,9 +630,9 @@ input.imageRef {
 .slideList > .slide.selected .layerWrapper {
 	transition:transform 0.2s;
 }
-.slideList > .slide.disabled,
-.slideList > .slide.disabled canvas {
-/*	filter: brightness(40%);*/
+.slideList > .slide.disabled
+ {
+	filter: brightness(40%);
 }
 
 .slideList > .slide button {

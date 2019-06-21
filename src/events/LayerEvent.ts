@@ -1,8 +1,11 @@
 import { EventDispatcher } from "./EventDispatcher";
 
+export class PropertyEvent extends Event {
 
-export class LayerEvent extends Event {
-	constructor(type:string, public readonly targe:EventDispatcher, public readonly props:object){
+	static readonly UPDATE:string = "update";
+	//static readonly UPDATE:string = "PropertyEvent.UPDATE";
+
+	constructor(type:string, public readonly targe:EventDispatcher, public readonly propKeys:string[]){
 		super(type);
 	}
 }

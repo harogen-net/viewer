@@ -2,6 +2,7 @@ import { EventDispatcher } from "../../events/EventDispatcher";
 import { Layer } from "./Layer";
 import { VDoc } from "./VDoc";
 import { Viewer } from "../../Viewer";
+import { PropertyEvent } from "../../events/LayerEvent";
 
 
 export class Slide extends EventDispatcher {
@@ -185,11 +186,9 @@ export class Slide extends EventDispatcher {
 	//
 	// private methods
 	//
-	private onLayerUpdate = (ce:CustomEvent)=>{
-		console.log("onLayerUpdate", ce.target);
-		//this.dispatchEvent(new Event("layerUpdate"));
+	private onLayerUpdate = (pe:PropertyEvent)=>{
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
-		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(ce.detail)}}));
+		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe)}}));
 	}
 
 

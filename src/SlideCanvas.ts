@@ -69,7 +69,7 @@ export class SlideCanvas extends EventDispatcher {
 			});
 			
 			$("button.imageRef").prop("disabled", !(this.slideView.selectedLayerView != null && this.slideView.selectedLayerView.type == LayerType.IMAGE));
-			$(".property .clip dd input").prop("disabled", !(this.slideView.selectedLayerView != null && this.slideView.selectedLayerView.type == LayerType.IMAGE));
+		//	$(".property .clip dd input").prop("disabled", !(this.slideView.selectedLayerView != null && this.slideView.selectedLayerView.type == LayerType.IMAGE));
 
 			if(this.slideView.selectedLayerView != null){
 				if(this.slideView.selectedLayer.mirrorH){
