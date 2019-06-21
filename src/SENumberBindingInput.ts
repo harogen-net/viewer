@@ -18,7 +18,6 @@ export class PropertyInput {
 	private _targetObject:EventDispatcher;
 	private _targetKey:string = "";
 
-
 	constructor(public obj:any, option:any = {}){
 
 		if(!isNaN(parseFloat(option.init))) this.init = option.init;
@@ -107,8 +106,8 @@ export class PropertyInput {
 	public destroy(){
 		this.targetObject = null;
 
-		this.obj.on("keydown.PropertyInput");
-		this.obj.of("mousedown.PropertyInput");
+		this.obj.off("keydown.PropertyInput");
+		this.obj.off("mousedown.PropertyInput");
 		this.obj = null;
 		
 		$(window).off("mousemove.PropertyInput");

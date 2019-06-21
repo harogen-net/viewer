@@ -4,7 +4,7 @@ import { SlideView } from "./__core__/view/SlideView";
 import { ImageLayer } from "./__core__/model/ImageLayer";
 import { ImageManager } from "./utils/ImageManager";
 import { SELayerListItem } from "./SELayerListItem";
-import { PropertyInput } from "./PropertyInput";
+import { PropertyInput } from "./SENumberBindingInput";
 import { Viewer,ViewerMode } from "./Viewer";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";

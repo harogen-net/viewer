@@ -1,4 +1,4 @@
-import { PropertyInput } from "./PropertyInput";
+import { PropertyInput } from "./SENumberBindingInput";
 import { SlideView } from "./__core__/view/SlideView";
 import { Layer } from "./__core__/model/Layer";
 

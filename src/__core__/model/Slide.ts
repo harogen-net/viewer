@@ -186,6 +186,7 @@ export class Slide extends EventDispatcher {
 	// private methods
 	//
 	private onLayerUpdate = (ce:CustomEvent)=>{
+		console.log("onLayerUpdate", ce.target);
 		//this.dispatchEvent(new Event("layerUpdate"));
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(ce.detail)}}));
