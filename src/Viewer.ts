@@ -4,7 +4,7 @@ import {ImageLayer} from "./__core__/model/ImageLayer";
 import { SlideStorage, HVDataType } from "./utils/SlideStorage";
 import { SlideShow } from "./SlideShow";
 import { Menu } from "./Menu";
-import { SlideCanvas } from "./SlideCanvas";
+import { SlideEdit } from "./SlideEdit";
 import { ImageManager } from "./utils/ImageManager";
 import { VDoc } from "./__core__/model/VDoc";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
@@ -28,7 +28,7 @@ export class Viewer {
 	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
 	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
-	private canvas:SlideCanvas;
+	private edit:SlideEdit;
 	private list:SlideList;
 	private slideShow:SlideShow;
 	private storage:SlideStorage;
@@ -62,7 +62,7 @@ export class Viewer {
 
 		//
 		this.list = new SlideList(obj.find(".list"));
-		this.canvas = new SlideCanvas(obj.find(".canvas"));
+		this.edit = new SlideEdit(obj.find(".canvas"));
 		this.slideShow = new SlideShow($("<div />").appendTo(obj));
 
 		this.storage = new SlideStorage();
@@ -84,31 +84,31 @@ export class Viewer {
 
 			}else if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-					this.canvas.slideView.isActive = true;
+					this.edit.slideView.isActive = true;
 					//this.list.selectedSlide.isLock = true;
 //					this.canvas.slide.setData(this.list.selectedSlide.getData());
 					//this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
 					//this.canvas.slideView.slide = this.list.selectedSlide;
 					//this.list.selectedSlide.isLock = false;
 
-					this.canvas.setSlide(this.list.selectedSlide);
-					this.canvas.setSlideData({name:this.list.selectedSlide.id});
+					this.edit.setSlide(this.list.selectedSlide);
+//					this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				}else{
-					this.canvas.initialize();
+					this.edit.initialize();
 				}
 			}
 			//console.log("slide selected at list");
 		})
 		this.list.addEventListener("edit", ()=>{
-			this.setMode(ViewerMode.EDIT);
 			if(this.list.selectedSlide){
 //				console.log("to edit mode : " + this.list.selectedSlide.layers);
 //				this.list.selectedSlide.isLock = true;
 //				this.canvas.slide.setData(this.list.selectedSlide.getData());
 //				this.canvas.slideView.slide = this.list.selectedSlide;
 //				this.list.selectedSlide.isLock = false;
-			this.canvas.setSlide(this.list.selectedSlide);
-			this.canvas.setSlideData({name:this.list.selectedSlide.id});
+				this.edit.setSlide(this.list.selectedSlide);
+//				this.canvas.setSlideData({name:this.list.selectedSlide.id});
+				this.setMode(ViewerMode.EDIT);
 			}
 		});
 
@@ -121,7 +121,7 @@ export class Viewer {
 // 				}
 // 			}
 // 		});
-		this.canvas.slideView.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
+		this.edit.slideView.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 					var targetLayer:Layer = ce.detail.layer as Layer;
@@ -176,7 +176,7 @@ export class Viewer {
 				}
 			}
 		});
-		this.canvas.slideView.addEventListener("sharedPaste",(ce:CustomEvent)=>{
+		this.edit.slideView.addEventListener("sharedPaste",(ce:CustomEvent)=>{
 			if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
 					var targetLayer:Layer = ce.detail.layer as Layer;
@@ -230,15 +230,15 @@ export class Viewer {
 			}
 		});
 
-		this.canvas.addEventListener("close",()=>{
+		this.edit.addEventListener("close",()=>{
 			this.setMode(ViewerMode.SELECT);
 		});
 		this.list.addEventListener("close",()=>{
 			this.setMode(ViewerMode.SELECT);
 		});
 
-		this.canvas.addEventListener("download", ()=>{
-			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.canvas.slideView.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, 1, this.document.bgColor);
+		this.edit.addEventListener("download", ()=>{
+			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, 1, this.document.bgColor);
 			DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.document.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
 		});
 
@@ -375,7 +375,7 @@ export class Viewer {
 	private newDocument(doc?:VDoc){
 		 if(this.document){
 		 	this.document = null;
-			this.canvas.initialize();
+			this.edit.initialize();
 		 	this.list.initialize();
 		}
 
@@ -398,17 +398,17 @@ export class Viewer {
 			case ViewerMode.SELECT:
 				this.obj.addClass("select");
 				this.obj.removeClass("edit");
-				this.canvas.slideView.isActive = false;
+				this.edit.slideView.isActive = false;
 			break;
 			case ViewerMode.EDIT:
 				this.obj.removeClass("select");
 				this.obj.addClass("edit");
-				this.canvas.slideView.isActive = true;
+				this.edit.slideView.isActive = true;
 			break;
 /*			case ViewerMode.SLIDESHOW:
 			break;*/
 		}
 		this.list.setMode(this._mode);
-		this.canvas.setMode(this._mode);
+		this.edit.setMode(this._mode);
 	}
 }

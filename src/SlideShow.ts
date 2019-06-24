@@ -3,7 +3,7 @@ import { SlideView } from "./__core__/view/SlideView";
 import { ImageLayer } from "./__core__/model/ImageLayer";
 import { Layer, LayerType } from "./__core__/model/Layer";
 import { TextLayer } from "./__core__/model/TextLayer";
-import { DOMSlide } from "./slide/DOMSlide";
+import { DOMSlideView } from "./slide/DOMSlideView";
 import { Slide } from "./__core__/model/Slide";
 
 declare var $:any;
@@ -93,7 +93,7 @@ export class SlideShow extends EventDispatcher {
 
 			var newObj:any = $('<div />');
 			var slideForSS:Slide = slide.clone();
-			var slideViewForSS:DOMSlide = new DOMSlide(slide.clone(), newObj);
+			var slideViewForSS:DOMSlideView = new DOMSlideView(slide.clone(), newObj);
 			slideForSS.id = slide.id;
 			slideForSS.durationRatio = slide.durationRatio;
 			slideForSS.joining = slide.joining;
@@ -134,7 +134,7 @@ export class SlideShow extends EventDispatcher {
 
 			var newObj:any = $('<div />');
 			var slideForSS:Slide = slide.clone();
-			var slideViewForSS:DOMSlide = new DOMSlide(slideForSS, newObj);
+			var slideViewForSS:DOMSlideView = new DOMSlideView(slideForSS, newObj);
 			slideForSS.id = slides[0].id;
 			slideForSS.durationRatio = slides[0].durationRatio;
 			slideForSS.joining = slides[0].joining;

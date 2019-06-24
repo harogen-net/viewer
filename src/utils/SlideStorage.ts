@@ -9,7 +9,7 @@ import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
 import { Layer, LayerType } from "../__core__/model/Layer";
 import { TextLayer } from "../__core__/model/TextLayer";
-import { ThumbSlide } from "../slide/ThumbSlide";
+import { CanvasSlideView } from "../slide/CanvasSlideView";
 import { ImageManager } from "./ImageManager";
 import { Slide } from "../__core__/model/Slide";
 

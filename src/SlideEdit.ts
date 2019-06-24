@@ -1,5 +1,5 @@
 import { EventDispatcher } from "./events/EventDispatcher";
-import { EditableSlide } from "./slide/EditableSlide";
+import { EditableSlideView } from "./slide/EditableSlideView";
 import { SlideView } from "./__core__/view/SlideView";
 import { ImageLayer } from "./__core__/model/ImageLayer";
 import { ImageManager } from "./utils/ImageManager";
@@ -19,9 +19,9 @@ import { SELayerDiv } from "./SELayerDiv";
 declare var $:any;
 declare var jsSHA:any;
 
-export class SlideCanvas extends EventDispatcher {
+export class SlideEdit extends EventDispatcher {
 
-	public slideView:EditableSlide;
+	public slideView:EditableSlideView;
 
 	private propDiv:SEPropDiv;
 	private layerDiv:SELayerDiv;
@@ -56,7 +56,7 @@ export class SlideCanvas extends EventDispatcher {
 
 		//
 
-		this.slideView = new EditableSlide(new Slide(), $('<div />').appendTo(this.obj));
+		this.slideView = new EditableSlideView(new Slide(), $('<div />').appendTo(this.obj));
 		this.propDiv = new SEPropDiv($(".property"));
 		this.layerDiv = new SELayerDiv($(".layer"));
 
@@ -108,7 +108,7 @@ export class SlideCanvas extends EventDispatcher {
 			this.slideView.scale *= 1.1;
 		});
 		$(".showAll").click(() => {
-			this.slideView.scale = EditableSlide.SCALE_DEFAULT;
+			this.slideView.scale = EditableSlideView.SCALE_DEFAULT;
 		});
 		$(".zoomOut").click(() => {
 			this.slideView.scale /= 1.1;
@@ -260,7 +260,6 @@ export class SlideCanvas extends EventDispatcher {
 		});
 		
 
-		//this.constructMenu(this.slideView);
 
 
 	}
@@ -325,15 +324,30 @@ export class SlideCanvas extends EventDispatcher {
 	} 
 
 	public setSlide(newSlide:Slide) {
+		if(this.slideView.slide){
+			this.slideView.slide.removeEventListener("update", ()=>{
+				this.layerDiv.update();
+			});
+		}
+
 		this.slideView.slide = newSlide;
+		$(".slideCanvas .menu span.name").text(newSlide.id);
+
 		this.layerDiv.layerViews = this.slideView.layerViews;
+		if(this.slideView.slide){
+			this.slideView.slide.addEventListener("update", ()=>{
+				console.log("slide update at SlideEdit");
+				this.layerDiv.update();
+			});
+		}
+
 	}
 
-	public setSlideData(aData:any){
-		if(aData.name){
-			$(".slideCanvas .menu span.name").text(aData.name);
-		}
-	}
+	// public setSlideData(aData:any){
+	// 	if(aData.name){
+	// 		$(".slideCanvas .menu span.name").text(aData.name);
+	// 	}
+	// }
 
 /* 	setData(aData:any[]){
 		this.slide.setData(aData);

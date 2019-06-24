@@ -5,7 +5,7 @@ import { Slide } from "../__core__/model/Slide";
 
 declare var $: any;
 
-export class ThumbSlide extends SlideView {
+export class CanvasSlideView extends SlideView {
 	
 
 	protected _id:number;
@@ -99,7 +99,7 @@ export class ThumbSlide extends SlideView {
 	// }
 }
 
-export class ThumbSlide2 extends ThumbSlide {
+export class ThumbSlide2 extends CanvasSlideView {
 
 	public static readonly HEIGHT:number = 110;
 	

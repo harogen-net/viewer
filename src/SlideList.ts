@@ -5,7 +5,7 @@ import { DropHelper } from "./utils/DropHelper";
 import { IDroppable } from "./interface/IDroppable";
 import { Viewer, ViewerMode } from "./Viewer";
 import { join } from "path";
-import { ThumbSlide, ThumbSlide2 } from "./slide/ThumbSlide";
+import { CanvasSlideView, ThumbSlide2 } from "./slide/CanvasSlideView";
 import { Slide } from "./__core__/model/Slide";
 import { VDoc } from "./__core__/model/VDoc";
 
@@ -320,7 +320,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		}
 		var removeMain = ()=>{
 			this._slideViews.splice(index, 1);
-			delete this._slideViewsById[(slideView as ThumbSlide).id];
+			delete this._slideViewsById[(slideView as CanvasSlideView).id];
 			slideView.destroy();
 			slideView = null;
 
@@ -441,10 +441,21 @@ export class SlideList extends EventDispatcher implements IDroppable {
 	private onSlideSort() {
 		this.obj.find(".slide").each((i:number, obj:any)=>{
 			this._slideViews[i] = this._slideViewsById[$(obj).data("id")];
+			
+		});
+
+		this._slides.sort((a:Slide, b:Slide)=>{
+			return this._slideViews.indexOf(this.getSlideViewBySlide(a)) < this._slideViews.indexOf(this.getSlideViewBySlide(b)) ? -1 : 1;
 		});
 
 		this.sortSlideObjByIndex();
 	}
+
+	// private getSlideViewBySlide(slide:Slide):SlideView {
+	// 	this._slideViews.forEach(slideView=>{
+	// 		if(slideView.slide == slide) return slideView;
+	// 	});
+	// }
 
 	//
 	// getset

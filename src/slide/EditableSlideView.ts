@@ -5,7 +5,7 @@ import {KeyboardManager} from "../utils/KeyboardManager";
 import { DropHelper } from "../utils/DropHelper";
 import { IDroppable } from "../interface/IDroppable";
 import { TextLayer } from "../__core__/model/TextLayer";
-import { DOMSlide } from "./DOMSlide";
+import { DOMSlideView } from "./DOMSlideView";
 import { LayerView } from "../__core__/view/LayerView";
 import { TextView } from "../__core__/view/TextView";
 import { ImageView } from "../__core__/view/ImageView";
@@ -15,7 +15,7 @@ import { Slide } from "../__core__/model/Slide";
 declare var $: any;
 declare var Matrix4: any;
 
-export class EditableSlide extends DOMSlide implements IDroppable {
+export class EditableSlideView extends DOMSlideView implements IDroppable {
 	public static SCALE_DEFAULT:number = 0.9;
 
 	private readonly ENFORCE_ASPECT_RATIO:boolean = true;
@@ -49,7 +49,7 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 	constructor(protected _slide:Slide, public obj:any){
 		super(_slide, obj);
 
-		this.scale = EditableSlide.SCALE_DEFAULT;
+		this.scale = EditableSlideView.SCALE_DEFAULT;
 		this.selectedLayerView = null;
 		this.obj.addClass("editable");
 
@@ -342,7 +342,7 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 	}
 
 
-	fitSelectedLayer(){
+	public fitSelectedLayer(){
 		if(!this.selectedLayerView) return;
 		//this.selectedImg.rotation = 0;
 		this._slide.fitLayer(this.selectedLayerView.data);
@@ -431,7 +431,7 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 			$(document).off("mousemove.layer_drag");
 			$(document).off("mouseup.layer_drag");
 
-			this.dispatchEvent(new Event("update"));
+			//this.dispatchEvent(new Event("update"));
 			if(targetLayer.shared){
 				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:targetLayer}}));
 			}
@@ -493,7 +493,7 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 			$(document).off("mousemove.layer_scale");
 			$(document).off("mouseup.layer_scale");
 
-			this.dispatchEvent(new Event("update"));
+			//this.dispatchEvent(new Event("update"));
 			if(targetLayer.shared){
 				this.dispatchEvent(new CustomEvent("sharedUpdate", {detail:{layer:targetLayer}}));
 			}
@@ -501,15 +501,12 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 	}
 
 	private startEdit(){
-		if(!this.selectedLayerView) return;
+		if(!this.selectedLayerView || this.selectedLayer.locked) return;
 
-
-		var targetLayer:Layer = this.selectedLayerView.data;
-		if(targetLayer.locked) return;
-
-		if(targetLayer.type == LayerType.TEXT){
+		if(this.selectedLayer.type == LayerType.TEXT){
+			var textLayer:TextLayer = this.selectedLayer as TextLayer;
 			var textView:TextView = this.selectedLayerView as TextView;
-			var text = (textView.data as TextLayer).text;
+			var text = textLayer.text;
 			textView.textObj.attr("contenteditable","true");
 			textView.textObj.focus();
 
@@ -519,12 +516,13 @@ export class EditableSlide extends DOMSlide implements IDroppable {
 				textView.textObj.off("focusout.textLayer_edit");
 
 				setTimeout(()=>{
-					if(text != (textView.data as TextLayer).text){
-						this.dispatchEvent(new Event("update"));
+					if(text != textView.textObj.text()){
+						textLayer.text = textView.textObj.text();
+		//				this.dispatchEvent(new Event("update"));
 					}
 				},10)
 			});
-		}else if(targetLayer.type == LayerType.IMAGE) {
+//		}else if(targetLayer.type == LayerType.IMAGE) {
 //			var image = this.selectedLayer as Image;
 		}
 	}

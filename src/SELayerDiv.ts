@@ -1,5 +1,5 @@
 import { SELayerListItem } from "./SELayerListItem";
-import { EditableSlide } from "./slide/EditableSlide";
+import { EditableSlideView } from "./slide/EditableSlideView";
 import { Slide } from "./__core__/model/Slide";
 import { LayerView } from "./__core__/view/LayerView";
 
@@ -71,6 +71,9 @@ export class SELayerDiv {
 	// 		// this._targetSlideView.slide.addEventListener("layerUpdate", this.onLayerUpdate);
 	// 	}
 	// }
+	public update(){
+		this.updateLayers();
+	}
 
 	public set layerViews(value:LayerView[]) {
 		this._layerViews = value;

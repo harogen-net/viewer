@@ -6,7 +6,7 @@ import { Slide } from "../__core__/model/Slide";
 
 declare var $ :any;
 
-export class DOMSlide extends SlideView {
+export class DOMSlideView extends SlideView {
 
 	// public static cloneBySlide(slide:SlideView):DOMSlide {
 	// 	var newObj:any = $('<div />');
@@ -94,6 +94,8 @@ export class DOMSlide extends SlideView {
 		var layerView:LayerView = LayerViewFactory.layerViewFromData(layer);
 		this.layerViews.push(layerView);
 		this.container.append(layerView.obj);
+		this.updateLayerViewsOrder();
+
 		// console.log(layerView);
 		// console.log(this.container);
 		return layerView;
@@ -101,6 +103,7 @@ export class DOMSlide extends SlideView {
 	protected removeLayerView(layer:Layer):LayerView {
 		var layerView:LayerView = this.getLayerViewByLayer(layer);
 		this.layerViews.splice(this.layerViews.indexOf(layerView),1);
+		this.updateLayerViewsOrder();
 		return layerView;
 	}
 
@@ -130,15 +133,18 @@ export class DOMSlide extends SlideView {
 
 	//
 
-	protected setLayersZIndex(){
+	protected updateLayerViewsOrder(){
+		//slideのlayers並び順に従って、layerViewsの並び順も変える（主にlayerDivのため）
+		//ついでにz-indexも設定して見た目の変更もする
+		this.layerViews.sort((a:LayerView, b:LayerView)=>{
+			return this._slide.layers.indexOf(a.data) < this._slide.layers.indexOf(b.data) ? -1 : 1;
+		});
 		for(var i = 0; i < this.layerViews.length; i++){
-			var layerView:LayerView = this.layerViews[i];
-			if(this._slide.layers.indexOf(layerView.data) == -1){
-				throw new Error("");
-			}
-			layerView.obj.css("z-index", this._slide.layers.indexOf(layerView.data));
+			this.layerViews[i].obj.css("z-index", i);
 		}
 	}
+
+
 
 	protected replaceSlide(newSlide:Slide) {
 		if(this._slide != null){
@@ -200,6 +206,6 @@ export class DOMSlide extends SlideView {
 		this.removeLayerView(ce.detail.layer).destroy();
 	};
 	private onSlideUpdate = (ce:CustomEvent)=>{
-		this.setLayersZIndex();
+		this.updateLayerViewsOrder();
 	};
 }

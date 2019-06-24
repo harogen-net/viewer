@@ -49,6 +49,7 @@ export class Slide extends EventDispatcher {
 		
 		this._layers.forEach(layer=>{
 			layer.addEventListener("update", this.onLayerUpdate);
+			layer.parent = this;
 		});
 		
 		this._id = Math.floor(Math.random() * 10000) + 90000;
@@ -107,10 +108,14 @@ export class Slide extends EventDispatcher {
 		}else{
 			this._layers.splice(index, 0, layer);
 		}
-		layer.parent = this;
 
 		if(isAdd){
-			layer.addEventListener("update", this.onLayerUpdate);
+			//note:layer自身に設定する重要な部分
+			{
+				layer.addEventListener("update", this.onLayerUpdate);
+				layer.parent = this;
+			}
+
 			this.dispatchEvent(new CustomEvent("layerAdd", {detail:{slide:this, layer:layer}}));
 		}else{
 			this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:layer}}));
@@ -123,8 +128,8 @@ export class Slide extends EventDispatcher {
 	public removeLayer(layer:Layer):Layer {
 		if(!layer) return layer;
 		if(this._layers.indexOf(layer) != -1){
-			layer.parent = null;
 			this._layers.splice(this._layers.indexOf(layer), 1);
+			layer.parent = null;
 			layer.removeEventListener("update", this.onLayerUpdate);
 			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));
 			this.dispatchEvent(new CustomEvent("update", {detail:this}));
