@@ -1,6 +1,7 @@
 import { EventDispatcher } from "../../events/EventDispatcher";
 import { Slide } from "./Slide";
 import { PropertyEvent } from "../../events/LayerEvent";
+import { UUIDGenerator } from "../../utils/UUIDGenerator";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -31,6 +32,7 @@ export class Layer extends EventDispatcher {
 
 	protected _id:number;
 	protected _name:string = "";
+	private _uuid:string;
 
 	protected _originWidth:number = 0;
 	protected _originHeight:number = 0;
@@ -63,6 +65,7 @@ export class Layer extends EventDispatcher {
 
 	constructor(transform:any = null, id:number = -1){
 		super();
+		this._uuid = UUIDGenerator.generate();
 
 		if(id == -1){
 			this._id = Math.floor(Math.random() * 10000000);
@@ -130,6 +133,9 @@ export class Layer extends EventDispatcher {
 	}
 	public get id():number {
 		return this._id;
+	}
+	public get uuid():string {
+		return this._uuid;
 	}
 
 	public get name():string{return this._name;}

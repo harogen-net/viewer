@@ -1,6 +1,7 @@
 import { Layer, LayerType } from "./Layer";
 //import { IImage } from "./ILayer";
 import { ImageManager } from "../../utils/ImageManager";
+import { PropertyEvent } from "../../events/LayerEvent";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -51,35 +52,35 @@ export class ImageLayer extends Layer {
 	}	
 	public set clipRect(value:number[]){
 		this._clipRect = value.slice(0,4);
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
 	}
 	public get clipRect():number[]{
 		return this._clipRect;
 	}
 	public set clipT(value:number){
 		this._clipRect[0] = value;
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
 	}
 	public get clipT():number {
 		return this._clipRect[0];
 	}
 	public set clipR(value:number){
 		this._clipRect[1] = value;
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
 	}
 	public get clipR():number {
 		return this._clipRect[1];
 	}
 	public set clipB(value:number){
 		this._clipRect[2] = value;
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
 	}
 	public get clipB():number {
 		return this._clipRect[2];
 	}
 	public set clipL(value:number){
 		this._clipRect[3] = value;
-		this.dispatchEvent(new Event("update"));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
 	}
 	public get clipL():number {
 		return this._clipRect[3];

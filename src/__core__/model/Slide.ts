@@ -44,15 +44,17 @@ export class Slide extends EventDispatcher {
 	constructor(width:number = 0, height:number = 0, protected _layers:Layer[] = []){
 		super();
 
-		this._width = width || Viewer.SCREEN_WIDTH;
-		this._height = height || Viewer.SCREEN_HEIGHT;
+//		this._width = width || Viewer.SCREEN_WIDTH;
+//		this._height = height || Viewer.SCREEN_HEIGHT;
+		this._width = width || (VDoc.shared ? VDoc.shared.width : Viewer.SCREEN_WIDTH);
+		this._height = height || (VDoc.shared ? VDoc.shared.height : Viewer.SCREEN_HEIGHT);
 		
 		this._layers.forEach(layer=>{
 			layer.addEventListener("update", this.onLayerUpdate);
 			layer.parent = this;
 		});
 		
-		this._id = Math.floor(Math.random() * 10000) + 90000;
+		this._id = Math.floor(Math.random() * 90000) + 10000;
 
 //		this._layers = [];
 
@@ -193,7 +195,7 @@ export class Slide extends EventDispatcher {
 	//
 	private onLayerUpdate = (pe:PropertyEvent)=>{
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
-		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe)}}));
+		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe), propKeys:pe.propKeys}}));
 	}
 
 
@@ -205,31 +207,8 @@ export class Slide extends EventDispatcher {
 	}
 	set id(value:number) {
 		this._id = value;
-//		this.obj.data("id",value);
 	}
 
-// 	get selected(){return this._selected;}
-// 	set selected(value:boolean){
-// 		this._selected = value;
-// //		(this._selected) ? this.obj.addClass("selected") : this.obj.removeClass("selected");
-// 	}
-	
-// 	get scale(){return this._scale;}
-// 	set scale(value:number){
-// 		//console.log("init",this._scale, this.scale_base);
-// 		this._scale = value > this.scale_min ? (value < this.scale_max ? value : this.scale_max) : this.scale_min;
-
-
-// 		// var actualScale:number = this._scale * this.scale_base;
-// 		// var containerWidth = Viewer.SCREEN_WIDTH * actualScale;
-// 		// var containerHeight = Viewer.SCREEN_HEIGHT * actualScale;
-// 		// var defX = -(Viewer.SCREEN_WIDTH * (1 - actualScale) / 2) + (this.obj.width() - containerWidth) / 2;
-// 		// var defY = -(Viewer.SCREEN_HEIGHT * (1 - actualScale) / 2) + (this.obj.height() - containerHeight) / 2;
-		
-// 		// this.container.css("transform","matrix(" + actualScale + ",0,0," + actualScale + "," + defX + "," + defY + ")");
-
-// 		this.dispatchEvent(new Event("scale"));
-// 	}
 	get width(){
 		return this._width;
 		//return Viewer.SCREEN_WIDTH * this._scale * this.scale_base;
@@ -249,46 +228,17 @@ export class Slide extends EventDispatcher {
 	set durationRatio(value:number){
 		this._durationRatio = Math.max(value, 0.4);
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
-		// if(this.obj.attr("style")){
-		// 	if(this.obj.attr("style").indexOf("width") != -1){
-		// 		this.fitToHeight();
-		// 	}
-		// }
 	}
-
-	// set isLock(value:boolean){
-	// 	this._isLock = value;
-	// 	this.dispatchEvent(new Event("update"));
-	// }
-	// get isLock():boolean{ return this._isLock; }
 
 	set joining(value:boolean) {
 		this._joining = value;
-//		this.dispatchEvent(new Event("update"));
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
-
-		// if(this._joining){
-		// 	this.obj.addClass("joining");
-		// }else{
-		// 	this.obj.removeClass("joining");
-		// }
 	}
 	get joining():boolean { return this._joining; }
 
-	// set backgroundColor(colorStr:string) {
-	// 	this.container.css("backgroundColor", colorStr);
-	// }
 	set disabled(value:boolean) {
 		this._disabled = value;
-//		this.dispatchEvent(new Event("update"));
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
-
-
-		// if(this._disabled){
-		// 	this.obj.addClass("disabled");
-		// }else{
-		// 	this.obj.removeClass("disabled");
-		// }
 	}
 	get disabled():boolean { return this._disabled; }
 
@@ -296,107 +246,13 @@ export class Slide extends EventDispatcher {
 		return this._layers;
 	}
 	set layers(value:Layer[]) {
-//		console.log("set layers called : " + value);
-//		if(this._isLock) return;
-		//this.setLayers(value);
 		this.removeAllLayers();
 		value.forEach(layer=>{
 			this.addLayer(layer);
 		});
-//		this._layers = value;
 	}
 
 	//
 
-// 	public fitToWidth():void {
-// 		var fitHeight = (this.obj.width() / Viewer.SCREEN_WIDTH) * Viewer.SCREEN_HEIGHT;
-// 		//console.log("fitToWidth : ", this.obj.width());
-		
-// 		this.obj.css("width","");
-// 		this.obj.height(fitHeight);
-// 		this.scale = this._scale;
-// 	}
-// 	public fitToHeight():void {
-// 		//console.log("fitToHeight : ", this.obj.height());
-// 		this.obj.css("height","");
-// 		var durationCorrection:number = Math.atan(this._durationRatio - 1) * 0.5 + 1;
-// 		if(this._durationRatio < 1){
-// 			durationCorrection = Math.pow(this.durationRatio,0.4);
-// 		}
-// 		var fitWidth = (this.obj.height() / Viewer.SCREEN_HEIGHT) * Viewer.SCREEN_WIDTH * durationCorrection;
-// 		//var fitWidth = (this.obj.height() / Viewer.SCREEN_HEIGHT) * Viewer.SCREEN_WIDTH * Math.pow(this._durationRatio, 1/3);
 
-// 		//animate
-// 		{
-// 			this.obj.stop();
-// 			if(this.obj.attr("style") && this.obj.attr("style").indexOf("width") != -1){
-// 				this.obj.animate({"width":fitWidth},{duration :200,step:()=>{
-// 					this.scale = this._scale;
-// 				}});
-// 			}else{
-// 				this.obj.width(fitWidth);
-// 				this.scale = this._scale;
-// 			}
-// 		}
-// 		//this.obj.width(fitWidth);
-// 		//this.scale = this._scale;
-// 	}
-// 	public updateSize():void {
-// 		this.scale_base = Math.min(this.obj.width() / Viewer.SCREEN_WIDTH, this.obj.height() / Viewer.SCREEN_HEIGHT);
-// 		this.scale = this._scale;
-// 	}
-	
-// 	public fitLayer(layer:Layer):Layer {
-// 		console.log("fitLayer", layer, layer.width, layer.height);
-// 		if(layer.width == 0 || layer.height ==0)
-// 		{
-// 			return layer;
-// 		}
-
-// /*		if(layer.width == Viewer.SCREEN_WIDTH && layer.height == Viewer.SCREEN_HEIGHT){
-// 			layer.x = Slide.centerX()
-// 			layer.y = Slide.centerY();
-// 			layer.scale = 1;
-// 			return layer;
-// 		}*/
-
-// 		var scaleX,scaleY;
-// 		if(layer.rotation == 90 || layer.rotation == -90){
-// 			scaleX = Viewer.SCREEN_WIDTH / layer.height;
-// 			scaleY = Viewer.SCREEN_HEIGHT / layer.width;
-// 		}else{
-// 			scaleX = Viewer.SCREEN_WIDTH / layer.width;
-// 			scaleY = Viewer.SCREEN_HEIGHT / layer.height;
-// 		}
-
-// 		var scale1:number = Math.min(scaleX, scaleY);
-// 		var scale2:number = Math.max(scaleX, scaleY);
-
-// 		if(layer.x == SlideView.centerX() && layer.y == SlideView.centerY()){
-// 			var compRatio:number = Math.pow(10,10);
-// 			if(Math.round(layer.scale * compRatio) == Math.round(scale1 * compRatio)){
-// 				layer.scale = scale2;
-// 			}else{
-// 				layer.scale = scale1;
-// 			}
-// 		}else{
-// 			layer.scale = scale1;
-// 			layer.x = SlideView.centerX()
-// 			layer.y = SlideView.centerY();
-// 		}
-
-// 		return layer;
-// 	}
-
-	//
-
-
-
-	//
-
-
-	
-	// protected setLayers(aData:Layer[]){
-	// 	this._layers = aData;
-	// }
 }

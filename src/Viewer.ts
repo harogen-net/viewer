@@ -40,9 +40,6 @@ export class Viewer {
 
 
     constructor(public obj:any){
-
-		
-
 //		if(localStorage.duration == undefined) localStorage.duration = 2000;
 //		if(localStorage.interval == undefined) localStorage.interval = 5000;
 
@@ -67,12 +64,6 @@ export class Viewer {
 
 		this.storage = new SlideStorage();
 		this.storage.addEventListener("loaded", (e:CustomEvent)=>{
-/*			this.list.initialize();
-			this.canvas.initialize();
-			this.setMode(ViewerMode.SELECT);
-			$.each(this.storage.slides, (i:number, slide:Slide)=>{
-				this.list.addSlide(slide);
-			});*/
 			this.newDocument(e.detail as VDoc);
 		});
 		//
@@ -80,155 +71,75 @@ export class Viewer {
 
 		this.list.addEventListener("select", ()=>{
 			if(this._mode == ViewerMode.SELECT){
-
-
 			}else if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-					this.edit.slideView.isActive = true;
-					//this.list.selectedSlide.isLock = true;
-//					this.canvas.slide.setData(this.list.selectedSlide.getData());
-					//this.canvas.slide.slide.layers = this.list.selectedSlide.layers;
-					//this.canvas.slideView.slide = this.list.selectedSlide;
-					//this.list.selectedSlide.isLock = false;
-
+//					this.edit.slideView.isActive = true;
 					this.edit.setSlide(this.list.selectedSlide);
-//					this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				}else{
 					this.edit.initialize();
 				}
 			}
-			//console.log("slide selected at list");
 		})
 		this.list.addEventListener("edit", ()=>{
 			if(this.list.selectedSlide){
-//				console.log("to edit mode : " + this.list.selectedSlide.layers);
-//				this.list.selectedSlide.isLock = true;
-//				this.canvas.slide.setData(this.list.selectedSlide.getData());
-//				this.canvas.slideView.slide = this.list.selectedSlide;
-//				this.list.selectedSlide.isLock = false;
 				this.edit.setSlide(this.list.selectedSlide);
-//				this.canvas.setSlideData({name:this.list.selectedSlide.id});
 				this.setMode(ViewerMode.EDIT);
 			}
 		});
 
-// 		this.canvas.slideView.addEventListener("update",()=>{
-// 			if(this._mode == ViewerMode.EDIT){
-// 				if(this.list.selectedSlide){
-// //					this.list.selectedSlide.setData(this.canvas.slide.getData());
-// 					//this.list.selectedSlide.layers = this.canvas.slide.layers;
-// 					this.list.refresh();
-// 				}
-// 			}
-// 		});
-		this.edit.slideView.addEventListener("sharedUpdate",(ce:CustomEvent)=>{
-			if(this._mode == ViewerMode.EDIT){
-				if(this.list.selectedSlide){
-					var targetLayer:Layer = ce.detail.layer as Layer;
-					var deleteFlag:boolean = ce.detail.delete as boolean;
-					console.log("sharedUpdate : " + targetLayer + " : " + deleteFlag);
-					if(!targetLayer) return;
+		// this.edit.slideView.addEventListener("sharedPaste",(ce:CustomEvent)=>{
+		// 	if(this._mode == ViewerMode.EDIT){
+		// 		if(this.list.selectedSlide){
+		// 			var targetLayer:Layer = ce.detail.layer as Layer;
+		// 			console.log("sharedPaste : " + targetLayer);
+		// 			if(!targetLayer) return;
 
-					var i:number = this.list.selectedSlideIndex;
-					var found:boolean = false;
-					var slide:Slide = null;
-					var updateFunc = (j:number, layer:Layer)=>{
-						if(found) return;
-						if(!layer.shared) return;
+		// 			var i:number = this.list.selectedSlideIndex;
+		// 			var found:boolean = false;
+		// 			var slide:Slide = null;
+		// 			var findFunc = (j:number, layer:Layer)=>{
+		// 				if(found) return;
 
-						if(targetLayer.type != layer.type) return;
-						switch(targetLayer.type){
-							case LayerType.IMAGE:
-								if((layer as ImageLayer).imageId != (targetLayer as ImageLayer).imageId) return;
-							break;
-							default:
-								if(layer.id != targetLayer.id) return;
-							break;
-						}
-
-						if(deleteFlag){
-							slide.removeLayer(layer);
-						}else{
-							layer.locked = targetLayer.locked;
-							layer.visible = targetLayer.visible;
-							layer.opacity = targetLayer.opacity;
-							layer.transform = targetLayer.transform;
-
-							if(layer.type == LayerType.IMAGE){
-								(layer as ImageLayer).clipRect = (targetLayer as ImageLayer).clipRect;
-							}
-						}
-						found = true;
-					}
-					while(--i >= 0){
-						found = false;
-						slide = this.list.slides[i];
-						$.each(slide.layers, updateFunc);
-						if(!found) break;
-					}
-					i = this.list.selectedSlideIndex;
-					while(++i < this.list.slides.length){
-						found = false;
-						slide = this.list.slides[i];
-						$.each(slide.layers, updateFunc);
-						if(!found) break;
-					}
-				}
-			}
-		});
-		this.edit.slideView.addEventListener("sharedPaste",(ce:CustomEvent)=>{
-			if(this._mode == ViewerMode.EDIT){
-				if(this.list.selectedSlide){
-					var targetLayer:Layer = ce.detail.layer as Layer;
-					console.log("sharedPaste : " + targetLayer);
-					if(!targetLayer) return;
-
-					var i:number = this.list.selectedSlideIndex;
-					var found:boolean = false;
-					var slide:Slide = null;
-					var findFunc = (j:number, layer:Layer)=>{
-						if(found) return;
-
-						if(targetLayer.type != layer.type) return;
-						switch(targetLayer.type){
-							case LayerType.IMAGE:
-								if((layer as ImageLayer).imageId == (targetLayer as ImageLayer).imageId) {
-									found = true;
-									return;
-								}
-							break;
-							default:
-								if(layer.id == targetLayer.id) {
-									found = true;
-									return;
-								};
-							break;
-						}
-					}
-					while(--i >= 0){
-						found = false;
-						slide = this.list.slides[i];
-						$.each(slide.layers, findFunc);
-						if(found) {
-							break;
-						}else{
-							slide.addLayer(targetLayer.clone());
-						}
-					}
-					i = this.list.selectedSlideIndex;
-					while(++i < this.list.slides.length){
-						found = false;
-						slide = this.list.slides[i];
-						$.each(slide.layers, findFunc);
-						if(found) {
-							break;
-						}else{
-							slide.addLayer(targetLayer.clone());
-						}
-					}
-				}
-			}
-		});
+		// 				if(targetLayer.type != layer.type) return;
+		// 				switch(targetLayer.type){
+		// 					case LayerType.IMAGE:
+		// 						if((layer as ImageLayer).imageId == (targetLayer as ImageLayer).imageId) {
+		// 							found = true;
+		// 							return;
+		// 						}
+		// 					break;
+		// 					default:
+		// 						if(layer.id == targetLayer.id) {
+		// 							found = true;
+		// 							return;
+		// 						};
+		// 					break;
+		// 				}
+		// 			}
+		// 			while(--i >= 0){
+		// 				found = false;
+		// 				slide = this.list.slides[i];
+		// 				$.each(slide.layers, findFunc);
+		// 				if(found) {
+		// 					break;
+		// 				}else{
+		// 					slide.addLayer(targetLayer.clone());
+		// 				}
+		// 			}
+		// 			i = this.list.selectedSlideIndex;
+		// 			while(++i < this.list.slides.length){
+		// 				found = false;
+		// 				slide = this.list.slides[i];
+		// 				$.each(slide.layers, findFunc);
+		// 				if(found) {
+		// 					break;
+		// 				}else{
+		// 					slide.addLayer(targetLayer.clone());
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// });
 
 		this.edit.addEventListener("close",()=>{
 			this.setMode(ViewerMode.SELECT);
@@ -386,6 +297,7 @@ export class Viewer {
 
 		//
 
+//		this.document = doc || new VDoc([], {width:(Viewer.SCREEN_WIDTH / 8), height:(Viewer.SCREEN_HEIGHT / 8)});
 		this.document = doc || new VDoc();
 		this.list.slides = this.document.slides;
 	}

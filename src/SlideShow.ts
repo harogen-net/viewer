@@ -5,6 +5,7 @@ import { Layer, LayerType } from "./__core__/model/Layer";
 import { TextLayer } from "./__core__/model/TextLayer";
 import { DOMSlideView } from "./slide/DOMSlideView";
 import { Slide } from "./__core__/model/Slide";
+import { VDoc } from "./__core__/model/VDoc";
 
 declare var $:any;
 
@@ -47,9 +48,10 @@ export class SlideShow extends EventDispatcher {
 
 		$(window).resize(()=>{
 			setTimeout(()=>{
-				$.each(this.slides, (index:number, slide:SlideView) =>{
+/*				$.each(this.slides, (index:number, slide:SlideView) =>{
 				//	slide.updateSize();
-				})
+				})*/
+				this.updateSlideSize();
 			},50);
 
 		});
@@ -203,6 +205,7 @@ export class SlideShow extends EventDispatcher {
 		}else{
 			this.obj[0].webkitRequestFullScreen();
 		}
+		this.updateSlideSize();
 
 		if(this.data.length == 1){
 			$.each(this.slides, (index:number, slide:SlideView) =>{
@@ -390,6 +393,22 @@ export class SlideShow extends EventDispatcher {
 	}
 
 	//
+
+	private updateSlideSize(){
+//		console.log("updateSlideSize");
+		let dispWidth = this.obj.width();
+		let dispHeight = this.obj.height();
+		let dispScale = Math.min(dispWidth / VDoc.shared.width, dispHeight / VDoc.shared.height);
+		let offsetX = (dispWidth - VDoc.shared.width) / 2;
+		let offsetY = (dispHeight - VDoc.shared.height) / 2;
+
+		this.slideContainer.find(".slide").each((i, elem)=>{
+			$(elem).css("transform", "translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")");
+			$(elem).css("width", VDoc.shared.width + "px");
+			$(elem).css("height", VDoc.shared.height + "px");
+		});
+
+	}
 
 	private checkSlidesSame(slide1:Slide, slide2:Slide):boolean {
 		if(!slide2.joining) return false;

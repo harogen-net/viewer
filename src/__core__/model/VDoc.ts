@@ -54,11 +54,29 @@ export class VDoc {
 		this.height = height;
 
 		VDoc.shared = this;
-		console.log(VDoc.shared);
 	}
 
 	//
+	// public methods
+	//
+	public getSlideByOffset(slide:Slide, offset:number):Slide|null {
+		var index = this.slides.indexOf(slide);
+		if(index == -1) return null;
+		var index2 = index + offset;
+		if(index2 < 0 || index2 > this.slides.length - 1) return null;
+		return this.slides[index2];
+	}
+	public getPrevSlide(slide:Slide):Slide|null {
+		return this.getSlideByOffset(slide, -1);
+	}
+	public getNextSlide(slide:Slide):Slide|null {
+		return this.getSlideByOffset(slide, 1);
+	}
 
+
+	//
+	// get set
+	//
 	public set bgColor(value:string|undefined){
 		this._bgColor = value;
 		document.documentElement.style.setProperty("--slideBackgroundColor", this._bgColor || this.BG_COLOR_INIT);

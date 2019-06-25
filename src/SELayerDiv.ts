@@ -43,7 +43,7 @@ export class SELayerDiv {
 			item.layerView = null;
 		});
 
-		console.log(this._layerViews);
+//		console.log(this._layerViews);
 		if(this._layerViews){
 			$.each(this._layerViews, (i:number, layerView:LayerView)=>{
 				this.ulObj.prepend(this.items[i].obj);
@@ -52,40 +52,23 @@ export class SELayerDiv {
 		}
 	}
 
-	//
-	// set get
-	//
-	// public set targetSlide(value:EditableSlide) {
-	// 	if(this._targetSlideView != null){
-	// 		// this._targetSlideView.removeEventListener("select", this.o);
-	// 		// this._targetSlideView.slide.removeEventListener("update", this.onSlideUpdate);
-	// 		// this._targetSlideView.slide.removeEventListener("layerUpdate", this.onLayerUpdate);
-	// 	}
-
-	// 	//value is nullable
-	// 	this._targetSlideView = value;
-	// 	this.updateLayers();
-
-	// 	if(this._targetSlideView != null){
-	// 		// this._targetSlideView.slide.addEventListener("update", this.onSlideUpdate);
-	// 		// this._targetSlideView.slide.addEventListener("layerUpdate", this.onLayerUpdate);
-	// 	}
-	// }
 	public update(){
 		this.updateLayers();
 	}
+
+	//
+	// set get
+	//
 
 	public set layerViews(value:LayerView[]) {
 		this._layerViews = value;
 		this.updateLayers();
 	}
 
-
 	//
 	// event listeners
 	//
 	// private onSlideUpdate = (ce:CustomEvent)=>{
-
 	// };
 	// private onLayerUpdate = (ce:CustomEvent)=>{
 	// };
