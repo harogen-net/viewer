@@ -2,6 +2,7 @@ import { SlideView } from "../__core__/view/SlideView";
 import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
 import { Slide } from "../__core__/model/Slide";
 
+
 declare var $: any;
 
 export class CanvasSlideView extends SlideView {
@@ -16,6 +17,7 @@ export class CanvasSlideView extends SlideView {
 
 	constructor(protected _slide:Slide, public obj:any, protected scale:number){
 		super(_slide, obj);
+		 this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
 		 this._slide.addEventListener("update", this.onLayerUpdate);
 
 		 this.converter = new SlideToPNGConverter();
@@ -45,7 +47,7 @@ export class CanvasSlideView extends SlideView {
 
 
 	public destroy(){
-	//	this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
+		this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
 		this._slide.removeEventListener("update", this.onLayerUpdate);
 		this.converter = null;
 		this.thumbnail.remove();
@@ -56,9 +58,15 @@ export class CanvasSlideView extends SlideView {
 	}
 	//
 
+	private intervalId;
+
 	public refresh(){
-		this.converter.drawSlide2Canvas(this._slide, this.canvas, this.scale);
-//		this.converter.drawSlide2Canvas(this._slide, this.canvas, ThumbSlide2.HEIGHT / this._slide.height);
+		if(this.intervalId){
+			clearInterval(this.intervalId)
+		}
+		this.intervalId = setTimeout(() => {
+			this.converter.drawSlide2Canvas(this._slide, this.canvas, this.scale);
+		}, 100);
 	}
 }
 

@@ -1,5 +1,7 @@
 import { Layer, LayerType } from "./Layer";
 import { Viewer } from "../../Viewer";
+import { PropertyEvent } from "../../events/LayerEvent";
+import { PropFlags } from "./PropFlags";
 
 
 export class TextLayer extends Layer {
@@ -35,7 +37,7 @@ export class TextLayer extends Layer {
 	public get text():string{ return this._text; }
 	public set text(value:string){
 		this._text = value;
-		this.dispatchEvent(new Event("textUpdate"));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.TXT_TEXT));
 	}
 	public get plainText():string {
 		return this._text.split("\n").join().split("\r").join();

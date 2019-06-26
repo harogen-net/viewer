@@ -5,6 +5,8 @@ import { LayerView } from "./__core__/view/LayerView";
 import { TextView } from "./__core__/view/TextView";
 import { ImageManager } from "./utils/ImageManager";
 import { ImageView } from "./__core__/view/ImageView";
+import { PropertyEvent } from "./events/LayerEvent";
+import { PropFlags } from "./__core__/model/PropFlags";
 
 declare var $:any;
 
@@ -44,15 +46,6 @@ export class SELayerListItem {
 		this.shareBtn.click((e:any)=>{
 			if(this._layerView == null) return;
 			this._layerView.data.shared = !this._layerView.data.shared;
-			
-			// if(this.shareBtn.hasClass("on")){
-			// 	var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"share_off",target:this}});
-			// 	this.dispatchEvent(cb);
-			// }else{
-			// 	var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"share_on",target:this}});
-			// 	this.dispatchEvent(cb);
-			// }
-			//e.stopImmediatePropagation();
 		});
 
 
@@ -61,10 +54,6 @@ export class SELayerListItem {
 			if(this._layerView == null) return;
 			if(this._layerView.data.parent == null) return;
 			this._layerView.data.parent.removeLayer(this._layerView.data);
-
-			// var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"delete",target:this}});
-			// this.dispatchEvent(cb);
-			//e.stopImmediatePropagation();
 		});
 
 		this.obj.prepend(this.shareBtn);
@@ -75,11 +64,6 @@ export class SELayerListItem {
 		this.obj.click(()=>{
 			if(this._layerView == null) return;
 			this._layerView.selected = true;
-
-//			if(this._image.locked) return;
-//			if(!this._image.visible) return;
-//			var cb:CustomEvent = new CustomEvent("update",{detail:{subType:"select",target:this}});
-//			this.dispatchEvent(cb);
 		});
 
 /*		this.label.editable("dblclick",(e:any)=>{
@@ -87,38 +71,54 @@ export class SELayerListItem {
 		});*/
 	}	
 	
-	private update(){
+	private updateOnLayer(flag:number = PropFlags.ALL){
 		if(!this._layerView) return;
 
-		switch(this._layerView.type){
-			case LayerType.IMAGE:
+		if(flag & PropFlags.IMG_IMAGEID) {
+			this.thumbnail.attr("src", ImageManager.shared.getSrcById(((this._layerView as ImageView).data as ImageLayer).imageId));
+		}
+		if(flag & PropFlags.NAME){
+			if(this._layerView.type == LayerType.IMAGE){
 				if(this._layerView.data.name != ""){
 					this.label.text(this._layerView.data.name);
 				}else{
 					this.label.text("イメージ");
 				}
-			break;
-			case LayerType.TEXT:
+			}
+		}
+		if(flag & PropFlags.TXT_TEXT){
+			if(this._layerView.type == LayerType.TEXT){
 				this.label.text(((this._layerView as TextView).data as TextLayer).plainText);
-			break;
+			}
 		}
 
-		if(this._layerView.data.locked){
-			this.lockBtn.addClass("on");
-		}else{
-			this.lockBtn.removeClass("on");
+		if(flag & PropFlags.LOCKED){
+			if(this._layerView.data.locked){
+				this.lockBtn.addClass("on");
+			}else{
+				this.lockBtn.removeClass("on");
+			}
 		}
-		if(this._layerView.data.shared){
-			this.shareBtn.addClass("on");
-		}else{
-			this.shareBtn.removeClass("on");
+		if(flag & PropFlags.SHARED){
+			if(this._layerView.data.shared){
+				this.shareBtn.addClass("on");
+			}else{
+				this.shareBtn.removeClass("on");
+			}
 		}
-		
-		if(this._layerView.data.visible){
-			this.eyeBtn.addClass("on");
-		}else{
-			this.eyeBtn.removeClass("on");
+		if(flag & PropFlags.VISIBLE){
+			if(this._layerView.data.visible){
+				this.eyeBtn.addClass("on");
+			}else{
+				this.eyeBtn.removeClass("on");
+			}
 		}
+
+	}
+
+	private updateOnLayerView(){
+		if(!this._layerView) return;
+
 		if(this._layerView.selected){
 			this.obj.addClass("selected");
 		}else{
@@ -138,34 +138,33 @@ export class SELayerListItem {
 	//
 	public set layerView(value:LayerView){
 		if(this._layerView){
-			this._layerView.removeEventListener("select", this.onLayerUpdate);
-			this._layerView.removeEventListener("unselect", this.onLayerUpdate);
-			this._layerView.data.removeEventListener("update", this.onLayerUpdate);
+			this._layerView.removeEventListener("select", this.onLayerViewUpdate);
+			this._layerView.removeEventListener("unselect", this.onLayerViewUpdate);
+			this._layerView.data.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 		}
 
 		//value is nullable
 		this._layerView = value;
 		
 		if(this._layerView){
-			this._layerView.addEventListener("select", this.onLayerUpdate);
-			this._layerView.addEventListener("unselect", this.onLayerUpdate);
-			this._layerView.data.addEventListener("update", this.onLayerUpdate);
-			this.update();
+			this._layerView.addEventListener("select", this.onLayerViewUpdate);
+			this._layerView.addEventListener("unselect", this.onLayerViewUpdate);
+			this._layerView.data.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 
-			if(this._layerView != null){
-				switch(this._layerView.type){
-					case LayerType.IMAGE:
-						this.thumbnail.attr("src", ImageManager.shared.getSrcById(((this._layerView as ImageView).data as ImageLayer).imageId));
-						this.thumbnail.show();
-					break;
-					case LayerType.TEXT:
-						this.thumbnail.attr("src","");
-						this.thumbnail.hide();
-					break;
-					default:
-					break;
-				}
+			switch(this._layerView.type){
+				case LayerType.IMAGE:
+					this.thumbnail.show();
+				break;
+				case LayerType.TEXT:
+					this.thumbnail.attr("src","");
+					this.thumbnail.hide();
+				break;
+				default:
+				break;
 			}
+
+			this.updateOnLayer();
+			this.updateOnLayerView();
 		}
 	}
 	public get layerView():LayerView{
@@ -175,8 +174,11 @@ export class SELayerListItem {
 	//
 	// event handlers
 	//
-	private onLayerUpdate = (e:Event)=>{
-		this.update();
+	private onLayerUpdate = (pe:PropertyEvent)=>{
+		this.updateOnLayer(pe.propFlags);
+	};
+	private onLayerViewUpdate = ()=>{
+		this.updateOnLayerView();
 	};
 
 }

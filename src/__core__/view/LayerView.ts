@@ -1,6 +1,8 @@
 import { Layer, LayerType } from "../model/Layer";
 import { setTimeout } from "timers";
 import { EventDispatcher } from "../../events/EventDispatcher";
+import { PropertyEvent } from "../../events/LayerEvent";
+import { PropFlags } from "../model/PropFlags";
 
 
 declare var $: any;
@@ -17,20 +19,12 @@ export class LayerView extends EventDispatcher {
 	constructor(protected _data:Layer, public obj:any) {
 		super();
 		if(_data == null || obj == null || obj.length != 1) throw new Error("");
-		//子クラスで初期化が終わった後に処理を行うため別スレッドに
-		//こうしないと小クラスの初期化が呼ばれる前に小クラスで継承されたupdateViewを呼ばれてエラーが出る
-		//superを最初に書かないと怒られる弊害
-		// this.obj.hide();
-		// setTimeout(()=>{
-		// 	this.obj.show();
-		// },1);
-		//↑を解消するためにこうしたよ、コンストラクタ処理のメインを別メソッドに分けて継承してもらう
 		this.constructMain();
 		this.updateView();
 	}
 	protected constructMain() {
 		//override me
-		this._data.addEventListener("update", this.onLayerUpdate);
+		this._data.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 	}
 
 	// public clone():this {
@@ -40,7 +34,7 @@ export class LayerView extends EventDispatcher {
 
 	public destroy(){
 		this.clearEventListener();
-		this._data.removeEventListener("update", this.onLayerUpdate);
+		this._data.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 		this.obj.remove();
 		this.obj = null;
 	}
@@ -48,48 +42,38 @@ export class LayerView extends EventDispatcher {
 	//
 	//methods
 	//
-/*	public moveTo(x:number, y:number):void{
-		this._data.moveTo(x,y);
-		this.updateMatrix();
-	}
-	public moveBy(deltaX:number,deltaY:number):void{
-		this._data.moveBy(deltaX,deltaY);
-		this.updateMatrix();
-	}
- 	public scaleBy(scaleX:number, scaleY:number = NaN):void{
-		 this._data.scaleBy(scaleX, scaleY);
-		this.updateMatrix();
-	}
-	public rotateBy(theta:number):void{
-		this._data.rotateBy(theta);
-		this.updateMatrix();
-	}*/
-
 	protected updateMatrix() {
 		var matrix:number[] = this._data.matrix;
 		var cssMat:string = "matrix(" + matrix.join(",") + ")";
 		this.obj.css("transform", cssMat);
 	}
 
-	protected updateView() {
-		if(!this._data.visible){
-			this.obj.addClass("invisible");
-		}else{
-			this.obj.removeClass("invisible");
+	protected updateView(flag:number = PropFlags.ALL) {
+		if(flag & PropFlags.VISIBLE){
+			if(!this._data.visible){
+				this.obj.addClass("invisible");
+			}else{
+				this.obj.removeClass("invisible");
+			}
 		}
-		if(this._data.locked){
-			this.obj.addClass("locked");
-		}else{
-			this.obj.removeClass("locked");
+		if(flag & PropFlags.LOCKED){
+			if(this._data.locked){
+				this.obj.addClass("locked");
+			}else{
+				this.obj.removeClass("locked");
+			}
 		}
-		if(this.opacityObj){
+		if(this.opacityObj && (flag & PropFlags.OPACITY)){
 			if(this._data.opacity == 1){
 				this.opacityObj.css("opacity","");
 			}else{
 				this.opacityObj.css("opacity",this._data.opacity);
 			}
 		}
-		this.updateMatrix();
+
+		if(flag & (PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.ROTATION|PropFlags.MIRROR_H|PropFlags.MIRROR_V)){
+			this.updateMatrix();
+		}
 	}
 
 
@@ -114,119 +98,6 @@ export class LayerView extends EventDispatcher {
 		return this.obj.height();
 	}
 
-/*	public get name():string{return this._data.name;}
-	public set name(value:string){
-		this._data.name = value;
-	}
-	
-	public get locked():boolean{ return this._data.locked;}
-	public set locked(value:boolean){
-		this._data.locked = value;
-
-		if(this._data.locked){
-			this.obj.addClass("locked");
-		}else{
-			this.obj.removeClass("locked");
-		}
-	}
-	public get visible():boolean{ return this._data.visible;}
-	public set visible(value:boolean){
-		this._data.visible = value;
-
-		if(!this._data.visible){
-			this.obj.addClass("invisible");
-		}else{
-			this.obj.removeClass("invisible");
-		}
-	}
-
-	public get mirrorH(){return this._data.mirrorH;}
-	public set mirrorH(value){
-		this._data.mirrorH = value;
-		this.updateMatrix();
-	}
-	public get mirrorV(){return this._data.mirrorV;}
-	public set mirrorV(value){
-		this._data.mirrorV = value;
-		this.updateMatrix();
-	}
-	public get shared(){return this._data.shared;}
-	public set shared(value){
-		this._data.shared = value;
-	}
-	
-
-	public get x():number{return this._data.x;}
-	public set x(value:number){
-		this._data.x = value;
-		this.updateMatrix();
-	}
-	public get y():number{return this._data.y;}
-	public set y(value:number){
-		this._data.y = value;
-		this.updateMatrix();
-	}
-	public get transX():number {return this._data.transX;}
-	public get transY():number {return this._data.transY;}
-
-	public get scale(){
-		return this._data.scale;
-	}
-	public set scale(value){
-		this._data.scale = value;
-		this.updateMatrix();
-	}
-	public get scaleX(){return this._data.scaleX;}
-	public set scaleX(value){
-		if(isNaN(value)) value = 1;
-		this._data.scaleX = value;
-		this.updateMatrix();
-	}
-	public get scaleY(){return this._data.scaleY;}
-	public set scaleY(value){
-		this._data.scaleY = value;
-		this.updateMatrix();
-	}
-	public get rotation(){return this._data.rotation;}
-	public set rotation(value){
-		this._data.rotation = value;
-		this.updateMatrix();
-	}
-	public get angle(){
-		return this._data.angle;
-	}
-	public get opacity(){return this._data.opacity;}
-	public set opacity(value){
-		this._data.opacity = value;
-
-		if(this.opacityObj){
-			if(this._data.opacity == 1){
-				this.opacityObj.css("opacity","");
-			}else{
-				this.opacityObj.css("opacity",this._data.opacity);
-			}
-		}
-	}
-
-
-	public get originWidth(){
-		return this._data.originWidth;
-	}
-	public get originHeight(){
-		return this._data.originHeight;
-	}
- 	public get diagonalAngle(){
-		return Math.atan2(this.height, this.width);
-	}
-
-	public get transform(){
-		return this._data.transform;
-	}
-	public set transform(value:any){
-		this._data.transform = value;
-		this.updateMatrix();
-	}*/
-
 	//
 
 
@@ -246,8 +117,8 @@ export class LayerView extends EventDispatcher {
 	//
 	// event handlers
 	//
-	private onLayerUpdate = ()=>{
-		this.updateView();
+	private onLayerUpdate = (pe:PropertyEvent)=>{
+		this.updateView(pe.propFlags);
 	};
 
 }

@@ -2,6 +2,7 @@
 import { LayerView } from "./LayerView";
 import { TextLayer } from "../model/TextLayer";
 import { Layer } from "../model/Layer";
+import { PropFlags } from "../model/PropFlags";
 
 declare var $:any;
 
@@ -10,24 +11,20 @@ export class TextView extends LayerView {
 	public textObj:any;
 
 
-	constructor(protected _textData:TextLayer, public obj:any) {
-		super(_textData, obj);
+	constructor(protected _data:TextLayer, public obj:any) {
+		super(_data, obj);
 	}
 	protected constructMain() {
 		super.constructMain();
 		
-		this._data.addEventListener("textUpdate", this.onTextUpdate);
-		this.textObj = $('<div class="text" contenteditable="false" spellcheck="false"></div>');
+		this.textObj = $('<div class="text" style="display:inline-block;" contenteditable="false" spellcheck="false"><span></span></div>');
 		this.obj.append(this.textObj);
 
 		this.opacityObj = this.textObj;
 		this.opacityObj.css("opacity",this._data.opacity);
-
-		this.updateText();
 	}
 
 	public destroy(){
-		this._data.removeEventListener("textUpdate", this.onTextUpdate);
 		this.textObj.remove();
 		this.textObj = null;
 
@@ -35,15 +32,15 @@ export class TextView extends LayerView {
 	}
 
 
-	protected updateView():void {
-		super.updateView();
-		//updateTextを入れると循環するので別口で
-	}
+	protected updateView(flag:number = PropFlags.ALL):void {
+		if(flag & PropFlags.TXT_TEXT){
+			this.textObj.find("span").html(this._data.text);
+			this._data.originWidth = this.textObj.find("span").width();
+			this._data.originHeight = this.textObj.find("span").height();
+		}
 
-	private updateText() {
-		this.textObj.html(this._textData.text);
-		this._data.originWidth = this.textObj.width();
-		this._data.originHeight = this.textObj.height();
+		//textを先に更新してほしいからsuperは後で
+		super.updateView(flag);
 	}
 
 
@@ -55,10 +52,4 @@ export class TextView extends LayerView {
 	}
 
 
-	//
-	// event handlers
-	//
-	private onTextUpdate = ()=>{
-		this.updateText();
-	};
 }

@@ -6,7 +6,7 @@ declare var $:any;
 export class ThumbSlideView extends CanvasSlideView {
 
 	private doubleClickLock:boolean;
-	private doubleClickTimer:NodeJS.Timer;
+	private doubleClickTimer;
 
 	constructor(protected _slide:Slide, public obj:any, protected scale:number){
 		super(_slide, obj, scale);

@@ -192,30 +192,6 @@ export class SlideStorage extends EventDispatcher {
 			catch(e){
 			}
 
-			// var reader = new FileReader();
-			// reader.addEventListener("load", (e:any)=>{
-			// 	var u8a = this.embedder.extract(reader.result as string);
-			// 	var zip = new JSZip();
-			// 	zip.loadAsync(u8a).then((zip)=>{
-			// 		zip.file("data.hvd").async("uint8array").then(async (obj)=>{
-			// 			//console.log(new TextDecoder().decode(obj));
-			// 			var jsonStr:string = new TextDecoder().decode(obj);
-			// 			if(!jsonStr) {
-			// 				alert("not data png file.");
-			// 				return;
-			// 			}
-			// 			var title:string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
-			// 			this.dispatchEvent(new CustomEvent("loaded", {detail: await this.parseData(jsonStr, {title:title})}));
-			// 		});
-			// 	})
-			// });
-			// try{
-			// 	reader.readAsDataURL(file);
-			// }
-			// catch(e){
-			// }
-
-
 		}else if(file.name.indexOf(".hvz") != -1){
 			try{
 				var zip = await JSZip.loadAsync(file);
@@ -227,15 +203,6 @@ export class SlideStorage extends EventDispatcher {
 			catch(e){
 
 			}
-			// JSZip.loadAsync(file).then((zip)=>{
-			// 	zip.forEach((a,b)=>{
-			// 		b.async("string").then(async (data:string)=>{
-			// 			this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(data)}));
-			// 		});
-			// 	});
-			// },(e)=>{
-			// 	//console.log("error at zip load : " + e);
-			// });
 		}else if(file.name.indexOf(".hvd") != -1){
 			var reader = new FileReader();
 			reader.addEventListener("load", async (e:any)=>{
@@ -285,40 +252,15 @@ export class SlideStorage extends EventDispatcher {
 		if(doc.createTime) json.createTime = doc.createTime;
 		if(doc.editTime) json.editTime = doc.editTime;
 
-		//ver1
-		// if(SlideStorage.VERSION == 1){
-		// 	var slideData:any[] = [];
-		// 	$.each(document.slides, (i:number, slide:SlideView)=>{
-		// 		var imageData:any[] = [];
-		// 		$.each(slide.getData(), (j:number, datum:any)=>{
-		// 			delete datum.class;
-		// 			imageData.push(datum);
-		// 		});
-		// 		slideData.push(imageData);
-		// 	});
-		// 	json.data = slideData;
-		// }
-
 		var slideData:any[] = [];
 		var imageData:any = {};
 		
-		//var imageNum:number = 0;
-		//console.log("total slide num : " + document.slides.length);
-		//$.each(doc.slides, (i:number, slide:Slide)=>{
 		doc.slides.forEach(slide=>{
 			var slideDatum:any = {};
 			slideDatum.id = slide.id;
 			slideDatum.durationRatio = slide.durationRatio;
 			slideDatum.joining = slide.joining;
-//				slideDatum.isLock = slide.isLock;
 			slideDatum.disabled = slide.disabled;
-
-//				if(SlideStorage.VERSION >= 2.1){
-//				}else{
-//					slideDatum.images = layers;
-//				}
-
-			//console.log(" - slide" + (i + 1) + "("+ slide.id + ")" + " has " + slide.images.length + " images");
 
 			slideDatum.layers = [];
 			slide.layers.forEach(layer=>{
@@ -332,12 +274,8 @@ export class SlideStorage extends EventDispatcher {
 			});
 			slideData.push(slideDatum);
 
-
 			json.slideData = slideData;
 			json.imageData = imageData;
-
-			//console.log("total image num : " + imageNum);
-			
 		});
 
 		var jsonStr:string = JSON.stringify(json);
@@ -385,141 +323,101 @@ export class SlideStorage extends EventDispatcher {
 				// });
 			}
 	
-			//ver2
-			if(json.version >= 2){
-	//			var isScreenSizeChange:boolean = (json.screen.width != Viewer.SCREEN_WIDTH || json.screen.height != Viewer.SCREEN_HEIGHT);
-	
-				const width:number = json.width && !isNaN(parseInt(json.width)) ? parseInt(json.width) : Viewer.SCREEN_WIDTH;
-				const height:number = json.height && !isNaN(parseInt(json.height)) ? parseInt(json.height) : Viewer.SCREEN_HEIGHT;
-				options.width = width;
-				options.height = height;
-	
-				for (let imageId in json.imageData){
-					await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
-				}
-	
-				//setTimeout(()=>{
-	
-					$.each(json.slideData, (number, slideDatum:any)=>{
-						var slide:Slide = new Slide(width, height);
-						//var slide:Slide = new Slide($('<div />'));
-						slide.durationRatio = slideDatum.durationRatio;
-						slide.joining = slideDatum.joining;
-		//				slide.isLock = slideDatum.isLock;
-						slide.disabled = slideDatum.disabled;
-						
-						var layers:any[];
-						if(json.version >= 2.1){
-							layers = slideDatum.layers;
-						}else{
-							layers = slideDatum.images;
-						}
-		
-		
-						$.each(layers, (j:number, layerDatum:any)=>{
-							switch(layerDatum.type){
-								case LayerType.TEXT:
-									var textLayer = new TextLayer(layerDatum.text, {
-										transX:layerDatum.transX,
-										transY:layerDatum.transY,
-										scaleX:layerDatum.scaleX,
-										scaleY:layerDatum.scaleY,
-										rotation:layerDatum.rotation,
-										mirrorH:layerDatum.mirrorH,
-										mirrorV:layerDatum.mirrorV,
-									});
-									if(layerDatum.opacity != undefined){
-										textLayer.opacity = layerDatum.opacity;						
-									}
-									if(layerDatum.locked != undefined){
-										textLayer.locked = layerDatum.locked;
-									}
-									if(layerDatum.shared != undefined){
-										textLayer.shared = layerDatum.shared;
-									}
-									if(layerDatum.visible != undefined){
-										textLayer.visible = layerDatum.visible;
-									}									// if(isScreenSizeChange){
-									// 	var offsetScale:number = Math.min(
-									// 		Viewer.SCREEN_WIDTH / json.screen.width,
-									// 		Viewer.SCREEN_HEIGHT / json.screen.height
-									// 	);
-									// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-									// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
-				
-									// 	textLayer.moveTo((textLayer.x * offsetScale) + offsetX,(textLayer.y * offsetScale) + offsetY);
-									// 	textLayer.scaleBy(offsetScale);
-									// }
-									slide.addLayer(textLayer);
-								break;
-								case undefined:	//version < 2.1
-								case LayerType.IMAGE:
-									// var imgObj:any = $("<img />");
-									// imgObj.attr("src", json.imageData[layerDatum.imageId]);
-									// imgObj.data("imageId", layerDatum.imageId);
-									// if(layerDatum.name != undefined){
-									// 	imgObj.data("name",layerDatum.name);
-									// }
-									var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
-										transX:layerDatum.transX,
-										transY:layerDatum.transY,
-										scaleX:layerDatum.scaleX,
-										scaleY:layerDatum.scaleY,
-										rotation:layerDatum.rotation,
-										mirrorH:layerDatum.mirrorH,
-										mirrorV:layerDatum.mirrorV,
-									});
-									if(layerDatum.opacity != undefined){
-										img.opacity = layerDatum.opacity;						
-									}
-									if(layerDatum.locked != undefined){
-										img.locked = layerDatum.locked;
-									}
-									if(layerDatum.shared != undefined){
-										img.shared = layerDatum.shared;
-									}
-									if(layerDatum.visible != undefined){
-										img.visible = layerDatum.visible;
-									}
-									if(layerDatum.clipRect != undefined){
-										img.clipRect = layerDatum.clipRect;
-									}
-									// if(isScreenSizeChange){
-									// 	var offsetScale:number = Math.min(
-									// 		Viewer.SCREEN_WIDTH / json.screen.width,
-									// 		Viewer.SCREEN_HEIGHT / json.screen.height
-									// 	);
-									// 	var offsetX:number = (Viewer.SCREEN_WIDTH - json.screen.width * offsetScale) >> 1;
-									// 	var offsetY:number = (Viewer.SCREEN_HEIGHT - json.screen.height * offsetScale) >> 1;
-				
-									// 	imgObj.ready(()=>{
-									// 		img.moveTo((img.x * offsetScale) + offsetX,(img.y * offsetScale) + offsetY);
-									// 		img.scaleBy(offsetScale);
-									// 	});
-									// }
-									slide.addLayer(img);
-								break;
-							}
-						});
-						slides.push(slide);
-					});
-		
-					if(json.bgColor) options.bgColor = json.bgColor;
-					if(json.createTime) options.createTime = json.createTime;
-					if(json.editTime) options.editTime = json.editTime;
-					//if(json.width && !isNaN(parseInt(json.width))) options.width = parseInt(json.width);
-					//if(json.height && !isNaN(parseInt(json.height))) options.height = parseInt(json.height);
-					//if(json.title) options.title = json.title;
-		
-		/*		return new Promise((resolve)=>{
-		
-				});*/
-				//return new VDoc(slides, options);
-	
-					//this.dispatchEvent(new CustomEvent("loaded", {detail:new VDoc(slides, options)}));
-					return new VDoc(slides, options);
-			//	}, 500);
+		//ver2
+		if(json.version >= 2){
+			var width:number = Viewer.SCREEN_WIDTH;
+			var height:number = Viewer.SCREEN_HEIGHT;
+			if(json.screen){
+				width = parseInt(json.screen.width) || width;
+				height = parseInt(json.screen.height) || height;
 			}
+			options.width = width;
+			options.height = height;
+
+			for (let imageId in json.imageData){
+				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+			}
+
+			$.each(json.slideData, (number, slideDatum:any)=>{
+				var slide:Slide = new Slide(width, height);
+				slide.durationRatio = slideDatum.durationRatio;
+				slide.joining = slideDatum.joining;
+				slide.disabled = slideDatum.disabled;
+				
+				var layers:any[];
+				if(json.version >= 2.1){
+					layers = slideDatum.layers;
+				}else{
+					layers = slideDatum.images;
+				}
+
+
+				$.each(layers, (j:number, layerDatum:any)=>{
+					switch(layerDatum.type){
+						case LayerType.TEXT:
+							var textLayer = new TextLayer(layerDatum.text, {
+								transX:layerDatum.transX,
+								transY:layerDatum.transY,
+								scaleX:layerDatum.scaleX,
+								scaleY:layerDatum.scaleY,
+								rotation:layerDatum.rotation,
+								mirrorH:layerDatum.mirrorH,
+								mirrorV:layerDatum.mirrorV,
+							});
+							if(layerDatum.opacity != undefined){
+								textLayer.opacity = layerDatum.opacity;						
+							}
+							if(layerDatum.locked != undefined){
+								textLayer.locked = layerDatum.locked;
+							}
+							if(layerDatum.shared != undefined){
+								textLayer.shared = layerDatum.shared;
+							}
+							if(layerDatum.visible != undefined){
+								textLayer.visible = layerDatum.visible;
+							}
+							slide.addLayer(textLayer);
+						break;
+						case undefined:	//version < 2.1
+						case LayerType.IMAGE:
+							var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
+								transX:layerDatum.transX,
+								transY:layerDatum.transY,
+								scaleX:layerDatum.scaleX,
+								scaleY:layerDatum.scaleY,
+								rotation:layerDatum.rotation,
+								mirrorH:layerDatum.mirrorH,
+								mirrorV:layerDatum.mirrorV,
+							});
+							if(layerDatum.opacity != undefined){
+								img.opacity = layerDatum.opacity;						
+							}
+							if(layerDatum.locked != undefined){
+								img.locked = layerDatum.locked;
+							}
+							if(layerDatum.shared != undefined){
+								img.shared = layerDatum.shared;
+							}
+							if(layerDatum.visible != undefined){
+								img.visible = layerDatum.visible;
+							}
+							if(layerDatum.clipRect != undefined){
+								img.clipRect = layerDatum.clipRect;
+							}
+							slide.addLayer(img);
+						break;
+					}
+				});
+				slides.push(slide);
+			});
+
+			if(json.bgColor) options.bgColor = json.bgColor;
+			if(json.createTime) options.createTime = json.createTime;
+			if(json.editTime) options.editTime = json.editTime;
+			//if(json.title) options.title = json.title;
+
+			return new VDoc(slides, options);
+		}
 	}
 	//
 	

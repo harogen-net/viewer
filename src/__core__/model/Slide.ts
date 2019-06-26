@@ -13,10 +13,6 @@ export class Slide extends EventDispatcher {
 	// 	return slide;
 	// }
 
-
-//	static centerX():number { return Viewer.SCREEN_WIDTH >> 1; }
-//	static centerY():number { return Viewer.SCREEN_HEIGHT >> 1; }
-
 	static readonly LAYER_NUM_MAX:number = 20;
 
 	//
@@ -44,33 +40,15 @@ export class Slide extends EventDispatcher {
 	constructor(width:number = 0, height:number = 0, protected _layers:Layer[] = []){
 		super();
 
-//		this._width = width || Viewer.SCREEN_WIDTH;
-//		this._height = height || Viewer.SCREEN_HEIGHT;
 		this._width = width || (VDoc.shared ? VDoc.shared.width : Viewer.SCREEN_WIDTH);
 		this._height = height || (VDoc.shared ? VDoc.shared.height : Viewer.SCREEN_HEIGHT);
 		
 		this._layers.forEach(layer=>{
-			layer.addEventListener("update", this.onLayerUpdate);
+			layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 			layer.parent = this;
 		});
 		
 		this._id = Math.floor(Math.random() * 90000) + 10000;
-
-//		this._layers = [];
-
-//		this.obj.addClass("slide");
-
-		// this.container = $('<div class="container" />').appendTo(this.obj);
-		// this.container.css("width",Viewer.SCREEN_WIDTH + "px");
-		// this.container.css("height",Viewer.SCREEN_HEIGHT + "px");
-		
-		// if(this.obj.width() == 0 && this.obj.height() == 0){
-		// 	this.obj.ready(() => {
-		// 		this.updateSize();
-		// 	});
-		// }else {
-		// 	this.updateSize();
-		// }
 	}
 
 	public clone():this {
@@ -132,7 +110,7 @@ export class Slide extends EventDispatcher {
 		if(this._layers.indexOf(layer) != -1){
 			this._layers.splice(this._layers.indexOf(layer), 1);
 			layer.parent = null;
-			layer.removeEventListener("update", this.onLayerUpdate);
+			layer.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));
 			this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		}
@@ -147,18 +125,10 @@ export class Slide extends EventDispatcher {
 
 
 	public fitLayer(layer:Layer):Layer {
-		console.log("fitLayer", layer, layer.originWidth, layer.originHeight);
 		if(layer.originWidth == 0 || layer.originHeight ==0)
 		{
 			return layer;
 		}
-
-/*		if(layer.width == Viewer.SCREEN_WIDTH && layer.height == Viewer.SCREEN_HEIGHT){
-			layer.x = Slide.centerX()
-			layer.y = Slide.centerY();
-			layer.scale = 1;
-			return layer;
-		}*/
 
 		var scaleX,scaleY;
 		if(layer.rotation == 90 || layer.rotation == -90){
@@ -184,7 +154,6 @@ export class Slide extends EventDispatcher {
 			layer.x = this.centerX;
 			layer.y = this.centerY;
 		}
-		console.log(scale1);
 
 		return layer;
 	}
@@ -194,8 +163,7 @@ export class Slide extends EventDispatcher {
 	// private methods
 	//
 	private onLayerUpdate = (pe:PropertyEvent)=>{
-		this.dispatchEvent(new CustomEvent("update", {detail:this}));
-		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe), propKeys:pe.propKeys}}));
+		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe), propFlags:pe.propFlags}}));
 	}
 
 
@@ -211,11 +179,9 @@ export class Slide extends EventDispatcher {
 
 	get width(){
 		return this._width;
-		//return Viewer.SCREEN_WIDTH * this._scale * this.scale_base;
 	}
 	get height(){
 		return this._height;
-		//return Viewer.SCREEN_HEIGHT * this._scale * this.scale_base;
 	}
 	get centerX(){
 		return this._width >> 1;

@@ -14,6 +14,7 @@ import { LayerView } from "./__core__/view/LayerView";
 import { Slide } from "./__core__/model/Slide";
 import { SEPropDiv } from "./SEPropDiv";
 import { SELayerDiv } from "./SELayerDiv";
+import { VDoc } from "./__core__/model/VDoc";
 
 
 declare var $:any;
@@ -164,7 +165,7 @@ export class SlideEdit extends EventDispatcher {
 		$(".text").click(()=>{
 			var textLayer:TextLayer = new TextLayer(prompt("insert text layer:"));
 			this.slideView.slide.addLayer(textLayer);
-			textLayer.moveTo(Viewer.SCREEN_WIDTH >> 1, Viewer.SCREEN_HEIGHT >> 1);
+			textLayer.moveTo(this.slideView.slide.centerX, this.slideView.slide.centerY);
 		});
 
 
@@ -178,42 +179,38 @@ export class SlideEdit extends EventDispatcher {
 		});
 
 		$("input.imageRef").on("change",(e)=>{
-		/*	if(this.slide.selectedLayer == null) return;
-
-			var targetImage:Image = this.slide.selectedLayer as Image;
-			if(targetImage == null) return;
-
-			var targetImageId:string = targetImage.imageId;
+			if(this.slideView.selectedLayer == null || this.slideView.selectedLayer.type != LayerType.IMAGE) return;
+			var targetImage:ImageLayer = this.slideView.selectedLayer as ImageLayer;
 			var reader = new FileReader();
-			reader.addEventListener('load', (e2:any) => {
-				var imgObj = $('<img src="' + reader.result + '" />');
-
+			reader.addEventListener('load', async (e2:any) => {
 				var shaObj = new jsSHA("SHA-256","TEXT");
 				shaObj.update(reader.result);
- 				imgObj.bind("load",()=>{
-					imgObj.unbind("load");
-					imgObj.ready(()=>{
+				var imageId = shaObj.getHash("HEX");
 
-						if($("input#cb_imageRef").prop("checked")){
-							ImageManager.swapImageAll(targetImageId, imgObj);
-						}else{
-							targetImage.swap(imgObj);
-							this.slide.dispatchEvent(new Event("update"));
-						}
+				await ImageManager.shared.registImageData(imageId, reader.result as string);
+				if($("input#cb_imageRef").prop("checked")){
 
-						$("input.imageRef").val("");
+					VDoc.shared.slides.forEach(slide=>{
+						slide.layers.forEach(layer=>{
+							if(layer.type != LayerType.IMAGE) return;
+							var imageLayer:ImageLayer = layer as ImageLayer;
+							if(imageLayer.imageId == targetImage.imageId){
+								imageLayer.imageId = imageId;
+							}
+						});
 					});
-					$("body").append(imgObj);
-				});
-				imgObj.data("imageId",shaObj.getHash("HEX")); 
-				imgObj.data("name",e.target.files[0].name); 
+
+				}else{
+					targetImage.imageId = imageId;
+				}
+
 			});
 			try{
 				reader.readAsDataURL(e.target.files[0]);
 			}
 			catch(err){
 				console.log(err);
-			}*/
+			}
 		});
 
 		$("button.download").click(()=>{
@@ -293,16 +290,18 @@ export class SlideEdit extends EventDispatcher {
 	// }
 
 	setMode(mode:ViewerMode):void {
-		// switch(mode){
-		// 	case ViewerMode.SELECT:
-		// 		this.shadow.css("min-height",this.shadow.height());
-		// 	break;
-		// 	case ViewerMode.EDIT:
-		// 		setTimeout(()=>{
-		// 			this.shadow.css("min-height","");
-		// 		},300);
-		// 	break;
-		// }
+		switch(mode){
+			case ViewerMode.SELECT:
+				this.slideView.isActive = false;
+//				this.shadow.css("min-height",this.shadow.height());
+			break;
+			case ViewerMode.EDIT:
+				this.slideView.isActive = true;
+					/*				setTimeout(()=>{
+					this.shadow.css("min-height","");
+				},300);*/
+			break;
+		}
 	} 
 
 	public setSlide(newSlide:Slide) {

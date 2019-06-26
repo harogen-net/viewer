@@ -149,7 +149,7 @@ export class Viewer {
 		});
 
 		this.edit.addEventListener("download", ()=>{
-			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, Viewer.SCREEN_WIDTH, Viewer.SCREEN_HEIGHT, 1, this.document.bgColor);
+			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, this.edit.slideView.slide.height, this.edit.slideView.slide.width, 1, this.document.bgColor);
 			DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.document.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
 		});
 
@@ -297,7 +297,6 @@ export class Viewer {
 
 		//
 
-//		this.document = doc || new VDoc([], {width:(Viewer.SCREEN_WIDTH / 8), height:(Viewer.SCREEN_HEIGHT / 8)});
 		this.document = doc || new VDoc();
 		this.list.slides = this.document.slides;
 	}

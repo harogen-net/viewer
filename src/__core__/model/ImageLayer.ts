@@ -2,6 +2,7 @@ import { Layer, LayerType } from "./Layer";
 //import { IImage } from "./ILayer";
 import { ImageManager } from "../../utils/ImageManager";
 import { PropertyEvent } from "../../events/LayerEvent";
+import { PropFlags } from "./PropFlags";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -45,42 +46,44 @@ export class ImageLayer extends Layer {
 	//
 	public get imageId():string {return this._imageId;}
 	public set imageId(value:string) {
-		this._imageId = this.imageId;
+		this._imageId = value;
 		this._originWidth = ImageManager.shared.getImageById(this._imageId).width;
 		this._originHeight = ImageManager.shared.getImageById(this._imageId).height;
-		this.dispatchEvent(new Event("imageUpdate"));
+		
+		//変形も変えてもらいたいためSCALE_Xも同時に投げているがはたして
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_IMAGEID|PropFlags.SCALE_X));	
 	}	
 	public set clipRect(value:number[]){
 		this._clipRect = value.slice(0,4);
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
 	public get clipRect():number[]{
 		return this._clipRect;
 	}
 	public set clipT(value:number){
 		this._clipRect[0] = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
 	public get clipT():number {
 		return this._clipRect[0];
 	}
 	public set clipR(value:number){
 		this._clipRect[1] = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
 	public get clipR():number {
 		return this._clipRect[1];
 	}
 	public set clipB(value:number){
 		this._clipRect[2] = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
 	public get clipB():number {
 		return this._clipRect[2];
 	}
 	public set clipL(value:number){
 		this._clipRect[3] = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["clipRect"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
 	public get clipL():number {
 		return this._clipRect[3];

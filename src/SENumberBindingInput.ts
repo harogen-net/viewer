@@ -18,13 +18,15 @@ export class PropertyInput {
 
 	private _targetObject:EventDispatcher;
 	private _targetKey:string = "";
+	private _targetFlag:number = 0;
 
 	constructor(public obj:any, option:any = {}){
 
 		if(!isNaN(parseFloat(option.init))) this.init = option.init;
 		if(!isNaN(parseFloat(option.min))) this.min = option.min;
 		if(!isNaN(parseFloat(option.max))) this.max = option.max;
-		if(option.key != undefined && TypeChecker.isString(option.key)) this._targetKey = option.key; 
+		if(option.key != undefined && TypeChecker.isString(option.key)) this._targetKey = option.key;
+		if(option.flag != undefined && TypeChecker.isNumber(option.flag)) this._targetFlag = option.flag;
 
 		this._value = this.init;
 
@@ -184,6 +186,9 @@ export class PropertyInput {
 		}
 		this._targetKey = value;
 	}
+	public set targetFlag(value:number) {
+		this._targetFlag = value;
+	}
 
 	private set value(val:number){
 		this._value = val;
@@ -212,8 +217,8 @@ export class PropertyInput {
 		if(this.locked) return;
 		if(this._targetKey == "") return;
 		if(pe.targe != this._targetObject) return;
-		if(pe.propKeys.length == 0 || pe.propKeys.indexOf(this._targetKey) != -1){
-			this.update();
+		if(this._targetFlag & pe.propFlags){
+		 	this.update();
 		}
 	}
 }

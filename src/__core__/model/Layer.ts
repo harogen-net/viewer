@@ -2,6 +2,7 @@ import { EventDispatcher } from "../../events/EventDispatcher";
 import { Slide } from "./Slide";
 import { PropertyEvent } from "../../events/LayerEvent";
 import { UUIDGenerator } from "../../utils/UUIDGenerator";
+import { PropFlags } from "./PropFlags";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -85,12 +86,12 @@ export class Layer extends EventDispatcher {
 	public moveTo(x:number, y:number):void{
 		this._transX = x - (this._originWidth / 2);
 		this._transY = y - (this._originHeight / 2);
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["x", "y"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.X|PropFlags.Y));
 	}
 	public moveBy(x:number,y:number):void{
 		this._transX += x;
 		this._transY += y;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["x","y"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.X|PropFlags.Y));
 	}
  	public scaleBy(scaleX:number, scaleY:number = NaN):void{
 		this._scaleX *= scaleX;
@@ -99,11 +100,11 @@ export class Layer extends EventDispatcher {
 		}else{
 			this._scaleY *= scaleY;
 		}
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["scaleX","scaleY","scale"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_X|PropFlags.SCALE_Y));
 	}
 	public rotateBy(theta:number):void{
 		this._rotation += theta * 180 / Math.PI;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["rotation"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ROTATION));
 	}
 
 	public clone(id:number = -1):this {
@@ -140,35 +141,47 @@ export class Layer extends EventDispatcher {
 
 	public get name():string{return this._name;}
 	public set name(value:string){
-		this._name = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["name"]));
+		if(value != this._name){
+			this._name = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.NAME));
+		}
 	}
 
 	public get visible():boolean{ return this._visible;}
 	public set visible(value:boolean){
-		this._visible = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["visible"]));
+		if(value != this._visible){
+			this._visible = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.VISIBLE));
+		}
 	}
 
 	public get mirrorH(){return this._mirrorH;}
 	public set mirrorH(value){
-		this._mirrorH = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["mirrorH"]));
+		if(value != this._mirrorH){
+			this._mirrorH = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.MIRROR_H));
+		}
 	}
 	public get mirrorV(){return this._mirrorV;}
 	public set mirrorV(value){
-		this._mirrorV = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["mirrorV"]));
+		if(value != this._mirrorV){
+			this._mirrorV = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.MIRROR_V));
+		}
 	}
 	public get shared(){return this._shared;}
 	public set shared(value){
-		this._shared = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["shared"]));
+		if(value != this._shared){
+			this._shared = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SHARED));
+		}
 	}
 	public get locked(){return this._locked;}
 	public set locked(value){
-		this._locked = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["locked"]));
+		if(value != this._locked){
+			this._locked = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.LOCKED));
+		}
 	}
 	
 
@@ -177,22 +190,22 @@ export class Layer extends EventDispatcher {
 	}
 	public set x(value:number){
 		this._transX = value - (this._originWidth / 2);
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["x"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.X));
 	}
 	public get y():number{return (this._originHeight / 2) + this._transY;}
 	public set y(value:number){
 		this._transY = value  - (this._originHeight / 2);
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["y"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.Y));
 	}
 
 	public set transX(value:number) {
 		this._transX = value;		
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["x"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.X));
 	}
 	public get transX():number {return this._transX;}
 	public set transY(value:number) {
 		this._transY = value;		
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["y"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.Y));
 	}
 	public get transY():number {return this._transY;}
 
@@ -205,25 +218,25 @@ export class Layer extends EventDispatcher {
 		value = Math.max(Math.max(value, this._scaleX_min), this._scaleY_min);
 		this._scaleX = value;
 		this._scaleY = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["scaleX","scaleY","scale"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_X|PropFlags.SCALE_Y));
 	}
 	public get scaleX(){return this._scaleX;}
 	public set scaleX(value){
 		if(isNaN(value)) value = 1;
 		this._scaleX = (value > this._scaleX_min) ? value : this._scaleX_min;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["scaleX","scale"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_X));
 	}
 	public get scaleY(){return this._scaleY;}
 	public set scaleY(value){
 		if(isNaN(value)) value = 1;
 		this._scaleY = (value > this._scaleY_min) ? value : this._scaleY_min;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["scaleY","scale"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_Y));
 	}
 	public get rotation(){return this._rotation;}
 	public set rotation(value){
 		if(isNaN(value)) value = 0;
 		this._rotation = ((value + 180) % (360)) - 180;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["rotation"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ROTATION));
 	}
 	public get angle(){
 		return this._rotation * Math.PI / 180;
@@ -233,8 +246,10 @@ export class Layer extends EventDispatcher {
 		if(isNaN(value)) value = 1;
 		if(value > 1) value = 1;
 		if(value < 0) value = 0;
-		this._opacity = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["opacity"]));
+		if(value != this._opacity){
+			this._opacity = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.OPACITY));
+		}
 	}
 
 
@@ -243,13 +258,17 @@ export class Layer extends EventDispatcher {
 
 	public get originWidth(){return this._originWidth;}
 	public set originWidth(value:number){
-		this._originWidth = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["width"]));
+		if(value != this._originWidth){
+			this._originWidth = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_X));
+		}
 	}
 	public get originHeight(){return this._originHeight;}
 	public set originHeight(value:number){
-		this._originHeight = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["height"]));
+		if(value != this._originHeight){
+			this._originHeight = value;
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_Y));
+		}
 	}
  	// public get diagonalAngle(){
 	// 	return Math.atan2(this.height, this.width);
@@ -276,7 +295,7 @@ export class Layer extends EventDispatcher {
 		this._rotation = value.rotation || 0;
 		this._mirrorH = value.mirrorH || false;
 		this._mirrorV = value.mirrorV || false;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, ["x","y","scaleX","scaleY","scale","rotation","mirrorH","mirroV"]));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.ROTATION|PropFlags.MIRROR_H|PropFlags.MIRROR_V));
 	}
 
 	public get matrix():number[]{

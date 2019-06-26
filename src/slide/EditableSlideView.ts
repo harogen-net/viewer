@@ -12,6 +12,7 @@ import { ImageView } from "../__core__/view/ImageView";
 import { LayerViewFactory } from "../__core__/view/LayerViewFactory";
 import { Slide } from "../__core__/model/Slide";
 import { VDoc } from "../__core__/model/VDoc";
+import { PropFlags } from "../__core__/model/PropFlags";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -217,7 +218,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			var textLayerView = layerView as TextView;
 			textLayerView.textObj.off("focusout.textLayer_edit");
 		}
-		//this.dispatchEvent(new Event("update"));
 
 		//share
 		if(this.listSharedLayers[layer.uuid] != undefined){
@@ -576,15 +576,17 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	// event handlers
 	//
 	private onLayerViewSelect = (ce:CustomEvent)=>{
+		if(!this.isActive) return;
 		this.selectLayerView(ce.detail as LayerView);
 	}
 	private onLayerUpdate = (ce:CustomEvent)=>{
+		if(!this.isActive) return;
 		//this.sharedLayerOpetation(ce.detail.layer, "update", ce.detail.propKeys);
 		var layer:Layer = ce.detail.layer;
 		if(!layer) return;
 
-		var propKeys:string[] = ce.detail.propKeys;
-		if(propKeys.indexOf("shared") != -1){
+		var flag:number = ce.detail.propFlags;
+		if(flag & PropFlags.SHARED){
 			if(layer.shared){
 				this.listSharedLayers(layer);
 			}else{
@@ -597,6 +599,8 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}
 	};
 	private onLayerRemove2 = (ce:CustomEvent)=>{
+		if(!this.isActive) return;
+
 		var layer:Layer = ce.detail.layer;
 		if(layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined){
 			if(window.confirm('remove shared layers. Are you sure?')){
