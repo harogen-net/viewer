@@ -532,7 +532,7 @@ input.imageRef {
 .slide.editable .controls {
 	position:absolute;
 	z-index:10;
-	display:none;
+/*	display:none;*/
 	left:0;
 	top:0;
 	width:0;

@@ -117,7 +117,7 @@ export class LayerView extends EventDispatcher {
 	//
 	// event handlers
 	//
-	private onLayerUpdate = (pe:PropertyEvent)=>{
+	protected onLayerUpdate = (pe:PropertyEvent)=>{
 		this.updateView(pe.propFlags);
 	};
 
