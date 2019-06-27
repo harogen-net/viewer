@@ -6,6 +6,7 @@ import { PropFlags } from "../model/PropFlags";
 import { TextLayer } from "../model/TextLayer";
 import { TextView } from "./TextView";
 import { Slide } from "../model/Slide";
+import { threadId } from "worker_threads";
 
 declare var $:any;
 declare var Matrix4: any;
@@ -71,17 +72,17 @@ export class AdjustView extends LayerView {
 			this.startEdit();
 			e.stopImmediatePropagation();
 		});
-		this.frame.on("wheel", (e:any) => {
-			if(!this._targetLayerView) return;
+		// this.frame.on("wheel", (e:any) => {
+		// 	if(!this._targetLayerView) return;
 
-			var theta:number = (e.originalEvent.deltaY / 20) * (Math.PI / 180);
-			if(KeyboardManager.isDown(16)){
-				theta = (45 * e.originalEvent.deltaY / Math.abs(e.originalEvent.deltaY)) * (Math.PI / 180);
-			}
-			this._targetLayerView.data.rotateBy(theta);
-			e.preventDefault();
-			e.stopImmediatePropagation();
-		});
+		// 	var theta:number = (e.originalEvent.deltaY / 20) * (Math.PI / 180);
+		// 	if(KeyboardManager.isDown(16)){
+		// 		theta = (45 * e.originalEvent.deltaY / Math.abs(e.originalEvent.deltaY)) * (Math.PI / 180);
+		// 	}
+		// 	this._targetLayerView.data.rotateBy(theta);
+		// 	e.preventDefault();
+		// 	e.stopImmediatePropagation();
+		// });
 
 
 		this.controls.appendTo(this.obj);
@@ -217,6 +218,8 @@ export class AdjustView extends LayerView {
 	protected updateView(flag:number = PropFlags.ALL) {
 		if(!this._data) return;
 
+		super.updateView(flag);
+
 		if(flag & PropFlags.LOCKED){
 			if(this._data.locked){
 				this.obj.hide();
@@ -224,8 +227,12 @@ export class AdjustView extends LayerView {
 				this.obj.show();
 			}
 		}
+		if(flag & PropFlags.IMG_IMAGEID){
+			this.obj.css("width", this._targetLayerView.data.originWidth + "px");
+			this.obj.css("height", this._targetLayerView.data.originHeight + "px");
+			this.updateMatrix();
+		}
 
-		super.updateView(flag);
 	}
 
 	protected updateMatrix() {

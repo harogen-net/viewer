@@ -52,7 +52,7 @@ export class Slide extends EventDispatcher {
 	}
 
 	public clone():this {
-		console.log("clone at slide : " + this.id);
+		console.log("clone at slide : " + this.id, this._layers.length);
 		var slide:this = new (this.constructor as any)(this._width, this._height, this._layers.map(layer=>{
 			return layer.clone();
 		}));

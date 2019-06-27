@@ -189,12 +189,12 @@ export class SlideEdit extends EventDispatcher {
 
 				await ImageManager.shared.registImageData(imageId, reader.result as string);
 				if($("input#cb_imageRef").prop("checked")){
-
+					var fromImageId:string = targetImage.imageId;	//直参照すると途中で変わってしまうため変数に退避
 					VDoc.shared.slides.forEach(slide=>{
 						slide.layers.forEach(layer=>{
 							if(layer.type != LayerType.IMAGE) return;
 							var imageLayer:ImageLayer = layer as ImageLayer;
-							if(imageLayer.imageId == targetImage.imageId){
+							if(imageLayer.imageId == fromImageId){
 								imageLayer.imageId = imageId;
 							}
 						});

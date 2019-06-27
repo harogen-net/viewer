@@ -357,7 +357,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}
 	}
 
-	private sharedLayerOpetation(layer:Layer, mode:string, props:string[] = []) {
+	private sharedLayerOpetation(layer:Layer, mode:string, flag:number) {
 		if(!layer.shared) return;
 
 		if(this.sharedLayersByUUID[layer.uuid] == undefined){
@@ -365,10 +365,32 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}
 
 		this.sharedLayersByUUID[layer.uuid].forEach(tmpLayer=>{
-			tmpLayer.transform = layer.transform;
-			tmpLayer.visible = layer.visible;
-			tmpLayer.locked = layer.locked;
-			tmpLayer.opacity = layer.opacity;
+			if(flag & (PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.ROTATION|PropFlags.MIRROR_H|PropFlags.MIRROR_V)){
+				tmpLayer.transform = layer.transform;
+			}
+			if(flag & PropFlags.VISIBLE){
+				tmpLayer.visible = layer.visible;
+			}
+			if(flag & PropFlags.LOCKED){
+				tmpLayer.locked = layer.locked;
+			}
+			if(flag & PropFlags.OPACITY){
+				tmpLayer.opacity = layer.opacity;
+			}
+
+			if(layer.type == LayerType.IMAGE){
+				if(flag & PropFlags.IMG_IMAGEID){
+					(tmpLayer as ImageLayer).imageId = (layer as ImageLayer).imageId;
+				}
+				if(flag & PropFlags.IMG_CLIP){
+					(tmpLayer as ImageLayer).clipRect = (layer as ImageLayer).clipRect;
+				}
+			}
+			if(layer.type == LayerType.TEXT){
+				if(flag & PropFlags.IMG_IMAGEID){
+					(tmpLayer as TextLayer).text = (layer as TextLayer).text;
+				}
+			}
 		});
 	}
 
@@ -424,7 +446,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			}
 		}else{
 			if(layer.shared){
-				this.sharedLayerOpetation(layer,"");
+				this.sharedLayerOpetation(layer,"",flag);
 			}
 		}
 		if(flag & PropFlags.IMG_IMAGEID){
@@ -443,6 +465,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				this.sharedLayersByUUID[layer.uuid].forEach(tmpLayer=>{
 					tmpLayer.parent.removeLayer(tmpLayer);
 				});
+				delete this.sharedLayersByUUID[layer.uuid];
 			}
 		}
 	};

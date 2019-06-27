@@ -17,7 +17,7 @@ export class SlideShow extends EventDispatcher {
 
 	private slideContainer:any;
 
-	private slides:SlideView[];
+	private slides:SlideView[] = [];
 	private data:any[];
 	private index:number;
 	private isInit:boolean;
@@ -72,23 +72,23 @@ export class SlideShow extends EventDispatcher {
 		};
 	}
 
-	setUp(slides:Slide[]):void {
-		//console.log("setup at slideshow", this._isRun);
+	setUp(targetSlides:Slide[]):void {
+		console.log("setup at slideshow", targetSlides.length);
 		this.intialize();
 
 		this.interval = parseInt($("#interval").val());
 		this.duration = parseInt($("#duration").val());
 //		this.bgColor = $("#bgColor").val();
 
-		slides = slides.filter((value:Slide)=>{
+		targetSlides = targetSlides.filter((value:Slide)=>{
 			return !value.disabled;
 		});
 
 		var slideIndex:number = 0;
 		var lastSlide:Slide = undefined;
-		for(var i:number = 0; i < slides.length; i++){
-			var slide:Slide = slides[i];
-			var lastSlide:Slide = (i == 0) ? slides[slides.length - 1] : slides[i - 1];
+		for(var i:number = 0; i < targetSlides.length; i++){
+			var slide:Slide = targetSlides[i];
+			var lastSlide:Slide = (i == 0) ? targetSlides[targetSlides.length - 1] : targetSlides[i - 1];
 
 			var newObj:any = $('<div />');
 			var slideForSS:Slide = slide.clone();
@@ -97,9 +97,10 @@ export class SlideShow extends EventDispatcher {
 			slideForSS.durationRatio = slide.durationRatio;
 			slideForSS.joining = slide.joining;
 			slideForSS.disabled = slide.disabled;
-			$.each(slide.layers, (number, layer:Layer) => {
-				slideForSS.addLayer(layer.clone());
-			});
+			// $.each(slide.layers, (number, layer:Layer) => {
+			// 	slideForSS.addLayer(layer.clone());
+			// });
+
 	
 
 //			var slideForSS:SlideView = slide.clone();
@@ -134,13 +135,10 @@ export class SlideShow extends EventDispatcher {
 			var newObj:any = $('<div />');
 			var slideForSS:Slide = slide.clone();
 			var slideViewForSS:DOMSlideView = new DOMSlideView(slideForSS, newObj);
-			slideForSS.id = slides[0].id;
-			slideForSS.durationRatio = slides[0].durationRatio;
-			slideForSS.joining = slides[0].joining;
-			slideForSS.disabled = slides[0].disabled;
-			$.each(slides[0].layers, (number, layer:Layer) => {
-				slideForSS.addLayer(layer.clone());
-			});
+			slideForSS.id = targetSlides[0].id;
+			slideForSS.durationRatio = targetSlides[0].durationRatio;
+			slideForSS.joining = targetSlides[0].joining;
+			slideForSS.disabled = targetSlides[0].disabled;
 	
 			this.slides.push(slideViewForSS);
 			this.slideContainer.append(slideViewForSS.obj);
@@ -181,7 +179,7 @@ export class SlideShow extends EventDispatcher {
 				this.slides.pop().destroy();
 			}
 		}
-		//this.slides = [];
+
 		this.data = [];
 		this.history = [];
 
