@@ -17,7 +17,9 @@ export class SlideView extends EventDispatcher {
 	}
 
 	public destroy(){
+		this._slide.removeAllLayers();
 		this._slide = null;
+		this.obj.stop();
 		this.obj.remove();
 		this.obj = null;
 	}

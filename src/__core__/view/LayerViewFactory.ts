@@ -15,7 +15,7 @@ export class LayerViewFactory {
 			case LayerType.TEXT:
 				return new TextView(data as TextLayer, $('<div />'));
 			default:
-				return new LayerView(data, $('<div />'));
+				return new LayerView(data, $('<div class="layerWrapper"  />'));
 //				return null;
 		}
 	}

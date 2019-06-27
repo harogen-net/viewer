@@ -32,6 +32,17 @@ export class DOMSlideView extends SlideView {
 		});
 	}
 
+	public destroy(){
+		// this._slide.removeAllLayers();
+		// this._slide = null;
+		// this.obj.stop();
+		// this.obj.remove();
+		// this.obj = null;
+		this._slide.removeEventListener("layerAdd", this.onLayerAdd);
+		this._slide.removeEventListener("layerRemove", this.onLayerRemove);
+		this._slide.removeEventListener("update", this.onSlideUpdate);
+		super.destroy();
+	}
 
 	
 

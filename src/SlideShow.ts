@@ -48,9 +48,6 @@ export class SlideShow extends EventDispatcher {
 
 		$(window).resize(()=>{
 			setTimeout(()=>{
-/*				$.each(this.slides, (index:number, slide:SlideView) =>{
-				//	slide.updateSize();
-				})*/
 				this.updateSlideSize();
 			},50);
 
@@ -180,13 +177,11 @@ export class SlideShow extends EventDispatcher {
 		}
 
 		if(this.slides){
-			$.each(this.slides, (index:number, slide:SlideView) =>{
-				slide.slide.removeAllLayers();
-				slide.obj.stop();
-				slide.obj.remove();
-			});
+			while(this.slides.length > 0){
+				this.slides.pop().destroy();
+			}
 		}
-		this.slides = [];
+		//this.slides = [];
 		this.data = [];
 		this.history = [];
 

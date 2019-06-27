@@ -166,18 +166,16 @@ export class Viewer {
 			$("label[for='cb_ignore']").hide();
 
 			$(".startSlideShow").click(() => {
-				if(this.list.slides.length < 1) return;
-				this.slideShow.setUp(this.list.slides);
-
+				var slides:Slide[] = [];
 				var startIndex:number = 0;
-				if(this.list.selectedSlideIndex != -1){
-					for(var i:number = 0; i < this.list.slides.length; i++){
-						if(i == this.list.selectedSlideIndex) break;
-						var slide = this.list.slides[i];
-						if(!slide.disabled) startIndex++;
-					}
+				for(var i:number = 0; i < this.document.slides.length; i++){
+					var slide:Slide = this.document.slides[i];
+					if(slide.disabled) continue;
+					slides.push(slide.clone());
+					if(i == this.list.selectedSlideIndex) startIndex = slides.length - 1;
 				}
-
+				if(slides.length == 0) return;
+				this.slideShow.setUp(slides);
 				this.slideShow.run(startIndex);
 			});
 			$("#cb_mirrorH").click(()=>{

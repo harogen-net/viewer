@@ -77,7 +77,7 @@ export class Slide extends EventDispatcher {
 		}
 
 		var isAdd = (this._layers.indexOf(layer) == -1);
-		console.log("addLayer at slide", layer, index, isAdd);
+		//console.log("addLayer at slide", layer, index, isAdd);
 		// console.log(layer);
 
 		if(!isAdd){
