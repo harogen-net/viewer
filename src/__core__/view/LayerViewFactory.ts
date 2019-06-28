@@ -13,7 +13,7 @@ export class LayerViewFactory {
 			case LayerType.IMAGE:
 				return new ImageView(data as ImageLayer, $('<div class="layerWrapper" />'));
 			case LayerType.TEXT:
-				return new TextView(data as TextLayer, $('<div />'));
+				return new TextView(data as TextLayer, $('<div class="layerWrapper"  />'));
 			default:
 				return new LayerView(data, $('<div class="layerWrapper"  />'));
 //				return null;

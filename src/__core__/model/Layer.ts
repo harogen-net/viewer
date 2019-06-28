@@ -102,8 +102,8 @@ export class Layer extends EventDispatcher {
 		}
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_X|PropFlags.SCALE_Y));
 	}
-	public rotateBy(theta:number):void{
-		this._rotation += theta * 180 / Math.PI;
+	public rotateBy(degree:number):void{
+		this._rotation += degree;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ROTATION));
 	}
 

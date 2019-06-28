@@ -15,6 +15,7 @@ import { Slide } from "./__core__/model/Slide";
 import { SEPropDiv } from "./SEPropDiv";
 import { SELayerDiv } from "./SELayerDiv";
 import { VDoc } from "./__core__/model/VDoc";
+import { VMInput, VMButton } from "./__core__/view/VMInput";
 
 
 declare var $:any;
@@ -37,23 +38,23 @@ export class SlideEdit extends EventDispatcher {
 		super();
 		this.obj.addClass("slideCanvas");
 
-		this.UIsForImage = [
-			$("#main button.cut"),
-			$("#main button.copy"),
-			$("#main button.fit"),
-			$("#main button.rotateL"),
-			$("#main button.rotateR"),
-			$("#main button.mirrorH"),
-			$("#main button.mirrorV"),
-			$("#main button.delete"),
-			$("#main button.copyTrans"),
-			$("#main button.pasteTrans"),
-//			$("#main button.imageRef"),
-			$("#main button.download"),
-			$("#main button.up"),
-			$("#main button.down")
-		];
-		this.UIsForImage.forEach(obj=>{obj.prop("disabled", true);});
+// 		this.UIsForImage = [
+// //			$("#main button.cut"),
+// 			$("#main button.copy"),
+// 			$("#main button.fit"),
+// 			$("#main button.rotateL"),
+// 			$("#main button.rotateR"),
+// 			$("#main button.mirrorH"),
+// 			$("#main button.mirrorV"),
+// 			$("#main button.delete"),
+// 			$("#main button.copyTrans"),
+// 			$("#main button.pasteTrans"),
+// //			$("#main button.imageRef"),
+// 			$("#main button.download"),
+// 			$("#main button.up"),
+// 			$("#main button.down")
+// 		];
+// 		this.UIsForImage.forEach(obj=>{obj.prop("disabled", true);});
 
 		//
 
@@ -63,14 +64,78 @@ export class SlideEdit extends EventDispatcher {
 
 		//
 
+		var vms:VMInput[] = [
+			new VMButton($("#main button.cut"), Layer, ()=>{
+				this.slideView.cut();
+			}),
+			new VMButton($("#main button.copy"), Layer, ()=>{
+				this.slideView.copy();
+			}),
+			new VMButton($("#main button.rotateL"), Layer, ()=>{
+				if(!this.slideView.editingLayer) return;
+				this.slideView.editingLayer.rotateBy(-90);
+			}),
+			new VMButton($("#main button.rotateR"), Layer, ()=>{
+				if(!this.slideView.editingLayer) return;
+				this.slideView.selectedLayer.rotateBy(90);
+			}),
+			new VMButton($("#main button.mirrorH"), Layer, ()=>{
+				if(!this.slideView.editingLayer) return;
+				this.slideView.editingLayer.mirrorH = !this.slideView.editingLayer.mirrorH;
+			}),
+			new VMButton($("#main button.mirrorV"), Layer, ()=>{
+				if(!this.slideView.editingLayer) return;
+				this.slideView.editingLayer.mirrorV = !this.slideView.editingLayer.mirrorV;
+			}),
+			new VMButton($("#main button.copyTrans"), Layer, ()=>{
+				this.slideView.copyTrans();
+			}),
+			new VMButton($("#main button.pasteTrans"), Layer, ()=>{
+				this.slideView.pasteTrans();
+			}),
+			new VMButton($("#main button.fit"), Layer, ()=>{
+				this.slideView.fitSelectedLayer();
+			}),
+			new VMButton($("#main button.imageRef"), ImageLayer, ()=>{
+				$("input.imageRef")[0].click();
+			}),
+			new VMButton($("#main button.download"), ImageLayer, ()=>{
+				if(this.slideView.selectedLayerView == null) return;
+				if(this.slideView.selectedLayerView.type != LayerType.IMAGE) return;
+	
+				var a = document.createElement("a");
+				a.href = ImageManager.shared.getSrcById((this.slideView.selectedLayer as ImageLayer).imageId);
+				a.target = '_blank';
+				a.download = this.slideView.selectedLayer.name;
+				a.click();
+				window.URL.revokeObjectURL(a.href);
+			}),
+
+			new VMButton($("#main button.up"), Layer, ()=>{
+				this.slideView.swapLayer(this.slideView.selectedLayer, 1);
+			}),
+			new VMButton($("#main button.down"), Layer, ()=>{
+				this.slideView.swapLayer(this.slideView.selectedLayer, -1);
+			}),
+			new VMButton($("#main button.top"), Layer, ()=>{
+				this.slideView.swapLayer(this.slideView.selectedLayer, Slide.LAYER_NUM_MAX);
+			}),
+			new VMButton($("#main button.bottom"), Layer, ()=>{
+				this.slideView.swapLayer(this.slideView.selectedLayer, -Slide.LAYER_NUM_MAX);
+			}),
+		];
+
+		$(".paste").click(() => {
+			this.slideView.paste();
+		});
+		
+
+
 		this.slideView.addEventListener("select", (any)=>{
-			$.each(this.UIsForImage, (number, obj:any)=>{
-				obj.prop("disabled", this.slideView.selectedLayerView == null);
-				obj.removeClass("on");
-			});
-			
-			$("button.imageRef").prop("disabled", !(this.slideView.selectedLayerView != null && this.slideView.selectedLayerView.type == LayerType.IMAGE));
-		//	$(".property .clip dd input").prop("disabled", !(this.slideView.selectedLayerView != null && this.slideView.selectedLayerView.type == LayerType.IMAGE));
+			vms.forEach(vmi=>{
+				vmi.target = this.slideView.selectedLayer;
+			})
+
 
 			if(this.slideView.selectedLayerView != null){
 				if(this.slideView.selectedLayer.mirrorH){
@@ -87,13 +152,7 @@ export class SlideEdit extends EventDispatcher {
 			catch {
 				this.propDiv.targetLayer = null;
 			}
-			
-			//this.updateMenu(this.slideView.layerViews);
 		});
-
-		// this.slideView.addEventListener("update",(any)=>{
-		// 	this.updateMenu(this.slideView.layerViews);
-		// });
 
 
 //		this.slideView.addEventListener("scale",(any)=>{
@@ -114,51 +173,6 @@ export class SlideEdit extends EventDispatcher {
 		$(".zoomOut").click(() => {
 			this.slideView.scale /= 1.1;
 		});
-
-		$(".cut").click(() => {
-			this.slideView.cut();
-		});
-		$(".copy").click(() => {
-			this.slideView.copy();
-		});
-		$(".paste").click(() => {
-			this.slideView.paste();
-		});
-		
-		$(".rotateL").click(() => {
-			if(this.slideView.selectedLayerView && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.rotation -= 90;
-			}
-		});
-		$(".rotateR").click(() => {
-			if(this.slideView.selectedLayerView && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.rotation += 90;
-			}
-		});
-
-		$(".mirrorH").click(() => {
-			if(this.slideView.selectedLayerView && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.mirrorH = !this.slideView.selectedLayer.mirrorH;
-				$(".mirrorH").toggleClass("on");
-			}
-		});
-		$(".mirrorV").click(() => {
-			if(this.slideView.selectedLayerView && !this.slideView.selectedLayer.locked && this.slideView.selectedLayer.visible) {
-				this.slideView.selectedLayer.mirrorV = !this.slideView.selectedLayer.mirrorV;
-				$(".mirrorV").toggleClass("on");
-			}
-		});
-
-		$(".copyTrans").click(() => {
-			this.slideView.copyTrans();
-		});
-		$(".pasteTrans").click(() => {
-			this.slideView.pasteTrans();
-		});
-	
-		$(".fit").click(() => {
-			this.slideView.fitSelectedLayer();
-		});
 		$(".slideDownload").click(()=>{
 			this.dispatchEvent(new Event("download"));
 		});
@@ -173,66 +187,32 @@ export class SlideEdit extends EventDispatcher {
 			$("input#cb_imageRef").prop("checked", !$("input#cb_imageRef").prop("checked"));
 			return false;
 		});
-		
-		$("button.imageRef").click(()=>{
-			$("input.imageRef")[0].click();
-		});
-
-		$("input.imageRef").on("change",(e)=>{
+		$("input.imageRef").on("change", async (e)=>{
 			if(this.slideView.selectedLayer == null || this.slideView.selectedLayer.type != LayerType.IMAGE) return;
 			var targetImage:ImageLayer = this.slideView.selectedLayer as ImageLayer;
-			var reader = new FileReader();
-			reader.addEventListener('load', async (e2:any) => {
-				var shaObj = new jsSHA("SHA-256","TEXT");
-				shaObj.update(reader.result);
-				var imageId = shaObj.getHash("HEX");
+			var newImageId:string = await ImageManager.shared.registImageFromFile(e.target.files[0]);
 
-				await ImageManager.shared.registImageData(imageId, reader.result as string);
-				if($("input#cb_imageRef").prop("checked")){
-					var fromImageId:string = targetImage.imageId;	//直参照すると途中で変わってしまうため変数に退避
-					VDoc.shared.slides.forEach(slide=>{
-						slide.layers.forEach(layer=>{
-							if(layer.type != LayerType.IMAGE) return;
-							var imageLayer:ImageLayer = layer as ImageLayer;
-							if(imageLayer.imageId == fromImageId){
-								imageLayer.imageId = imageId;
-							}
-						});
+			if($("input#cb_imageRef").prop("checked")){
+				var fromImageId:string = targetImage.imageId;	//直参照すると途中で変わってしまうため変数に退避
+				VDoc.shared.slides.forEach(slide=>{
+					slide.layers.forEach(layer=>{
+						if(layer.type != LayerType.IMAGE) return;
+						var imageLayer:ImageLayer = layer as ImageLayer;
+						if(imageLayer.imageId == fromImageId){
+							imageLayer.imageId = newImageId;
+						}
 					});
+				});
 
-				}else{
-					targetImage.imageId = imageId;
-				}
-
-			});
-			try{
-				reader.readAsDataURL(e.target.files[0]);
-			}
-			catch(err){
-				console.log(err);
+			}else{newImageId
+				targetImage.imageId = newImageId;
 			}
 		});
 
-		$("button.download").click(()=>{
-			if(this.slideView.selectedLayerView == null) return;
-			if(this.slideView.selectedLayerView.type != LayerType.IMAGE) return;
-
-			var a = document.createElement("a");
-			a.href = ImageManager.shared.getSrcById((this.slideView.selectedLayer as ImageLayer).imageId);
-			a.target = '_blank';
-			a.download = this.slideView.selectedLayer.name;
-			a.click();
-			window.URL.revokeObjectURL(a.href);
-		});
 
 
 
-		$(".canvas button.up").click(()=>{
-			this.slideView.changeLayerOrder(this.slideView.selectedLayer, true);
-		});
-		$(".canvas button.down").click(()=>{
-			this.slideView.changeLayerOrder(this.slideView.selectedLayer, false);
-		});
+
 
 		$(".close").click(() => {
 			this.dispatchEvent(new Event("close"));

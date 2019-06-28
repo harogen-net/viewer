@@ -181,13 +181,13 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 	//
 
-	selectLayerView(targetLayer:LayerView|null = null){
-		this.selectedLayerView = targetLayer;
+	selectLayerView(targetLayerView:LayerView|null = null){
+		this.selectedLayerView = targetLayerView;
 		this.adjustView.targetLayerView = this.selectedLayerView;
 		this.dispatchEvent(new Event("select"));
 		
 		$.each(this.layerViews, (i:number ,layerView:LayerView) => {
-			if(layerView != targetLayer) layerView.selected = false;
+			if(layerView != targetLayerView) layerView.selected = false;
 		});
 
 		if(this.selectedLayerView !== null){
@@ -210,10 +210,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	cut(){
 		if(!this._isActive) return;
 		if(this.selectedLayerView){
-			this.copyedLayer = this.selectedLayerView.data.clone();
-			//面倒くさいので、コピーするレイヤーはsharedをオフにする
-			this.copyedLayer.shared = false;
-
+			this.copy();
 			this._slide.removeLayer(this.selectedLayerView.data);
 		}
 	}
@@ -224,6 +221,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			this.copyedLayer = this.selectedLayerView.data.clone();
 			//面倒くさいので、コピーするレイヤーはsharedをオフにする
 			this.copyedLayer.shared = false;
+			$(".paste").prop("disabled", false);
 		}
 	}
 
@@ -261,12 +259,14 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		this._slide.fitLayer(this.selectedLayerView.data);
 	}
 
-	public changeLayerOrder(layer:Layer, direction:boolean) {
+	public swapLayer(layer:Layer, indexDef:number) {
 		if(this._slide.layers.indexOf(layer) == -1) return;
-		var index:number = this._slide.layers.indexOf(layer) + (direction ? 1 : -1);
-		if(index < 0) return;
-		if(index > this._slide.layers.length - 1) return;
-		this._slide.addLayer(layer, index);
+		var fromIndex:number = this._slide.layers.indexOf(layer);
+		var toIndex:number = fromIndex + indexDef;
+		if(toIndex < 0) toIndex = 0;
+		if(toIndex > this._slide.layers.length - 1) toIndex = this._slide.layers.length - 1;
+		if(fromIndex == toIndex) return;
+		this._slide.addLayer(layer, toIndex);
 	}
 
 	protected replaceSlide(newSlide:Slide) {
@@ -418,11 +418,15 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	// }
 
 	public get selectedLayer():Layer {
-		if(this.selectLayerView) {
+		if(this.selectedLayerView) {
 			return this.selectedLayerView.data;
 		}else{
 			return null;
 		}
+	}
+	public get editingLayer():Layer{
+		if(!this.selectLayerView && this.selectedLayer.locked && !this.selectedLayer.visible) return null;
+		return this.selectedLayer;
 	}
 
 	//
@@ -447,12 +451,11 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}else{
 			if(layer.shared){
 				this.sharedLayerOpetation(layer,"",flag);
-			}
-		}
-		if(flag & PropFlags.IMG_IMAGEID){
-			if(layer.shared){
-				delete this.sharedLayersByUUID[layer.uuid];
-				this.listSharedLayers(layer);
+
+				if(flag & PropFlags.IMG_IMAGEID){
+					delete this.sharedLayersByUUID[layer.uuid];
+					this.listSharedLayers(layer);
+				}
 			}
 		}
 	};

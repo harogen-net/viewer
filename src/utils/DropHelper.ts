@@ -3,8 +3,6 @@ import {IDroppable} from "../interface/IDroppable";
 import { ImageManager } from "./ImageManager";
 
 declare var $:any;
-declare var jsSHA:any;
-//declare function require(x: string): any;
 
 export class DropHelper extends EventDispatcher {
 	public static readonly EVENT_DROP_COMPLETE:string = "DropHelper.EVENT_DROP_COMPLETE";
@@ -34,8 +32,9 @@ export class DropHelper extends EventDispatcher {
 			e.stopImmediatePropagation();
 			obj.removeClass("fileOver");
 
-			var files:any[] = [];
-			$.each(e.originalEvent.dataTransfer.files, (index:number, file:any) => {
+			var files:File[] = [];
+			//e.originalEvent.dataTransfer.files.forEach(file=>{
+			$.each(e.originalEvent.dataTransfer.files, (index:number, file:File) => {
 				files.push(file);
 			});
 
@@ -53,46 +52,16 @@ export class DropHelper extends EventDispatcher {
 				}
 			}
 
-			let loadFile = async (file:any) => {
-                var reader = new FileReader();
-				reader.addEventListener('load', async (e:any) => {
-					//var imgObj = $('<img src="' + reader.result + '" />');
-
-					var imgSrc:string|ArrayBuffer = reader.result;
- 					var shaObj = new jsSHA("SHA-256","TEXT");
-					shaObj.update(imgSrc);
-
-					var imageId:string = shaObj.getHash("HEX");
-					//var sha256digest = shaObj.getHash("HEX"); 
-
-//					imgObj.bind("load",()=>{
-//						imgObj.unbind("load");
-//						$("body").append(imgObj);
-//						imgObj.ready(()=>{
-							await ImageManager.shared.registImageData(imageId, imgSrc as string, file.name);
-							var ce:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:imageId});
-							//var e:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:shaObj.getHash("HEX")});
-							this.dispatchEvent(ce);
-							
-							if(files.length > 0){
-								loadFile(files.shift());
-							}else{
-								console.log("drop complete");
-							}
-                        //});
-//					});
-					//imgのjqueryオブジェクトに画像バイナリデータから生成したハッシュ値を固有IDとしてセット
-//					imgObj.data("imageId",shaObj.getHash("HEX"));
-//					imgObj.data("name",file.name);
-				});
+			files.forEach(async file=>{
 				try{
-					reader.readAsDataURL(file);
+					var imageId:string = await ImageManager.shared.registImageFromFile(file);
+					var ce:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:imageId});
+					this.dispatchEvent(ce);
 				}
-				catch(Error){
-					
+				catch(e){
+					console.log(e);
 				}
-			}
-			loadFile(files.shift());
+			});
 		});
 
     }

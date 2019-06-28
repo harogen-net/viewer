@@ -73,7 +73,6 @@ export class Viewer {
 			if(this._mode == ViewerMode.SELECT){
 			}else if(this._mode == ViewerMode.EDIT){
 				if(this.list.selectedSlide){
-//					this.edit.slideView.isActive = true;
 					this.edit.setSlide(this.list.selectedSlide);
 				}else{
 					this.edit.initialize();
@@ -82,8 +81,8 @@ export class Viewer {
 		})
 		this.list.addEventListener("edit", ()=>{
 			if(this.list.selectedSlide){
-				this.edit.setSlide(this.list.selectedSlide);
 				this.setMode(ViewerMode.EDIT);
+				this.edit.setSlide(this.list.selectedSlide);
 			}
 		});
 

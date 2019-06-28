@@ -1,8 +1,9 @@
 import {EventDispatcher} from "../events/EventDispatcher";
 import { ImageLayer } from "../__core__/model/ImageLayer";
-import { resolve } from "dns";
+import { url } from "inspector";
 
 declare var $:any;
+declare var jsSHA:any;
 
 export class ImageManager extends EventDispatcher {
 
@@ -95,6 +96,30 @@ export class ImageManager extends EventDispatcher {
 				};
 				imgDom.src = src;
 			}
+		});
+	}
+
+	public registImageFromFile(file:File):Promise<string> {
+		if(file.type.indexOf("image") == -1) {
+			throw new Error("select image file.");
+		}
+
+		return new Promise<string>((resolve)=>{
+			var reader = new FileReader();
+			reader.addEventListener('load', async () => {
+				var shaObj = new jsSHA("SHA-256","TEXT");
+				shaObj.update(reader.result);
+				var imageId = shaObj.getHash("HEX");
+	
+				await this.registImageData(imageId, reader.result as string, file.name);
+				resolve(imageId);
+			});
+			try{
+				reader.readAsDataURL(file);
+			}
+			catch(err){
+				throw new Error("load error.");
+			}		
 		});
 	}
 
