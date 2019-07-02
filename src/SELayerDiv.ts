@@ -10,24 +10,18 @@ export class SELayerDiv {
 	private ulObj:any;
 
 	private items:SELayerListItem[];
-//	private _targetSlideView:EditableSlide;
 	private _layerViews:LayerView[];
 
 	constructor(private obj:any){
 		this.items = [];
 		for(var i:number = 0; i < Slide.LAYER_NUM_MAX; i++){
 			var item = new SELayerListItem();
-		//	item.addEventListener("update", this.onLayerUpdate);
 			this.items.push(item);
 		}
 
 		var bg:any = $('<div class="bg" />');
 		this.obj.append(bg);
 		bg.on("click",(any)=>{
-			// if(this._targetSlideView != null){
-			// 	this._targetSlideView.selectLayerView(null);
-			// }
-
 			this.items.forEach(item=>{
 				if(!item.layerView) return;
 				if(item.layerView.selected) item.layerView.selected = false;
@@ -43,7 +37,6 @@ export class SELayerDiv {
 			item.layerView = null;
 		});
 
-//		console.log(this._layerViews);
 		if(this._layerViews){
 			$.each(this._layerViews, (i:number, layerView:LayerView)=>{
 				this.ulObj.prepend(this.items[i].obj);
@@ -59,17 +52,9 @@ export class SELayerDiv {
 	//
 	// set get
 	//
-
 	public set layerViews(value:LayerView[]) {
 		this._layerViews = value;
 		this.updateLayers();
 	}
 
-	//
-	// event listeners
-	//
-	// private onSlideUpdate = (ce:CustomEvent)=>{
-	// };
-	// private onLayerUpdate = (ce:CustomEvent)=>{
-	// };
 }

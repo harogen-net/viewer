@@ -190,10 +190,6 @@ label {
 .menu button:disabled:hover {
 	opacity: 1;
 }
-.menu button.on {
-	color:white;
-	text-shadow:0 0 1px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1);
-}
 
 #menu button.fileSelect {
 	width:1.5em;
@@ -350,12 +346,12 @@ input.imageRef {
 	justify-content: flex-end;
 }
 .slideCanvas .sideMenu .property div + div {
-	margin-top: 10px;
+	margin-top: 5px;
 }
 .slideCanvas .sideMenu .property dl {
 	margin: 0;
 	padding: 0;
-	font-size: 80% !important;
+	font-size: 11px;
 	width: 100%;
 }
 .slideCanvas .sideMenu .property dl dt,
@@ -387,6 +383,9 @@ input.imageRef {
 .slideCanvas .sideMenu .property dl.clip dd {
 	width: calc((60% - 15px)/4);
 }
+.slideCanvas .sideMenu .property dl dd > button {
+	font-size:80%;
+}
 .slideCanvas .sideMenu .property button {
 	width: 50%;
 	margin:0;
@@ -396,6 +395,13 @@ input.imageRef {
 }
 .slideCanvas .sideMenu .property button:disabled {
 	cursor: default;
+}
+.slideCanvas .sideMenu .property button.on {
+	color:white;
+	text-shadow:0 0 1px rgba(255,255,255,1), 0 0 8px rgba(255,255,255,1);
+	background-color: #333333;
+	border-color: #333333;
+	
 }
 .slideCanvas .sideMenu .property div.copypaste button {
 	width: 30%;

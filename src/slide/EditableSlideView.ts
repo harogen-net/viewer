@@ -51,7 +51,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 		this.adjustView = new AdjustView();
 		this.container.append(this.adjustView.obj);
-		//this.shadow = $('<div class="shadow" />').appendTo(this.obj);
 		this.border = $('<div class="border" />').appendTo(this.container);
 
 		//
@@ -64,9 +63,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}else {
 			this.updateSize();
 		}
-
-
-
 
 		$(this.obj).on("wheel", (e:any) => {
 			if(!this._isActive ) return;
@@ -219,8 +215,8 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		if(!this._isActive) return;
 		if(this.selectedLayerView){
 			this.copyedLayer = this.selectedLayerView.data.clone();
-			//面倒くさいので、コピーするレイヤーはsharedをオフにする
-			this.copyedLayer.shared = false;
+			//面倒くさいので、コピーするレイヤーはsharedをオフにする⇒やっぱめんどい
+			//this.copyedLayer.shared = false;
 			$(".paste").prop("disabled", false);
 		}
 	}
@@ -254,20 +250,10 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	}
 
 
-	public fitSelectedLayer(){
-		if(!this.selectedLayerView) return;
-		this._slide.fitLayer(this.selectedLayerView.data);
-	}
-
-	public swapLayer(layer:Layer, indexDef:number) {
-		if(this._slide.layers.indexOf(layer) == -1) return;
-		var fromIndex:number = this._slide.layers.indexOf(layer);
-		var toIndex:number = fromIndex + indexDef;
-		if(toIndex < 0) toIndex = 0;
-		if(toIndex > this._slide.layers.length - 1) toIndex = this._slide.layers.length - 1;
-		if(fromIndex == toIndex) return;
-		this._slide.addLayer(layer, toIndex);
-	}
+	// public fitSelectedLayer(){
+	// 	if(!this.selectedLayerView) return;
+	// 	this._slide.fitLayer(this.selectedLayerView.data);
+	// }
 
 	protected replaceSlide(newSlide:Slide) {
 		this.selectLayerView(null);
@@ -394,6 +380,39 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		});
 	}
 
+	private sharedLayerSpread(layer:Layer){
+		if(!layer.shared) return;
+
+		var func = (slide:Slide)=>{
+			var find = false;
+			for(var i = 0; i < slide.layers.length; i++){
+				var tmpLayer:Layer = slide.layers[i];
+				if(!tmpLayer.shared) continue;
+				if(tmpLayer.type != layer.type) continue;
+				if(layer.type == LayerType.IMAGE){
+					if((layer as ImageLayer).imageId == (tmpLayer as ImageLayer).imageId){
+						find = true;
+						break;
+					}
+				}
+			}
+			if(!find){
+				slide.addLayer(layer.clone());
+			}
+			return find;
+		}
+
+		var slide:Slide;
+		slide = VDoc.shared.getNextSlide(this._slide);
+		while(slide && !func(slide)){
+			slide = VDoc.shared.getNextSlide(slide);
+		}
+		slide = VDoc.shared.getPrevSlide(this._slide);
+		while(slide && !func(slide)){
+			slide = VDoc.shared.getPrevSlide(slide);
+		}
+	}
+
 	//
 	// get set
 	//
@@ -444,6 +463,9 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		var flag:number = ce.detail.propFlags;
 		if(flag & PropFlags.SHARED){
 			if(layer.shared){
+				if(window.confirm('paste layer to all slides. Are you sure?')){
+					this.sharedLayerSpread(layer);
+				}
 				this.listSharedLayers(layer);
 			}else{
 				delete this.sharedLayersByUUID[layer.uuid];

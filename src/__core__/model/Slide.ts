@@ -5,6 +5,14 @@ import { Viewer } from "../../Viewer";
 import { PropertyEvent } from "../../events/LayerEvent";
 
 
+export enum Direction {
+	TOP = 0,
+	RIGHT,
+	BOTTOM,
+	LEFT
+}
+
+
 export class Slide extends EventDispatcher {
 
 	// static slideFromImage(img:Layer):SlideView {
@@ -125,6 +133,7 @@ export class Slide extends EventDispatcher {
 
 
 	public fitLayer(layer:Layer):Layer {
+		if(this._layers.indexOf(layer) == -1) return layer;
 		if(layer.originWidth == 0 || layer.originHeight ==0)
 		{
 			return layer;
@@ -155,6 +164,36 @@ export class Slide extends EventDispatcher {
 			layer.y = this.centerY;
 		}
 
+		return layer;
+	}
+
+	public arrangeLayer(layer:Layer, direction:Direction):Layer {
+		if(this._layers.indexOf(layer) == -1) return layer;
+		switch(direction){
+			case Direction.TOP:
+				layer.y = layer.bounds.height >> 1;
+				break;
+			case Direction.RIGHT:
+				layer.x = this._width - (layer.bounds.width >> 1);
+				break;
+			case Direction.BOTTOM:
+				layer.y = this._height - (layer.bounds.height >> 1);
+				break;
+			case Direction.LEFT:
+				layer.x = layer.bounds.width >> 1;
+				break;
+		}
+		return layer;
+	}
+
+	public swapLayer(layer:Layer, indexDef:number):Layer {
+		if(this._layers.indexOf(layer) == -1) return layer;
+		var fromIndex:number = this._layers.indexOf(layer);
+		var toIndex:number = fromIndex + indexDef;
+		if(toIndex < 0) toIndex = 0;
+		if(toIndex > this._layers.length - 1) toIndex = this._layers.length - 1;
+		if(fromIndex == toIndex) return;
+		this.addLayer(layer, toIndex);
 		return layer;
 	}
 

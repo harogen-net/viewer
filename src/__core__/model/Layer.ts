@@ -238,7 +238,7 @@ export class Layer extends EventDispatcher {
 		this._rotation = ((value + 180) % (360)) - 180;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ROTATION));
 	}
-	public get angle(){
+	public get radian(){
 		return this._rotation * Math.PI / 180;
 	}
 	public get opacity(){return this._opacity;}
@@ -255,6 +255,28 @@ export class Layer extends EventDispatcher {
 
 	public get width(){ return this._originWidth * this._scaleX; }
 	public get height(){ return this._originHeight * this._scaleY; }
+	public get halfWidth(){ return this.width >> 1; }
+	public get halfHeight(){ return this.height >> 1; }
+	public get bounds():{width:number, height:number}{
+		var cos = Math.cos(this.radian);
+		var sin = Math.sin(this.radian);
+		var rotate = (x,y):{x:number,y:number}=>{
+			var nx = (cos * (x)) - (sin * (y));
+			var ny = (cos * (y)) + (sin * (x));
+			return {x:nx, y:ny};
+		};
+		var points:{x:number, y:number}[] = [
+			rotate(this.halfWidth, this.halfHeight),
+			rotate(-this.halfWidth, this.halfHeight),
+			rotate(-this.halfWidth, -this.halfHeight),
+			rotate(this.halfWidth, -this.halfHeight)
+		];
+
+		return {
+			width:points.map(a=>a.x).reduce((a,b)=>Math.max(a,b)) * 2,
+			height:points.map(a=>a.y).reduce((a,b)=>Math.max(a,b)) * 2
+		};
+	}
 
 	public get originWidth(){return this._originWidth;}
 	public set originWidth(value:number){

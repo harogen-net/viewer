@@ -94,7 +94,7 @@ export class SlideToPNGConverter {
 
 			//３：原点を中心に回転を行う
 			//（ミラー設定前に回転してしまうと方向がおかしくなる、前回のバグはこの順序が原因ではないか）
-			ctx.rotate(image.angle);
+			ctx.rotate(image.radian);
 
 			//２：原点を中心に拡大縮小を行う（ミラー設定があるので、回転より先に行う）
 			ctx.scale(image.scaleX * (image.mirrorH ? -1 : 1), image.scaleY * (image.mirrorV ? -1 : 1));

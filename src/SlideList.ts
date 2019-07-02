@@ -168,7 +168,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		setTimeout(()=>{
 			this.selectSlide(clonedSlide);
-		},50)
+		},300)
 
 		return clonedSlide;
 	}
@@ -219,19 +219,23 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 			this._slides.splice(index, 1);
 			slide.removeAllLayers();
+			slide.clearEventListener();
+			slide = null;
 		}
 
 		if(isAnimation){
 			this.obj.css("pointer-events","none");
 			slideView.obj.fadeOut(200, () => {
 				this.obj.css("pointer-events","");
-				removeMain();
-				this.sortSlideViewByIndex();
 				if(nextSlide){
 					this.selectSlide(nextSlide);
 				}else{
 					this.dispatchEvent(new Event("close"));
 				}
+				//実際に削除するのは、editableに表示されなくなってから
+				//そうしないと、slide削除時に共有レイヤダイアログが出てうざったい
+				removeMain();
+				this.sortSlideViewByIndex();
 			});
 		}else{
 			removeMain();
@@ -262,20 +266,6 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			slideView.selected = (slide == slideView.slide);
 		});
 
-		// $.each(this._slideViews, (index:number, slide2:ThumbSlide2) => {
-		// 	//slide2.obj.off("click.slide");
-
-		// 	if(slide2.slide == slide){
-		// 		slide2.selected = true;
-		// 		this._selectedSlide = slide;
-
-		// 	}else{
-		// 		slide2.selected = false;
-		// 	/*	slide2.obj.on("click.slide", ()=>{
-		// 			this.selectSlide(slide2.slide);
-		// 		}); */
-		// 	}
-		// })
 		this.dispatchEvent(new Event("select"));
 		this.scrollToSelected();
 	}
@@ -291,8 +281,6 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			break;
 		}
 	}
-
-
 
 	private sortSlideViewByIndex(){
 		if(this._slideViews.length == 0) return;

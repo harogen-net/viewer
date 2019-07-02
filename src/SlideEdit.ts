@@ -1,21 +1,15 @@
 import { EventDispatcher } from "./events/EventDispatcher";
 import { EditableSlideView } from "./slide/EditableSlideView";
-import { SlideView } from "./__core__/view/SlideView";
 import { ImageLayer } from "./__core__/model/ImageLayer";
 import { ImageManager } from "./utils/ImageManager";
-import { SELayerListItem } from "./SELayerListItem";
-import { PropertyInput } from "./SENumberBindingInput";
 import { Viewer,ViewerMode } from "./Viewer";
-import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
-import { DataUtil } from "./utils/DataUtil";
 import { LayerType, Layer } from "./__core__/model/Layer";
 import { TextLayer } from "./__core__/model/TextLayer";
-import { LayerView } from "./__core__/view/LayerView";
-import { Slide } from "./__core__/model/Slide";
-import { SEPropDiv } from "./SEPropDiv";
+import { Slide, Direction } from "./__core__/model/Slide";
 import { SELayerDiv } from "./SELayerDiv";
 import { VDoc } from "./__core__/model/VDoc";
-import { VMInput, VMButton } from "./__core__/view/VMInput";
+import { VMInput, VMButton, VMToggleButton, VMVariableInput } from "./__core__/view/VMInput";
+import { PropFlags } from "./__core__/model/PropFlags";
 
 
 declare var $:any;
@@ -25,41 +19,17 @@ export class SlideEdit extends EventDispatcher {
 
 	public slideView:EditableSlideView;
 
-	private propDiv:SEPropDiv;
-	private layerDiv:SELayerDiv;
+//	private propDiv:SEPropDiv;
+	private layerDiv:SELayerDiv;l
 
-	private shadow:any;
-	private UIsForImage:any[];
-
-
+//	private shadow:any;
 
 
 	constructor(public obj:any){
 		super();
 		this.obj.addClass("slideCanvas");
 
-// 		this.UIsForImage = [
-// //			$("#main button.cut"),
-// 			$("#main button.copy"),
-// 			$("#main button.fit"),
-// 			$("#main button.rotateL"),
-// 			$("#main button.rotateR"),
-// 			$("#main button.mirrorH"),
-// 			$("#main button.mirrorV"),
-// 			$("#main button.delete"),
-// 			$("#main button.copyTrans"),
-// 			$("#main button.pasteTrans"),
-// //			$("#main button.imageRef"),
-// 			$("#main button.download"),
-// 			$("#main button.up"),
-// 			$("#main button.down")
-// 		];
-// 		this.UIsForImage.forEach(obj=>{obj.prop("disabled", true);});
-
-		//
-
 		this.slideView = new EditableSlideView(new Slide(), $('<div />').appendTo(this.obj));
-		this.propDiv = new SEPropDiv($(".property"));
 		this.layerDiv = new SELayerDiv($(".layer"));
 
 		//
@@ -72,21 +42,25 @@ export class SlideEdit extends EventDispatcher {
 				this.slideView.copy();
 			}),
 			new VMButton($("#main button.rotateL"), Layer, ()=>{
-				if(!this.slideView.editingLayer) return;
 				this.slideView.editingLayer.rotateBy(-90);
 			}),
 			new VMButton($("#main button.rotateR"), Layer, ()=>{
-				if(!this.slideView.editingLayer) return;
-				this.slideView.selectedLayer.rotateBy(90);
+				this.selectedLayer.rotateBy(90);
 			}),
-			new VMButton($("#main button.mirrorH"), Layer, ()=>{
-				if(!this.slideView.editingLayer) return;
-				this.slideView.editingLayer.mirrorH = !this.slideView.editingLayer.mirrorH;
+			new VMButton($("#main button.toTop"), Layer, ()=>{
+				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.TOP);
 			}),
-			new VMButton($("#main button.mirrorV"), Layer, ()=>{
-				if(!this.slideView.editingLayer) return;
-				this.slideView.editingLayer.mirrorV = !this.slideView.editingLayer.mirrorV;
+			new VMButton($("#main button.toRight"), Layer, ()=>{
+				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.RIGHT);
 			}),
+			new VMButton($("#main button.toBottom"), Layer, ()=>{
+				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.BOTTOM);
+			}),
+			new VMButton($("#main button.toLeft"), Layer, ()=>{
+				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.LEFT);
+			}),
+			new VMToggleButton($("#main button.mirrorH"), Layer, "mirrorH"),
+			new VMToggleButton($("#main button.mirrorV"), Layer, "mirrorV"),
 			new VMButton($("#main button.copyTrans"), Layer, ()=>{
 				this.slideView.copyTrans();
 			}),
@@ -94,76 +68,77 @@ export class SlideEdit extends EventDispatcher {
 				this.slideView.pasteTrans();
 			}),
 			new VMButton($("#main button.fit"), Layer, ()=>{
-				this.slideView.fitSelectedLayer();
+				this.slide.fitLayer(this.selectedLayer);
 			}),
 			new VMButton($("#main button.imageRef"), ImageLayer, ()=>{
 				$("input.imageRef")[0].click();
 			}),
 			new VMButton($("#main button.download"), ImageLayer, ()=>{
-				if(this.slideView.selectedLayerView == null) return;
-				if(this.slideView.selectedLayerView.type != LayerType.IMAGE) return;
+				if(this.selectedLayer == null) return;
+				if(this.selectedLayer.type != LayerType.IMAGE) return;
 	
 				var a = document.createElement("a");
-				a.href = ImageManager.shared.getSrcById((this.slideView.selectedLayer as ImageLayer).imageId);
+				a.href = ImageManager.shared.getSrcById((this.selectedLayer as ImageLayer).imageId);
 				a.target = '_blank';
-				a.download = this.slideView.selectedLayer.name;
+				a.download = this.selectedLayer.name;
 				a.click();
 				window.URL.revokeObjectURL(a.href);
 			}),
 
 			new VMButton($("#main button.up"), Layer, ()=>{
-				this.slideView.swapLayer(this.slideView.selectedLayer, 1);
+				this.slide.swapLayer(this.selectedLayer, 1);
 			}),
 			new VMButton($("#main button.down"), Layer, ()=>{
-				this.slideView.swapLayer(this.slideView.selectedLayer, -1);
+				this.slide.swapLayer(this.selectedLayer, -1);
 			}),
 			new VMButton($("#main button.top"), Layer, ()=>{
-				this.slideView.swapLayer(this.slideView.selectedLayer, Slide.LAYER_NUM_MAX);
+				this.slide.swapLayer(this.selectedLayer, Slide.LAYER_NUM_MAX);
 			}),
 			new VMButton($("#main button.bottom"), Layer, ()=>{
-				this.slideView.swapLayer(this.slideView.selectedLayer, -Slide.LAYER_NUM_MAX);
+				this.slide.swapLayer(this.selectedLayer, -Slide.LAYER_NUM_MAX);
 			}),
+			new VMVariableInput($(".property .position input").eq(0), Layer, "x", PropFlags.X, {v:-25}),
+			new VMVariableInput($(".property .position input").eq(1), Layer, "y", PropFlags.X, {v:-25}),
+			new VMVariableInput($(".property .scale input"), Layer, "scale", PropFlags.SCALE_X|PropFlags.SCALE_Y, {init:1, min:0.1, max:20, type:"multiply", v:0.1}),
+			new VMVariableInput($(".property .rotation input"), Layer, "rotation", PropFlags.ROTATION, {min:-180, max:180, v:5}),
+			new VMVariableInput($(".property .opacity input"), Layer, "opacity", PropFlags.OPACITY, {min:0, max:1, v:0.05}),
+
+			new VMVariableInput($(".property .clip input").eq(0), ImageLayer, "clipT", PropFlags.IMG_CLIP, {v:-25, min:0}),
+			new VMVariableInput($(".property .clip input").eq(1), ImageLayer, "clipR", PropFlags.IMG_CLIP, {v:-25, min:0}),
+			new VMVariableInput($(".property .clip input").eq(2), ImageLayer, "clipB", PropFlags.IMG_CLIP, {v:-25, min:0}),
+			new VMVariableInput($(".property .clip input").eq(3), ImageLayer, "clipL", PropFlags.IMG_CLIP, {v:-25, min:0}),
 		];
 
-		$(".paste").click(() => {
-			this.slideView.paste();
-		});
+
 		
 
 
 		this.slideView.addEventListener("select", (any)=>{
-			vms.forEach(vmi=>{
-				vmi.target = this.slideView.selectedLayer;
-			})
-
-
-			if(this.slideView.selectedLayerView != null){
-				if(this.slideView.selectedLayer.mirrorH){
-					$("button.mirrorH").addClass("on");
-				}
-				if(this.slideView.selectedLayer.mirrorV){
-					$("button.mirrorV").addClass("on");
-				}
-			}
-
 			try{
-				this.propDiv.targetLayer = this.slideView.selectedLayer;
+				vms.forEach(vmi=>{
+					vmi.target = this.selectedLayer;
+				})
 			}
-			catch {
-				this.propDiv.targetLayer = null;
+			catch (e){
+				console.log(e)
+				vms.forEach(vmi=>{
+					vmi.target = null;
+				})
 			}
 		});
-
 
 //		this.slideView.addEventListener("scale",(any)=>{
 //			this.updateShadow();
 //		});
-		this.shadow = $('<div class="shadow" />')//.appendTo(this.obj);
+//		this.shadow = $('<div class="shadow" />')//.appendTo(this.obj);
 
 
 
 		//
 
+		$(".paste").click(() => {
+			this.slideView.paste();
+		});
 		$(".zoomIn").click(() => {
 			this.slideView.scale *= 1.1;
 		});
@@ -178,8 +153,8 @@ export class SlideEdit extends EventDispatcher {
 		});
 		$(".text").click(()=>{
 			var textLayer:TextLayer = new TextLayer(prompt("insert text layer:"));
-			this.slideView.slide.addLayer(textLayer);
-			textLayer.moveTo(this.slideView.slide.centerX, this.slideView.slide.centerY);
+			this.slide.addLayer(textLayer);
+			textLayer.moveTo(this.slide.centerX, this.slide.centerY);
 		});
 
 
@@ -188,8 +163,8 @@ export class SlideEdit extends EventDispatcher {
 			return false;
 		});
 		$("input.imageRef").on("change", async (e)=>{
-			if(this.slideView.selectedLayer == null || this.slideView.selectedLayer.type != LayerType.IMAGE) return;
-			var targetImage:ImageLayer = this.slideView.selectedLayer as ImageLayer;
+			if(this.selectedLayer == null || this.selectedLayer.type != LayerType.IMAGE) return;
+			var targetImage:ImageLayer = this.selectedLayer as ImageLayer;
 			var newImageId:string = await ImageManager.shared.registImageFromFile(e.target.files[0]);
 
 			if($("input#cb_imageRef").prop("checked")){
@@ -204,31 +179,21 @@ export class SlideEdit extends EventDispatcher {
 					});
 				});
 
-			}else{newImageId
+			}else{
 				targetImage.imageId = newImageId;
 			}
 		});
 
 
-
-
-
-
 		$(".close").click(() => {
 			this.dispatchEvent(new Event("close"));
 		});
-		
-
-
-
 	}
 
 	//
 
 	initialize(){
 		this.slideView.slide = new Slide();
-		this.propDiv.targetLayer = null;
-
 		$(".slideCanvas .menu span.name").text("");
 	}
 
@@ -285,8 +250,8 @@ export class SlideEdit extends EventDispatcher {
 	} 
 
 	public setSlide(newSlide:Slide) {
-		if(this.slideView.slide){
-			this.slideView.slide.removeEventListener("update", ()=>{
+		if(this.slide){
+			this.slide.removeEventListener("update", ()=>{
 				this.layerDiv.update();
 			});
 		}
@@ -295,12 +260,21 @@ export class SlideEdit extends EventDispatcher {
 		$(".slideCanvas .menu span.name").text(newSlide.id);
 
 		this.layerDiv.layerViews = this.slideView.layerViews;
-		if(this.slideView.slide){
-			this.slideView.slide.addEventListener("update", ()=>{
-//				console.log("slide update at SlideEdit");
+		if(this.slide){
+			this.slide.addEventListener("update", ()=>{
 				this.layerDiv.update();
 			});
 		}
-
 	}
+
+	//
+	// getset
+	//
+	private get slide():Slide {
+		return this.slideView.slide;
+	}
+	private get selectedLayer():Layer {
+		return this.slideView.selectedLayer;
+	}
+
 }
