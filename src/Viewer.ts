@@ -86,60 +86,6 @@ export class Viewer {
 			}
 		});
 
-		// this.edit.slideView.addEventListener("sharedPaste",(ce:CustomEvent)=>{
-		// 	if(this._mode == ViewerMode.EDIT){
-		// 		if(this.list.selectedSlide){
-		// 			var targetLayer:Layer = ce.detail.layer as Layer;
-		// 			console.log("sharedPaste : " + targetLayer);
-		// 			if(!targetLayer) return;
-
-		// 			var i:number = this.list.selectedSlideIndex;
-		// 			var found:boolean = false;
-		// 			var slide:Slide = null;
-		// 			var findFunc = (j:number, layer:Layer)=>{
-		// 				if(found) return;
-
-		// 				if(targetLayer.type != layer.type) return;
-		// 				switch(targetLayer.type){
-		// 					case LayerType.IMAGE:
-		// 						if((layer as ImageLayer).imageId == (targetLayer as ImageLayer).imageId) {
-		// 							found = true;
-		// 							return;
-		// 						}
-		// 					break;
-		// 					default:
-		// 						if(layer.id == targetLayer.id) {
-		// 							found = true;
-		// 							return;
-		// 						};
-		// 					break;
-		// 				}
-		// 			}
-		// 			while(--i >= 0){
-		// 				found = false;
-		// 				slide = this.list.slides[i];
-		// 				$.each(slide.layers, findFunc);
-		// 				if(found) {
-		// 					break;
-		// 				}else{
-		// 					slide.addLayer(targetLayer.clone());
-		// 				}
-		// 			}
-		// 			i = this.list.selectedSlideIndex;
-		// 			while(++i < this.list.slides.length){
-		// 				found = false;
-		// 				slide = this.list.slides[i];
-		// 				$.each(slide.layers, findFunc);
-		// 				if(found) {
-		// 					break;
-		// 				}else{
-		// 					slide.addLayer(targetLayer.clone());
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// });
-
 		this.edit.addEventListener("close",()=>{
 			this.setMode(ViewerMode.SELECT);
 		});
@@ -148,7 +94,7 @@ export class Viewer {
 		});
 
 		this.edit.addEventListener("download", ()=>{
-			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, this.edit.slideView.slide.height, this.edit.slideView.slide.width, 1, this.document.bgColor);
+			var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, this.edit.slideView.slide.width, this.edit.slideView.slide.height, 1, this.document.bgColor);
 			DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.document.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
 		});
 

@@ -25,7 +25,7 @@ export class DropHelper extends EventDispatcher {
 
 			obj.removeClass("fileOver");
 		});
-		obj.on("drop.dropManager", (e:any) => {
+		obj.on("drop.dropManager", async (e:any) => {
             if(!target.isActive) return;
             
 			e.preventDefault();
@@ -52,7 +52,10 @@ export class DropHelper extends EventDispatcher {
 				}
 			}
 
-			files.forEach(async file=>{
+			//foreachだと同時に投げられてしまい、不具合が生じる
+			//よって素直にForで回し、順番を保証する
+			for(var i = 0; i < files.length; i++) {
+				var file = files[i];
 				try{
 					var imageId:string = await ImageManager.shared.registImageFromFile(file);
 					var ce:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:imageId});
@@ -61,7 +64,9 @@ export class DropHelper extends EventDispatcher {
 				catch(e){
 					console.log(e);
 				}
-			});
+			}
+			// files.forEach(async file=>{
+			// });
 		});
 
     }

@@ -144,7 +144,7 @@ export class ImageManager extends EventDispatcher {
 		return {
 			width:imgObjData.width,
 			height:imgObjData.height,
-			name:"",
+			name:imgObjData.name,
 			imgObj:imgObjData.imgObj.clone()
 		}
 	}
@@ -155,7 +155,7 @@ export class ImageManager extends EventDispatcher {
 		return {
 			width:imgObjData.width,
 			height:imgObjData.height,
-			name:""
+			name:imgObjData.name
 		}
 	}
 
@@ -178,43 +178,5 @@ export class ImageManager extends EventDispatcher {
 
 
 
-
-
-	// public registImage(image:Image) {
-	// 	console.log("registImage called" );
-	// //	console.log(this.allImages.length);
-	// 	if(this.allImages.indexOf(image) == -1){
-	// 		this.allImages.push(image);
-	// 		console.log("ImageManager : registed : total " + this.allImages.length);
-	// 	}
-
-	// 	$.each(this.allImages, (i, image2:Image)=>{
-	// 		if(image2.imageId){
-	// 			console.log(image2.imageId.substr(0,10) + "...");
-	// 		}
-	// 	});
-	// }
-
-// 	public deleteImage(image:Image) {
-// 		if(this.allImages.indexOf(image) != -1){
-// 			this.allImages.splice(this.allImages.indexOf(image), 1);
-// 			console.log("ImageManager : deleted : total " + this.allImages.length);
-// 		}
-// /*		$.each(this.allImages, (i, image2:Image)=>{
-// 			console.log(image2.imageId.substr(0,10) + "...");
-// 		});*/
-// 	}
-
-	// public swapImageAll(id:string, imgObj:any) {
-	// 	this.allImages.forEach((image:Image)=>{
-	// 		if(image.imageId == id){
-	// 			var imgObj2 = imgObj.clone();
-	// 			imgObj2.data("imageId", imgObj.data("imageId"));
-	// 			image.swap(imgObj2);
-	// 		}
-	// 	});
-
-	// 	imgObj.remove();
-	// }
 
 }

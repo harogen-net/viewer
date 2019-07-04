@@ -231,7 +231,8 @@ export class Slide extends EventDispatcher {
 	
 	get durationRatio(){return this._durationRatio;}
 	set durationRatio(value:number){
-		this._durationRatio = Math.max(value, 0.4);
+		this._durationRatio = Math.max(value, 0.2
+			);
 		this.dispatchEvent(new CustomEvent("update", {detail:this}));
 	}
 

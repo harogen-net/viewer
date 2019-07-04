@@ -47,11 +47,13 @@ export class ImageLayer extends Layer {
 	public get imageId():string {return this._imageId;}
 	public set imageId(value:string) {
 		this._imageId = value;
-		this._originWidth = ImageManager.shared.getImageById(this._imageId).width;
-		this._originHeight = ImageManager.shared.getImageById(this._imageId).height;
+		var data = ImageManager.shared.getImageById(this._imageId);
+		this._originWidth = data.width;
+		this._originHeight = data.height;
+		this._name = data.name;
 		
 		//変形も変えてもらいたいためSCALE_Xも同時に投げているがはたして
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_IMAGEID|PropFlags.SCALE_X));	
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_IMAGEID|PropFlags.NAME|PropFlags.SCALE_X));	
 	}	
 	public set clipRect(value:number[]){
 		this._clipRect = value.slice(0,4);
