@@ -182,6 +182,8 @@ export class SlideEdit extends EventDispatcher {
 			}else{
 				targetImage.imageId = newImageId;
 			}
+			//初期化
+			$("input.imageRef").val(null);
 		});
 
 
