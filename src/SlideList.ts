@@ -164,11 +164,8 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		var clonedSlide:Slide = slide.clone();
 		this.addSlide(clonedSlide, this._slides.indexOf(slide) + 1);
+		this.selectSlide(clonedSlide);
 		slide.joining = true;
-
-		setTimeout(()=>{
-			this.selectSlide(clonedSlide);
-		},300)
 
 		return clonedSlide;
 	}

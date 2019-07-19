@@ -118,8 +118,9 @@ export class ThumbSlideView extends CanvasSlideView {
 	}
 
 	public show(){
-		this.obj.hide().fadeIn(300, () => {
-		});
+		// show immidiately
+		// this.obj.hide().fadeIn(300, () => {
+		// });
 	}
 
 	public destroy() {

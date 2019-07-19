@@ -25,3 +25,7 @@ export enum PropFlags {
 	ALL				= (2**18-1)
 
 }
+
+export enum SlidePropFlags {
+	
+}

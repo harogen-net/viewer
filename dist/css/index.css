@@ -640,14 +640,15 @@ input.imageRef {
 	overflow: hidden;
 	background-color:var(--slideBackgroundColor);
 	margin-right: 10px;
+	transition: margin-right 0.1s ease-in-out;
 }
 .slideList >  .slide.selected {
 	/*border:2px solid red;*/
 	box-shadow: 0 0 2px 2px rgba(255,0,0,.8);
 }
-.slideList > .slide.selected .layerWrapper {
+/* .slideList > .slide.selected .layerWrapper {
 	transition:transform 0.2s;
-}
+} */
 .slideList > .slide.disabled
  {
 	filter: brightness(40%);
