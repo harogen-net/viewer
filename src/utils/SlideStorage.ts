@@ -14,8 +14,8 @@ import { ImageManager } from "./ImageManager";
 import { Slide } from "../__core__/model/Slide";
 
 
-declare var $:any;
-declare var jsSHA:any;
+//declare var $:any;
+//declare var jsSHA:any;
 declare var JSZip:any;
 
 export enum HVDataType {
@@ -38,6 +38,9 @@ export class SlideStorage extends EventDispatcher {
 
 	private embedder:PNGEmbedder;
 
+	public titles:{id:number, title:string}[] = [];
+	public titleById:{[key:string]:string} = {};
+
     constructor() {
 		super();
 
@@ -45,33 +48,18 @@ export class SlideStorage extends EventDispatcher {
 			var openReq  = indexedDB.open(SlideStorage.DBNAME);
 			openReq.onupgradeneeded = (e:any)=>{
 				this.db = e.target.result;
-				//console.log('db upgrade');
 				this.db.createObjectStore("slideTitles", {keyPath:"id",autoIncrement:true});
 				this.db.createObjectStore("slideData",{keyPath:"title"});
 			}
 			openReq.onsuccess = (e:any)=>{
 				this.db = e.target.result;
 				this.dbVersion = this.db.version;
-				//console.log('db open success : ' + this.dbVersion);
 
 				var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 
 				this.titleStore = transaction.objectStore("slideTitles");
 				this.dataStore = transaction.objectStore("slideData");
-				//console.log(this.titleStore, this.dataStore);
-
-				//var putReq = this.titleStore.put({title:"a"});this.titleStore.put({title:"b"});this.titleStore.put({title:"c"});
-
-				//putReq.onsuccess = (e:any)=>{
-				//	var getReq = this.titleStore.get(1);
-				//	getReq.onsuccess = (e:any)=>{
-				//		//console.log(e.target.result); // {id : 'A1', name : 'test'}
-				//	  }
-
-
-					  this.updateTitleMenu();
-
-			  //}
+				this.updateTitleMenu();
 			}
 			openReq.onerror = (e:any)=>{
 				//console.log('db open error');
@@ -101,12 +89,28 @@ export class SlideStorage extends EventDispatcher {
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
-		
-		var putReq1  = this.titleStore.put({"title":DateUtil.getDateString()});
-		//var putReq1  = this.titleStore.put({"title":doc.title});
-		//var putReq2 = this.dataStore.put({title:doc.title, data:jsonStr});
+		var verify = async (title)=>{
+			var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+			this.dataStore = transaction.objectStore("slideData");
+			var getReq = this.dataStore.get(title);
+			getReq.onsuccess = async (e:any)=>{
+				var jsonStr2:string = e.target.result.data;
+				if(jsonStr == jsonStr2){
+//					alert("save complete.");
+				}else{
+					alert("save error!");
+				}
+			}
+			getReq.onerror = async (e:any)=>{
+				alert("save error!");
+			};
+		}
+
+		var title = DateUtil.getDateString()
+		var putReq1  = this.titleStore.put({"title":title});
 		var putReq2 = this.dataStore.put({title:DateUtil.getDateString(), data:jsonStr});
 		putReq2.onsuccess = (e:any)=>{
+			verify(title);
 			this.updateTitleMenu();
 		}
 	}
@@ -145,10 +149,9 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 
-    public load() {
-		//this.slides = [];
-		var title:string = $('select.filename option:selected').text();
-		if(title == "new") return;
+    public load(id:string) {
+		var title = this.titleById[id];
+		if(!title) return;
 
 		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.dataStore = transaction.objectStore("slideData");
@@ -158,6 +161,9 @@ export class SlideStorage extends EventDispatcher {
 			var jsonStr:string = e.target.result.data;
 			this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(jsonStr)}));
 		}
+		getReq.onerror = async (e:any)=>{
+
+		};
 	}
 
 
@@ -218,16 +224,15 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 
-	public delete() {
-		var title:string = $('select.filename option:selected').text();
-		var titleId:number = parseInt($("select.filename").val());
-		if(titleId == -1) return;
-		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+	public delete(id:string) {
+		var title:string = this.titleById[id];
 
+		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
-		var deleteReq1  = this.titleStore.delete(titleId);
+		var deleteReq1  = this.titleStore.delete(parseInt(id));
+		if(!title) return;
 		var deleteReq2 = this.dataStore.delete(title);
 		deleteReq1.onsuccess = (e:any)=>{
 			this.updateTitleMenu();
@@ -338,7 +343,7 @@ export class SlideStorage extends EventDispatcher {
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
 
-			$.each(json.slideData, (number, slideDatum:any)=>{
+			json.slideData.forEach(slideDatum => {
 				var slide:Slide = new Slide(width, height);
 				slide.durationRatio = slideDatum.durationRatio;
 				slide.joining = slideDatum.joining;
@@ -352,7 +357,7 @@ export class SlideStorage extends EventDispatcher {
 				}
 
 
-				$.each(layers, (j:number, layerDatum:any)=>{
+				layers.forEach(layerDatum => {
 					switch(layerDatum.type){
 						case LayerType.TEXT:
 							var textLayer = new TextLayer(layerDatum.text, {
@@ -422,18 +427,19 @@ export class SlideStorage extends EventDispatcher {
 	//
 	
 	private updateTitleMenu() {
-		var newItem = $("select.filename option")[0];
-		$("select.filename").empty();
-		$("select.filename").append($(newItem));
+		this.titles = [];
+		this.titleById = {};
 
-		this.titleStore.openCursor().onsuccess = function (event) {
+		this.titleStore.openCursor().onsuccess = (event)=> {
 			var cursor = event.target.result;
 			if (cursor) {
-				////console.log(cursor);
-				$("select.filename").append('<option value="' + cursor.value.id + '">' + cursor.value.title + '</option>');
+				var id = parseInt(cursor.value.id);
+				var title = cursor.value.title;
+				this.titles.push({id:id, title:title});
+				this.titleById[id] = title;
 				cursor.continue();
 			}else{
-//				$("select.filename option:last-child").prop("selected",true);
+				this.dispatchEvent(new Event("update"));
 			}
 		};
 	}

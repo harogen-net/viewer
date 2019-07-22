@@ -63,6 +63,15 @@ export class Viewer {
 		this.slideShow = new SlideShow($("<div />").appendTo(obj));
 
 		this.storage = new SlideStorage();
+		this.storage.addEventListener("update", (e:CustomEvent)=>{
+			var newItem = $("select.filename option")[0];
+			$("select.filename").empty();
+			$("select.filename").append($(newItem));
+
+			this.storage.titles.forEach(datum=>{
+				$("select.filename").append('<option value="' + datum.id + '">' + datum.title + '</option>');
+			})
+		});
 		this.storage.addEventListener("loaded", (e:CustomEvent)=>{
 			this.newDocument(e.detail as VDoc);
 		});
@@ -144,14 +153,14 @@ export class Viewer {
 				var prevOp = $('select.filename option[value="' + val + '"]').prev();
 				if(prevOp.length == 0) return;
 				$('select.filename').val(prevOp.attr("value"));
-				this.storage.load();
+				this.storage.load(prevOp.attr("value"));
 			});
 			$(".fileSelect.down").click(()=>{
 				var val = $('select.filename').val();
 				var nextOp = $('select.filename option[value="' + val + '"]').next();
 				if(nextOp.length == 0) return;
 				$('select.filename').val(nextOp.attr("value"));
-				this.storage.load();
+				this.storage.load(nextOp.attr("value"));
 			});
 		
 			$(".save").click(()=>{
@@ -162,13 +171,13 @@ export class Viewer {
 			$(".dispose").dblclick(()=>{
 				if($('select.filename').val() == -1) return;
 				if($("#cb_ignore").prop("checked") || window.confirm('delete selected save data. Are you sure?')){
-					this.storage.delete();
+					this.storage.delete($('select.filename').val());
 				}
 			});
 			$(".load").click(()=>{
 				if($('select.filename').val() == -1) return;
 				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
-					this.storage.load();
+					this.storage.load($('select.filename').val());
 				}
 			});
 			

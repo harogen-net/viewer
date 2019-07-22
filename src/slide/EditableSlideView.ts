@@ -32,12 +32,14 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	private border:any;
 
 	private _isActive:boolean = false;
+	public _rectEdit:boolean = false;
 
 	//
 
 	private lastSelectedId:string = "";
 	private lastSelectedIndex:number = -1;
 	private sharedLayersByUUID:{[key:string]:Layer[];}  = {};
+	private rectLayers:Layer[] = [];
 	
 
 
@@ -85,9 +87,9 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			if(layer.originHeight > (layer.originWidth * 1.2)) {
 				layer.rotation -= 90;
 			}
-			this._slide.fitLayer(this._slide.addLayer(layer));
-			var layerView:LayerView = this.getLayerViewByLayer(layer);
-			layerView.selected = true;
+			this._slide.addLayer(layer)
+			this.getLayerViewByLayer(layer).selected = true;
+			this._slide.fitLayer(layer);
 		});
 
 
@@ -191,17 +193,14 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				this.lastSelectedId = (this.selectedLayerView.data as ImageLayer).imageId;
 			}
 			this.lastSelectedIndex = this._slide.layers.indexOf(this.selectedLayerView.data);
+
+			if(this._rectEdit && this.selectedLayerView.data.type == LayerType.IMAGE && !this.selectedLayerView.data.shared){
+				this.listRectLayers(this.selectedLayerView.data);
+			}
+		}else{
+			this.rectLayers = [];
 		}
 	}
-
-	// initialize(){
-	// 	// var tmpLayers:Layer[] = this._slide.layers.concat() as Layer[];
-	// 	// $.each(tmpLayers, (index:number, layer:Layer)=>{
-	// 	// 	this.removeLayer(layer);
-	// 	// });
-	// 	this._slide.layers = [];
-	// 	this.isActive = false;
-	// }
 
 	cut(){
 		if(!this._isActive) return;
@@ -249,13 +248,8 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		this.adjustView.base_scale = this._scale * this.scale_base;
 	}
 
-
-	// public fitSelectedLayer(){
-	// 	if(!this.selectedLayerView) return;
-	// 	this._slide.fitLayer(this.selectedLayerView.data);
-	// }
-
 	protected replaceSlide(newSlide:Slide) {
+		this.rectEdit = false;
 		this.selectLayerView(null);
 
 		this._slide.removeEventListener("layerRemove", this.onLayerRemove2);
@@ -343,14 +337,50 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}
 	}
 
-	private sharedLayerOpetation(layer:Layer, mode:string, flag:number) {
-		if(!layer.shared) return;
+	private listRectLayers(layer:Layer) {
+		if(layer.type != LayerType.IMAGE) return;
+		if(layer.shared) return;
+		this.rectLayers = [];
 
-		if(this.sharedLayersByUUID[layer.uuid] == undefined){
-			this.listSharedLayers(layer);
+		var func = (slide:Slide)=>{
+			var find = false;
+			for(var i = 0; i < slide.layers.length; i++){
+				var tmpLayer:Layer = slide.layers[i];
+				if(tmpLayer.type != layer.type) continue;
+				if(layer.type == LayerType.IMAGE){
+					if(layer.x != tmpLayer.x) continue;
+					if(layer.y != tmpLayer.y) continue;
+					if(layer.originWidth != tmpLayer.originWidth) continue;
+					if(layer.originHeight != tmpLayer.originHeight) continue;
+					if(layer.scaleX != tmpLayer.scaleX) continue;
+					if(layer.scaleY != tmpLayer.scaleY) continue;
+					if(layer.mirrorH != tmpLayer.mirrorH) continue;
+					if(layer.mirrorV != tmpLayer.mirrorV) continue;
+					find = true;
+					this.rectLayers.push(tmpLayer);
+					break;
+				}
+			}
+			return find;
 		}
+		var slide:Slide;
+		slide = VDoc.shared.getNextSlide(this._slide);
+		while(slide && func(slide)){
+			slide = VDoc.shared.getNextSlide(slide);
+		}
+		slide = VDoc.shared.getPrevSlide(this._slide);
+		while(slide && func(slide)){
+			slide = VDoc.shared.getPrevSlide(slide);
+		}
+	}
 
-		this.sharedLayersByUUID[layer.uuid].forEach(tmpLayer=>{
+	private multipleLayerOperation(layer, layers:Layer[], flag:number) {
+		if(!layer) return;
+		if(!layers) return;
+		if(layers.length == 0) return;
+		if(flag == 0) return;
+
+		layers.forEach(tmpLayer=>{
 			if(flag & (PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.ROTATION|PropFlags.MIRROR_H|PropFlags.MIRROR_V)){
 				tmpLayer.transform = layer.transform;
 			}
@@ -432,10 +462,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}
 	}
 
-	// private get actualScale():number {
-	// 	return this._scale * this.scale_base;
-	// }
-
 	public get selectedLayer():Layer {
 		if(this.selectedLayerView) {
 			return this.selectedLayerView.data;
@@ -446,6 +472,19 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	public get editingLayer():Layer{
 		if(!this.selectLayerView && this.selectedLayer.locked && !this.selectedLayer.visible) return null;
 		return this.selectedLayer;
+	}
+
+	public get rectEdit():boolean {
+		return this._rectEdit;
+	}
+	public set rectEdit(value:boolean) {
+		if(this._rectEdit == value) return;
+		this._rectEdit = value;
+		if(this._rectEdit && this.selectedLayerView){
+			this.listRectLayers(this.selectedLayerView.data);
+		}else{
+			this.rectLayers = [];
+		}
 	}
 
 	//
@@ -472,11 +511,19 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			}
 		}else{
 			if(layer.shared){
-				this.sharedLayerOpetation(layer,"",flag);
+				if(this.sharedLayersByUUID[layer.uuid] == undefined){
+					this.listSharedLayers(layer);
+				}
+				this.multipleLayerOperation(layer, this.sharedLayersByUUID[layer.uuid],flag);
 
 				if(flag & PropFlags.IMG_IMAGEID){
 					delete this.sharedLayersByUUID[layer.uuid];
 					this.listSharedLayers(layer);
+				}
+			}else{
+				var flagForRect = flag&(PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.MIRROR_H|PropFlags.MIRROR_V|PropFlags.ROTATION);
+				if(this._rectEdit && flagForRect != 0){
+					this.multipleLayerOperation(layer, this.rectLayers, flagForRect);
 				}
 			}
 		}

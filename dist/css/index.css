@@ -396,7 +396,7 @@ input.imageRef {
 .slideCanvas .sideMenu .property button:disabled {
 	cursor: default;
 }
-.slideCanvas .sideMenu .property button.on {
+button.on {
 	color:white;
 	text-shadow:0 0 1px rgba(255,255,255,1), 0 0 8px rgba(255,255,255,1);
 	background-color: #333333;

@@ -13,16 +13,11 @@ import { PropFlags } from "./__core__/model/PropFlags";
 
 
 declare var $:any;
-declare var jsSHA:any;
 
 export class SlideEdit extends EventDispatcher {
 
 	public slideView:EditableSlideView;
-
-//	private propDiv:SEPropDiv;
-	private layerDiv:SELayerDiv;l
-
-//	private shadow:any;
+	private layerDiv:SELayerDiv;
 
 
 	constructor(public obj:any){
@@ -33,6 +28,9 @@ export class SlideEdit extends EventDispatcher {
 		this.layerDiv = new SELayerDiv($(".layer"));
 
 		//
+
+		var rectEditButton = new VMToggleButton($(".menu button.same"), EditableSlideView, "rectEdit");
+		rectEditButton.target = this.slideView;
 
 		var vms:VMInput[] = [
 			new VMButton($("#main button.cut"), Layer, ()=>{
@@ -127,12 +125,6 @@ export class SlideEdit extends EventDispatcher {
 			}
 		});
 
-//		this.slideView.addEventListener("scale",(any)=>{
-//			this.updateShadow();
-//		});
-//		this.shadow = $('<div class="shadow" />')//.appendTo(this.obj);
-
-
 
 		//
 
@@ -199,54 +191,13 @@ export class SlideEdit extends EventDispatcher {
 		$(".slideCanvas .menu span.name").text("");
 	}
 
-	// private updateShadow(){
-	// 	const width:number = this.shadow.width();
-	// 	const height:number = this.shadow.height();
-
-	// 	var p_l:number = (width - this.slideView.width) / (width * 2);
-	// 	var p_r:number = p_l + (this.slideView.width / width);
-	// 	var p_t:number = (height - this.slideView.height) / (height * 2);
-	// 	var p_b:number = p_t + (this.slideView.height / height);
-
-	// 	if(p_l < 0) p_l = 0;
-	// 	if(p_r > 1) p_r = 1;
-	// 	if(p_t < 0) p_t = 0;
-	// 	if(p_b > 1) p_b = 1;
-
-	// 	const p_l_s:string = Math.round(p_l * 10000) / 100 + "%";
-	// 	const p_r_s:string = Math.round(p_r * 10000) / 100 + "%";
-	// 	const p_t_s:string = Math.round(p_t * 10000) / 100 + "%";
-	// 	const p_b_s:string = Math.round(p_b * 10000) / 100 + "%";
-
-	// 	const cssStr:string = [
-	// 		"0% 0%",
-	// 		"0% 100%",
-	// 		p_l_s + " 100%",
-	// 		p_l_s + " " + p_t_s,
-	// 		p_r_s + " " + p_t_s,
-	// 		p_r_s + " " + p_b_s,
-	// 		p_l_s + " " + p_b_s,
-	// 		p_l_s + " 100%",
-	// 		"100% 100%",
-	// 		"100% 0%",
-	// 	].join(",");
-
-	// 	this.shadow.css({
-	// 		"clip-path":"polygon(" + cssStr + ")"
-	// 	});
-	// }
-
 	setMode(mode:ViewerMode):void {
 		switch(mode){
 			case ViewerMode.SELECT:
 				this.slideView.isActive = false;
-//				this.shadow.css("min-height",this.shadow.height());
 			break;
 			case ViewerMode.EDIT:
 				this.slideView.isActive = true;
-					/*				setTimeout(()=>{
-					this.shadow.css("min-height","");
-				},300);*/
 			break;
 		}
 	} 
@@ -260,6 +211,10 @@ export class SlideEdit extends EventDispatcher {
 
 		this.slideView.slide = newSlide;
 		$(".slideCanvas .menu span.name").text(newSlide.id);
+
+		//NOTE : 要改修
+		$(".menu button.same").removeClass("on");
+		//
 
 		this.layerDiv.layerViews = this.slideView.layerViews;
 		if(this.slide){
