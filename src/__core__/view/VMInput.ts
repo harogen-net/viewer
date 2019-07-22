@@ -61,7 +61,7 @@ export class VMButton extends VMInput {
 }
 
 export class VMToggleButton extends VMInput {
-	constructor(protected _obj:any, targetClass:any, private targetPropKey:string){
+	constructor(protected _obj:any, targetClass:any, private targetPropKey:string, private targetPropFlag:number){
 		super(_obj, targetClass);
 		if(_obj.prop("tagName") != "BUTTON"){
 			throw new Error("invalid jquery object. use <button /> tag.");
@@ -86,11 +86,28 @@ export class VMToggleButton extends VMInput {
 		if(this._target[this.targetPropKey]){
 			this._obj.addClass("on");
 		}
+		this._target.addEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
 	}
 	protected destroyTarget(){
 		super.destroyTarget();
 		if(this._target[this.targetPropKey]){
 			this._obj.removeClass("on");
+		}
+		this._target.removeEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
+	}
+
+
+	//
+	// event handler
+	//
+	private onPropertyUpdate = (pe:PropertyEvent)=>{
+		if(pe.targe != this._target) return;
+		if(this.targetPropFlag & pe.propFlags){
+			if(this._target[this.targetPropKey]){
+				this._obj.addClass("on");
+			}else{
+				this._obj.removeClass("on");
+			}
 		}
 	}
 }
@@ -105,7 +122,7 @@ export class VMVariableInput extends VMInput {
 	private min:number = -Infinity;
 	private max:number = Infinity;
 
-	constructor(protected _obj:any, targetClass:any, private targetPropKey:string, private targetProFlag:number, options:any = {}){
+	constructor(protected _obj:any, targetClass:any, private targetPropKey:string, private targetPropFlag:number, options:any = {}){
 		super(_obj, targetClass);
 		if(_obj.prop("tagName") != "INPUT" || _obj.attr("type") != "text"){
 			throw new Error("invalid jquery object. use <input type='text' /> tag.");
@@ -223,7 +240,7 @@ export class VMVariableInput extends VMInput {
 	private onPropertyUpdate = (pe:PropertyEvent)=>{
 		if(this.isLocked) return;
 		if(pe.targe != this._target) return;
-		if(this.targetProFlag & pe.propFlags){
+		if(this.targetPropFlag & pe.propFlags){
 			this.updateValueFromTarget();
 		}
 	}

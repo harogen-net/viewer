@@ -29,7 +29,7 @@ export class SlideEdit extends EventDispatcher {
 
 		//
 
-		var rectEditButton = new VMToggleButton($(".menu button.same"), EditableSlideView, "rectEdit");
+		var rectEditButton = new VMToggleButton($(".menu button.same"), EditableSlideView, "rectEdit", PropFlags.ESV_RECT);
 		rectEditButton.target = this.slideView;
 
 		var vms:VMInput[] = [
@@ -57,8 +57,8 @@ export class SlideEdit extends EventDispatcher {
 			new VMButton($("#main button.toLeft"), Layer, ()=>{
 				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.LEFT);
 			}),
-			new VMToggleButton($("#main button.mirrorH"), Layer, "mirrorH"),
-			new VMToggleButton($("#main button.mirrorV"), Layer, "mirrorV"),
+			new VMToggleButton($("#main button.mirrorH"), Layer, "mirrorH", PropFlags.MIRROR_H),
+			new VMToggleButton($("#main button.mirrorV"), Layer, "mirrorV", PropFlags.MIRROR_V),
 			new VMButton($("#main button.copyTrans"), Layer, ()=>{
 				this.slideView.copyTrans();
 			}),
@@ -211,10 +211,6 @@ export class SlideEdit extends EventDispatcher {
 
 		this.slideView.slide = newSlide;
 		$(".slideCanvas .menu span.name").text(newSlide.id);
-
-		//NOTE : 要改修
-		$(".menu button.same").removeClass("on");
-		//
 
 		this.layerDiv.layerViews = this.slideView.layerViews;
 		if(this.slide){
