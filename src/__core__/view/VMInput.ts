@@ -1,5 +1,5 @@
 import { TypeChecker } from "../../utils/TypeChecker";
-import { PropertyEvent } from "../../events/LayerEvent";
+import { PropertyEvent } from "../../events/PropertyEvent";
 
 declare var $:any;
 

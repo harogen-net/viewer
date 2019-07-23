@@ -8,14 +8,14 @@ import { TextLayer } from "../model/TextLayer";
 declare var $:any;
 
 export class LayerViewFactory {
-	public static layerViewFromData(data:Layer):LayerView {
-		switch(data.type){
+	public static ViewFromLayer(layer:Layer):LayerView {
+		switch(layer.type){
 			case LayerType.IMAGE:
-				return new ImageView(data as ImageLayer, $('<div class="layerWrapper" />'));
+				return new ImageView(layer as ImageLayer, $('<div class="layerWrapper" />'));
 			case LayerType.TEXT:
-				return new TextView(data as TextLayer, $('<div class="layerWrapper"  />'));
+				return new TextView(layer as TextLayer, $('<div class="layerWrapper"  />'));
 			default:
-				return new LayerView(data, $('<div class="layerWrapper"  />'));
+				return new LayerView(layer, $('<div class="layerWrapper"  />'));
 //				return null;
 		}
 	}

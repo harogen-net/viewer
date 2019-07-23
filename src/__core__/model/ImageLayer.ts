@@ -1,7 +1,7 @@
 import { Layer, LayerType } from "./Layer";
 //import { IImage } from "./ILayer";
 import { ImageManager } from "../../utils/ImageManager";
-import { PropertyEvent } from "../../events/LayerEvent";
+import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "./PropFlags";
 
 declare var $: any;

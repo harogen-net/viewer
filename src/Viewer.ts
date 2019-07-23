@@ -64,13 +64,20 @@ export class Viewer {
 
 		this.storage = new SlideStorage();
 		this.storage.addEventListener("update", (e:CustomEvent)=>{
+			//window.alert();
+			var index = $("select.filename").prop("selectedIndex");
 			var newItem = $("select.filename option")[0];
 			$("select.filename").empty();
 			$("select.filename").append($(newItem));
 
 			this.storage.titles.forEach(datum=>{
 				$("select.filename").append('<option value="' + datum.id + '">' + datum.title + '</option>');
-			})
+			});
+			if(index <= this.storage.titles.length){
+				$("select.filename").prop("selectedIndex", index);
+			}else{
+				$("select.filename").prop("selectedIndex", this.storage.titles.length);
+			}
 		});
 		this.storage.addEventListener("loaded", (e:CustomEvent)=>{
 			this.newDocument(e.detail as VDoc);

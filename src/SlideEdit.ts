@@ -10,6 +10,7 @@ import { SELayerDiv } from "./SELayerDiv";
 import { VDoc } from "./__core__/model/VDoc";
 import { VMInput, VMButton, VMToggleButton, VMVariableInput } from "./__core__/view/VMInput";
 import { PropFlags } from "./__core__/model/PropFlags";
+import { PropertyEvent } from "./events/PropertyEvent";
 
 
 declare var $:any;
@@ -111,17 +112,19 @@ export class SlideEdit extends EventDispatcher {
 		
 
 
-		this.slideView.addEventListener("select", (any)=>{
-			try{
-				vms.forEach(vmi=>{
-					vmi.target = this.selectedLayer;
-				})
-			}
-			catch (e){
-				console.log(e)
-				vms.forEach(vmi=>{
-					vmi.target = null;
-				})
+		this.slideView.addEventListener(PropertyEvent.UPDATE, (pe:PropertyEvent)=>{
+			if(pe.propFlags|PropFlags.LV_SELECT){
+				try{
+					vms.forEach(vmi=>{
+						vmi.target = this.selectedLayer;
+					})
+				}
+				catch (e){
+					console.log(e)
+					vms.forEach(vmi=>{
+						vmi.target = null;
+					})
+				}
 			}
 		});
 
@@ -204,9 +207,10 @@ export class SlideEdit extends EventDispatcher {
 
 	public setSlide(newSlide:Slide) {
 		if(this.slide){
-			this.slide.removeEventListener("update", ()=>{
-				this.layerDiv.update();
-			});
+			this.slide.removeEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
+			// this.slide.removeEventListener("update", ()=>{
+			// 	this.layerDiv.update();
+			// });
 		}
 
 		this.slideView.slide = newSlide;
@@ -214,10 +218,23 @@ export class SlideEdit extends EventDispatcher {
 
 		this.layerDiv.layerViews = this.slideView.layerViews;
 		if(this.slide){
-			this.slide.addEventListener("update", ()=>{
-				this.layerDiv.update();
-			});
+			this.slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
+			// this.slide.addEventListener("update", ()=>{
+			// 	this.layerDiv.update();
+			// });
 		}
+	}
+
+	//
+	// event handlers
+	//
+	private onSlideUpdate = (pe:PropertyEvent)=>{
+		var flag = pe.propFlags;
+		if(flag & PropFlags.S_LAYER_ADD|PropFlags.S_LAYER_REMOVE|PropFlags.S_LAYER_ORDER){
+			this.layerDiv.layerViews = this.slideView.layerViews;
+			//this.layerDiv.update();
+		}
+		console.log("slide update at slideEdit:", pe.propFlags.toString(2));
 	}
 
 	//

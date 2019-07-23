@@ -2,7 +2,9 @@ import { EventDispatcher } from "../../events/EventDispatcher";
 import { Layer } from "./Layer";
 import { VDoc } from "./VDoc";
 import { Viewer } from "../../Viewer";
-import { PropertyEvent } from "../../events/LayerEvent";
+import { PropertyEvent } from "../../events/PropertyEvent";
+import { PropFlags } from "./PropFlags";
+import { UUIDGenerator } from "../../utils/UUIDGenerator";
 
 
 export enum Direction {
@@ -15,31 +17,15 @@ export enum Direction {
 
 export class Slide extends EventDispatcher {
 
-	// static slideFromImage(img:Layer):SlideView {
-	// 	var slide = new SlideView($('<div />'));
-	// 	slide.addLayer(img);
-	// 	return slide;
-	// }
-
 	static readonly LAYER_NUM_MAX:number = 20;
 
 	//
 
-//	protected _layers:Layer[];
-	
-//	public container:any;
-
-	
+	private _uuid:string;
 	private _id:number;
 	private _width:number = 0;
 	private _height:number = 0;
-	// private scale_min:number = 0.2;
-	// private scale_max:number = 5;
-	// protected scale_base:number = 1;
-	// protected _scale:number = 1;
-	// protected _selected:boolean = false;
 
-//	private _isLock:boolean = false;
 	private _durationRatio:number = 1;
 	private _joining:boolean = false;
 	private _disabled:boolean = false;
@@ -48,6 +34,7 @@ export class Slide extends EventDispatcher {
 	constructor(width:number = 0, height:number = 0, protected _layers:Layer[] = []){
 		super();
 
+		this._uuid = UUIDGenerator.generate();
 		this._width = width || (VDoc.shared ? VDoc.shared.width : Viewer.SCREEN_WIDTH);
 		this._height = height || (VDoc.shared ? VDoc.shared.height : Viewer.SCREEN_HEIGHT);
 		
@@ -60,7 +47,7 @@ export class Slide extends EventDispatcher {
 	}
 
 	public clone():this {
-		console.log("clone at slide : " + this.id, this._layers.length);
+		//console.log("clone at slide : " + this.id, this._layers.length);
 		var slide:this = new (this.constructor as any)(this._width, this._height, this._layers.map(layer=>{
 			return layer.clone();
 		}));
@@ -84,7 +71,8 @@ export class Slide extends EventDispatcher {
 			throw new Error("exceeds max layer num.");
 		}
 
-		var isAdd = (this._layers.indexOf(layer) == -1);
+		var fromIndex:number = this._layers.indexOf(layer);
+		var isAdd = (fromIndex == -1);
 		//console.log("addLayer at slide", layer, index, isAdd);
 		// console.log(layer);
 
@@ -100,15 +88,17 @@ export class Slide extends EventDispatcher {
 		if(isAdd){
 			//note:layer自身に設定する重要な部分
 			{
-				layer.addEventListener("update", this.onLayerUpdate);
+				layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 				layer.parent = this;
 			}
 
-			this.dispatchEvent(new CustomEvent("layerAdd", {detail:{slide:this, layer:layer}}));
+//			this.dispatchEvent(new CustomEvent("layerAdd", {detail:{slide:this, layer:layer}}));
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_ADD, {layer:layer}));
 		}else{
-			this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:layer}}));
+//			this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:layer}}));
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_ORDER, {layer:layer, from:fromIndex, to:index}));
 		}
-		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
 
 		return layer;
 	}
@@ -117,10 +107,15 @@ export class Slide extends EventDispatcher {
 		if(!layer) return layer;
 		if(this._layers.indexOf(layer) != -1){
 			this._layers.splice(this._layers.indexOf(layer), 1);
-			layer.parent = null;
-			layer.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
-			this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));
-			this.dispatchEvent(new CustomEvent("update", {detail:this}));
+			//note:layer自身に設定する重要な部分
+			{
+				layer.parent = null;
+				layer.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
+			}
+
+			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_REMOVE, {layer:layer}));
+			//this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));
+			//this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		}
 		return layer;
 	}
@@ -199,10 +194,14 @@ export class Slide extends EventDispatcher {
 
 
 	//
-	// private methods
+	// event handlers
 	//
 	private onLayerUpdate = (pe:PropertyEvent)=>{
-		this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe), propFlags:pe.propFlags}}));
+		//note : 
+		//Slideの子レイヤのUPDATEイベントについては、そのもののフラグにS_LAYERフラグを付加してスライドが発行する
+		//レイヤではなくSlideが単一のViewを持っているCanvasSlideViewはこのイベントで再描画を行う
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER|pe.propFlags, {layer:pe.targe}));
+		//this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe), propFlags:pe.propFlags}}));
 	}
 
 
@@ -215,7 +214,10 @@ export class Slide extends EventDispatcher {
 	set id(value:number) {
 		this._id = value;
 	}
-
+	public get uuid():string {
+		return this._uuid;
+	}
+	
 	get width(){
 		return this._width;
 	}
@@ -231,20 +233,26 @@ export class Slide extends EventDispatcher {
 	
 	get durationRatio(){return this._durationRatio;}
 	set durationRatio(value:number){
-		this._durationRatio = Math.max(value, 0.2
-			);
-		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		value = Math.max(value, 0.2);
+		if(value == this._durationRatio) return;
+		this._durationRatio = value;
+		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_DURATION));
 	}
 
 	set joining(value:boolean) {
+		if(value == this._joining) return;
 		this._joining = value;
-		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_JOIN));
 	}
 	get joining():boolean { return this._joining; }
 
 	set disabled(value:boolean) {
+		if(value == this._disabled) return;
 		this._disabled = value;
-		this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_DISABLED));
 	}
 	get disabled():boolean { return this._disabled; }
 

@@ -5,7 +5,7 @@ import { LayerView } from "./__core__/view/LayerView";
 import { TextView } from "./__core__/view/TextView";
 import { ImageManager } from "./utils/ImageManager";
 import { ImageView } from "./__core__/view/ImageView";
-import { PropertyEvent } from "./events/LayerEvent";
+import { PropertyEvent } from "./events/PropertyEvent";
 import { PropFlags } from "./__core__/model/PropFlags";
 
 declare var $:any;
@@ -71,7 +71,7 @@ export class SELayerListItem {
 		});*/
 	}	
 	
-	private updateOnLayer(flag:number = PropFlags.ALL){
+	private update(flag:number = PropFlags.ALL){
 		if(!this._layerView) return;
 
 		if(flag & PropFlags.IMG_IMAGEID) {
@@ -113,16 +113,12 @@ export class SELayerListItem {
 				this.eyeBtn.removeClass("on");
 			}
 		}
-
-	}
-
-	private updateOnLayerView(){
-		if(!this._layerView) return;
-
-		if(this._layerView.selected){
-			this.obj.addClass("selected");
-		}else{
-			this.obj.removeClass("selected");
+		if(flag & PropFlags.LV_SELECT){
+			if(this._layerView.selected){
+				this.obj.addClass("selected");
+			}else{
+				this.obj.removeClass("selected");
+			}
 		}
 	}
 
@@ -138,18 +134,20 @@ export class SELayerListItem {
 	//
 	public set layerView(value:LayerView){
 		if(this._layerView){
-			this._layerView.removeEventListener("select", this.onLayerViewUpdate);
-			this._layerView.removeEventListener("unselect", this.onLayerViewUpdate);
-			this._layerView.data.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
+			// this._layerView.removeEventListener("select", this.onLayerViewUpdate);
+			// this._layerView.removeEventListener("unselect", this.onLayerViewUpdate);
+			this._layerView.removeEventListener(PropertyEvent.UPDATE, this.onLayerAndLayerViewUpdate);
+			this._layerView.data.removeEventListener(PropertyEvent.UPDATE, this.onLayerAndLayerViewUpdate);
 		}
 
 		//value is nullable
 		this._layerView = value;
 		
 		if(this._layerView){
-			this._layerView.addEventListener("select", this.onLayerViewUpdate);
-			this._layerView.addEventListener("unselect", this.onLayerViewUpdate);
-			this._layerView.data.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
+			// this._layerView.addEventListener("select", this.onLayerViewUpdate);
+			// this._layerView.addEventListener("unselect", this.onLayerViewUpdate);
+			this._layerView.addEventListener(PropertyEvent.UPDATE, this.onLayerAndLayerViewUpdate);
+			this._layerView.data.addEventListener(PropertyEvent.UPDATE, this.onLayerAndLayerViewUpdate);
 
 			switch(this._layerView.type){
 				case LayerType.IMAGE:
@@ -163,8 +161,7 @@ export class SELayerListItem {
 				break;
 			}
 
-			this.updateOnLayer();
-			this.updateOnLayerView();
+			this.update();
 		}
 	}
 	public get layerView():LayerView{
@@ -174,11 +171,11 @@ export class SELayerListItem {
 	//
 	// event handlers
 	//
-	private onLayerUpdate = (pe:PropertyEvent)=>{
-		this.updateOnLayer(pe.propFlags);
+	private onLayerAndLayerViewUpdate = (pe:PropertyEvent)=>{
+		this.update(pe.propFlags);
 	};
-	private onLayerViewUpdate = ()=>{
-		this.updateOnLayerView();
-	};
+	// private onLayerViewUpdate = (pe:PropertyEvent)=>{
+	// 	this.updateOnLayerView(pe.propFlags);
+	// };
 
 }

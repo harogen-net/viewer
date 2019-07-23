@@ -1,7 +1,7 @@
 import { Layer, LayerType } from "../model/Layer";
 import { setTimeout } from "timers";
 import { EventDispatcher } from "../../events/EventDispatcher";
-import { PropertyEvent } from "../../events/LayerEvent";
+import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
 
 
@@ -105,11 +105,12 @@ export class LayerView extends EventDispatcher {
 	public set selected(value:boolean){
 		if(this._selected == value) return;
 		this._selected = value;
-		if(this._selected){
-			this.dispatchEvent(new CustomEvent("select", {detail:this}));
-		}else{
-			this.dispatchEvent(new CustomEvent("unselect", {detail:this}));
-		}
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.LV_SELECT));
+//		if(this._selected){
+//			this.dispatchEvent(new CustomEvent("select", {detail:this}));
+//		}else{
+			//this.dispatchEvent(new CustomEvent("unselect", {detail:this}));
+//		}
 	}
 
 

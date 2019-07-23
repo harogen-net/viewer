@@ -1,6 +1,6 @@
 import { Layer, LayerType } from "./Layer";
 import { Viewer } from "../../Viewer";
-import { PropertyEvent } from "../../events/LayerEvent";
+import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "./PropFlags";
 
 

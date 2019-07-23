@@ -1,6 +1,6 @@
 import { EventDispatcher } from "../../events/EventDispatcher";
 import { Slide } from "./Slide";
-import { PropertyEvent } from "../../events/LayerEvent";
+import { PropertyEvent } from "../../events/PropertyEvent";
 import { UUIDGenerator } from "../../utils/UUIDGenerator";
 import { PropFlags } from "./PropFlags";
 

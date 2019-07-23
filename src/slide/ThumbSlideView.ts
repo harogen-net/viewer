@@ -1,5 +1,7 @@
 import { CanvasSlideView } from "./CanvasSlideView";
 import { Slide } from "../__core__/model/Slide";
+import { PropertyEvent } from "../events/PropertyEvent";
+import { PropFlags } from "../__core__/model/PropFlags";
 
 declare var $:any;
 
@@ -11,7 +13,8 @@ export class ThumbSlideView extends CanvasSlideView {
 	constructor(protected _slide:Slide, public obj:any, protected scale:number){
 		super(_slide, obj, scale);
 
-		this._slide.addEventListener("update", this.onSlideUpdate);
+//		this._slide.addEventListener("update", this.onSlideUpdate);
+//		this._slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
 
 		//
 
@@ -96,7 +99,7 @@ export class ThumbSlideView extends CanvasSlideView {
 
 		//
 
-		this.updatePropsView();
+		this.updateView(PropFlags.S_JOIN|PropFlags.S_DISABLED|PropFlags.S_DURATION);
 	}
 
 	public fitToHeight():void {
@@ -124,7 +127,6 @@ export class ThumbSlideView extends CanvasSlideView {
 	}
 
 	public destroy() {
-		this._slide.removeEventListener("update", this.onSlideUpdate);
 		this.obj.stop();
 		this.obj.find("button").remove();
 		this.obj.find("div.duration").remove();
@@ -139,31 +141,36 @@ export class ThumbSlideView extends CanvasSlideView {
 	//
 	// private methods
 	//
+	protected updateView(flag:number = PropFlags.ALL){
+		super.updateView(flag);
 
-	private onSlideUpdate = (e)=>{
-		this.updatePropsView();
+		if(flag & PropFlags.S_DISABLED){
+			if(this._slide.disabled){
+				this.obj.addClass("disabled");
+			}else{
+				this.obj.removeClass("disabled");
+			}
+		}
+		if(flag & PropFlags.S_JOIN){
+			if(this._slide.joining){
+				this.obj.addClass("joining");
+			}else{
+				this.obj.removeClass("joining");
+			}
+		}
+		if(flag & PropFlags.S_DURATION){
+			var durationStr = "";
+			if(this._slide.durationRatio != 1){
+				durationStr = "x" + this._slide.durationRatio.toString().substr(0,3);
+			}
+			this.obj.find(".duration > span").text(durationStr);
+	
+			if(this.obj.height() > 0){
+				this.fitToHeight();
+			}
+		}
 	}
-	private updatePropsView(){
-		if(this._slide.disabled){
-			this.obj.addClass("disabled");
-		}else{
-			this.obj.removeClass("disabled");
-		}
-		if(this._slide.joining){
-			this.obj.addClass("joining");
-		}else{
-			this.obj.removeClass("joining");
-		}
-		var durationStr = "";
-		if(this._slide.durationRatio != 1){
-			durationStr = "x" + this._slide.durationRatio.toString().substr(0,3);
-		}
-		this.obj.find(".duration > span").text(durationStr);
-
-		if(this.obj.height() > 0){
-			this.fitToHeight();
-		}
-	}
+	
 	private lockDoubleClick(){
 		if(this.doubleClickTimer) clearTimeout(this.doubleClickTimer);
 		this.doubleClickLock = true;
@@ -172,10 +179,12 @@ export class ThumbSlideView extends CanvasSlideView {
 		},100);
 	}
 
-	protected replaceSlide(newSlide:Slide) {
-		this._slide.removeEventListener("update", this.onSlideUpdate);
-		super.replaceSlide(newSlide);
-		this._slide.addEventListener("update", this.onSlideUpdate);
-		this.updatePropsView();
-	}
+	// protected replaceSlide(newSlide:Slide) {
+	// 	this._slide.removeEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
+	// 	// this._slide.removeEventListener("update", this.onSlideUpdate);
+	// 	super.replaceSlide(newSlide);
+	// 	this._slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
+	// 	// this._slide.addEventListener("update", this.onSlideUpdate);
+	// 	this.updateView();
+	// }
 }
