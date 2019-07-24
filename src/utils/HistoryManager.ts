@@ -1,80 +1,107 @@
-// import { EventDispatcher } from "../events/EventDispatcher";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { PropertyEvent } from "../events/PropertyEvent";
 
-// export class HistoryManager extends EventDispatcher {
-
-//     private static _instance:HistoryManager;
+export class HistoryManager extends EventDispatcher {
+	private static _instance:HistoryManager;
+	public static get instance():HistoryManager {
+		return this._instance;
+	}
+	public static get shared():HistoryManager {
+		return this._instance;
+	}
 	
-// 	public static initialize(){
-// 		if(!this._instance) this._instance = new HistoryManager();
-// 		this._instance.initialize();
-// 	}
+	public static init() {
+		this._instance = new HistoryManager();
+	}
 
-// 	public static regist(image:Image) {
-// 		if(!this._instance) this._instance = new HistoryManager();
-// 		this._instance.regist(image);
-// 	}
+	//
 
-// 	public static back(image:Image) {
-// 		if(!this._instance) this._instance = new HistoryManager();
-// 		this._instance.deleteImage(image);
-// 	}
+	private readonly MAX_STEP:number = 100;
+	private undoStack:ICommand[];
+	private redoStack:ICommand[];
+//	private onTransaction:boolean = false;
 
-// 	public static forward(id:string, imgObj:any) {
-// 		if(!this._instance) this._instance = new HistoryManager();
-// 		this._instance.swapImageAll(id, imgObj);
-// 	}
+	constructor(){
+		super();
+		this.initialize();
+	}
 
-// 	public static clear() {
-// 		if(!this._instance) this._instance = new HistoryManager();
-// 		this._instance.clear();
-// 	}
+	public initialize(){
+		this.undoStack = [];
+		this.redoStack = [];
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE));
+//		this.onTransaction = false;
+	}
 
-// 	public static addEventListener(type:string, callback:Function, priolity?:number) {
-// 		if(!this._instance) this._instance = new HistoryManager();
-// 		this._instance.addEventListener(type,callback,priolity);
-// 	}
+	public record(command:ICommand):ICommand {
+		this.undoStack.push(command);
+		if(this.undoStack.length > this.MAX_STEP) {this.undoStack.shift();}
+		this.redoStack = [];
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE));
+		return command;
+	}
 
-// 	//
+	public undo() {
+		if(!this.canUndo) return;
+		var command = this.undoStack.pop();
+		command.rev();
+		this.redoStack.push(command);
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE));
+	}
 
-// 	private allImages:Image[];
+	public redo() {
+		if(!this.canRedo) return;
+		var command = this.redoStack.pop();
+		command.fwd();
+		this.undoStack.push(command);
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE));
+	}
 
-// 	private constructor(){
-// 		console.log("HistoryManager constructor");
-// 		super();
-// 		//this._imageById = {};
-// 		this.allImages = [];
-// 	}
+	//
+	// get set
+	//
+	public get canUndo():boolean {
+		return this.undoStack.length > 0;
+	}
+	public get canRedo():boolean {
+		return this.redoStack.length > 0;
+	}
+}
 
-// 	public initialize(){
-// 		this.allImages = [];
-// 	}
+export interface ICommand {
+	fwd:()=>void;
+	rev:()=>void;
+	do:()=>void;
+}
 
-// 	public regist(image:Image) {
-// 		console.log("regist called" );
-// 		console.log(this.allImages.length);
-// 		if(this.allImages.indexOf(image) == -1){
-// 			this.allImages.push(image);
-// 			console.log("HistoryManager : registed : total " + this.allImages.length);
-// 		}
-// 	}
+export class Command implements ICommand {
+	constructor(public fwd:()=>void, public rev:()=>void){}
+	public do(){this.fwd();}
+}
+export class Transaction implements ICommand {
 
-// 	public deleteImage(image:Image) {
-// 		if(this.allImages.indexOf(image) != -1){
-// 			this.allImages.splice(this.allImages.indexOf(image), 1);
-// 			console.log("HistoryManager : deleted : total " + this.allImages.length);
-// 		}
-// 	}
+	private fwds:(()=>void)[] = [];
+	private revs:(()=>void)[] = [];
 
-// 	public swapImageAll(id:string, imgObj:any) {
-// 		this.allImages.forEach((image:Image)=>{
-// 			if(image.imageId == id){
-// 				var imgObj2 = imgObj.clone();
-// 				imgObj2.data("imageId", imgObj.data("imageId"));
-// 				image.swap(imgObj2);
-// 			}
-// 		});
+	constructor(){}
 
-// 		imgObj.remove();
-// 	}
+	public record(aFwd:()=>void, aRev:()=>void) {
+		this.fwds.push(aFwd);
+		this.revs.push(aRev);
+	}
 
-// }
+	public fwd() {
+		this.fwds.forEach(aFwd => {
+			aFwd();
+		});
+	}
+	public rev() {
+		this.revs.forEach(aRev => {
+			aRev();
+		});
+	}
+	public do(){this.fwd();}
+	public get length():number {
+		return this.fwds.length;
+	}
+}

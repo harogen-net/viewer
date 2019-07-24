@@ -7,6 +7,8 @@ import { ImageManager } from "./utils/ImageManager";
 import { ImageView } from "./__core__/view/ImageView";
 import { PropertyEvent } from "./events/PropertyEvent";
 import { PropFlags } from "./__core__/model/PropFlags";
+import { HistoryManager, Command } from "./utils/HistoryManager";
+import { Slide } from "./__core__/model/Slide";
 
 declare var $:any;
 
@@ -28,24 +30,45 @@ export class SELayerListItem {
 		this.label = this.obj.find("span");
 		this.thumbnail = this.obj.find("img");
 
+		var toggleFunc = (layer:Layer, key:string)=>{
+			if(layer[key] == undefined) return;
+			var initValue = layer[key];
+			var endValue = !initValue;
+			HistoryManager.shared.record(new Command(
+				()=>{
+					layer[key] = endValue;
+				},
+				()=>{
+					layer[key] = initValue;
+				}
+			)).do();
+		};
+
+
 		this.eyeBtn = $('<button class="eye"><i class="fas fa-eye"></i></button>');
 		this.eyeBtn.click((e:any)=>{
 			if(this._layerView == null) return;
-			this._layerView.data.visible = !this._layerView.data.visible;
+			toggleFunc(this._layerView.data, "visible");
+
+			//this._layerView.data.visible = !this._layerView.data.visible;
 			//e.stopImmediatePropagation();
 		});
 
 		this.lockBtn = $('<button class="lock"><i class="fas fa-lock"></i></button>');
 		this.lockBtn.click((e:any)=>{
 			if(this._layerView == null) return;
-			this._layerView.data.locked = !this._layerView.data.locked;
+			toggleFunc(this._layerView.data, "locked");
+
+			//this._layerView.data.locked = !this._layerView.data.locked;
 			//e.stopImmediatePropagation();
 		});
 
 		this.shareBtn = $('<button class="share"><i class="fas fa-exchange-alt"></i></button>');
 		this.shareBtn.click((e:any)=>{
 			if(this._layerView == null) return;
-			this._layerView.data.shared = !this._layerView.data.shared;
+			toggleFunc(this._layerView.data, "shared");
+
+			//this._layerView.data.shared = !this._layerView.data.shared;
 		});
 
 
@@ -53,7 +76,23 @@ export class SELayerListItem {
 		this.deleteBtn.click((e:any)=>{
 			if(this._layerView == null) return;
 			if(this._layerView.data.parent == null) return;
-			this._layerView.data.parent.removeLayer(this._layerView.data);
+			var layerView:LayerView = this._layerView;
+			var layer:Layer = layerView.data;
+			var slide:Slide = layer.parent;
+			if(!layer) return;
+			if(!slide) return;
+			var index = slide.indexOf(layer);
+			if(index == -1) return;
+
+			HistoryManager.shared.record(new Command(
+				()=>{
+					slide.removeLayer(layer);
+				},
+				()=>{
+					slide.addLayer(layer, index);
+				}
+			)).do();
+//			this._layerView.data.parent.removeLayer(this._layerView.data);
 		});
 
 		this.obj.prepend(this.shareBtn);

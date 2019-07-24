@@ -8,9 +8,10 @@ import { TextLayer } from "./__core__/model/TextLayer";
 import { Slide, Direction } from "./__core__/model/Slide";
 import { SELayerDiv } from "./SELayerDiv";
 import { VDoc } from "./__core__/model/VDoc";
-import { VMInput, VMButton, VMToggleButton, VMVariableInput } from "./__core__/view/VMInput";
+import { VMUI, VMButton, VMToggleButton, VMVariableInput } from "./__core__/view/VMUI";
 import { PropFlags } from "./__core__/model/PropFlags";
 import { PropertyEvent } from "./events/PropertyEvent";
+import { HistoryManager, Command, Transaction } from "./utils/HistoryManager";
 
 
 declare var $:any;
@@ -25,6 +26,8 @@ export class SlideEdit extends EventDispatcher {
 		super();
 		this.obj.addClass("slideCanvas");
 
+		HistoryManager.init();
+
 		this.slideView = new EditableSlideView(new Slide(), $('<div />').appendTo(this.obj));
 		this.layerDiv = new SELayerDiv($(".layer"));
 
@@ -33,7 +36,7 @@ export class SlideEdit extends EventDispatcher {
 		var rectEditButton = new VMToggleButton($(".menu button.same"), EditableSlideView, "rectEdit", PropFlags.ESV_RECT);
 		rectEditButton.target = this.slideView;
 
-		var vms:VMInput[] = [
+		var vms:VMUI[] = [
 			new VMButton($("#main button.cut"), Layer, ()=>{
 				this.slideView.cut();
 			}),
@@ -131,6 +134,17 @@ export class SlideEdit extends EventDispatcher {
 
 		//
 
+		$(".undo").click(()=>{
+			HistoryManager.shared.undo();
+		})
+		$(".redo").click(()=>{
+			HistoryManager.shared.redo();
+		})
+		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, ()=>{
+			$(".undo").prop("disabled", !HistoryManager.shared.canUndo);
+			$(".redo").prop("disabled", !HistoryManager.shared.canRedo);
+		});
+
 		$(".paste").click(() => {
 			this.slideView.paste();
 		});
@@ -148,8 +162,15 @@ export class SlideEdit extends EventDispatcher {
 		});
 		$(".text").click(()=>{
 			var textLayer:TextLayer = new TextLayer(prompt("insert text layer:"));
-			this.slide.addLayer(textLayer);
-			textLayer.moveTo(this.slide.centerX, this.slide.centerY);
+			HistoryManager.shared.record(new Command(
+				()=>{
+					this.slide.addLayer(textLayer);
+					textLayer.moveTo(this.slide.centerX, this.slide.centerY);
+				},
+				()=>{
+					this.slide.removeLayer(textLayer);
+				}
+			)).do();
 		});
 
 
@@ -160,22 +181,42 @@ export class SlideEdit extends EventDispatcher {
 		$("input.imageRef").on("change", async (e)=>{
 			if(this.selectedLayer == null || this.selectedLayer.type != LayerType.IMAGE) return;
 			var targetImage:ImageLayer = this.selectedLayer as ImageLayer;
+			var fromImageId:string = targetImage.imageId;
 			var newImageId:string = await ImageManager.shared.registImageFromFile(e.target.files[0]);
 
 			if($("input#cb_imageRef").prop("checked")){
-				var fromImageId:string = targetImage.imageId;	//直参照すると途中で変わってしまうため変数に退避
+				var transaction = new Transaction();
+
 				VDoc.shared.slides.forEach(slide=>{
 					slide.layers.forEach(layer=>{
 						if(layer.type != LayerType.IMAGE) return;
 						var imageLayer:ImageLayer = layer as ImageLayer;
 						if(imageLayer.imageId == fromImageId){
-							imageLayer.imageId = newImageId;
+							transaction.record(
+								()=>{
+									imageLayer.imageId = newImageId;
+								},
+								()=>{
+									imageLayer.imageId = fromImageId;
+								}
+							);
 						}
 					});
 				});
 
+				if(transaction.length > 0){
+					HistoryManager.shared.record(transaction).do();
+				}
+
 			}else{
-				targetImage.imageId = newImageId;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						targetImage.imageId = newImageId;
+					},
+					()=>{
+						targetImage.imageId = fromImageId;
+					}
+				)).do();
 			}
 			//初期化
 			$("input.imageRef").val(null);
@@ -191,6 +232,7 @@ export class SlideEdit extends EventDispatcher {
 
 	initialize(){
 		this.slideView.slide = new Slide();
+		HistoryManager.shared.initialize();
 		$(".slideCanvas .menu span.name").text("");
 	}
 
@@ -213,6 +255,7 @@ export class SlideEdit extends EventDispatcher {
 			// });
 		}
 
+		HistoryManager.shared.initialize();
 		this.slideView.slide = newSlide;
 		$(".slideCanvas .menu span.name").text(newSlide.id);
 

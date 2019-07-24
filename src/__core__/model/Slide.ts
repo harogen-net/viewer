@@ -119,6 +119,9 @@ export class Slide extends EventDispatcher {
 		}
 		return layer;
 	}
+	public indexOf(layer:Layer):number {
+		return this._layers.indexOf(layer);
+	}
 
 	public removeAllLayers() {
 		while(this._layers.length > 0){

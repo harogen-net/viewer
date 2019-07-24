@@ -7,6 +7,7 @@ import { TextLayer } from "../model/TextLayer";
 import { TextView } from "./TextView";
 import { Slide } from "../model/Slide";
 import { threadId } from "worker_threads";
+import { HistoryManager, Command } from "../../utils/HistoryManager";
 
 declare var $:any;
 declare var Matrix4: any;
@@ -98,6 +99,10 @@ export class AdjustView extends LayerView {
 		var mouseX = e.screenX;
 		var mouseY = e.screenY;
 
+		var layer = this._data;
+		var initPos = {x:layer.x, y:layer.y};
+		var endPos = {x:initPos.x, y:initPos.y};
+
 //		$(document).css("pointer-events","none");
 		$(document).off("mousemove.layer_drag");
 		$(document).off("mouseup.layer_drag");
@@ -117,6 +122,21 @@ export class AdjustView extends LayerView {
 //			$(document).css("pointer-events","auto");
 			$(document).off("mousemove.layer_drag");
 			$(document).off("mouseup.layer_drag");
+
+			endPos.x = layer.x;
+			endPos.y = layer.y;
+			if(initPos.x != endPos.x || initPos.y != endPos.y){
+				HistoryManager.shared.record(new Command(
+					()=>{
+						layer.x = endPos.x;
+						layer.y = endPos.y;
+					},
+					()=>{
+						layer.x = initPos.x;
+						layer.y = initPos.y;
+					}
+				));
+			}
 		});
 	}
 
@@ -126,12 +146,16 @@ export class AdjustView extends LayerView {
 		//if(this.isDrag) this.stopScale(e);
 		this.isDrag = true;
 
-
 		var mouseX = e.screenX;
 		var mouseY = e.screenY;
 
 		var controlX = (this._data.originWidth / 2) * (this._data.scaleX);
 		var controlY = (this._data.originHeight / 2) * (this._data.scaleY);
+
+		var layer = this._data;
+		var initScale = {x:layer.scaleX, y:layer.scaleY};
+		var endScale = {x:initScale.x, y:initScale.y};
+
 
 //		$(document).css("pointer-events","none");
 		$(document).off("mousemove.layer_scale");
@@ -174,6 +198,20 @@ export class AdjustView extends LayerView {
 			$(document).off("mousemove.layer_scale");
 			$(document).off("mouseup.layer_scale");
 
+			endScale.x = layer.scaleX;
+			endScale.y = layer.scaleY;
+			if(initScale.x != endScale.x || initScale.y != endScale.y){
+				HistoryManager.shared.record(new Command(
+					()=>{
+						layer.scaleX = endScale.x;
+						layer.scaleY = endScale.y;
+					},
+					()=>{
+						layer.scaleX = initScale.x;
+						layer.scaleY = initScale.y;
+					}
+				));
+			}
 		});
 	}
 
@@ -194,7 +232,16 @@ export class AdjustView extends LayerView {
 
 				setTimeout(()=>{
 					if(text != textView.textObj.text()){
-						textLayer.text = textView.textObj.text();
+						var text2 = textView.textObj.text();
+						//textLayer.text = textView.textObj.text();
+						HistoryManager.shared.record(new Command(
+							()=>{
+								textLayer.text = text2;
+							},
+							()=>{
+								textLayer.text = text;
+							}
+						)).do();
 					}
 				},10)
 			});

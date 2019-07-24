@@ -1,9 +1,10 @@
 import { TypeChecker } from "../../utils/TypeChecker";
 import { PropertyEvent } from "../../events/PropertyEvent";
+import { HistoryManager, Command } from "../../utils/HistoryManager";
 
 declare var $:any;
 
-export class VMInput {
+export class VMUI {
 
 	protected _target:any;
 
@@ -47,7 +48,7 @@ export class VMInput {
 	}
 }
 
-export class VMButton extends VMInput {
+export class VMButton extends VMUI {
 	constructor(protected _obj:any, targetClass:any, clickHandler:(target:any)=>void){
 		super(_obj, targetClass);
 		if(_obj.prop("tagName") != "BUTTON"){
@@ -60,20 +61,40 @@ export class VMButton extends VMInput {
 	}
 }
 
-export class VMToggleButton extends VMInput {
+export class VMToggleButton extends VMUI {
 	constructor(protected _obj:any, targetClass:any, private targetPropKey:string, private targetPropFlag:number){
 		super(_obj, targetClass);
 		if(_obj.prop("tagName") != "BUTTON"){
 			throw new Error("invalid jquery object. use <button /> tag.");
 		}
 
+		var target;
+		var propKey;
+		var startValue;
+		var endValue;
 		_obj.on("click", ()=>{
-			this._target[this.targetPropKey] = !this._target[this.targetPropKey];
-			if(this._target[this.targetPropKey]){
-				this._obj.addClass("on");
-			}else{
-				this._obj.removeClass("on");
-			}
+			if(!this._target) return;
+
+			target = this._target;
+			propKey = this.targetPropKey;
+			startValue = target[propKey];
+			endValue = !startValue;
+			HistoryManager.shared.record(new Command(
+				()=>{
+					target[propKey] = endValue;
+				},
+				()=>{
+					target[propKey] = startValue;
+				}
+			)).do();
+
+
+			//this._target[this.targetPropKey] = !this._target[this.targetPropKey];
+			// if(this._target[this.targetPropKey]){
+			// 	this._obj.addClass("on");
+			// }else{
+			// 	this._obj.removeClass("on");
+			// }
 		});
 	}
 
@@ -112,7 +133,7 @@ export class VMToggleButton extends VMInput {
 	}
 }
 
-export class VMVariableInput extends VMInput {
+export class VMVariableInput extends VMUI {
 
 	private _value:number;
 
@@ -134,14 +155,37 @@ export class VMVariableInput extends VMInput {
 
 		this._value = this.init;
 
+		var target;
+		var propKey;
+		var startValue;
+		var endValue;
+
 		this.obj.focus(()=>{
 			this.isFocus = true;
+
+			target = this._target;
+			propKey = this.targetPropKey;
+			startValue = this._value;
+			endValue = null;
+
 			this.obj.select();
 		});
 		this.obj.blur(()=>{
 			this.isFocus = false;
-			this.value = parseFloat(this.obj.val());
-			this.setValueToTarget();
+			//this.value = parseFloat(this.obj.val());
+			//this.setValueToTarget();
+			endValue = this._value;
+
+			if(target != null && endValue != null && startValue != endValue){
+				HistoryManager.shared.record(new Command(
+					()=>{
+						target[propKey] = endValue;
+					},
+					()=>{
+						target[propKey] = startValue;
+					}
+				));
+			}
 		});
 
 		var v:number = options.v || 10;
@@ -150,11 +194,11 @@ export class VMVariableInput extends VMInput {
 			//if(this.disabled) return;
 			if(!this.isFocus) return;
 
-			if(e.keyCode == 13) {
+			if(e.keyCode == 13) {	//ENTER
 				this.value = parseFloat(this.obj.val());
 				this.setValueToTarget();
 				this.obj.select();
-			}else if(e.keyCode == 38){
+			}else if(e.keyCode == 38){	//UP
 				if(options.type == "multiply"){
 					this.value *= (1 + v);
 				}else{
@@ -162,7 +206,7 @@ export class VMVariableInput extends VMInput {
 				}
 				this.setValueToTarget();
 				this.obj.select();
-			}else if(e.keyCode == 40){
+			}else if(e.keyCode == 40){	//DOWN
 				if(options.type == "multiply"){
 					this.value /= (1 + v);
 				}else{

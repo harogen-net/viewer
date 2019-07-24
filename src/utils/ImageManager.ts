@@ -1,11 +1,9 @@
-import {EventDispatcher} from "../events/EventDispatcher";
 import { ImageLayer } from "../__core__/model/ImageLayer";
-import { url } from "inspector";
 
 declare var $:any;
 declare var jsSHA:any;
 
-export class ImageManager extends EventDispatcher {
+export class ImageManager {
 
 	private static _instance:ImageManager;
 	public static get instance():ImageManager {
@@ -57,8 +55,6 @@ export class ImageManager extends EventDispatcher {
 	private _imageById:{[key:string]:{width:number, height:number, name:string, imgObj:any}};
 
 	private constructor(private container:any){
-		super();
-
 		console.log("ImageManager constructor");
 		this._imageById = {};
 		this.allImages = [];

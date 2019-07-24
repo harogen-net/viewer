@@ -15,6 +15,7 @@ import { VDoc } from "../__core__/model/VDoc";
 import { PropFlags } from "../__core__/model/PropFlags";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { AdjustView } from "../__core__/view/AdjustView";
+import { HistoryManager, Command } from "../utils/HistoryManager";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -83,13 +84,23 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 		var dropHelper = new DropHelper(this);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-			var layer = (new ImageLayer(e.detail));
+			var imageId = e.detail;
+			var layer = (new ImageLayer(imageId));
 			if(layer.originHeight > (layer.originWidth * 1.2)) {
 				layer.rotation -= 90;
 			}
-			this._slide.addLayer(layer)
-			this.getViewByLayer(layer).selected = true;
-			this._slide.fitLayer(layer);
+
+			HistoryManager.shared.record(new Command(
+				()=>{
+					this._slide.addLayer(layer)
+					this.getViewByLayer(layer).selected = true;
+					this._slide.fitLayer(layer);
+				},
+				()=>{
+					this._slide.removeLayer(layer);
+					layer.scale = 1;
+				}
+			)).do();
 		});
 
 
@@ -209,7 +220,17 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		if(!this._isActive) return;
 		if(this.selectedLayerView){
 			this.copy();
-			this._slide.removeLayer(this.selectedLayerView.data);
+
+			var layer = this.selectedLayerView.data;
+			var index = this._slide.indexOf(layer);
+			HistoryManager.shared.record(new Command(
+				()=>{
+					this._slide.removeLayer(layer);
+				},
+				()=>{
+					this._slide.addLayer(layer, index);
+				}
+			)).do();
 		}
 	}
 
@@ -226,8 +247,17 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	paste(){
 		if(!this._isActive) return;
 		if(this.copyedLayer){
-			var layer:Layer = this._slide.addLayer(this.copyedLayer.clone());
-			this.getViewByLayer(layer).selected = true;
+			var layer:Layer = this.copyedLayer.clone();
+
+			HistoryManager.shared.record(new Command(
+				()=>{
+					this._slide.addLayer(layer);
+					this.getViewByLayer(layer).selected = true;
+				},
+				()=>{
+					this._slide.removeLayer(layer);
+				}
+			)).do();
 		}
 	}
 
@@ -239,7 +269,19 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	pasteTrans(){
 		if(!this.selectedLayerView) return;
 		if(!this.copyedTrans) return;
-		this.selectedLayerView.data.transform = this.copyedTrans;
+
+		var layer = this.selectedLayerView.data;
+		var initValue = layer.transform;
+		var endValue = Object.assign({}, this.copyedTrans);
+		HistoryManager.shared.record(new Command(
+			()=>{
+				layer.transform = endValue;
+			},
+			()=>{
+				layer.transform = initValue;
+			}
+		)).do();
+//		this.selectedLayerView.data.transform = this.copyedTrans;
 	}
 
 
