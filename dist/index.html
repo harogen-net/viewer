@@ -86,7 +86,14 @@
 				<option value="15000">15000</option>
 			</select>
 			</span>
-			<span><input id="bgColor" type="color"  value="#999999" /></span>
+			<span><input id="bgColor" type="color" list="bgColorList" value="#999999" /></span>
+			<datalist id="bgColorList">
+				<option value="#000000"></option>
+				<option value="#333333"></option>
+				<option value="#666666"></option>
+				<option value="#999999"></option>
+				<option value="#FFFFFF"></option>
+			</datalist>
 		</div>
 		<div>
 			<label for="cb_fullscreen"><input id="cb_fullscreen" class="fullscreen" type="checkbox"><span>FULLSCREEN</span></label>
@@ -130,6 +137,7 @@
 				</div>
 				<div>
 					<button class="same"><i class="fas fa-th-large"></i></button>
+					<button class="spread"><i class="far fa-clone"></i><i class="fas fa-exchange-alt" style="font-size:70%;"></i></button>
 				</div>
 				<div>
 					<span class="name">[スライド名]</span>

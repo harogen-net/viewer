@@ -14,6 +14,8 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 	private readonly THUMB_HEIGHT:number = 110;
 
+	private containerObj:any;
+
 	private _slides:Slide[];
 	private _slideViews:ThumbSlideView[];
 	private _slideViewsById:any;
@@ -31,7 +33,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		document.documentElement.style.setProperty("--slideThumbHeight", this.THUMB_HEIGHT + "px");
 
 		this.obj.addClass("slideList");
-		this.obj.sortable({
+
+		this.containerObj = $('<div class="container" />').appendTo(this.obj);
+		this.containerObj.sortable({
 			items:".slide",
             revert:200,
 			scroll:false,
@@ -77,14 +81,25 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			if(this._mode == ViewerMode.SELECT) this.selectSlide();
 		}); */
 
-		this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.obj);
+		this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.containerObj);
 		this.newSlideBtn.click(()=>{
 			if(this._slideViews.length > 0){
 				this._slideViews[this._slideViews.length - 1].slide.joining = false;
 			}
 			var slide = new Slide(VDoc.shared.width, VDoc.shared.height);
 			this.addSlide(slide)
-//			this.selectSlide();
+			this.selectSlide(slide);
+		});
+
+		var prevSlideBtn = $('<button class="selectSlideBtn prev"><i class="fas fa-chevron-left"></i></button>');
+		this.obj.append(prevSlideBtn);
+		prevSlideBtn.click(()=>{
+			this.selectSlideOffset(-1);
+		});
+		var nextSlideBtn = $('<button class="selectSlideBtn next"><i class="fas fa-chevron-right"></i></button>');
+		this.obj.append(nextSlideBtn);
+		nextSlideBtn.click(()=>{
+			this.selectSlideOffset(1);
 		});
 	}
 
@@ -147,7 +162,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		//sortable用にslideのidをslideViewのobjにセット
 		slideView.obj.data("id", slide.id);
 
-		slideView.obj.appendTo(this.obj);
+		slideView.obj.appendTo(this.containerObj);
 		slideView.fitToHeight();
 		this.sortSlideViewByIndex();
 
@@ -267,6 +282,17 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		this.scrollToSelected();
 	}
 
+	private selectSlideOffset(offset:number = 0){
+		if(offset == 0) return;
+		var index = this._slides.indexOf(this._selectedSlide);
+		if(index == -1) return;
+		var index2 = index + offset;
+		if(index2 < 0) index2 = 0;
+		if(index2 > this._slides.length - 1) index2 = this._slides.length - 1;
+		if(index2 == index) return;
+		this.selectSlide(this._slides[index2]);
+	}
+
 	private scrollToSelected(){
 		if(!this._selectedSlide) return;
 		switch(this._mode){
@@ -274,7 +300,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			//	this.obj.animate({"scrollTop":this._selectedSlide.obj.position().top});
 			break;
 			case ViewerMode.EDIT:
-				this.obj.animate({"scrollLeft":this.selectedSlideView.obj.position().left + this.obj.scrollLeft() - this.obj.width() / 2 + this.selectedSlideView.obj.width() / 2});
+				this.containerObj.animate({"scrollLeft":this.selectedSlideView.obj.position().left + this.containerObj.scrollLeft() - this.containerObj.width() / 2 + this.selectedSlideView.obj.width() / 2});
 			break;
 		}
 	}
@@ -283,18 +309,18 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		if(this._slideViews.length == 0) return;
 
 		$.each(this._slideViews, (i:number, slide:ThumbSlideView) => {
-			this.obj.append(slide.obj);
+			this.containerObj.append(slide.obj);
 			slide.obj.removeClass("last");
 		});
 		this._slideViews[this._slideViews.length - 1].obj.addClass("last");
-		this.obj.append(this.newSlideBtn);
-		this.obj.sortable("refresh");
+		this.containerObj.append(this.newSlideBtn);
+		this.containerObj.sortable("refresh");
 	}
 
 	//
 
 	private onSlideSort() {
-		this.obj.find(".slide").each((i:number, elem:any)=>{
+		this.containerObj.find(".slide").each((i:number, elem:any)=>{
 			this._slideViews[i] = this._slideViewsById[$(elem).data("id")];
 		});
 		this._slides.sort((a:Slide, b:Slide)=>{

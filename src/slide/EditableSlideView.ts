@@ -15,7 +15,7 @@ import { VDoc } from "../__core__/model/VDoc";
 import { PropFlags } from "../__core__/model/PropFlags";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { AdjustView } from "../__core__/view/AdjustView";
-import { HistoryManager, Command } from "../utils/HistoryManager";
+import { HistoryManager, Command, Transaction } from "../utils/HistoryManager";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -40,7 +40,8 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	private lastSelectedId:string = "";
 	private lastSelectedIndex:number = -1;
 	private sharedLayersByUUID:{[key:string]:Layer[];}  = {};
-	private rectLayers:Layer[] = [];
+	private rectLayers:{[key:string]:Layer[];}  = {};
+	//private rectLayers:Layer[] = [];
 	
 
 
@@ -208,11 +209,11 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			}
 			this.lastSelectedIndex = this._slide.layers.indexOf(this.selectedLayerView.data);
 
-			if(this._rectEdit && this.selectedLayerView.data.type == LayerType.IMAGE && !this.selectedLayerView.data.shared){
+			if(this._rectEdit){
 				this.listRectLayers(this.selectedLayerView.data);
 			}
 		}else{
-			this.rectLayers = [];
+//			this.rectLayers = [];
 		}
 	}
 
@@ -300,6 +301,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		//this._slide.removeEventListener("layerRemove", this.onLayerRemove2);
 		//this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
 		this.sharedLayersByUUID = {};
+		this.rectLayers = {};
 
 		//
 
@@ -351,7 +353,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 	private listSharedLayers(layer:Layer) {
 		if(!layer.shared) return;
-		if(this.sharedLayersByUUID[layer.uuid] != undefined) return;
+//		if(this.sharedLayersByUUID[layer.uuid] != undefined) return;
 
 		this.sharedLayersByUUID[layer.uuid] = [];
 		var func = (slide:Slide)=>{
@@ -384,9 +386,10 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 	private listRectLayers(layer:Layer) {
 		if(layer.type != LayerType.IMAGE) return;
-		if(layer.shared) return;
-		this.rectLayers = [];
+//		if(layer.shared) return;
+//		this.rectLayers = [];
 
+		this.rectLayers[layer.uuid] = [];
 		var func = (slide:Slide)=>{
 			var find = false;
 			for(var i = 0; i < slide.layers.length; i++){
@@ -402,7 +405,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 					if(layer.mirrorH != tmpLayer.mirrorH) continue;
 					if(layer.mirrorV != tmpLayer.mirrorV) continue;
 					find = true;
-					this.rectLayers.push(tmpLayer);
+					this.rectLayers[layer.uuid].push(tmpLayer);
 					//break;	//複数枚OK
 				}
 			}
@@ -455,8 +458,12 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		});
 	}
 
-	private sharedLayerSpread(layer:Layer){
-		if(!layer.shared) return;
+	public spreadLayers(layer:Layer){
+		if(!layer) return;
+		//if(!layer.shared) return;
+		if(!layer.shared) layer.shared = true;
+
+		var transaction = new Transaction();
 
 		var func = (slide:Slide)=>{
 			var continueToNext = true;
@@ -470,7 +477,16 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 						if(tmpLayer.shared){
 							continueToNext = false;
 						}else{
-							tmpLayer.shared = true;
+							var targetLayer = tmpLayer;
+							transaction.record(
+								()=>{
+									targetLayer.shared = true;
+								},
+								()=>{
+									targetLayer.shared = false;
+								}
+							)
+//							tmpLayer.shared = true;
 						}
 						break;
 					}
@@ -482,8 +498,17 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				}
 			}
 			if(!find){
-				slide.addLayer(layer.clone());
+				var newLayer:Layer = layer.clone();
+				transaction.record(
+					()=>{
+						slide.addLayer(newLayer);
+					},
+					()=>{
+						slide.removeLayer(newLayer);
+					}
+				)
 			}
+			
 			return continueToNext;
 		}
 
@@ -495,6 +520,11 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		slide = VDoc.shared.getPrevSlide(this._slide);
 		while(slide && func(slide)){
 			slide = VDoc.shared.getPrevSlide(slide);
+		}
+
+		if(transaction.length > 0){
+			HistoryManager.shared.record(transaction).do();
+			this.listSharedLayers(layer);
 		}
 	}
 
@@ -535,10 +565,11 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	public set rectEdit(value:boolean) {
 		if(this._rectEdit == value) return;
 		this._rectEdit = value;
-		if(this._rectEdit && this.selectedLayerView){
+		 if(this._rectEdit && this.selectedLayerView){
+		// 	this.listRectLayers(this.selectedLayerView.data);
+		// }else{
+		// 	this.rectLayers = [];
 			this.listRectLayers(this.selectedLayerView.data);
-		}else{
-			this.rectLayers = [];
 		}
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ESV_RECT));
 	}
@@ -562,10 +593,10 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 			if(flag & PropFlags.SHARED){
 				if(layer.shared){
-					if(window.confirm('paste layer to all slides. Are you sure?')){
+/*					if(window.confirm('paste layer to all slides. Are you sure?')){
 						this.sharedLayerSpread(layer);
 					}
-					this.listSharedLayers(layer);
+					this.listSharedLayers(layer);*/
 				}else{
 					delete this.sharedLayersByUUID[layer.uuid];
 				}
@@ -583,7 +614,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				}else if(this._rectEdit){
 					var flagForRect = flag & (PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.MIRROR_H|PropFlags.MIRROR_V|PropFlags.ROTATION);
 					if(flagForRect){
-						this.multipleLayerOperation(layer, this.rectLayers, flagForRect);
+						this.multipleLayerOperation(layer, this.rectLayers[layer.uuid], flagForRect);
 					}
 				}
 			}
@@ -592,10 +623,27 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				var layer:Layer = pe.options.layer;
 				if(layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined){
 					if(window.confirm('remove shared layers. Are you sure?')){
+
+						var transaction = new Transaction();
+
 						this.sharedLayersByUUID[layer.uuid].forEach(tmpLayer=>{
-							tmpLayer.parent.removeLayer(tmpLayer);
+							var slide = tmpLayer.parent;
+							var index = slide.indexOf(tmpLayer);
+							transaction.record(
+								()=>{
+									slide.removeLayer(tmpLayer);
+								},
+								()=>{
+									slide.addLayer(tmpLayer, index);
+								}
+							)
+//							tmpLayer.parent.removeLayer(tmpLayer);
 						});
+
 						delete this.sharedLayersByUUID[layer.uuid];
+						if(transaction.length){
+							HistoryManager.shared.record(transaction).do();
+						}
 					}
 				}
 			}

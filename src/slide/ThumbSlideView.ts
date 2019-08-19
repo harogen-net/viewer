@@ -108,14 +108,14 @@ export class ThumbSlideView extends CanvasSlideView {
 		if(this._slide.durationRatio < 1){
 			durationCorrection = Math.pow(this._slide.durationRatio,0.4);
 		}
-		var fitWidth = this.scale * this._slide.width * durationCorrection;
+		var fitWidth = Math.round(this.scale * this._slide.width * durationCorrection);
 		{
 			this.obj.stop();
-			if(this.obj.attr("style") && this.obj.attr("style").indexOf("width") != -1){
-				this.obj.animate({"width":fitWidth},{duration :200,step:()=>{
-				}});
+			if(this.obj.attr("style") && this.obj.attr("style").indexOf("min-width") != -1){
+				this.obj.animate({"min-width":fitWidth},{duration :200});
 			}else{
-				this.obj.width(fitWidth);
+				//this.obj.width(fitWidth);
+				this.obj.css({"min-width":fitWidth});
 			}
 		}
 	}

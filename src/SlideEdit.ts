@@ -99,6 +99,10 @@ export class SlideEdit extends EventDispatcher {
 			new VMButton($("#main button.bottom"), Layer, ()=>{
 				this.slide.swapLayer(this.selectedLayer, -Slide.LAYER_NUM_MAX);
 			}),
+			new VMButton($("#main button.spread"), Layer, ()=>{
+				this.slideView.spreadLayers(this.selectedLayer);
+			}),
+
 			new VMVariableInput($(".property .position input").eq(0), Layer, "x", PropFlags.X, {v:-25}),
 			new VMVariableInput($(".property .position input").eq(1), Layer, "y", PropFlags.X, {v:-25}),
 			new VMVariableInput($(".property .scale input"), Layer, "scale", PropFlags.SCALE_X|PropFlags.SCALE_Y, {init:1, min:0.1, max:20, type:"multiply", v:0.1}),
