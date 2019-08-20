@@ -300,7 +300,8 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			//	this.obj.animate({"scrollTop":this._selectedSlide.obj.position().top});
 			break;
 			case ViewerMode.EDIT:
-				this.containerObj.animate({"scrollLeft":this.selectedSlideView.obj.position().left + this.containerObj.scrollLeft() - this.containerObj.width() / 2 + this.selectedSlideView.obj.width() / 2});
+				this.containerObj.animate({"scrollLeft":this.selectedSlideView.obj.position().left + this.containerObj.scrollLeft() - this.containerObj.width() / 2 + this.selectedSlideView.obj.width() / 2 - 40});
+				//「40」はbody.edit .slideList .containerの左右padding値
 			break;
 		}
 	}

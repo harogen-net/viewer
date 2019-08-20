@@ -111,11 +111,11 @@ export class ThumbSlideView extends CanvasSlideView {
 		var fitWidth = Math.round(this.scale * this._slide.width * durationCorrection);
 		{
 			this.obj.stop();
-			if(this.obj.attr("style") && this.obj.attr("style").indexOf("min-width") != -1){
-				this.obj.animate({"min-width":fitWidth},{duration :200});
+			if(this.obj.attr("style") && this.obj.attr("style").indexOf("width") != -1){
+				this.obj.animate({"width":fitWidth},{duration :200});
 			}else{
 				//this.obj.width(fitWidth);
-				this.obj.css({"min-width":fitWidth});
+				this.obj.css({"width":fitWidth});
 			}
 		}
 	}

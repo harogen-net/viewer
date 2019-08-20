@@ -281,7 +281,7 @@ export class SlideEdit extends EventDispatcher {
 			this.layerDiv.layerViews = this.slideView.layerViews;
 			//this.layerDiv.update();
 		}
-		console.log("slide update at slideEdit:", pe.propFlags.toString(2));
+		//console.log("slide update at slideEdit:", pe.propFlags.toString(2));
 	}
 
 	//

@@ -409,7 +409,8 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 					//break;	//複数枚OK
 				}
 			}
-			return find;
+			return true;
+			//return find;
 		}
 		var slide:Slide;
 		slide = VDoc.shared.getNextSlide(this._slide);
