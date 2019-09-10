@@ -409,6 +409,9 @@ export class SlideStorage extends EventDispatcher {
 							if(layerDatum.clipRect != undefined){
 								img.clipRect = layerDatum.clipRect;
 							}
+							if(layerDatum.isText != undefined){
+								img.isText = layerDatum.isText;
+							}
 							slide.addLayer(img);
 						break;
 					}

@@ -16,29 +16,30 @@ export enum PropFlags {	//52個まで設定可能？
 	//ImageLayer
 	IMG_IMAGEID		= 1 << 12,
 	IMG_CLIP		= 1 << 13,
+	IMG_TEXT		= 1 << 14,
 
 	//TextLayer
-	TXT_TEXT		= 1 << 14,
+	TXT_TEXT		= 1 << 15,
 
 	//LayerView
-	LV_SELECT		= 1 << 15,
+	LV_SELECT		= 1 << 16,
 
 	//Slide
-	S_DURATION		= 1 << 16,
-	S_JOIN			= 1 << 17,
-	S_DISABLED		= 1 << 18,
-	S_LAYER_ADD		= 1 << 19,
-	S_LAYER_REMOVE	= 1 << 20,
-	S_LAYER_ORDER	= 1 << 21,
-	S_LAYER			= 1 << 22,
+	S_DURATION		= 1 << 17,
+	S_JOIN			= 1 << 18,
+	S_DISABLED		= 1 << 19,
+	S_LAYER_ADD		= 1 << 20,
+	S_LAYER_REMOVE	= 1 << 21,
+	S_LAYER_ORDER	= 1 << 22,
+	S_LAYER			= 1 << 23,
 
 	//SlideView
-	SV_SELECT		= 1 << 23,
+	SV_SELECT		= 1 << 24,
 
 	//DOMSlideView
-	DSV_SCALE		= 1 << 24,
+	DSV_SCALE		= 1 << 25,
 	//EditableSlideView
-	ESV_RECT		= 1 << 25,
+	ESV_RECT		= 1 << 26,
 
-	ALL				= (2**26-1)
+	ALL				= (2**27-1)
 }

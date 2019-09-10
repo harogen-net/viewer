@@ -44,25 +44,85 @@ export class SlideEdit extends EventDispatcher {
 				this.slideView.copy();
 			}),
 			new VMButton($("#main button.rotateL"), Layer, ()=>{
-				this.slideView.editingLayer.rotateBy(-90);
+				var layer = this.slideView.editingLayer;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						layer.rotateBy(-90);
+					},
+					()=>{
+						layer.rotateBy(90);
+					}
+				)).do();
+//				this.slideView.editingLayer.rotateBy(-90);
 			}),
 			new VMButton($("#main button.rotateR"), Layer, ()=>{
-				this.selectedLayer.rotateBy(90);
+				var layer = this.slideView.editingLayer;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						layer.rotateBy(90);
+					},
+					()=>{
+						layer.rotateBy(-90);
+					}
+				)).do();
+
+//				this.selectedLayer.rotateBy(90);
 			}),
 			new VMButton($("#main button.toTop"), Layer, ()=>{
-				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.TOP);
+				var layer = this.slideView.editingLayer;
+				var y = layer.y;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.arrangeLayer(this.slideView.editingLayer, Direction.TOP);
+					},
+					()=>{
+						layer.y = y;
+					}
+				)).do();
+//				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.TOP);
 			}),
 			new VMButton($("#main button.toRight"), Layer, ()=>{
-				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.RIGHT);
+				var layer = this.slideView.editingLayer;
+				var x = layer.x;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.arrangeLayer(this.slideView.editingLayer, Direction.RIGHT);
+					},
+					()=>{
+						layer.x = x;
+					}
+				)).do();
+				//this.slide.arrangeLayer(this.slideView.editingLayer, Direction.RIGHT);
 			}),
 			new VMButton($("#main button.toBottom"), Layer, ()=>{
-				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.BOTTOM);
+				var layer = this.slideView.editingLayer;
+				var y = layer.y;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.arrangeLayer(this.slideView.editingLayer, Direction.BOTTOM);
+					},
+					()=>{
+						layer.y = y;
+					}
+				)).do();
+//				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.BOTTOM);
 			}),
 			new VMButton($("#main button.toLeft"), Layer, ()=>{
-				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.LEFT);
+				var layer = this.slideView.editingLayer;
+				var x = layer.x;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.arrangeLayer(this.slideView.editingLayer, Direction.LEFT);
+					},
+					()=>{
+						layer.x = x;
+					}
+				)).do();
+//				this.slide.arrangeLayer(this.slideView.editingLayer, Direction.LEFT);
 			}),
 			new VMToggleButton($("#main button.mirrorH"), Layer, "mirrorH", PropFlags.MIRROR_H),
 			new VMToggleButton($("#main button.mirrorV"), Layer, "mirrorV", PropFlags.MIRROR_V),
+			new VMToggleButton($("#main button.isText"), Layer, "isText", PropFlags.IMG_TEXT),
 			new VMButton($("#main button.copyTrans"), Layer, ()=>{
 				this.slideView.copyTrans();
 			}),

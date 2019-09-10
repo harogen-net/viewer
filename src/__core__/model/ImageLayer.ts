@@ -10,6 +10,7 @@ declare var Matrix4: any;
 export class ImageLayer extends Layer {
 
 	private _clipRect:number[] = [0,0,0,0];
+	private _isText:boolean = false;
 	
 	constructor(private _imageId:string, transform:any = null, id:number = -1){
 		super(transform, id);
@@ -31,6 +32,7 @@ export class ImageLayer extends Layer {
 		ret.opacity = this._opacity;
 		ret.shared = this._shared;
 		ret.clipRect = this._clipRect;
+		ret.isText = this._isText;
 		return ret;
 	}
 
@@ -38,6 +40,7 @@ export class ImageLayer extends Layer {
 		var ret:any = super.getData();
 		ret.imageId = this._imageId;
 		ret.clipRect = this._clipRect.concat();
+		ret.isText = this._isText;
 		return ret;
 	}
 
@@ -100,6 +103,19 @@ export class ImageLayer extends Layer {
 		return this._clipRect.some(value=>{
 			return value != 0;
 		});
+	}
+	public get clipString():string {
+		//クリップ情報を比較する際に使う
+		return this._clipRect.join(",");
+	}
+
+	public get isText(){
+		return this._isText;
+	}
+	public set isText(value:boolean){
+		if(this._isText == value) return;
+		this._isText = value;
+		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_TEXT));
 	}
 
 	//

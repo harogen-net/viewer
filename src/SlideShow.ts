@@ -97,14 +97,6 @@ export class SlideShow extends EventDispatcher {
 			slideForSS.durationRatio = slide.durationRatio;
 			slideForSS.joining = slide.joining;
 			slideForSS.disabled = slide.disabled;
-			// $.each(slide.layers, (number, layer:Layer) => {
-			// 	slideForSS.addLayer(layer.clone());
-			// });
-
-	
-
-//			var slideForSS:SlideView = slide.clone();
-//			slideForSS.obj.css("background-color",this.bgColor);
 			slideViewForSS.obj.hide();
 
 			var datum:any = {};
@@ -122,6 +114,9 @@ export class SlideShow extends EventDispatcher {
 			for(var j:number = 0; j < slide.layers.length; j++){
 				var transform:any = slide.layers[j].transform;
 				transform.opacity = slide.layers[j].opacity;
+				if(slide.layers[j].type == LayerType.IMAGE){
+					transform.clipRect = (slide.layers[j] as ImageLayer).clipRect;
+				}
 				datum.transforms.push(transform);
 			}
 			datum.durationRatio = slide.durationRatio;
@@ -210,8 +205,9 @@ export class SlideShow extends EventDispatcher {
 				for(var i:number = 0; i < slide.slide.layers.length; i++){
 					var layer = slide.slide.layers[i];
 					var trans = layer.transform;
-					if(layer.type == LayerType.TEXT){	//文字を反転から救う
-						this.avoidMirrorText(layer as TextLayer, trans.mirrorH, trans.mirrorV);
+					//文字要素を反転から救う
+					if(layer.type == LayerType.TEXT || (layer.type == LayerType.IMAGE && (layer as ImageLayer).isText)){
+						this.avoidMirror(layer, trans.mirrorH, trans.mirrorV);
 					}
 				}				
 			});
@@ -312,8 +308,17 @@ export class SlideShow extends EventDispatcher {
 		if(datum.keep && !this.isInit){
 			slide.obj.stop().css({"opacity":1});
 			var keepDurationOffset:number = Math.min(this.slideDuration * 0.2, (this.interval - this.duration));
-			slide.obj.find(".layerWrapper").css("transition", "transform " + ((this.slideDuration - keepDurationOffset) / 1000) + "s cubic-bezier(.4,0,.7,1)");
-			slide.obj.find("img").css("transition", "opacity " + ((this.slideDuration - keepDurationOffset) / 1000) + "s linear");
+			var transitionDuration = ((this.slideDuration - keepDurationOffset) / 1000);
+			var bezierStr = "cubic-bezier(.4,0,.7,1)";
+			slide.obj.find(".layerWrapper").css("transition", "transform " + transitionDuration + "s " + bezierStr);
+
+
+			var imgTransitions:string[] = [];
+			imgTransitions.push("opacity " + transitionDuration + "s linear");
+			imgTransitions.push("clip-path " + transitionDuration + "s " + bezierStr);
+			imgTransitions.push("-webkit-clip-path " + transitionDuration + "s " + bezierStr);
+			slide.obj.find("img").css("transition", imgTransitions.join(", "));
+			slide.obj.find("img").css("transition", "all " + transitionDuration + "s linear");
 			//slide.obj.find(".layerWrapper").css("transition", "transform " + (this.duration / 1000) + "s cubic-bezier(.4,0,.7,1)");
 		}else{
 			slide.obj.find(".layerWrapper").css("transition", "");
@@ -334,10 +339,16 @@ export class SlideShow extends EventDispatcher {
 			var layer = slide.slide.layers[i];
 			var trans = datum.transforms[i];
 			layer.transform = trans;
-			if(layer.type == LayerType.TEXT){	//文字を反転から救う
-				this.avoidMirrorText(layer as TextLayer, trans.mirrorH, trans.mirrorV);
+
+			//文字要素を反転から救う
+			if(layer.type == LayerType.TEXT || (layer.type == LayerType.IMAGE && (layer as ImageLayer).isText)){
+				this.avoidMirror(layer, trans.mirrorH, trans.mirrorV);
 			}
 			layer.opacity = datum.transforms[i].opacity;
+
+			if(layer.type == LayerType.IMAGE){
+				(layer as ImageLayer).clipRect = datum.transforms[i].clipRect;
+			}
 		}
 		
 		this.timer = setTimeout(()=>{
@@ -417,6 +428,8 @@ export class SlideShow extends EventDispatcher {
 			switch(layer1.type){
 				case LayerType.IMAGE:
 					if((layer1 as ImageLayer).imageId != (layer2 as ImageLayer).imageId) return false;
+//					if((layer1 as ImageLayer).clipString != (layer2 as ImageLayer).clipString) return false;
+					if((layer1 as ImageLayer).isText != (layer2 as ImageLayer).isText) return false;
 				break;
 				case LayerType.TEXT:
 //					if(layer1.id != layer2.id) return false;
@@ -432,20 +445,21 @@ export class SlideShow extends EventDispatcher {
 	}
 
 	//textLayerを鏡面再生でも読めるようにする
+	//ついでに文字を含む画像も鏡面で読めるように改修
 	//回転角が±90度あたりならば鏡面の縦横を逆にして判定
-	private avoidMirrorText(textLayer:TextLayer, defaultMirrorH:boolean, defaultMirrorV:boolean){
+	private avoidMirror(layer:Layer, defaultMirrorH:boolean, defaultMirrorV:boolean){
 		if(this._mirrorH){
-			if((textLayer.rotation > 45 && textLayer.rotation < 135) || (textLayer.rotation < -45 && textLayer.rotation > -135)){
-				textLayer.mirrorV = !defaultMirrorV;
+			if((layer.rotation > 45 && layer.rotation < 135) || (layer.rotation < -45 && layer.rotation > -135)){
+				layer.mirrorV = !defaultMirrorV;
 			}else{
-				textLayer.mirrorH = !defaultMirrorH;
+				layer.mirrorH = !defaultMirrorH;
 			}
 		}
 		if(this._mirrorV){
-			if((textLayer.rotation > 45 && textLayer.rotation < 135) || (textLayer.rotation < -45 && textLayer.rotation > -135)){
-				textLayer.mirrorH = !defaultMirrorH;
+			if((layer.rotation > 45 && layer.rotation < 135) || (layer.rotation < -45 && layer.rotation > -135)){
+				layer.mirrorH = !defaultMirrorH;
 			}else{
-				textLayer.mirrorV = !defaultMirrorV;
+				layer.mirrorV = !defaultMirrorV;
 			}
 		}
 	}

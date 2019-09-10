@@ -416,6 +416,9 @@ input.imageRef {
 	height:2em;
 	cursor:pointer;
 }
+.slideCanvas .sideMenu .property button.isText {
+	margin-left: 50%;
+}
 .slideCanvas .sideMenu .property button:disabled {
 	cursor: default;
 }

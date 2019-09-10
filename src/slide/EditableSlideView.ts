@@ -450,6 +450,9 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				if(flag & PropFlags.IMG_CLIP){
 					(tmpLayer as ImageLayer).clipRect = (layer as ImageLayer).clipRect;
 				}
+				if(flag & PropFlags.IMG_TEXT){
+					(tmpLayer as ImageLayer).isText = (layer as ImageLayer).isText;
+				}
 			}
 			if(layer.type == LayerType.TEXT){
 				if(flag & PropFlags.IMG_IMAGEID){
@@ -655,52 +658,4 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 
 
-
-	// private onLayerUpdate = (ce:CustomEvent)=>{
-	// 	if(!this.isActive) return;
-	// 	var layer:Layer = ce.detail.layer;
-	// 	if(!layer) return;
-
-	// 	var flag:number = ce.detail.propFlags;
-	// 	if(flag & PropFlags.SHARED){
-	// 		if(layer.shared){
-	// 			if(window.confirm('paste layer to all slides. Are you sure?')){
-	// 				this.sharedLayerSpread(layer);
-	// 			}
-	// 			this.listSharedLayers(layer);
-	// 		}else{
-	// 			delete this.sharedLayersByUUID[layer.uuid];
-	// 		}
-	// 	}else{
-	// 		if(layer.shared){
-	// 			if(this.sharedLayersByUUID[layer.uuid] == undefined){
-	// 				this.listSharedLayers(layer);
-	// 			}
-	// 			this.multipleLayerOperation(layer, this.sharedLayersByUUID[layer.uuid],flag);
-
-	// 			if(flag & PropFlags.IMG_IMAGEID){
-	// 				delete this.sharedLayersByUUID[layer.uuid];
-	// 				this.listSharedLayers(layer);
-	// 			}
-	// 		}else{
-	// 			var flagForRect = flag&(PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.MIRROR_H|PropFlags.MIRROR_V|PropFlags.ROTATION);
-	// 			if(this._rectEdit && flagForRect != 0){
-	// 				this.multipleLayerOperation(layer, this.rectLayers, flagForRect);
-	// 			}
-	// 		}
-	// 	}
-	// // };
-	// private onLayerRemove2 = (ce:CustomEvent)=>{
-	// 	if(!this.isActive) return;
-
-	// 	var layer:Layer = ce.detail.layer;
-	// 	if(layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined){
-	// 		if(window.confirm('remove shared layers. Are you sure?')){
-	// 			this.sharedLayersByUUID[layer.uuid].forEach(tmpLayer=>{
-	// 				tmpLayer.parent.removeLayer(tmpLayer);
-	// 			});
-	// 			delete this.sharedLayersByUUID[layer.uuid];
-	// 		}
-	// 	}
-	// };
 }
