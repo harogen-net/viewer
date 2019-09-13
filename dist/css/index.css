@@ -418,6 +418,7 @@ input.imageRef {
 }
 .slideCanvas .sideMenu .property button.isText {
 	margin-left: 50%;
+	letter-spacing: -0.2em;
 }
 .slideCanvas .sideMenu .property button:disabled {
 	cursor: default;
