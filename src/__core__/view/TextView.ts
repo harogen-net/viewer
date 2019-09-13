@@ -35,8 +35,11 @@ export class TextView extends LayerView {
 	protected updateView(flag:number = PropFlags.ALL):void {
 		if(flag & PropFlags.TXT_TEXT){
 			this.textObj.find("span").html(this._data.text);
-			this._data.originWidth = this.textObj.find("span").width();
-			this._data.originHeight = this.textObj.find("span").height();
+
+			setTimeout(()=>{
+				this._data.originWidth = this.textObj.find("span").width();
+				this._data.originHeight = this.textObj.find("span").height();
+			}, 0);
 		}
 
 		//textを先に更新してほしいからsuperは後で

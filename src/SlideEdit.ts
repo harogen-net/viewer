@@ -122,7 +122,7 @@ export class SlideEdit extends EventDispatcher {
 			}),
 			new VMToggleButton($("#main button.mirrorH"), Layer, "mirrorH", PropFlags.MIRROR_H),
 			new VMToggleButton($("#main button.mirrorV"), Layer, "mirrorV", PropFlags.MIRROR_V),
-			new VMToggleButton($("#main button.isText"), Layer, "isText", PropFlags.IMG_TEXT),
+			new VMToggleButton($("#main button.isText"), ImageLayer, "isText", PropFlags.IMG_TEXT),
 			new VMButton($("#main button.copyTrans"), Layer, ()=>{
 				this.slideView.copyTrans();
 			}),
