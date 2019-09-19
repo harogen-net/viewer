@@ -148,16 +148,54 @@ export class SlideEdit extends EventDispatcher {
 			}),
 
 			new VMButton($("#main button.up"), Layer, ()=>{
-				this.slide.swapLayer(this.selectedLayer, 1);
+				//this.slide.swapLayer(this.selectedLayer, 1);
+				var layer = this.slideView.editingLayer;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.swapLayer(layer, 1);
+					},
+					()=>{
+						this.slide.swapLayer(layer, -1);
+					}
+				)).do();
 			}),
 			new VMButton($("#main button.down"), Layer, ()=>{
-				this.slide.swapLayer(this.selectedLayer, -1);
+				//this.slide.swapLayer(this.selectedLayer, -1);
+				var layer = this.slideView.editingLayer;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.swapLayer(layer, -1);
+					},
+					()=>{
+						this.slide.swapLayer(layer, 1);
+					}
+				)).do();
 			}),
 			new VMButton($("#main button.top"), Layer, ()=>{
-				this.slide.swapLayer(this.selectedLayer, Slide.LAYER_NUM_MAX);
+				//this.slide.swapLayer(this.selectedLayer, Slide.LAYER_NUM_MAX);
+				var layer = this.slideView.editingLayer;
+				var index = this.slide.indexOf(layer);
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.swapLayer(layer, Slide.LAYER_NUM_MAX);
+					},
+					()=>{
+						this.slide.addLayer(layer, index);
+					}
+				)).do();
 			}),
 			new VMButton($("#main button.bottom"), Layer, ()=>{
-				this.slide.swapLayer(this.selectedLayer, -Slide.LAYER_NUM_MAX);
+				//this.slide.swapLayer(this.selectedLayer, -Slide.LAYER_NUM_MAX);
+				var layer = this.slideView.editingLayer;
+				var index = this.slide.indexOf(layer);
+				HistoryManager.shared.record(new Command(
+					()=>{
+						this.slide.swapLayer(layer, -Slide.LAYER_NUM_MAX);
+					},
+					()=>{
+						this.slide.addLayer(layer, index);
+					}
+				)).do();
 			}),
 			new VMButton($("#main button.spread"), Layer, ()=>{
 				this.slideView.spreadLayers(this.selectedLayer);
@@ -209,6 +247,8 @@ export class SlideEdit extends EventDispatcher {
 			$(".redo").prop("disabled", !HistoryManager.shared.canRedo);
 		});
 
+		//
+
 		$(".paste").click(() => {
 			this.slideView.paste();
 		});
@@ -226,6 +266,7 @@ export class SlideEdit extends EventDispatcher {
 		});
 		$(".text").click(()=>{
 			var textLayer:TextLayer = new TextLayer(prompt("insert text layer:"));
+			//textLayer.scale = 2;
 			HistoryManager.shared.record(new Command(
 				()=>{
 					this.slide.addLayer(textLayer);
@@ -296,7 +337,7 @@ export class SlideEdit extends EventDispatcher {
 
 	initialize(){
 		this.slideView.slide = new Slide();
-		HistoryManager.shared.initialize();
+		//HistoryManager.shared.initialize();
 		$(".slideCanvas .menu span.name").text("");
 	}
 
@@ -319,7 +360,7 @@ export class SlideEdit extends EventDispatcher {
 			// });
 		}
 
-		HistoryManager.shared.initialize();
+		//HistoryManager.shared.initialize();
 		this.slideView.slide = newSlide;
 		$(".slideCanvas .menu span.name").text(newSlide.id);
 

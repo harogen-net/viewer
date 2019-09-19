@@ -318,7 +318,7 @@ export class SlideShow extends EventDispatcher {
 			imgTransitions.push("clip-path " + transitionDuration + "s " + bezierStr);
 			imgTransitions.push("-webkit-clip-path " + transitionDuration + "s " + bezierStr);
 			slide.obj.find("img").css("transition", imgTransitions.join(", "));
-			slide.obj.find("img").css("transition", "all " + transitionDuration + "s linear");
+			//slide.obj.find("img").css("transition", "all " + transitionDuration + "s linear");
 			//slide.obj.find(".layerWrapper").css("transition", "transform " + (this.duration / 1000) + "s cubic-bezier(.4,0,.7,1)");
 		}else{
 			slide.obj.find(".layerWrapper").css("transition", "");

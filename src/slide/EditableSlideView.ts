@@ -464,9 +464,11 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 	public spreadLayers(layer:Layer){
 		if(!layer) return;
+		if(!this._slide.contains(layer)) return;
 		//if(!layer.shared) return;
 		if(!layer.shared) layer.shared = true;
 
+		var index = this._slide.indexOf(layer);
 		var transaction = new Transaction();
 
 		var func = (slide:Slide)=>{
@@ -505,7 +507,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				var newLayer:Layer = layer.clone();
 				transaction.record(
 					()=>{
-						slide.addLayer(newLayer);
+						slide.addLayer(newLayer, index);
 					},
 					()=>{
 						slide.removeLayer(newLayer);

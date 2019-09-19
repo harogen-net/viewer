@@ -123,6 +123,7 @@ export class Layer extends EventDispatcher {
 		if (this._locked != this.LOCKED) ret.locked = this._locked;
 		if (this._opacity != this.OPACITY) ret.opacity = this._opacity;
 		if (this._shared != this.SHARED) ret.shared = this._shared;
+		if (this._name != "") ret.name = this._name;
 		return ret;
 	}
 

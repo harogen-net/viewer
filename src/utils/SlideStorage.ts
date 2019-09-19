@@ -412,6 +412,9 @@ export class SlideStorage extends EventDispatcher {
 							if(layerDatum.isText != undefined){
 								img.isText = layerDatum.isText;
 							}
+							if(layerDatum.name != undefined){
+								img.name = layerDatum.name as string;
+							}
 							slide.addLayer(img);
 						break;
 					}

@@ -64,9 +64,17 @@ export class Slide extends EventDispatcher {
 	//
 	public addLayer(layer:Layer, index:number = -1):Layer {
 		if(!layer) return layer;
-		if(index > this._layers.length - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
-			throw new Error("invalid index.");
+
+		if(index != -1){
+			if(index > this._layers.length - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
+				//throw new Error("invalid index.");
+				//index値上限を指定した場合は後ろに追加にする
+				index = -1;
+			}
 		}
+		// if(index > this._layers.length - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
+		// 	throw new Error("invalid index.");
+		// }
 		if(this._layers.length >= Slide.LAYER_NUM_MAX - (this._layers.indexOf(layer) != -1 ? 1 : 0)){
 			throw new Error("exceeds max layer num.");
 		}
@@ -123,6 +131,10 @@ export class Slide extends EventDispatcher {
 		return this._layers.indexOf(layer);
 	}
 
+	public contains(layer:Layer):boolean {
+		if(!layer) return false;
+		return this._layers.indexOf(layer) != -1;
+	}
 	public removeAllLayers() {
 		while(this._layers.length > 0){
 			this.removeLayer(this._layers[0]);

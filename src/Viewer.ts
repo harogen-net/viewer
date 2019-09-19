@@ -11,6 +11,7 @@ import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";
 import { Layer, LayerType } from "./__core__/model/Layer";
 import { Slide } from "./__core__/model/Slide";
+import { HistoryManager } from "./utils/HistoryManager";
 
 declare var $:any;
 
@@ -246,7 +247,9 @@ export class Viewer {
 		 if(this.document){
 		 	this.document = null;
 			this.edit.initialize();
-		 	this.list.initialize();
+			this.list.initialize();
+			 
+			HistoryManager.shared.initialize();
 		}
 
 		this.setMode(ViewerMode.SELECT);
