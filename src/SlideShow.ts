@@ -414,14 +414,22 @@ export class SlideShow extends EventDispatcher {
 
 	}
 
+
+	//スライドの構造が同じかどうかを調べる
 	private checkSlidesSame(slide1:Slide, slide2:Slide):boolean {
 		if(!slide2.joining) return false;
-		if(slide1.layers.length != slide2.layers.length) return false;
 		if(slide1.layers.length == 0) return false;
+		if(slide2.layers.length == 0) return false;
 
-		for(var i = 0; i < slide1.layers.length; i++){
-			var layer1:Layer = slide1.layers[i];
-			var layer2:Layer = slide2.layers[i];
+		var visibleLayers1 = slide1.layers.filter(layer=>layer.visible);
+		var visibleLayers2 = slide2.layers.filter(layer=>layer.visible);
+
+		if(visibleLayers1.length != visibleLayers2.length) return false;
+
+
+		for(var i = 0; i < visibleLayers1.length; i++){
+			var layer1:Layer = visibleLayers1[i];
+			var layer2:Layer = visibleLayers2[i];
 
 			if(layer1.type != layer1.type) return false;
 
