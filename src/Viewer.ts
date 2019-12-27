@@ -99,7 +99,10 @@ export class Viewer {
 		this.list.addEventListener("edit", ()=>{
 			if(this.list.selectedSlide){
 				this.setMode(ViewerMode.EDIT);
-				this.edit.setSlide(this.list.selectedSlide);
+				setTimeout(()=>{
+					this.edit.setSlide(this.list.selectedSlide);
+				}, 301);
+				
 			}
 		});
 
