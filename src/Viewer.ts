@@ -239,9 +239,9 @@ export class Viewer {
 
 		//
 
-		// window.addEventListener('beforeunload', function(e){
-		// 	e.returnValue = "ページを離れます。よろしいですか？";
-		// },false);
+		window.addEventListener('beforeunload', function(e){
+			e.returnValue = "ページを離れます。よろしいですか？";
+		},false);
 
 		this.newDocument();
 	}
