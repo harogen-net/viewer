@@ -356,7 +356,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 //		if(this.sharedLayersByUUID[layer.uuid] != undefined) return;
 
 		this.sharedLayersByUUID[layer.uuid] = [];
-		var func = (slide:Slide)=>{
+		const func = (slide:Slide)=>{
 			var find = false;
 			for(var i = 0; i < slide.layers.length; i++){
 				var tmpLayer:Layer = slide.layers[i];
@@ -394,6 +394,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			var find = false;
 			for(var i = 0; i < slide.layers.length; i++){
 				var tmpLayer:Layer = slide.layers[i];
+				if(tmpLayer.uuid == layer.uuid) continue;	//自分自身意外
 				if(tmpLayer.type != layer.type) continue;
 				if(layer.type == LayerType.IMAGE){
 					if(layer.x != tmpLayer.x) continue;
@@ -413,14 +414,28 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			//return find;
 		}
 		var slide:Slide;
+		//自分自身のSlide
+		func(this._slide);
+		//前方向Slide
 		slide = VDoc.shared.getNextSlide(this._slide);
-		while(slide && func(slide)){
+		while(slide){
+			func(slide);
 			slide = VDoc.shared.getNextSlide(slide);
 		}
+		// while(slide && func(slide)){
+		// 	slide = VDoc.shared.getNextSlide(slide);
+		// }
+		//後方向Slide
 		slide = VDoc.shared.getPrevSlide(this._slide);
-		while(slide && func(slide)){
+		while(slide){
+			func(slide);
 			slide = VDoc.shared.getPrevSlide(slide);
 		}
+		// while(slide && func(slide)){
+		// 	slide = VDoc.shared.getPrevSlide(slide);
+		// }
+
+		console.log(this.rectLayers[layer.uuid]);
 	}
 
 	private multipleLayerOperation(layer, layers:Layer[], flag:number) {
@@ -428,6 +443,9 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		if(!layers) return;
 		if(layers.length == 0) return;
 		if(flag == 0) return;
+
+		//苦肉の策：無限ループに陥るので同時操作は非活性にする
+		this._isActive = false;
 
 		layers.forEach(tmpLayer=>{
 			if(flag & (PropFlags.X|PropFlags.Y|PropFlags.SCALE_X|PropFlags.SCALE_Y|PropFlags.ROTATION|PropFlags.MIRROR_H|PropFlags.MIRROR_V)){
@@ -460,6 +478,9 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				}
 			}
 		});
+		
+		//苦肉の策：無限ループに陥るので同時操作は非活性にする
+		this._isActive = true;
 	}
 
 	public spreadLayers(layer:Layer){
