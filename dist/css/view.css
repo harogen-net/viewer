@@ -1,0 +1,6 @@
+#menu {
+	height:150px;
+}
+#main {
+	height:calc(100% - 150px);
+}
