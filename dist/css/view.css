@@ -1,6 +1,53 @@
 #menu {
 	height:150px;
+	line-height:60px;
 }
 #main {
 	height:calc(100% - 150px);
+}
+
+#menu button{
+	width: 60px;
+	height: 60px;
+	line-height: 60px;
+}
+#menu button.startSlideShow {
+	width:120px;
+}
+#menu input{
+	min-width: 60px;
+	height: 60px;
+	line-height: 60px;
+}
+#menu button.fileSelect {}
+#menu select {
+	height:60px;
+	line-height: 60px;
+	-webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+#menu button i {
+	font-size:1.6rem;
+}
+#menu button span {
+	display: none;
+}
+
+.slideList .container > .slide button.edit {
+	display: none;
+}
+.slideList .container > .newSlideBtn {
+	display: none;
+}
+
+
+input[type=checkbox] {
+	transform: none;
+	-webkit-transform: scale(2,2);
+  }
+input[type=checkbox]:checked {
+    background-color: red;
+    /* or whatever styles you want depending on your design */
+    /* be as obvious as possible that it's a checkbox and that it's checked! */
 }
