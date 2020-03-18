@@ -168,6 +168,12 @@ export class Viewer {
 						});
 					}
 				});
+				$(".load").click(()=>{
+					if($('select.filename').val() == -1) return;
+					if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
+						this.storage.load($('select.filename').val());
+					}
+				});
 	
 			}else{
 				$(".dispose").click(()=>{
@@ -177,6 +183,11 @@ export class Viewer {
 					}
 				});
 				$("label[for='cb_fullscreen']").hide();
+
+				$("select.filename").change((any)=>{
+					if($('select.filename').val() == -1) return;
+					this.storage.load($('select.filename').val());
+				});
 			}
 
 			$("label[for='cb_ignore']").hide();
@@ -223,12 +234,7 @@ export class Viewer {
 					this.storage.save(this.document);
 				}
 			});
-			$(".load").click(()=>{
-				if($('select.filename').val() == -1) return;
-				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
-					this.storage.load($('select.filename').val());
-				}
-			});
+
 			
 
 			$("button.import").click(()=>{

@@ -1,11 +1,10 @@
 #menu {
-	height:150px;
-	line-height:60px;
+	height:80px;
 }
 #main {
-	height:calc(100% - 150px);
+	height:calc(100% - 80px);
 }
-
+/*
 #menu button{
 	width: 60px;
 	height: 60px;
@@ -48,6 +47,4 @@ input[type=checkbox] {
   }
 input[type=checkbox]:checked {
     background-color: red;
-    /* or whatever styles you want depending on your design */
-    /* be as obvious as possible that it's a checkbox and that it's checked! */
-}
+} */
