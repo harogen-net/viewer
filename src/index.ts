@@ -1,10 +1,15 @@
-import { Viewer } from "./Viewer";
+import { Viewer, ViewerStartUpMode } from "./Viewer";
 declare const require: Function;
 require("jquery-ui/ui/widgets/sortable.js");
 require("jquery-ui/ui/widgets/resizable.js");
 declare var $: any;
+declare var viewOnly:any;
 
 $(function(){
 	console.log("init");
-	let viewer:Viewer = new Viewer($("body"));
+	var startUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
+	try {
+		if (viewOnly) startUpMode = ViewerStartUpMode.VIEW_ONLY;
+	}catch(Exception){ }
+	let viewer:Viewer = new Viewer($("body"), startUpMode);
 });
