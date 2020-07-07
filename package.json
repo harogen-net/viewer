@@ -13,7 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@types/es6-promise": "^3.3.0",
-    "electron": "^7.1.7",
+    "electron": "^7.2.4",
     "javascript-natural-sort": "^0.7.1",
     "jquery": "^3.4.1",
     "jquery-ui": "^1.12.1",
