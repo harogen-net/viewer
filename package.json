@@ -1,6 +1,6 @@
 {
   "name": "viewer",
-  "main": "./dist/app.js",
+  "main": "",
   "version": "1.0.0",
   "scripts": {
     "build": "webpack"
