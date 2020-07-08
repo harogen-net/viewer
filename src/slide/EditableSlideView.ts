@@ -473,7 +473,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				}
 			}
 			if(layer.type == LayerType.TEXT){
-				if(flag & PropFlags.TXT_TEXT){
+				if(flag & PropFlags.IMG_IMAGEID){
 					(tmpLayer as TextLayer).text = (layer as TextLayer).text;
 				}
 			}
