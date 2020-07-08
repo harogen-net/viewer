@@ -2,6 +2,7 @@ import { CanvasSlideView } from "./CanvasSlideView";
 import { Slide } from "../__core__/model/Slide";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../__core__/model/PropFlags";
+import { Viewer, ViewerStartUpMode } from "../Viewer";
 
 declare var $:any;
 
@@ -13,31 +14,25 @@ export class ThumbSlideView extends CanvasSlideView {
 	constructor(protected _slide:Slide, public obj:any, protected scale:number){
 		super(_slide, obj, scale);
 
-//		this._slide.addEventListener("update", this.onSlideUpdate);
-//		this._slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
-
 		//
 
-		var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(this.obj);
-		deleteBtn.click(()=>{
-			this.dispatchEvent(new CustomEvent("delete", {detail:this._slide}));
-			//if(window.confirm('Are you sure?')){
-//				this.removeSlide(slideView.slide ,true);
-			//}
-			return false;
-		});
-		var cloneBtn = $('<button class="clone"><i class="fas fa-plus"></i></button>').appendTo(this.obj);
-		cloneBtn.click(()=>{
-//			this.clonseSlide(slideView.slide);
-			this.dispatchEvent(new CustomEvent("clone", {detail:this._slide}));
-			return false;
-		});
-		var editBtn = $('<button class="edit"><i class="fas fa-edit"></i></button>').appendTo(this.obj);
-		editBtn.click(()=>{
-			this.dispatchEvent(new CustomEvent("edit", {detail:this._slide}));
-//			this.dispatchEvent(new Event("edit"));
-			return false;
-		});
+		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+			var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(this.obj);
+			deleteBtn.click(()=>{
+				this.dispatchEvent(new CustomEvent("delete", {detail:this._slide}));
+				return false;
+			});
+			var cloneBtn = $('<button class="clone"><i class="fas fa-plus"></i></button>').appendTo(this.obj);
+			cloneBtn.click(()=>{
+				this.dispatchEvent(new CustomEvent("clone", {detail:this._slide}));
+				return false;
+			});
+			var editBtn = $('<button class="edit"><i class="fas fa-edit"></i></button>').appendTo(this.obj);
+			editBtn.click(()=>{
+				this.dispatchEvent(new CustomEvent("edit", {detail:this._slide}));
+				return false;
+			});
+		}
 		
 		var durationDiv = $('<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>').appendTo(this.obj);
 		durationDiv.find("button.up").click((e:any)=>{

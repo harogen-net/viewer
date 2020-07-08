@@ -271,10 +271,11 @@ export class Viewer {
 
 		//
 
-		window.addEventListener('beforeunload', function(e){
-			e.returnValue = "ページを離れます。よろしいですか？";
-		},false);
-
+		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+			window.addEventListener('beforeunload', function(e){
+				e.returnValue = "ページを離れます。よろしいですか？";
+			},false);
+		}
 		this.newDocument();
 	}
 

@@ -10,7 +10,7 @@ export class VDoc {
 
 	public static shared:VDoc = null;
 
-	private readonly BG_COLOR_INIT:string = "#999999";
+	private readonly BG_COLOR_INIT:string = "#000000";
 
 	public slides:Slide[];
 	

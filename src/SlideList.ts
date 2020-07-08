@@ -3,7 +3,7 @@ import { ImageLayer } from "./__core__/model/ImageLayer";
 import { EventDispatcher } from "./events/EventDispatcher";
 import { DropHelper } from "./utils/DropHelper";
 import { IDroppable } from "./interface/IDroppable";
-import { Viewer, ViewerMode } from "./Viewer";
+import { Viewer, ViewerMode, ViewerStartUpMode } from "./Viewer";
 import { Slide } from "./__core__/model/Slide";
 import { VDoc } from "./__core__/model/VDoc";
 import { ThumbSlideView } from "./slide/ThumbSlideView";
@@ -54,16 +54,18 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		this._slideViews = [];
 		this._slideViewsById = {};
 
- 		var dropHelper = new DropHelper(this);
-		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-			var layer = (new ImageLayer(e.detail));
-			if(layer.originHeight > (layer.originWidth * 1.2)) {
-				layer.rotation -= 90;
-			}
-			var slide = new Slide(null,null,[layer]);
-			slide.fitLayer(layer);
-			this.addSlide(slide);
-		}); 
+		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+			var dropHelper = new DropHelper(this);
+			dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
+				var layer = (new ImageLayer(e.detail));
+				if(layer.originHeight > (layer.originWidth * 1.2)) {
+					layer.rotation -= 90;
+				}
+				var slide = new Slide(null,null,[layer]);
+				slide.fitLayer(layer);
+				this.addSlide(slide);
+			}); 
+		}
 
 		$(window).resize(()=>{
 			setTimeout(()=>{
@@ -77,19 +79,17 @@ export class SlideList extends EventDispatcher implements IDroppable {
 
 		});
 
-/*  		this.obj.on("mousedown",(e)=>{
-			if(this._mode == ViewerMode.SELECT) this.selectSlide();
-		}); */
-
-		this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.containerObj);
-		this.newSlideBtn.click(()=>{
-			if(this._slideViews.length > 0){
-				this._slideViews[this._slideViews.length - 1].slide.joining = false;
-			}
-			var slide = new Slide(VDoc.shared.width, VDoc.shared.height);
-			this.addSlide(slide)
-			this.selectSlide(slide);
-		});
+		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+			this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.containerObj);
+			this.newSlideBtn.click(()=>{
+				if(this._slideViews.length > 0){
+					this._slideViews[this._slideViews.length - 1].slide.joining = false;
+				}
+				var slide = new Slide(VDoc.shared.width, VDoc.shared.height);
+				this.addSlide(slide)
+				this.selectSlide(slide);
+			});
+		}
 
 		var prevSlideBtn = $('<button class="selectSlideBtn prev"><i class="fas fa-chevron-left"></i></button>');
 		this.obj.append(prevSlideBtn);
@@ -314,7 +314,9 @@ export class SlideList extends EventDispatcher implements IDroppable {
 			slide.obj.removeClass("last");
 		});
 		this._slideViews[this._slideViews.length - 1].obj.addClass("last");
-		this.containerObj.append(this.newSlideBtn);
+		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+			this.containerObj.append(this.newSlideBtn);
+		}
 		this.containerObj.sortable("refresh");
 	}
 
