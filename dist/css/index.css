@@ -273,8 +273,8 @@ input.imageRef {
 	background-color:none;
 	font-family: "メイリオ";
 	font-weight: bold;
-	font-size:48px;
-	line-height: 64px;
+	font-size:40px;
+	line-height: 52px;
 	color:white;
 	text-shadow:
 	-1px -1px 20px var(--textGlowColor),
