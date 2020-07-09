@@ -1,7 +1,7 @@
-import { EventDispatcher } from "../../events/EventDispatcher";
+import { EventDispatcher } from "../events/EventDispatcher";
 import { Slide } from "./Slide";
-import { PropertyEvent } from "../../events/PropertyEvent";
-import { UUIDGenerator } from "../../utils/UUIDGenerator";
+import { PropertyEvent } from "../events/PropertyEvent";
+import { UUIDGenerator } from "../utils/UUIDGenerator";
 import { PropFlags } from "./PropFlags";
 
 declare var $: any;

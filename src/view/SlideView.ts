@@ -1,9 +1,9 @@
-import {EventDispatcher} from "../../events/EventDispatcher";
-import { Viewer } from "../../Viewer";
+import {EventDispatcher} from "../events/EventDispatcher";
+import { Viewer } from "../Viewer";
 import { Layer, LayerType } from "../model/Layer";
 import { Slide } from "../model/Slide";
-import { VDoc } from "../model/VDoc";
-import { PropertyEvent } from "../../events/PropertyEvent";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
 
 declare var $: any;

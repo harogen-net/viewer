@@ -1,15 +1,15 @@
-import { EventDispatcher } from "./events/EventDispatcher";
-import { SlideView } from "./__core__/view/SlideView";
-import { ImageLayer } from "./__core__/model/ImageLayer";
-import { Layer, LayerType } from "./__core__/model/Layer";
-import { TextLayer } from "./__core__/model/TextLayer";
-import { DOMSlideView } from "./slide/DOMSlideView";
-import { Slide } from "./__core__/model/Slide";
-import { VDoc } from "./__core__/model/VDoc";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { SlideView } from "../view/SlideView";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { Layer, LayerType } from "../model/Layer";
+import { TextLayer } from "../model/layer/TextLayer";
+import { DOMSlideView } from "../view/slide/DOMSlideView";
+import { Slide } from "../model/Slide";
+import { ViewerDocument } from "../model/ViewerDocument";
 
 declare var $:any;
 
-export class SlideShow extends EventDispatcher {
+export class SlideShowViewController extends EventDispatcher {
 	private _isRun:boolean;
 	private _isPause:boolean;
 	private _mirrorH:boolean;
@@ -402,14 +402,14 @@ export class SlideShow extends EventDispatcher {
 //		console.log("updateSlideSize");
 		let dispWidth = this.obj.width();
 		let dispHeight = this.obj.height();
-		let dispScale = Math.min(dispWidth / VDoc.shared.width, dispHeight / VDoc.shared.height);
-		let offsetX = (dispWidth - VDoc.shared.width) / 2;
-		let offsetY = (dispHeight - VDoc.shared.height) / 2;
+		let dispScale = Math.min(dispWidth / ViewerDocument.shared.width, dispHeight / ViewerDocument.shared.height);
+		let offsetX = (dispWidth - ViewerDocument.shared.width) / 2;
+		let offsetY = (dispHeight - ViewerDocument.shared.height) / 2;
 
 		this.slideContainer.find(".slide").each((i, elem)=>{
 			$(elem).css("transform", "translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")");
-			$(elem).css("width", VDoc.shared.width + "px");
-			$(elem).css("height", VDoc.shared.height + "px");
+			$(elem).css("width", ViewerDocument.shared.width + "px");
+			$(elem).css("height", ViewerDocument.shared.height + "px");
 		});
 
 	}

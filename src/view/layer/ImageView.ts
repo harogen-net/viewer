@@ -1,8 +1,8 @@
-import { LayerView } from "./LayerView";
+import { LayerView } from "../LayerView";
 //import { ILayer } from "../model/ILayer";
-import { ImageLayer } from "../model/ImageLayer";
+import { ImageLayer } from "../../model/layer/ImageLayer";
 import { ImageManager } from "../../utils/ImageManager";
-import { PropFlags } from "../model/PropFlags";
+import { PropFlags } from "../../model/PropFlags";
 //import { Layer } from "../layerModel/Layer";
 
 declare var $:any;
@@ -54,8 +54,8 @@ export class ImageView extends LayerView {
 			}else{
 				if(this.imgObj.css("clip-path")){
 					this.imgObj.css({
-						"-webkit-clip-path":"",
-						"clip-path":""
+						"-webkit-clip-path":"inset(0)",
+						"clip-path":"inset(0)"
 					});
 				}
 			}

@@ -1,8 +1,7 @@
-import { Layer, LayerType } from "./Layer";
-//import { IImage } from "./ILayer";
+import { Layer, LayerType } from "../Layer";
 import { ImageManager } from "../../utils/ImageManager";
 import { PropertyEvent } from "../../events/PropertyEvent";
-import { PropFlags } from "./PropFlags";
+import { PropFlags } from "../PropFlags";
 
 declare var $: any;
 declare var Matrix4: any;

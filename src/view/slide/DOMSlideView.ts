@@ -1,10 +1,10 @@
-import { SlideView } from "../__core__/view/SlideView";
-import { Layer } from "../__core__/model/Layer";
-import { LayerView } from "../__core__/view/LayerView";
-import { LayerViewFactory } from "../__core__/view/LayerViewFactory";
-import { Slide } from "../__core__/model/Slide";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { PropFlags } from "../__core__/model/PropFlags";
+import { SlideView } from "../SlideView";
+import { Layer } from "../../model/Layer";
+import { LayerView } from "../LayerView";
+import { LayerViewFactory } from "../../utils/LayerViewFactory";
+import { Slide } from "../../model/Slide";
+import { PropertyEvent } from "../../events/PropertyEvent";
+import { PropFlags } from "../../model/PropFlags";
 
 declare var $ :any;
 
@@ -26,28 +26,11 @@ export class DOMSlideView extends SlideView {
 		this.container.css("width", _slide.width + "px");
 		this.container.css("height", _slide.height + "px");
 
-		// this._slide.addEventListener("layerAdd", this.onLayerAdd);
-		// this._slide.addEventListener("layerRemove", this.onLayerRemove);
-		// this._slide.addEventListener("update", this.onSlideUpdate);
 		this._slide.layers.forEach(layer=>{
 			this.addLayerView(layer);
 		});
 	}
 
-	// public destroy(){
-	// 	// this._slide.removeAllLayers();
-	// 	// this._slide = null;
-	// 	// this.obj.stop();
-	// 	// this.obj.remove();
-	// 	// this.obj = null;
-	// 	// this._slide.removeEventListener("layerAdd", this.onLayerAdd);
-	// 	// this._slide.removeEventListener("layerRemove", this.onLayerRemove);
-	// 	// this._slide.removeEventListener("update", this.onSlideUpdate);
-	// 	//this._slide.removeEventListener(PropertyEvent.UPDATE, this.onSlideUpdateLambda);
-	// 	super.destroy();
-	// }
-
-	
 
 
 	protected getViewByLayer(layer:Layer):LayerView {
@@ -67,8 +50,6 @@ export class DOMSlideView extends SlideView {
 		this.container.append(layerView.obj);
 		this.updateViewsOrder();
 
-		// console.log(layerView);
-		// console.log(this.container);
 		return layerView;
 	}
 	protected removeLayerView(layer:Layer):LayerView {
@@ -96,10 +77,6 @@ export class DOMSlideView extends SlideView {
 
 	protected replaceSlide(newSlide:Slide) {
 		if(this._slide != null){
-			// this._slide.removeEventListener("layerAdd", this.onLayerAdd);
-			// this._slide.removeEventListener("layerRemove", this.onLayerRemove);
-			// this._slide.removeEventListener("update", this.onSlideUpdate);
-//			this._slide.removeEventListener(PropertyEvent.UPDATE, this.onSlideUpdateLambda);
 			for(var i = 0; i < this._slide.layers.length; i++){
 				this.removeLayerView(this._slide.layers[i]).destroy();
 			}
@@ -111,10 +88,6 @@ export class DOMSlideView extends SlideView {
 			this.container.css("width", this._slide.width + "px");
 			this.container.css("height", this._slide.height + "px");
 
-			// this._slide.addEventListener("layerAdd", this.onLayerAdd);
-			// this._slide.addEventListener("layerRemove", this.onLayerRemove);
-			// this._slide.addEventListener("update", this.onSlideUpdate);
-//			this._slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdateLambda);
 			this._slide.layers.forEach(layer=>{
 				this.addLayerView(layer);
 			});
@@ -142,21 +115,12 @@ export class DOMSlideView extends SlideView {
 		this.container.css("transform","matrix(" + actualScale + ",0,0," + actualScale + "," + defX + "," + defY + ")");
 
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.DSV_SCALE));
-//		this.dispatchEvent(new Event("scale"));
 	}
+
 
 	//
 	// event handlers
 	//
-	// private onLayerAdd = (ce:CustomEvent)=>{
-	// 	this.addLayerView(ce.detail.layer);
-	// };
-	// private onLayerRemove = (ce:CustomEvent)=>{
-	// 	this.removeLayerView(ce.detail.layer).destroy();
-	// };
-	// private onSlideUpdate = (ce:CustomEvent)=>{
-	// 	this.updateLayerViewsOrder();
-	// };
 	protected onSlideUpdate(pe:PropertyEvent) {
 		var flag = pe.propFlags;
 		if(flag & PropFlags.S_LAYER_ADD){

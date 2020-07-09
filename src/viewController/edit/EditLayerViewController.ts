@@ -1,21 +1,21 @@
-import { SELayerListItem } from "./SELayerListItem";
-import { EditableSlideView } from "./slide/EditableSlideView";
-import { Slide } from "./__core__/model/Slide";
-import { LayerView } from "./__core__/view/LayerView";
+import { EditLayerListItem } from "./EditLayerListItem";
+import { EditableSlideView } from "../../view/slide/EditableSlideView";
+import { Slide } from "../../model/Slide";
+import { LayerView } from "../../view/LayerView";
 
 declare var $:any;
 
-export class SELayerDiv {
+export class EditLayerViewController {
 
 	private ulObj:any;
 
-	private items:SELayerListItem[];
+	private items:EditLayerListItem[];
 	private _layerViews:LayerView[];
 
 	constructor(private obj:any){
 		this.items = [];
 		for(var i:number = 0; i < Slide.LAYER_NUM_MAX; i++){
-			var item = new SELayerListItem();
+			var item = new EditLayerListItem();
 			this.items.push(item);
 		}
 

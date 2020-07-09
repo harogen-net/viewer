@@ -1,6 +1,6 @@
-import { TypeChecker } from "../../utils/TypeChecker";
-import { PropertyEvent } from "../../events/PropertyEvent";
-import { HistoryManager, Command } from "../../utils/HistoryManager";
+import { TypeChecker } from "../utils/TypeChecker";
+import { PropertyEvent } from "../events/PropertyEvent";
+import { HistoryManager, Command } from "../utils/HistoryManager";
 
 declare var $:any;
 
@@ -27,8 +27,9 @@ export class VMUI {
 	//
 	public set target(value:any){
 //		 console.log("set target at VMI:")
-		if(!(value instanceof this.targetClass)){
+		if(value != null && !(value instanceof this.targetClass)){
 			value = null;
+			console.warn("different type target set.");
 		}
 		if(value == this._target) return;
 		if(this._target){
@@ -87,14 +88,6 @@ export class VMToggleButton extends VMUI {
 					target[propKey] = startValue;
 				}
 			)).do();
-
-
-			//this._target[this.targetPropKey] = !this._target[this.targetPropKey];
-			// if(this._target[this.targetPropKey]){
-			// 	this._obj.addClass("on");
-			// }else{
-			// 	this._obj.removeClass("on");
-			// }
 		});
 	}
 

@@ -1,9 +1,9 @@
 import { Layer, LayerType } from "../model/Layer";
-import { LayerView } from "./LayerView";
-import { ImageView } from "./ImageView";
-import { TextView } from "./TextView";
-import { ImageLayer } from "../model/ImageLayer";
-import { TextLayer } from "../model/TextLayer";
+import { LayerView } from "../view/LayerView";
+import { ImageView } from "../view/layer/ImageView";
+import { TextView } from "../view/layer/TextView";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { TextLayer } from "../model/layer/TextLayer";
 
 declare var $:any;
 

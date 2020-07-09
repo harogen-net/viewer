@@ -1,7 +1,7 @@
 import { Layer, LayerType } from "../model/Layer";
 import { setTimeout } from "timers";
-import { EventDispatcher } from "../../events/EventDispatcher";
-import { PropertyEvent } from "../../events/PropertyEvent";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
 
 

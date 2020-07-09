@@ -1,7 +1,6 @@
-import { Layer, LayerType } from "./Layer";
-import { Viewer } from "../../Viewer";
+import { Layer, LayerType } from "../Layer";
 import { PropertyEvent } from "../../events/PropertyEvent";
-import { PropFlags } from "./PropFlags";
+import { PropFlags } from "../PropFlags";
 
 
 export class TextLayer extends Layer {

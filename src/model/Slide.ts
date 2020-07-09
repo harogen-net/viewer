@@ -1,10 +1,10 @@
-import { EventDispatcher } from "../../events/EventDispatcher";
+import { EventDispatcher } from "../events/EventDispatcher";
 import { Layer } from "./Layer";
-import { VDoc } from "./VDoc";
-import { Viewer } from "../../Viewer";
-import { PropertyEvent } from "../../events/PropertyEvent";
+import { ViewerDocument } from "./ViewerDocument";
+import { Viewer } from "../Viewer";
+import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "./PropFlags";
-import { UUIDGenerator } from "../../utils/UUIDGenerator";
+import { UUIDGenerator } from "../utils/UUIDGenerator";
 
 
 export enum Direction {
@@ -35,8 +35,8 @@ export class Slide extends EventDispatcher {
 		super();
 
 		this._uuid = UUIDGenerator.generate();
-		this._width = width || (VDoc.shared ? VDoc.shared.width : Viewer.SCREEN_WIDTH);
-		this._height = height || (VDoc.shared ? VDoc.shared.height : Viewer.SCREEN_HEIGHT);
+		this._width = width || (ViewerDocument.shared ? ViewerDocument.shared.width : Viewer.SCREEN_WIDTH);
+		this._height = height || (ViewerDocument.shared ? ViewerDocument.shared.height : Viewer.SCREEN_HEIGHT);
 		
 		this._layers.forEach(layer=>{
 			layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);

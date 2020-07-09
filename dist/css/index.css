@@ -1,5 +1,5 @@
 :root {
-	--slideBackgroundColor:#999999;
+	--slideBackgroundColor:#000000;
 	--slideThumbHeight:0;
 /*	--slideWidth:1920px;
 	--slideHeight:1080px;*/
@@ -127,6 +127,9 @@ label {
 	border-bottom: 1px solid gray;
 	margin-bottom: 5px;
 }
+#pref dd {
+	margin-bottom: 15px;
+}
 
 /* ---------------------- imagelist ---------------------- */
 #images {
@@ -187,6 +190,7 @@ label {
 }
 .menu > div {
 	display:inline-block;
+	position: relative;
 	font-size: 0;
 }
 
@@ -239,6 +243,22 @@ input.imageRef {
 	display: none;
 }
 
+.menu .buttonGroup {
+	display: inline-block;
+	position: relative;
+	z-index: 1;
+}
+.menu .buttonGroup > button {
+	width: 2em;
+}
+.menu .buttonGroup > button.at {
+	position: absolute;
+	display: none;
+}
+.menu .buttonGroup button.at.t {left:0; top:2em;}
+.menu .buttonGroup button.at.b {left:0; top:4em;}
+.menu .buttonGroup button.at.l {right:2em; top:2em;}
+.menu .buttonGroup button.at.r {left:2em; top:2em;}
 
 
 /* slide */
@@ -321,7 +341,7 @@ input.imageRef {
 	background-color:gray;
 	height: 2em;
 	position: relative;
-	overflow:hidden;
+	/* overflow:hidden; */
 	white-space: nowrap;
 	box-shadow: 0px 0px 2px 2px rgba(0,0,0,0.2);
 	z-index: 1;
@@ -329,7 +349,7 @@ input.imageRef {
 .slideCanvas .menu > div {
 	margin-right: 4px;
 }
-.slideCanvas .menu buttom {
+.slideCanvas .menu .buttom {
 	width:2em;
 }
 .slideCanvas .menu span.name {
@@ -448,7 +468,18 @@ input.imageRef {
 .slideCanvas .sideMenu .property button.bottom {
 	width: 15%;
 }
-
+.slideCanvas .sideMenu .property dl dt button{
+	background:none;
+	border:none;
+	width: max-content;
+	opacity: 0;
+}
+.slideCanvas .sideMenu .property dl dt button:hover{
+	opacity: 1;
+}
+.slideCanvas .sideMenu .property dl dt button:disabled:hover{
+	opacity: 0;
+}
 .slideCanvas .sideMenu .layer {
 	width:100%;
 	overflow-x:hidden;

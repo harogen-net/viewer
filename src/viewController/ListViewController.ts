@@ -1,16 +1,16 @@
-import { SlideView } from "./__core__/view/SlideView";
-import { ImageLayer } from "./__core__/model/ImageLayer";
-import { EventDispatcher } from "./events/EventDispatcher";
-import { DropHelper } from "./utils/DropHelper";
-import { IDroppable } from "./interface/IDroppable";
-import { Viewer, ViewerMode, ViewerStartUpMode } from "./Viewer";
-import { Slide } from "./__core__/model/Slide";
-import { VDoc } from "./__core__/model/VDoc";
-import { ThumbSlideView } from "./slide/ThumbSlideView";
+import { SlideView } from "../view/SlideView";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { DropHelper } from "../utils/DropHelper";
+import { IDroppable } from "../interface/IDroppable";
+import { Viewer, ViewerMode, ViewerStartUpMode } from "../Viewer";
+import { Slide } from "../model/Slide";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { ThumbSlideView } from "../view/slide/ThumbSlideView";
 
 declare var $: any;
 
-export class SlideList extends EventDispatcher implements IDroppable {
+export class ListViewController extends EventDispatcher implements IDroppable {
 
 	private readonly THUMB_HEIGHT:number = 110;
 
@@ -85,7 +85,7 @@ export class SlideList extends EventDispatcher implements IDroppable {
 				if(this._slideViews.length > 0){
 					this._slideViews[this._slideViews.length - 1].slide.joining = false;
 				}
-				var slide = new Slide(VDoc.shared.width, VDoc.shared.height);
+				var slide = new Slide(ViewerDocument.shared.width, ViewerDocument.shared.height);
 				this.addSlide(slide)
 				this.selectSlide(slide);
 			});
@@ -185,9 +185,6 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return clonedSlide;
 	}
 
-	// private onSlideUpdate = (ce:CustomEvent)=>{
-	// 	this.updateSlideProps(ce.detail as Slide);
-	// }
 	private onSlideSelect = (ce:CustomEvent)=>{
 		this.selectSlide(ce.detail as Slide);
 	}
@@ -263,11 +260,6 @@ export class SlideList extends EventDispatcher implements IDroppable {
 		return slide;
 	}
 
-	// public refresh(){
-	// 	this._slideViews.forEach(slide=>{
-	// //		(slide as ThumbSlide).refresh();
-	// 	})
-	// }
 
 	//
 

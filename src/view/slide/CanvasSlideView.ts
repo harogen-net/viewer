@@ -1,8 +1,8 @@
-import { SlideView } from "../__core__/view/SlideView";
-import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
-import { Slide } from "../__core__/model/Slide";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { PropFlags } from "../__core__/model/PropFlags";
+import { SlideView } from "../SlideView";
+import { SlideToPNGConverter } from "../../utils/SlideToPNGConverter";
+import { Slide } from "../../model/Slide";
+import { PropertyEvent } from "../../events/PropertyEvent";
+import { PropFlags } from "../../model/PropFlags";
 
 
 declare var $: any;

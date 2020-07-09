@@ -1,10 +1,10 @@
-import { VDoc } from "../__core__/model/VDoc";
+import { ViewerDocument } from "../model/ViewerDocument";
 import { Viewer } from "../Viewer";
-import { SlideView } from "../__core__/view/SlideView";
-import { ImageLayer } from "../__core__/model/ImageLayer";
-import { Layer, LayerType } from "../__core__/model/Layer";
+import { SlideView } from "../view/SlideView";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { Layer, LayerType } from "../model/Layer";
 import { ImageManager } from "./ImageManager";
-import { Slide } from "../__core__/model/Slide";
+import { Slide } from "../model/Slide";
 
 declare var $:any;
 
@@ -18,7 +18,7 @@ export class SlideToPNGConverter {
 
     constructor(){    }
 
-    public convert(doc:VDoc, pages?:number[]):string {
+    public convert(doc:ViewerDocument, pages?:number[]):string {
 		pages = pages || [];
 		var type:SlidePNGTileType = SlidePNGTileType.SINGLE;
 		var convertibleSlideNum:number = this.countConvertibleSlideNum(doc);
@@ -113,7 +113,7 @@ export class SlideToPNGConverter {
 		});
 	}
 
-	private countConvertibleSlideNum(doc:VDoc):number {
+	private countConvertibleSlideNum(doc:ViewerDocument):number {
 		var num:number = 0;
 		doc.slides.forEach((slide:Slide)=>{
 			if(slide.durationRatio >= 1) num++;

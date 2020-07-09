@@ -1,4 +1,4 @@
-import { ImageLayer } from "../__core__/model/ImageLayer";
+import { ImageLayer } from "../model/layer/ImageLayer";
 
 declare var $:any;
 declare var jsSHA:any;

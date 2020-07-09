@@ -1,14 +1,12 @@
-import { SlideView } from "../view/SlideView";
-import { ImageLayer } from "./ImageLayer";
-import { DateUtil } from "../../utils/DateUtil";
-import { Viewer } from "../../Viewer";
+import { DateUtil } from "../utils/DateUtil";
+import { Viewer } from "../Viewer";
 import { Slide } from "./Slide";
 
 declare var $: any;
 
-export class VDoc {
+export class ViewerDocument {
 
-	public static shared:VDoc = null;
+	public static shared:ViewerDocument = null;
 
 	private readonly BG_COLOR_INIT:string = "#000000";
 
@@ -53,7 +51,7 @@ export class VDoc {
 		this.width = width;
 		this.height = height;
 
-		VDoc.shared = this;
+		ViewerDocument.shared = this;
 	}
 
 	//

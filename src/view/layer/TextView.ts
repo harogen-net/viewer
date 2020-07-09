@@ -1,8 +1,8 @@
 //import { ILayer } from "../layerModel/ILayer";
-import { LayerView } from "./LayerView";
-import { TextLayer } from "../model/TextLayer";
-import { Layer } from "../model/Layer";
-import { PropFlags } from "../model/PropFlags";
+import { LayerView } from "../LayerView";
+import { TextLayer } from "../../model/layer/TextLayer";
+import { Layer } from "../../model/Layer";
+import { PropFlags } from "../../model/PropFlags";
 
 declare var $:any;
 

@@ -1,8 +1,8 @@
 import { CanvasSlideView } from "./CanvasSlideView";
-import { Slide } from "../__core__/model/Slide";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { PropFlags } from "../__core__/model/PropFlags";
-import { Viewer, ViewerStartUpMode } from "../Viewer";
+import { Slide } from "../../model/Slide";
+import { PropertyEvent } from "../../events/PropertyEvent";
+import { PropFlags } from "../../model/PropFlags";
+import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
 declare var $:any;
 

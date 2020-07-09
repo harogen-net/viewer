@@ -1,16 +1,12 @@
-import {SlideView} from "./__core__/view/SlideView";
-import {SlideList} from "./SlideList";
-import {ImageLayer} from "./__core__/model/ImageLayer";
+import {ListViewController} from "./viewController/ListViewController";
 import { SlideStorage, HVDataType } from "./utils/SlideStorage";
-import { SlideShow } from "./SlideShow";
-import { Menu } from "./Menu";
-import { SlideEdit } from "./SlideEdit";
+import { SlideShowViewController } from "./viewController/SlideShowViewController";
+import { EditViewController } from "./viewController/EditViewController";
 import { ImageManager } from "./utils/ImageManager";
-import { VDoc } from "./__core__/model/VDoc";
+import { ViewerDocument } from "./model/ViewerDocument";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { DataUtil } from "./utils/DataUtil";
-import { Layer, LayerType } from "./__core__/model/Layer";
-import { Slide } from "./__core__/model/Slide";
+import { Slide } from "./model/Slide";
 import { HistoryManager } from "./utils/HistoryManager";
 
 declare var $:any;
@@ -26,23 +22,22 @@ export enum ViewerStartUpMode {
 }
 
 export class Viewer {
-	
-	public static enforceAspectRatio = true;
+	public static isStrictMode:boolean = true;
 	public static startUpMode:ViewerStartUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
 
 	//スライドのサイズ基本値として必要
 	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
 	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
-	private edit:SlideEdit;
-	private list:SlideList;
-	private slideShow:SlideShow;
+	private edit:EditViewController;
+	private list:ListViewController;
+	private slideShow:SlideShowViewController;
 	private storage:SlideStorage;
-	private menu:Menu;
+	// private menu:Menu;
 
 	private _mode:ViewerMode;
 
-	private document:VDoc;
+	private viewerDocument:ViewerDocument;
 
 
     constructor(public obj:any, startUpMode:ViewerStartUpMode){
@@ -67,8 +62,8 @@ export class Viewer {
 		});
 
 		//
-		this.list = new SlideList(obj.find(".list"));
-		this.slideShow = new SlideShow($("<div />").appendTo(obj));
+		this.list = new ListViewController(obj.find(".list"));
+		this.slideShow = new SlideShowViewController($("<div />").appendTo(obj));
 
 		this.storage = new SlideStorage();
 		this.storage.addEventListener("update", (e:CustomEvent)=>{
@@ -88,14 +83,14 @@ export class Viewer {
 			}
 		});
 		this.storage.addEventListener("loaded", (e:CustomEvent)=>{
-			this.newDocument(e.detail as VDoc);
+			this.newDocument(e.detail as ViewerDocument);
 		});
 		//
 
 
 		if(startUpMode == ViewerStartUpMode.VIEW_AND_EDIT){
 
-			this.edit = new SlideEdit(obj.find(".canvas"));
+			this.edit = new EditViewController(obj.find(".canvas"));
 
 			this.list.addEventListener("select", ()=>{
 				if(this._mode == ViewerMode.SELECT){
@@ -125,8 +120,8 @@ export class Viewer {
 			});
 
 			this.edit.addEventListener("download", ()=>{
-				var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, this.edit.slideView.slide.width, this.edit.slideView.slide.height, 1, this.document.bgColor);
-				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.document.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
+				var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, this.edit.slideView.slide.width, this.edit.slideView.slide.height, 1, this.viewerDocument.bgColor);
+				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.viewerDocument.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
 			});
 		}
 
@@ -143,17 +138,16 @@ export class Viewer {
 					$("#images > .container").toggle();
 				});
 				$(".new").click(()=>{
-					if(this.document.slides.length == 0) return;
-					//if($("#cb_ignore").prop("checked") || window.confirm('clear slides and new document. Are you sure?')){
-					if(window.confirm('clear slides and new document. Are you sure?')){
+					if(this.viewerDocument.slides.length == 0) return;
+					if(!Viewer.isStrictMode || window.confirm('clear slides and new document. Are you sure?')){
 						this.newDocument();
 					}
 				});
 				$(".dispose").dblclick(()=>{
 					if($('select.filename').val() == -1) return;
-					if($("#cb_ignore").prop("checked") || window.confirm('delete selected save data. Are you sure?')){
+					//if(!Viewer.isStrictMode || window.confirm('delete selected save data. Are you sure?')){
 						this.storage.delete($('select.filename').val());
-					}
+					//}
 				});
 
 				$(".export").click(()=>{
@@ -163,14 +157,14 @@ export class Viewer {
 						if($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
 						if($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
 	
-						this.storage.export(this.document, type, {
+						this.storage.export(this.viewerDocument, type, {
 							pages:(this.list.selectedSlideIndex != -1) ? [this.list.selectedSlideIndex] : undefined
 						});
 					}
 				});
 				$(".load").click(()=>{
 					if($('select.filename').val() == -1) return;
-					if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
+					if(this.list.slides.length == 0 || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')){
 						this.storage.load($('select.filename').val());
 					}
 				});
@@ -190,13 +184,11 @@ export class Viewer {
 				});
 			}
 
-			$("label[for='cb_ignore']").hide();
-
 			$(".startSlideShow").click(() => {
 				var slides:Slide[] = [];
 				var startIndex:number = 0;
-				for(var i:number = 0; i < this.document.slides.length; i++){
-					var slide:Slide = this.document.slides[i];
+				for(var i:number = 0; i < this.viewerDocument.slides.length; i++){
+					var slide:Slide = this.viewerDocument.slides[i];
 					if(slide.disabled) continue;
 					slides.push(slide.clone());
 					if(i == this.list.selectedSlideIndex) startIndex = slides.length - 1;
@@ -231,14 +223,14 @@ export class Viewer {
 		
 			$(".save").click(()=>{
 				if(this.list.slides.length > 0){
-					this.storage.save(this.document);
+					this.storage.save(this.viewerDocument);
 				}
 			});
 
 			
 
 			$("button.import").click(()=>{
-				if(this.list.slides.length == 0 || $("#cb_ignore").prop("checked") || window.confirm('load slides. Are you sure?')){
+				if(this.list.slides.length == 0 || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')){
 					$("input.import")[0].click();
 				}
 			});
@@ -263,7 +255,7 @@ export class Viewer {
 			// });
 
 			$("#bgColor").change((e)=>{
-				this.document.bgColor = $("#bgColor").val();
+				this.viewerDocument.bgColor = $("#bgColor").val();
 			});
 
 
@@ -272,16 +264,18 @@ export class Viewer {
 		//
 
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			window.addEventListener('beforeunload', function(e){
-				e.returnValue = "ページを離れます。よろしいですか？";
+			window.addEventListener('beforeunload', (e)=>{
+				if(this.viewerDocument.slides.length > 0 || !Viewer.isStrictMode){
+					e.returnValue = "ページを離れます。よろしいですか？";
+				}
 			},false);
 		}
 		this.newDocument();
 	}
 
-	private newDocument(doc?:VDoc){
-		 if(this.document){
-			this.document = null;
+	private newDocument(nextDocument?:ViewerDocument){
+		 if(this.viewerDocument){
+			this.viewerDocument = null;
 
 			this.list.initialize();
 			if(Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
@@ -291,14 +285,14 @@ export class Viewer {
 		}
 
 		this.setMode(ViewerMode.SELECT);
-		if(!doc){
+		if(!nextDocument){
 			ImageManager.shared.deleteAllImageData();
 		}
 
 		//
 
-		this.document = doc || new VDoc();
-		this.list.slides = this.document.slides;
+		this.viewerDocument = nextDocument || new ViewerDocument();
+		this.list.slides = this.viewerDocument.slides;
 	}
 
 	public setMode(mode:ViewerMode){

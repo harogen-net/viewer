@@ -1,17 +1,17 @@
-import {SlideView} from "../__core__/view/SlideView";
-import { ImageLayer } from "../__core__/model/ImageLayer";
+import {SlideView} from "../view/SlideView";
+import { ImageLayer } from "../model/layer/ImageLayer";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Viewer } from "../Viewer";
-import { VDoc } from "../__core__/model/VDoc";
+import { ViewerDocument } from "../model/ViewerDocument";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
-import { Layer, LayerType } from "../__core__/model/Layer";
-import { TextLayer } from "../__core__/model/TextLayer";
-import { CanvasSlideView } from "../slide/CanvasSlideView";
+import { Layer, LayerType } from "../model/Layer";
+import { TextLayer } from "../model/layer/TextLayer";
+import { CanvasSlideView } from "../view/slide/CanvasSlideView";
 import { ImageManager } from "./ImageManager";
-import { Slide } from "../__core__/model/Slide";
+import { Slide } from "../model/Slide";
 
 
 //declare var $:any;
@@ -81,7 +81,7 @@ export class SlideStorage extends EventDispatcher {
 		this.embedder = new PNGEmbedder();
     }
 
-    save(doc:VDoc){
+    save(doc:ViewerDocument){
 		var jsonStr:string = this.stringifyData(doc);
 
 		//
@@ -96,7 +96,7 @@ export class SlideStorage extends EventDispatcher {
 			getReq.onsuccess = async (e:any)=>{
 				var jsonStr2:string = e.target.result.data;
 				if(jsonStr == jsonStr2){
-//					alert("save complete.");
+					alert("[" + title + "] save complete.");
 				}else{
 					alert("save error!");
 				}
@@ -115,7 +115,7 @@ export class SlideStorage extends EventDispatcher {
 		}
 	}
 	
-	public export(doc:VDoc, type:HVDataType, options?:any){
+	public export(doc:ViewerDocument, type:HVDataType, options?:any){
 		var jsonStr:string = this.stringifyData(doc);
 
 		//
@@ -241,7 +241,7 @@ export class SlideStorage extends EventDispatcher {
 
 	//
 
-	private stringifyData(doc:VDoc):string {
+	private stringifyData(doc:ViewerDocument):string {
 		//MARK : 更新時間上書き
 		doc.editTime = new Date().getTime();
 
@@ -427,7 +427,7 @@ export class SlideStorage extends EventDispatcher {
 			if(json.editTime) options.editTime = json.editTime;
 			//if(json.title) options.title = json.title;
 
-			return new VDoc(slides, options);
+			return new ViewerDocument(slides, options);
 		}
 	}
 	//

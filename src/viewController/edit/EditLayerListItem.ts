@@ -1,18 +1,18 @@
-import { ImageLayer } from "./__core__/model/ImageLayer";
-import { Layer, LayerType } from "./__core__/model/Layer";
-import { TextLayer } from "./__core__/model/TextLayer";
-import { LayerView } from "./__core__/view/LayerView";
-import { TextView } from "./__core__/view/TextView";
-import { ImageManager } from "./utils/ImageManager";
-import { ImageView } from "./__core__/view/ImageView";
-import { PropertyEvent } from "./events/PropertyEvent";
-import { PropFlags } from "./__core__/model/PropFlags";
-import { HistoryManager, Command } from "./utils/HistoryManager";
-import { Slide } from "./__core__/model/Slide";
+import { ImageLayer } from "../../model/layer/ImageLayer";
+import { Layer, LayerType } from "../../model/Layer";
+import { TextLayer } from "../../model/layer/TextLayer";
+import { LayerView } from "../../view/LayerView";
+import { TextView } from "../../view/layer/TextView";
+import { ImageManager } from "../../utils/ImageManager";
+import { ImageView } from "../../view/layer/ImageView";
+import { PropertyEvent } from "../../events/PropertyEvent";
+import { PropFlags } from "../../model/PropFlags";
+import { HistoryManager, Command } from "../../utils/HistoryManager";
+import { Slide } from "../../model/Slide";
 
 declare var $:any;
 
-export class SELayerListItem {
+export class EditLayerListItem {
 	
 	public obj:any;
 
@@ -49,26 +49,18 @@ export class SELayerListItem {
 		this.eyeBtn.click((e:any)=>{
 			if(this._layerView == null) return;
 			toggleFunc(this._layerView.data, "visible");
-
-			//this._layerView.data.visible = !this._layerView.data.visible;
-			//e.stopImmediatePropagation();
 		});
 
 		this.lockBtn = $('<button class="lock"><i class="fas fa-lock"></i></button>');
 		this.lockBtn.click((e:any)=>{
 			if(this._layerView == null) return;
 			toggleFunc(this._layerView.data, "locked");
-
-			//this._layerView.data.locked = !this._layerView.data.locked;
-			//e.stopImmediatePropagation();
 		});
 
 		this.shareBtn = $('<button class="share"><i class="fas fa-exchange-alt"></i></button>');
 		this.shareBtn.click((e:any)=>{
 			if(this._layerView == null) return;
 			toggleFunc(this._layerView.data, "shared");
-
-			//this._layerView.data.shared = !this._layerView.data.shared;
 		});
 
 

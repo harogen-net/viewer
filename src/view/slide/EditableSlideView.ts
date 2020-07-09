@@ -1,21 +1,21 @@
-import {SlideView} from "../__core__/view/SlideView";
-import {Layer, LayerType} from "../__core__/model/Layer";
-import {ImageLayer} from "../__core__/model/ImageLayer";
-import {KeyboardManager} from "../utils/KeyboardManager";
-import { DropHelper } from "../utils/DropHelper";
-import { IDroppable } from "../interface/IDroppable";
-import { TextLayer } from "../__core__/model/TextLayer";
+import {SlideView} from "../SlideView";
+import {Layer, LayerType} from "../../model/Layer";
+import {ImageLayer} from "../../model/layer/ImageLayer";
+import { TextLayer } from "../../model/layer/TextLayer";
+import {KeyboardManager} from "../../utils/KeyboardManager";
+import { DropHelper } from "../../utils/DropHelper";
+import { IDroppable } from "../../interface/IDroppable";
 import { DOMSlideView } from "./DOMSlideView";
-import { LayerView } from "../__core__/view/LayerView";
-import { TextView } from "../__core__/view/TextView";
-import { ImageView } from "../__core__/view/ImageView";
-import { LayerViewFactory } from "../__core__/view/LayerViewFactory";
-import { Slide } from "../__core__/model/Slide";
-import { VDoc } from "../__core__/model/VDoc";
-import { PropFlags } from "../__core__/model/PropFlags";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { AdjustView } from "../__core__/view/AdjustView";
-import { HistoryManager, Command, Transaction } from "../utils/HistoryManager";
+import { LayerView } from "../LayerView";
+import { TextView } from "../layer/TextView";
+import { ImageView } from "../layer/ImageView";
+import { LayerViewFactory } from "../../utils/LayerViewFactory";
+import { Slide } from "../../model/Slide";
+import { ViewerDocument } from "../../model/ViewerDocument";
+import { PropFlags } from "../../model/PropFlags";
+import { PropertyEvent } from "../../events/PropertyEvent";
+import { AdjustView } from "../layer/AdjustView";
+import { HistoryManager, Command, Transaction } from "../../utils/HistoryManager";
 
 declare var $: any;
 declare var Matrix4: any;
@@ -282,7 +282,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				layer.transform = initValue;
 			}
 		)).do();
-//		this.selectedLayerView.data.transform = this.copyedTrans;
 	}
 
 
@@ -298,8 +297,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		this.rectEdit = false;
 		this.selectLayerView(null);
 
-		//this._slide.removeEventListener("layerRemove", this.onLayerRemove2);
-		//this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
 		this.sharedLayersByUUID = {};
 		this.rectLayers = {};
 
@@ -307,8 +304,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 		super.replaceSlide(newSlide);
 
-		//this._slide.addEventListener("layerRemove", this.onLayerRemove2);
-		//this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
 
 		//
 		//autoselect
@@ -374,13 +369,13 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}
 
 		var slide:Slide;
-		slide = VDoc.shared.getNextSlide(this._slide);
+		slide = ViewerDocument.shared.getNextSlide(this._slide);
 		while(slide && func(slide)){
-			slide = VDoc.shared.getNextSlide(slide);
+			slide = ViewerDocument.shared.getNextSlide(slide);
 		}
-		slide = VDoc.shared.getPrevSlide(this._slide);
+		slide = ViewerDocument.shared.getPrevSlide(this._slide);
 		while(slide && func(slide)){
-			slide = VDoc.shared.getPrevSlide(slide);
+			slide = ViewerDocument.shared.getPrevSlide(slide);
 		}
 	}
 
@@ -417,23 +412,18 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		//自分自身のSlide
 		func(this._slide);
 		//前方向Slide
-		slide = VDoc.shared.getNextSlide(this._slide);
+		slide = ViewerDocument.shared.getNextSlide(this._slide);
 		while(slide){
 			func(slide);
-			slide = VDoc.shared.getNextSlide(slide);
+			slide = ViewerDocument.shared.getNextSlide(slide);
 		}
-		// while(slide && func(slide)){
-		// 	slide = VDoc.shared.getNextSlide(slide);
-		// }
+
 		//後方向Slide
-		slide = VDoc.shared.getPrevSlide(this._slide);
+		slide = ViewerDocument.shared.getPrevSlide(this._slide);
 		while(slide){
 			func(slide);
-			slide = VDoc.shared.getPrevSlide(slide);
+			slide = ViewerDocument.shared.getPrevSlide(slide);
 		}
-		// while(slide && func(slide)){
-		// 	slide = VDoc.shared.getPrevSlide(slide);
-		// }
 
 		console.log(this.rectLayers[layer.uuid]);
 	}
@@ -540,13 +530,13 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		}
 
 		var slide:Slide;
-		slide = VDoc.shared.getNextSlide(this._slide);
+		slide = ViewerDocument.shared.getNextSlide(this._slide);
 		while(slide && func(slide)){
-			slide = VDoc.shared.getNextSlide(slide);
+			slide = ViewerDocument.shared.getNextSlide(slide);
 		}
-		slide = VDoc.shared.getPrevSlide(this._slide);
+		slide = ViewerDocument.shared.getPrevSlide(this._slide);
 		while(slide && func(slide)){
-			slide = VDoc.shared.getPrevSlide(slide);
+			slide = ViewerDocument.shared.getPrevSlide(slide);
 		}
 
 		if(transaction.length > 0){
