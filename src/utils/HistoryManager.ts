@@ -19,7 +19,6 @@ export class HistoryManager extends EventDispatcher {
 	private readonly MAX_STEP:number = 100;
 	private undoStack:ICommand[];
 	private redoStack:ICommand[];
-//	private onTransaction:boolean = false;
 
 	constructor(){
 		super();
@@ -30,7 +29,6 @@ export class HistoryManager extends EventDispatcher {
 		this.undoStack = [];
 		this.redoStack = [];
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE));
-//		this.onTransaction = false;
 	}
 
 	public record(command:ICommand):ICommand {

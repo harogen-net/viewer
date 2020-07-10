@@ -583,9 +583,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		if(this._rectEdit == value) return;
 		this._rectEdit = value;
 		 if(this._rectEdit && this.selectedLayerView){
-		// 	this.listRectLayers(this.selectedLayerView.data);
-		// }else{
-		// 	this.rectLayers = [];
 			this.listRectLayers(this.selectedLayerView.data);
 		}
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ESV_RECT));

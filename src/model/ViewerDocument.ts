@@ -1,8 +1,12 @@
 import { DateUtil } from "../utils/DateUtil";
 import { Viewer } from "../Viewer";
 import { Slide } from "./Slide";
+import { Layer } from "./Layer";
+import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
+import { DataUtil } from "../utils/DataUtil";
 
 declare var $: any;
+declare var JSZip:any;
 
 export class ViewerDocument {
 
@@ -70,7 +74,35 @@ export class ViewerDocument {
 	public getNextSlide(slide:Slide):Slide|null {
 		return this.getSlideByOffset(slide, 1);
 	}
+	//FileIO
+	public downloadImage(targetIndex:number = -1) {
+		if (targetIndex != -1) {
+			if (this.slides[targetIndex] != undefined)  {
+				var slide = this.slides[targetIndex];
+				var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(slide,slide.width, slide.height, 1, this.bgColor);
+				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.title + "_" + (targetIndex + 1) + ".png");
+			}else{
+				throw new Error("invalid index.");
+			}
+		}else{
+			if (this.disabled)  {
+				alert("activate at least 1 slide.");
+				return;
+			}
 
+			var zip = new JSZip();
+			var converter = new SlideToPNGConverter();
+			this.slides.forEach((slide, index) => {
+				if (slide.disabled) return;
+				var canvas:HTMLCanvasElement = converter.slide2canvas(slide, slide.width, slide.height, 1, this.bgColor);
+				zip.file(this.title + "_" + (index + 1) + ".png", DataUtil.dataURItoBlob(canvas.toDataURL()));
+			});
+			zip.generateAsync({type:"blob",compression: "DEFLATE"})
+			.then((blob)=>{
+				DataUtil.downloadBlob(blob, this.title + ".zip");
+			});
+		}
+	}
 
 	//
 	// get set
@@ -81,4 +113,12 @@ export class ViewerDocument {
 		$("#bgColor").val(this._bgColor || this.BG_COLOR_INIT);
 	}
 	public get bgColor():string{ return this._bgColor; }
+
+	public get allLayers():Layer[] {
+		return this.slides.map(slide=>slide.layers).flat();
+	}
+
+	public get disabled():boolean {
+		return this.slides.every(slide=>slide.disabled);
+	}
 }

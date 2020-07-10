@@ -36,8 +36,15 @@
 		<div>
 			<button class="startSlideShow"><i class="fas fa-play"></i></button>
 		</div>
-		<div>
-			<button class="new"><i class="far fa-file"></i> <span>NEW</span></button>
+		<div class="pulldown">
+			<button class="pulldownOpener" data-target="fileIo">files...</button>
+			<ul id="fileIo">
+				<li><button class="new"><i class="far fa-file"></i> <span>new document</span></button></li>
+				<li><button class="export"><i class="far fa-save"></i> <span>save to file</span></button></li>
+				<li><button class="import"><i class="fas fa-file-import"></i> <span>load from file</span></button></li>
+				<li><button class="zip"><i class="fas fa-file-archive"></i> <span>export images to zip</span></button></li>
+			</ul>
+			<input class="import" type="file" value="" accept=".png,.hvd,.hvz">
 		</div>
 		<div>
 			<button class="fileSelect up"><i class="fas fa-chevron-left"></i></button>
@@ -47,14 +54,11 @@
 			<button class="fileSelect down"><i class="fas fa-chevron-right"></i></button>
 		</div>
 		<div>
-			<button class="save"><i class="fas fa-save"></i> <span>SAVE</span></button>
-			<button class="dispose"><i class="fas fa-trash"></i> <span>DEL</span></button>
-			<button class="load"><i class="fas fa-download"></i> <span>LOAD</span></button>
+			<button class="save"><i class="fas fa-save"></i></button>
+			<button class="load"><i class="fas fa-download"></i></button>
+			<button class="dispose"><i class="fas fa-trash"></i></button>
 		</div>
 		<div>
-			<button class="export"><i class="fas fa-file-export"></i> <span>EXPORT</span></button>
-			<button class="import"><i class="fas fa-file-import"></i> <span>IMPORT</span></button>
-			<input class="import" type="file" value="" accept=".png,.hvd,.hvz">
 		</div>
 		<div>
 			<span>DURATION:<select id="duration">
@@ -124,16 +128,18 @@
 					<button class="fit" data-desc="fit selected image to canvas"><i class="fas fa-expand"></i></button>
 					<button class="rotateL" data-desc="rotate selected image counterclockwise"><i class="fas fa-undo" data-desc="rotate selected image clockwise"></i></button>
 					<button class="rotateR" data-desc="rotate selected image clockwise"><i class="fas fa-redo"></i></button>
-					<div class="buttonGroup">
-						<button class="toAnyWhere" data-desc="move selected layer to..."><i class="fas fa-arrows-alt"></i></button>
-						<button class="toTop at t" data-desc="move selected layer to top"><i class="fas fa-arrow-up"></i></button>
-						<button class="toBottom at b" data-desc="move selected layer to bottom"><i class="fas fa-arrow-down"></i></button>
-						<button class="toLeft at l" data-desc="move selected layer to left"><i class="fas fa-arrow-left"></i></button>
-						<button class="toRight at r" data-desc="move selected layer to right"><i class="fas fa-arrow-right"></i></button>
+					<div class="pulldown">
+						<button class="pulldownOpener toAnyWhere" data-target="direction" data-desc="move selected layer to..."><i class="fas fa-arrows-alt"></i></button>
+						<ul id="direction">
+							<li><button class="toTop at t" data-desc="move selected layer to top"><i class="fas fa-arrow-up"></i></button></li>
+							<li><button class="toBottom at b" data-desc="move selected layer to bottom"><i class="fas fa-arrow-down"></i></button></li>
+							<li><button class="toLeft at l" data-desc="move selected layer to left"><i class="fas fa-arrow-left"></i></button></li>
+							<li><button class="toRight at r" data-desc="move selected layer to right"><i class="fas fa-arrow-right"></i></button></li>
+						</ul>
 					</div>
 				</div>
 				<div>
-					<button class="slideDownload"><i class="fas fa-file-export"></i></button>
+					<button class="slideDownload"><i class="fas fa-file-download"></i></button>
 				</div>
 				<div>
 					<button class="text"><i class="fas fa-font"></i></button>
@@ -163,7 +169,7 @@
 					<div class="imageRef">
 						<button class="imageRef"><span><i class="fas fa-file-image"></i> IMG REF. </span> <label for="cb_imageRef"><input id="cb_imageRef" type="checkbox"><span>forALL</span></label></button>
 						<input class="imageRef" type="file" value="" accept="image/*">
-						<button class="download"><i class="fas fa-file-export"></i></button>
+						<button class="download"><i class="fas fa-file-download"></i></button>
 					</div>
 					<div class="swap">
 						<button class="bottom"><i class="fas fa-arrow-circle-down"></i></button><button class="down"><i class="fas fa-arrow-down"></i></button><button class="up"><i class="fas fa-arrow-up"></i></button><button class="top"><i class="fas fa-arrow-circle-up"></i></button>

@@ -3,9 +3,6 @@ import { ImageManager } from "../../utils/ImageManager";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../PropFlags";
 
-declare var $: any;
-declare var Matrix4: any;
-
 export class ImageLayer extends Layer {
 
 	private _clipRect:number[] = [0,0,0,0];

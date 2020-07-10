@@ -4,7 +4,6 @@ import { PropertyEvent } from "../events/PropertyEvent";
 import { UUIDGenerator } from "../utils/UUIDGenerator";
 import { PropFlags } from "./PropFlags";
 
-declare var $: any;
 declare var Matrix4: any;
 
 export enum LayerType {
@@ -16,18 +15,6 @@ export enum LayerType {
 
 
 export class Layer extends EventDispatcher {
-
-	// public static copyAttributes(toLayer:Layer, fromLayer:Layer):void {
-	// 	toLayer.transform = fromLayer.transform;
-	// 	toLayer.locked = fromLayer.locked;
-	// 	toLayer.visible = fromLayer.visible;
-	// 	toLayer.opacity = fromLayer.opacity;
-	// 	toLayer.shared = fromLayer.shared;
-	// 	toLayer.name = fromLayer.name;
-	// }
-
-
-	//
 
 	protected _type:LayerType = LayerType.LAYER;
 
