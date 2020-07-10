@@ -160,6 +160,13 @@ export class Viewer {
 					}
 				});
 
+				// $(".pulldown .pulldownOpener").click((e)=>{
+				// 	var opener = $(e.target);
+				// 	var targetId = opener.attr("data-target");
+				// 	$("#" + targetId).toggle();
+				// });
+
+
 
 				$("#pref > button").click(()=>{
 					$("#pref > .menu").toggle();
