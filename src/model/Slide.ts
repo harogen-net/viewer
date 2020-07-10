@@ -72,17 +72,13 @@ export class Slide extends EventDispatcher {
 				index = -1;
 			}
 		}
-		// if(index > this._layers.length - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
-		// 	throw new Error("invalid index.");
-		// }
+
 		if(this._layers.length >= Slide.LAYER_NUM_MAX - (this._layers.indexOf(layer) != -1 ? 1 : 0)){
 			throw new Error("exceeds max layer num.");
 		}
 
 		var fromIndex:number = this._layers.indexOf(layer);
 		var isAdd = (fromIndex == -1);
-		//console.log("addLayer at slide", layer, index, isAdd);
-		// console.log(layer);
 
 		if(!isAdd){
 			this._layers.splice(this._layers.indexOf(layer), 1);
@@ -100,13 +96,10 @@ export class Slide extends EventDispatcher {
 				layer.parent = this;
 			}
 
-//			this.dispatchEvent(new CustomEvent("layerAdd", {detail:{slide:this, layer:layer}}));
 			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_ADD, {layer:layer}));
 		}else{
-//			this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:layer}}));
 			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_ORDER, {layer:layer, from:fromIndex, to:index}));
 		}
-		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
 
 		return layer;
 	}
@@ -122,8 +115,6 @@ export class Slide extends EventDispatcher {
 			}
 
 			this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_REMOVE, {layer:layer}));
-			//this.dispatchEvent(new CustomEvent("layerRemove", {detail:{slide:this, layer:layer}}));
-			//this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		}
 		return layer;
 	}
@@ -216,7 +207,6 @@ export class Slide extends EventDispatcher {
 		//Slideの子レイヤのUPDATEイベントについては、そのもののフラグにS_LAYERフラグを付加してスライドが発行する
 		//レイヤではなくSlideが単一のViewを持っているCanvasSlideViewはこのイベントで再描画を行う
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER|pe.propFlags, {layer:pe.targe}));
-		//this.dispatchEvent(new CustomEvent("layerUpdate", {detail:{slide:this, layer:(pe.targe), propFlags:pe.propFlags}}));
 	}
 
 
@@ -251,14 +241,12 @@ export class Slide extends EventDispatcher {
 		value = Math.max(value, 0.2);
 		if(value == this._durationRatio) return;
 		this._durationRatio = value;
-		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_DURATION));
 	}
 
 	set joining(value:boolean) {
 		if(value == this._joining) return;
 		this._joining = value;
-		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_JOIN));
 	}
 	get joining():boolean { return this._joining; }
@@ -266,7 +254,6 @@ export class Slide extends EventDispatcher {
 	set disabled(value:boolean) {
 		if(value == this._disabled) return;
 		this._disabled = value;
-		//this.dispatchEvent(new CustomEvent("update", {detail:this}));
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_DISABLED));
 	}
 	get disabled():boolean { return this._disabled; }

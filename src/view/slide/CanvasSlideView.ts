@@ -21,19 +21,13 @@ export class CanvasSlideView extends SlideView {
 
 	constructor(protected _slide:Slide, public obj:any, protected scale:number){
 		super(_slide, obj);
-		//this._slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
-		//this._slide.addEventListener("layerUpdate", this.onLayerUpdate);
-		//his._slide.addEventListener("update", this.onLayerUpdate);
 
 		this.converter = new SlideToPNGConverter();
 
 		this.width = Math.round(this._slide.width * this.scale);
 		this.height = Math.round(this._slide.height * this.scale)
-//		var width = Math.round((ThumbSlide2.HEIGHT / this._slide.height) * this._slide.width * 1);
-//		var scale = ThumbSlide2.HEIGHT / this._slide.height;
 
 		this.canvas = this.converter.slide2canvas(this._slide, this.width, this.height, this.scale);
-		//this.canvas = this.converter.slide2canvas(this._slide, width, ThumbSlide2.HEIGHT, scale);
 		this.thumbnail = $(this.canvas);
 		this.obj.append(this.thumbnail);
 		this.obj.height(this.height);
@@ -49,9 +43,6 @@ export class CanvasSlideView extends SlideView {
 
 
 	public destroy(){
-		//		this._slide.removeEventListener("layerUpdate", this.onLayerUpdate);
-		//		this._slide.removeEventListener("update", this.onLayerUpdate);
-		//		this._slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdateLambda);
 		if(this.intervalId){
 			clearInterval(this.intervalId)
 		}

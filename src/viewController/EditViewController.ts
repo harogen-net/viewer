@@ -306,22 +306,37 @@ export class EditViewController extends EventDispatcher {
 			if($("input#cb_imageRef").prop("checked")){
 				var transaction = new Transaction();
 
-				ViewerDocument.shared.slides.forEach(slide=>{
-					slide.layers.forEach(layer=>{
-						if(layer.type != LayerType.IMAGE) return;
-						var imageLayer:ImageLayer = layer as ImageLayer;
-						if(imageLayer.imageId == fromImageId){
-							transaction.record(
-								()=>{
-									imageLayer.imageId = newImageId;
-								},
-								()=>{
-									imageLayer.imageId = fromImageId;
-								}
-							);
-						}
-					});
+				ViewerDocument.shared.allLayers.forEach(layer=>{
+					if(layer.type != LayerType.IMAGE) return;
+					var imageLayer:ImageLayer = layer as ImageLayer;
+					if(imageLayer.imageId == fromImageId){
+						transaction.record(
+							()=>{
+								imageLayer.imageId = newImageId;
+							},
+							()=>{
+								imageLayer.imageId = fromImageId;
+							}
+						);
+					}
 				});
+
+				// ViewerDocument.shared.slides.forEach(slide=>{
+				// 	slide.layers.forEach(layer=>{
+				// 		if(layer.type != LayerType.IMAGE) return;
+				// 		var imageLayer:ImageLayer = layer as ImageLayer;
+				// 		if(imageLayer.imageId == fromImageId){
+				// 			transaction.record(
+				// 				()=>{
+				// 					imageLayer.imageId = newImageId;
+				// 				},
+				// 				()=>{
+				// 					imageLayer.imageId = fromImageId;
+				// 				}
+				// 			);
+				// 		}
+				// 	});
+				// });
 
 				if(transaction.length > 0){
 					HistoryManager.shared.record(transaction).do();

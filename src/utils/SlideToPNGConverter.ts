@@ -1,6 +1,4 @@
 import { ViewerDocument } from "../model/ViewerDocument";
-import { Viewer } from "../Viewer";
-import { SlideView } from "../view/SlideView";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageManager } from "./ImageManager";
@@ -61,11 +59,7 @@ export class SlideToPNGConverter {
 
 	public drawSlide2Canvas(slide:Slide, canvas:HTMLCanvasElement, slideScale?:number, bgColor?:string) {
 		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
-
-		//テスト実装なので、コンパイル時にエラーが出る
-		//ctx.resetTransform();
-		//よって無理やり実行
-		ctx["resetTransform"]();
+		ctx.resetTransform();
 
 		if(bgColor){
 			ctx.fillStyle = bgColor;
@@ -80,9 +74,7 @@ export class SlideToPNGConverter {
 			var image = layer as ImageLayer;
 			if (!image.visible) return;
 
-			var matrix:number[] = layer.matrix;
-			ctx["resetTransform"]();
-
+			ctx.resetTransform();
 
 			//※アフィン変換は逆に行われる
 
@@ -106,7 +98,17 @@ export class SlideToPNGConverter {
 			//ctx.drawImage(image.imageElement, 0, 0);
 			var element = ImageManager.shared.getImageElementById(image.imageId);
 			//if(image.isClipped){
-				ctx.drawImage(element, image.clipRect[3], image.clipRect[0],image.clipedWidth, image.clipedHeight,image.clipRect[3],image.clipRect[0],image.clipedWidth, image.clipedHeight);
+				ctx.drawImage(
+					element,
+					image.clipRect[3],
+					image.clipRect[0],
+					image.clipedWidth,
+					image.clipedHeight,
+					image.clipRect[3],
+					image.clipRect[0],
+					image.clipedWidth,
+					image.clipedHeight
+				);
 			//}else{
 			//	ctx.drawImage(element, 0,0);
 			//}

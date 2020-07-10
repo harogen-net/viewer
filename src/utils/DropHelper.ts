@@ -31,7 +31,13 @@ export class DropHelper extends EventDispatcher {
 			e.preventDefault();
 			e.stopImmediatePropagation();
 			obj.removeClass("fileOver");
-			console.log(e.originalEvent);
+
+			var droppedImageId:string = e.originalEvent.dataTransfer.getData("imageId");
+			if (droppedImageId && droppedImageId.length > 0) {
+				var ce:CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {detail:droppedImageId});
+				this.dispatchEvent(ce);
+				return;
+			}
 
 			var files:File[] = [];
 			//e.originalEvent.dataTransfer.files.forEach(file=>{

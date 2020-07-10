@@ -17,38 +17,6 @@ export class ImageManager {
 		this._instance = new ImageManager(container);
 	}
 	
-	// public static initialize(){
-	// 	if(!this._instance) this._instance = new ImageManager();
-	// 	this._instance.initialize();
-	// }
-
-
-	// public static getImageById(id:string):{width:number, height:number, imgObj:any} {
-	// 	if(!this._instance) this._instance = new ImageManager();
-	// 	return ;
-	// 	//return this._instance.getImageById(id);
-	// }
-
-	// public static registImage(image:Image) {
-	// 	if(!this._instance) this._instance = new ImageManager();
-	// 	this._instance.registImage(image);
-	// }
-
-	// public static deleteImage(image:Image) {
-	// 	if(!this._instance) this._instance = new ImageManager();
-	// 	this._instance.deleteImage(image);
-	// }
-
-	// public static swapImageAll(id:string, imgObj:any) {
-	// 	if(!this._instance) this._instance = new ImageManager();
-	// 	this._instance.swapImageAll(id, imgObj);
-	// }
-
-	// public static addEventListener(type:string, callback:Function, priolity?:number) {
-	// 	if(!this._instance) this._instance = new ImageManager();
-	// 	this._instance.addEventListener(type,callback,priolity);
-	// }
-
 	//
 
 	private allImages:ImageLayer[];
@@ -60,14 +28,6 @@ export class ImageManager {
 		this.allImages = [];
 	}
 
-	public initialize(){
-		console.log("initialize called" );
-		// while(this.allImages.length > 0){
-		// 	this.deleteImage(this.allImages.pop());
-		// }
-		// this.allImages = [];
-	}
-
 	public registImageData(id:string, src:string, name:string = "") {
 		return new Promise((resolve)=>{
 			if(this._imageById[id] != undefined) {
@@ -75,6 +35,13 @@ export class ImageManager {
 			}else{
 				var imgDom = new Image();
 				var imgObj = $(imgDom);
+
+				//set data for drop to slide or list.
+				imgObj.prop("draggable", true);
+				imgObj.on("dragstart.imageManager", (e)=>{
+					e.originalEvent.dataTransfer.setData('imageId', id);
+				});
+
 				var onImageLoad = (e:Event)=>{
 					var imgDom = (e.target as HTMLImageElement);
 					imgDom.removeEventListener("load", onImageLoad);

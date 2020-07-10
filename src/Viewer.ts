@@ -4,12 +4,11 @@ import { SlideShowViewController } from "./viewController/SlideShowViewControlle
 import { EditViewController } from "./viewController/EditViewController";
 import { ImageManager } from "./utils/ImageManager";
 import { ViewerDocument } from "./model/ViewerDocument";
-import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
-import { DataUtil } from "./utils/DataUtil";
 import { Slide } from "./model/Slide";
 import { HistoryManager } from "./utils/HistoryManager";
 
 declare var $:any;
+
 
 export enum ViewerMode {
 	SELECT,
@@ -120,8 +119,7 @@ export class Viewer {
 			});
 
 			this.edit.addEventListener("download", ()=>{
-				var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(this.edit.slideView.slide, this.edit.slideView.slide.width, this.edit.slideView.slide.height, 1, this.viewerDocument.bgColor);
-				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.viewerDocument.title + "_" + (this.list.selectedSlideIndex + 1) + ".png");
+				this.viewerDocument.downloadImage(this.list.selectedSlideIndex);
 			});
 		}
 
@@ -131,6 +129,45 @@ export class Viewer {
 		//IO section
 		{
 			if(startUpMode == ViewerStartUpMode.VIEW_AND_EDIT){
+				//pulldown
+				$(".pulldown").each(function(index, element){
+					var self = $(element);
+					var opener = self.find(".pulldownOpener");
+					var targetId = opener.attr("data-target");
+					var target = $("#" + targetId);
+
+					var key = "mouseup." + targetId;
+					var isOpen = false;
+					opener.click(function(e){
+						if (isOpen){
+							hide();
+						}else{
+							show();
+						}
+					});
+					function show() {
+						isOpen = true;
+						target.slideDown(100);
+						$(document).on(key, function(e){
+							if (e.target == opener[0]) return;
+							hide();
+						});
+					}
+					function hide() {
+						isOpen = false;
+						target.slideUp(100);
+						$(document).off(key);
+					}
+				});
+
+				// $(".pulldown .pulldownOpener").click((e)=>{
+				// 	var opener = $(e.target);
+				// 	var targetId = opener.attr("data-target");
+				// 	$("#" + targetId).toggle();
+				// });
+
+
+
 				$("#pref > button").click(()=>{
 					$("#pref > .menu").toggle();
 				});
@@ -177,12 +214,12 @@ export class Viewer {
 					}
 				});
 				$("label[for='cb_fullscreen']").hide();
-
-				$("select.filename").change((any)=>{
-					if($('select.filename').val() == -1) return;
-					this.storage.load($('select.filename').val());
-				});
 			}
+
+			$("select.filename").change((any)=>{
+				if($('select.filename').val() == -1) return;
+				this.storage.load($('select.filename').val());
+			});
 
 			$(".startSlideShow").click(() => {
 				var slides:Slide[] = [];
@@ -228,7 +265,9 @@ export class Viewer {
 			});
 
 			
-
+			$("button.zip").click(()=>{
+				this.viewerDocument.downloadImage();
+			});
 			$("button.import").click(()=>{
 				if(this.list.slides.length == 0 || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')){
 					$("input.import")[0].click();
