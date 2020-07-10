@@ -69,10 +69,16 @@ export class AdjustView extends LayerView {
 			this.startDrag(e);
 			e.stopImmediatePropagation();
 		});
-		this.frame.on("dblclick.layer_edit", (e:any)=>{
-			this.startEdit();
-			e.stopImmediatePropagation();
-		});
+		// this.frame.on("dblclick.layer_edit", (e:any)=>{
+		// 	this.startEdit();
+		// 	e.stopImmediatePropagation();
+		// });
+
+
+
+
+
+
 		// this.frame.on("wheel", (e:any) => {
 		// 	if(!this._targetLayerView) return;
 
@@ -215,38 +221,38 @@ export class AdjustView extends LayerView {
 		});
 	}
 
-	private startEdit(){
-		if(!this._targetLayerView || this._targetLayerView.data.locked) return;
+	// private startEdit(){
+	// 	if(!this._targetLayerView || this._targetLayerView.data.locked) return;
 
-		if(this._targetLayerView.type == LayerType.TEXT){
-			var textLayer:TextLayer = this._targetLayerView.data as TextLayer;
-			var textView:TextView = this._targetLayerView as TextView;
-			var text = textLayer.text;
-			textView.textObj.attr("contenteditable","true");
-			textView.textObj.focus();
+	// 	if(this._targetLayerView.type == LayerType.TEXT){
+	// 		var textLayer:TextLayer = this._targetLayerView.data as TextLayer;
+	// 		var textView:TextView = this._targetLayerView as TextView;
+	// 		var text = textLayer.text;
+	// 		textView.textObj.attr("contenteditable","true");
+	// 		textView.textObj.focus();
 
-			textView.textObj.off("focusout.textLayer_edit");
-			textView.textObj.on("focusout.textLayer_edit", ()=>{
-				textView.textObj.attr("contentEditable","false");
-				textView.textObj.off("focusout.textLayer_edit");
+	// 		textView.textObj.off("focusout.textLayer_edit");
+	// 		textView.textObj.on("focusout.textLayer_edit", ()=>{
+	// 			textView.textObj.attr("contentEditable","false");
+	// 			textView.textObj.off("focusout.textLayer_edit");
 
-				setTimeout(()=>{
-					if(text != textView.textObj.text()){
-						var text2 = textView.textObj.text();
-						//textLayer.text = textView.textObj.text();
-						HistoryManager.shared.record(new Command(
-							()=>{
-								textLayer.text = text2;
-							},
-							()=>{
-								textLayer.text = text;
-							}
-						)).do();
-					}
-				},10)
-			});
-		}
-	}
+	// 			setTimeout(()=>{
+	// 				if(text != textView.textObj.text()){
+	// 					var text2 = textView.textObj.text();
+	// 					//textLayer.text = textView.textObj.text();
+	// 					HistoryManager.shared.record(new Command(
+	// 						()=>{
+	// 							textLayer.text = text2;
+	// 						},
+	// 						()=>{
+	// 							textLayer.text = text;
+	// 						}
+	// 					)).do();
+	// 				}
+	// 			},10)
+	// 		});
+	// 	}
+	// }
 
 	public updateSize(){
 		if(!this._data) return;

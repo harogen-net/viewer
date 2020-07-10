@@ -1,15 +1,21 @@
 import { TypeChecker } from "../utils/TypeChecker";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { HistoryManager, Command } from "../utils/HistoryManager";
+import { IVMUI } from "../interface/IVMUI";
 
 declare var $:any;
 
-export class VMUI {
+export class VMUI implements IVMUI {
 
 	protected _target:any;
 
 	constructor(protected _obj:any, private targetClass:any){
-		if(_obj.prop("tagName") != "INPUT" && _obj.prop("tagName") != "SELECT" && _obj.prop("tagName") != "BUTTON"){
+		if(
+			_obj.prop("tagName") != "INPUT" &&
+			_obj.prop("tagName") != "SELECT" &&
+			_obj.prop("tagName") != "TEXTAREA" &&
+			_obj.prop("tagName") != "BUTTON"
+		){
 			throw new Error("invalid jquery object.");
 		}
 		this._obj.prop("disabled", true);
@@ -280,5 +286,110 @@ export class VMVariableInput extends VMUI {
 		if(this.targetPropFlag & pe.propFlags){
 			this.updateValueFromTarget();
 		}
+	}
+}
+
+export class VMTextInput extends VMUI {
+	constructor(protected _obj:any, targetClass:any, private targetPropKey:string, private targetPropFlag:number){
+		super(_obj, targetClass);
+		if(_obj.prop("tagName") != "TEXTAREA"){
+			throw new Error("invalid jquery object. use <textarea /> tag.");
+		}
+
+		var target;
+		var propKey;
+		var startValue;
+		var endValue;
+		_obj.on("input propertychange", ()=>{
+			if(!this._target) return;
+
+			target = this._target;
+			propKey = this.targetPropKey;
+			startValue = target[propKey];
+			endValue = _obj.val();
+			HistoryManager.shared.record(new Command(
+				()=>{
+					target[propKey] = endValue;
+				},
+				()=>{
+					target[propKey] = startValue;
+				}
+			)).do();
+		});
+	}
+
+	protected setTarget(){
+		if(this._target[this.targetPropKey] == undefined || !TypeChecker.isString(this._target[this.targetPropKey])) {
+			throw new Error("invalid target. set target that have key with string.");
+		}
+		super.setTarget();
+
+		this._obj.val(this._target[this.targetPropKey]);
+		this._target.addEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
+	}
+	protected destroyTarget(){
+		super.destroyTarget();
+		this.obj.val("");
+		this._target.removeEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
+	}
+
+
+	//
+	// event handler
+	//
+	private onPropertyUpdate = (pe:PropertyEvent)=>{
+		if(pe.targe != this._target) return;
+		if(this.targetPropFlag & pe.propFlags){
+			this._obj.val(this._target[this.targetPropKey]);
+		}
+	}
+}
+
+
+
+export class VMUI2 implements IVMUI {
+
+	protected _target:any;
+
+	constructor(protected _obj:any, private targetClass:any){
+		// if(_obj.prop("tagName") != "INPUT" && _obj.prop("tagName") != "SELECT" && _obj.prop("tagName") != "BUTTON"){
+		// 	throw new Error("invalid jquery object.");
+		// }
+		this._obj.hide();
+		//this._obj.prop("disabled", true);
+	}
+
+	protected setTarget(){
+		this._obj.show();
+		// this._obj.prop("disabled", false);
+	}
+	protected destroyTarget(){
+		this._obj.hide();
+		// this._obj.prop("disabled", true);
+	}
+
+	//
+	// get set
+	//
+	public set target(value:any){
+		if(value != null && !(value instanceof this.targetClass)){
+			value = null;
+			console.warn("different type target set.");
+		}
+		if(value == this._target) return;
+		if(this._target){
+			this.destroyTarget();
+		}
+		this._target = value;
+		if(this._target){
+			this.setTarget();
+		}
+	}
+
+	public get target():any{
+		return this._target;
+	}
+	public get obj():any{
+		return this._obj;
 	}
 }

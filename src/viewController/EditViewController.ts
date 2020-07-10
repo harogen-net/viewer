@@ -8,7 +8,8 @@ import { TextLayer } from "../model/layer/TextLayer";
 import { Slide, Direction } from "../model/Slide";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
 import { ViewerDocument } from "../model/ViewerDocument";
-import { VMUI, VMButton, VMToggleButton, VMVariableInput } from "../viewModel/VMUI";
+import { IVMUI } from "../interface/IVMUI";
+import { VMButton, VMToggleButton, VMVariableInput, VMUI2, VMTextInput } from "../viewModel/VMUI";
 import { PropFlags } from "../model/PropFlags";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { HistoryManager, Command, Transaction } from "../utils/HistoryManager";
@@ -25,6 +26,7 @@ export class EditViewController extends EventDispatcher {
 	constructor(public obj:any){
 		super();
 		this.obj.addClass("slideCanvas");
+		
 
 		HistoryManager.init();
 
@@ -36,7 +38,8 @@ export class EditViewController extends EventDispatcher {
 		var rectEditButton = new VMToggleButton($(".menu button.same"), EditableSlideView, "rectEdit", PropFlags.ESV_RECT);
 		rectEditButton.target = this.slideView;
 
-		var vms:VMUI[] = [
+		
+		var vms:IVMUI[] = [
 			new VMButton($("#main button.cut"), Layer, ()=>{
 				this.slideView.cut();
 			}),
@@ -225,6 +228,14 @@ export class EditViewController extends EventDispatcher {
 					}
 				)).do();
 			}),
+
+			new VMTextInput($("#main div.textEdit textarea"), TextLayer, "text", PropFlags.TXT_TEXT),
+
+
+			new VMUI2($("#main div.textEdit"), TextLayer),
+			new VMUI2($("#main dl.clip"), ImageLayer),
+			new VMUI2($("#main div.imageRef"), ImageLayer),
+
 		];
 
 
