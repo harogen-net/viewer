@@ -115,6 +115,7 @@ export class Viewer {
 				this.setMode(ViewerMode.SELECT);
 			});
 			this.list.addEventListener("close",()=>{
+				this.edit.initialize();
 				this.setMode(ViewerMode.SELECT);
 			});
 
