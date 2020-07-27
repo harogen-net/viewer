@@ -10,11 +10,15 @@
   "license": "ISC",
   "dependencies": {
     "@types/es6-promise": "^3.3.0",
+    "crypto-js": "^4.0.0",
     "javascript-natural-sort": "^0.7.1",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.12.1",
+    "jszip": "^3.5.0",
+    "matrixgl": "^1.0.1",
     "ts-loader": "^8.0.0",
     "typescript": "^3.9.6",
+    "uuid": "^8.2.0",
     "webpack": "^4.43.0"
   },
   "devDependencies": {

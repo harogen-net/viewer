@@ -1,7 +1,7 @@
 import { ImageLayer } from "../model/layer/ImageLayer";
+import { CryptoJS } from "crypto-js";
 
 declare var $:any;
-declare var jsSHA:any;
 
 export class ImageManager {
 
@@ -70,10 +70,7 @@ export class ImageManager {
 		return new Promise<string>((resolve)=>{
 			var reader = new FileReader();
 			reader.addEventListener('load', async () => {
-				var shaObj = new jsSHA("SHA-256","TEXT");
-				shaObj.update(reader.result);
-				var imageId = shaObj.getHash("HEX");
-	
+				var imageId = CryptoJS.SHA256(reader.result);
 				await this.registImageData(imageId, reader.result as string, file.name);
 				resolve(imageId);
 			});

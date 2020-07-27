@@ -1,10 +1,9 @@
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Slide } from "./Slide";
 import { PropertyEvent } from "../events/PropertyEvent";
-import { UUIDGenerator } from "../utils/UUIDGenerator";
 import { PropFlags } from "./PropFlags";
-
-declare var Matrix4: any;
+import { v4 as uuidv4 } from 'uuid';
+import { Matrix4 } from "matrixgl";
 
 export enum LayerType {
 	LAYER = "layer",
@@ -53,7 +52,7 @@ export class Layer extends EventDispatcher {
 
 	constructor(transform:any = null, id:number = -1){
 		super();
-		this._uuid = UUIDGenerator.generate();
+		this._uuid = uuidv4();
 
 		if(id == -1){
 			this._id = Math.floor(Math.random() * 10000000);

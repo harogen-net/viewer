@@ -18,7 +18,6 @@ import { AdjustView } from "../layer/AdjustView";
 import { HistoryManager, Command, Transaction } from "../../utils/HistoryManager";
 
 declare var $: any;
-declare var Matrix4: any;
 
 export class EditableSlideView extends DOMSlideView implements IDroppable {
 	public static SCALE_DEFAULT:number = 0.9;
@@ -651,7 +650,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 									slide.addLayer(tmpLayer, index);
 								}
 							)
-//							tmpLayer.parent.removeLayer(tmpLayer);
 						});
 
 						delete this.sharedLayersByUUID[layer.uuid];

@@ -10,6 +10,9 @@ module.exports = {
 		filename: '[name].js'
 	},
 	resolve: {
+		modules: [
+			"node_modules",
+		],
 		extensions:['.ts','.js']
 	},
 	devServer: {

@@ -6,6 +6,7 @@ import { ImageManager } from "./utils/ImageManager";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { Slide } from "./model/Slide";
 import { HistoryManager } from "./utils/HistoryManager";
+import CryptoJS from 'crypto-js';
 
 declare var $:any;
 
@@ -40,6 +41,15 @@ export class Viewer {
 
 
     constructor(public obj:any, startUpMode:ViewerStartUpMode){
+
+		var encrypted = CryptoJS.AES.encrypt( "hoge" , "fuga" , {} );
+		
+
+
+
+
+
+
 //		if(localStorage.duration == undefined) localStorage.duration = 2000;
 //		if(localStorage.interval == undefined) localStorage.interval = 5000;
 

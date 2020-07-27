@@ -4,9 +4,7 @@ import { EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
 
-
 declare var $: any;
-declare var Matrix4: any;
 
 export class LayerView extends EventDispatcher {
 

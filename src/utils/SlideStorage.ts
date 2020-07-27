@@ -12,11 +12,8 @@ import { TextLayer } from "../model/layer/TextLayer";
 import { CanvasSlideView } from "../view/slide/CanvasSlideView";
 import { ImageManager } from "./ImageManager";
 import { Slide } from "../model/Slide";
+import JSZip from "jszip";
 
-
-//declare var $:any;
-//declare var jsSHA:any;
-declare var JSZip:any;
 
 export enum HVDataType {
 	PNG,
@@ -287,47 +284,25 @@ export class SlideStorage extends EventDispatcher {
 
 		//MARK: - debug用トレース
 		delete json.imageData;
-		console.log(JSON.stringify(json));
 
 		return jsonStr;
 	}
 
 	private async parseData(jsonStr:string, options?:any) {
 
-			var slides:Slide[] = [];
-			options = options || {};
-	
-			var json:any = JSON.parse(jsonStr);
-	
-			ImageManager.shared.deleteAllImageData();
-	
-			//ver1
-			if(json.version == 1 || json.version == undefined){
-				// $.each(json.data, (i:number, imageData:any)=>{
-				// 	var slide:SlideView = new ThumbSlide($('<div />'));
-				// 	//var slide:Slide = new Slide($('<div />'));
-				// 	$.each(imageData, (j:number, datum:any)=>{
-				// 		var imgObj:any = $("<img />");
-				// 		imgObj.attr("src",datum.src);
-				// 		if(datum.imageId == undefined || datum.imageId == ""){
-				// 			var shaObj = new jsSHA("SHA-256","TEXT");
-				// 			shaObj.update(datum.src);
-				// 			datum.imageId = shaObj.getHash("HEX");
-				// 		}
-				// 		imgObj.data("imageId",datum.imageId);
-				// 		var img:Image = new Image(imgObj, {
-				// 			transX:datum.transX,
-				// 			transY:datum.transY,
-				// 			scaleX:datum.scaleX,
-				// 			scaleY:datum.scaleY,
-				// 			rotation:datum.rotation
-				// 		});
-				// 		slide.addLayer(img);
-				// 	});
-				// 	slides.push(slide);
-				// });
-			}
-	
+		var slides:Slide[] = [];
+		options = options || {};
+
+		var json:any = JSON.parse(jsonStr);
+
+		ImageManager.shared.deleteAllImageData();
+
+		//ver1
+		if(json.version == 1 || json.version == undefined){
+			window.alert("too old version.");
+			throw new Error("too old version.");
+		}
+
 		//ver2
 		if(json.version >= 2){
 			var width:number = Viewer.SCREEN_WIDTH;

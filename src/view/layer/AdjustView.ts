@@ -8,9 +8,9 @@ import { TextView } from "./TextView";
 import { Slide } from "../../model/Slide";
 import { threadId } from "worker_threads";
 import { HistoryManager, Command } from "../../utils/HistoryManager";
+import { Matrix4 } from "matrixgl";
 
 declare var $:any;
-declare var Matrix4: any;
 
 export class AdjustView extends LayerView {
 

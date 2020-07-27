@@ -4,7 +4,7 @@ import { ViewerDocument } from "./ViewerDocument";
 import { Viewer } from "../Viewer";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "./PropFlags";
-import { UUIDGenerator } from "../utils/UUIDGenerator";
+import { v4 as uuidv4 } from 'uuid';
 
 
 export enum Direction {
@@ -34,7 +34,7 @@ export class Slide extends EventDispatcher {
 	constructor(width:number = 0, height:number = 0, protected _layers:Layer[] = []){
 		super();
 
-		this._uuid = UUIDGenerator.generate();
+		this._uuid = uuidv4();
 		this._width = width || (ViewerDocument.shared ? ViewerDocument.shared.width : Viewer.SCREEN_WIDTH);
 		this._height = height || (ViewerDocument.shared ? ViewerDocument.shared.height : Viewer.SCREEN_HEIGHT);
 		
