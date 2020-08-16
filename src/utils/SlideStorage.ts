@@ -13,6 +13,7 @@ import { CanvasSlideView } from "../view/slide/CanvasSlideView";
 import { ImageManager } from "./ImageManager";
 import { Slide } from "../model/Slide";
 import JSZip from "jszip";
+import CryptoJS from "crypto-js";
 
 
 export enum HVDataType {
@@ -23,7 +24,19 @@ export enum HVDataType {
 
 export class SlideStorage extends EventDispatcher {
 
-	private static readonly VERSION:number = 3;
+	private static _key:string = "";
+	public static set key(value:string)  {
+		this._key = CryptoJS.SHA256(this._key).toString(CryptoJS.enc.Base64);
+	};
+	public static get key():string {
+		if (this._key == "") {
+			this.key = window.prompt("input key");
+			console.log(this._key);
+		}
+		return this._key;
+	}
+
+	private static readonly VERSION:number = 4;
 	private static readonly SAVE_KEY:string = "viewer.slideData";
 	private static readonly DBNAME:string = "viewer";
 	private static readonly PNG_DATA_FILE_PREFIX:string = "[hv]";
@@ -270,26 +283,40 @@ export class SlideStorage extends EventDispatcher {
 				if(layer.type == LayerType.IMAGE) {
 					var imageLayer:ImageLayer = layer as ImageLayer;
 					if(imageData[imageLayer.imageId] == undefined){
-						imageData[imageLayer.imageId] = ImageManager.shared.getSrcById(imageLayer.imageId);
+						//ver4 encrypt
+						var srcStr = ImageManager.shared.getSrcById(imageLayer.imageId);
+						var headStr = srcStr.split(",")[0];
+						var base64Str = srcStr.split(",")[1];
+						var encStr = CryptoJS.AES.encrypt(window.atob(base64Str), SlideStorage.key);
+						var encStr2 = CryptoJS.AES.encrypt(srcStr, SlideStorage.key);
+						// console.log(base64Str.length)
+						// console.log(window.atob(base64Str))
+						// console.log(window.atob(base64Str).length)
+						imageData[imageLayer.imageId] =srcStr;
+						// imageData[imageLayer.imageId] = encStr.toString(CryptoJS.enc.Base64);
+						// console.log(imageData[imageLayer.imageId]);
+						// console.log(imageData[imageLayer.imageId].length, srcStr.length);
+						// console.log(encStr);
+						// console.log(encStr.toString(CryptoJS.enc.Hex));
+						//console.log(srcStr.length, encStr.toString().length, encStr2.toString().length);
 					}
 				}
 			});
 			slideData.push(slideDatum);
-
-			json.slideData = slideData;
-			json.imageData = imageData;
 		});
+		json.slideData = slideData;
+
+		//ver4 encrypt
+		json.imageData = imageData;
+		console.log(JSON.stringify(imageData).length);
+		console.log(CryptoJS.AES.encrypt(JSON.stringify(imageData), "").toString().length);
 
 		var jsonStr:string = JSON.stringify(json);
-
-		//MARK: - debug用トレース
-		delete json.imageData;
 
 		return jsonStr;
 	}
 
 	private async parseData(jsonStr:string, options?:any) {
-
 		var slides:Slide[] = [];
 		options = options || {};
 

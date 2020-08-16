@@ -42,12 +42,14 @@ export class Viewer {
 
     constructor(public obj:any, startUpMode:ViewerStartUpMode){
 
-		var encrypted = CryptoJS.AES.encrypt( "hoge" , "fuga" , {} );
-		
 
-
-
-
+// 		var hash = CryptoJS.SHA256("Message"); 
+// 		console.log(CryptoJS.enc);
+// 		console.log(hash.toString());
+// 		var encrypted = CryptoJS.AES.encrypt("Message", "Secret Passphrase");
+// ​		var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase");
+// 		console.log(decrypted.toString(CryptoJS.enc.Utf8));
+// 		console.log(decrypted.toString(CryptoJS.enc.Hex));
 
 
 //		if(localStorage.duration == undefined) localStorage.duration = 2000;
