@@ -1,5 +1,5 @@
 import { ImageLayer } from "../model/layer/ImageLayer";
-import { CryptoJS } from "crypto-js";
+import CryptoJS from "crypto-js";
 
 declare var $:any;
 
@@ -70,7 +70,7 @@ export class ImageManager {
 		return new Promise<string>((resolve)=>{
 			var reader = new FileReader();
 			reader.addEventListener('load', async () => {
-				var imageId = CryptoJS.SHA256(reader.result);
+				var imageId = CryptoJS.SHA256(reader.result).toString();
 				await this.registImageData(imageId, reader.result as string, file.name);
 				resolve(imageId);
 			});

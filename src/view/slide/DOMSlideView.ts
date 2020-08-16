@@ -82,6 +82,12 @@ export class DOMSlideView extends SlideView {
 			}
 		}
 
+		//バグ対策
+		// if (this.container.find("div.layerWrapper").length > 0) {
+
+		// }
+
+
 		super.replaceSlide(newSlide);
 
 		if(this._slide != null){
