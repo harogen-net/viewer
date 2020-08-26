@@ -69,7 +69,8 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 		$(window).resize(()=>{
 			setTimeout(()=>{
-				$.each(this._slideViews, (index:number, slide:ThumbSlideView) =>{
+				this._slideViews.forEach(slide=>{
+				// $.each(this._slideViews, (index:number, slide:ThumbSlideView) =>{
 					var bool:boolean = slide.selected;
 					slide.selected = false;
 					slide.fitToHeight();
@@ -301,7 +302,8 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private sortSlideViewByIndex(){
 		if(this._slideViews.length == 0) return;
 
-		$.each(this._slideViews, (i:number, slide:ThumbSlideView) => {
+		this._slideViews.forEach(slide=>{
+		// $.each(this._slideViews, (i:number, slide:ThumbSlideView) => {
 			this.containerObj.append(slide.obj);
 			slide.obj.removeClass("last");
 		});

@@ -12,8 +12,20 @@
 <body>
 <div id="wrapper">
 	<div id="pref">
-		<button><i class="fas fa-cog"></i></button>
+		<button><i class="fas fa-ellipsis-h"></i></button>
 		<div class="menu">
+			<dl>
+				<dt>size</dt>
+				<dd>
+					W<input type="text"> x H<input type="text">
+				</dd>
+			</dl>
+			<dl>
+				<dt>contents</dt>
+				<dd>
+					<label for="doc_sensitive"><input type="checkbox" id="doc_sensitive" name="doc_sensitive"><span>sensitive file</span></label>
+				</dd>
+			</dl>
 			<dl>
 				<dt>SAVE FORMAT TYPE</dt>
 				<dd>
@@ -40,6 +52,7 @@
 				<li><button class="export"><i class="fas fa-file-import"></i> <span>save to file</span></button></li>
 				<li><button class="import"><i class="fas fa-file-export"></i> <span>load from file</span></button></li>
 				<li><button class="zip"><i class="fas fa-file-archive"></i> <span>export images to zip</span></button></li>
+				<!-- <li><button class="cog"><i class="fas fa-cog"></i> <span>preference...</span></button></li> -->
 			</ul>
 			<input class="import" type="file" value="" accept=".png,.hvd,.hvz">
 		</div>

@@ -3,6 +3,7 @@ import { ImageLayer } from "../model/layer/ImageLayer";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageManager } from "./ImageManager";
 import { Slide } from "../model/Slide";
+import * as StackBlur from 'stackblur-canvas';
 
 declare var $:any;
 
@@ -16,7 +17,7 @@ export class SlideToPNGConverter {
 
     constructor(){    }
 
-    public convert(doc:ViewerDocument, pages?:number[]):string {
+    public convert(doc:ViewerDocument, pages?:number[], blur?:boolean):string {
 		pages = pages || [];
 		var type:SlidePNGTileType = SlidePNGTileType.SINGLE;
 		var convertibleSlideNum:number = this.countConvertibleSlideNum(doc);
@@ -46,6 +47,9 @@ export class SlideToPNGConverter {
 		}
 
 		var canvas:HTMLCanvasElement = this.slide2canvas(doc.slides[pages[0]], width, height, 1, doc.bgColor);
+		if (blur) {
+			StackBlur.canvasRGBA(canvas,0,0,canvas.width, canvas.height, 150);
+		}
 		return canvas.toDataURL();
 	}
 
@@ -69,7 +73,8 @@ export class SlideToPNGConverter {
 		}
 		if(!slideScale) slideScale = 1;
 
-		$.each(slide.layers, (number, layer:Layer)=>{
+		slide.layers.forEach(layer=>{
+		// $.each(slide.layers, (number, layer:Layer)=>{
 			if(layer.type != LayerType.IMAGE) return;
 			var image = layer as ImageLayer;
 			if (!image.visible) return;

@@ -198,7 +198,8 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.LV_SELECT));
 		//this.dispatchEvent(new Event("select"));
 		
-		$.each(this.layerViews, (i:number ,layerView:LayerView) => {
+		this.layerViews.forEach(layerView=>{
+		// $.each(this.layerViews, (i:number ,layerView:LayerView) => {
 			if(layerView != targetLayerView) layerView.selected = false;
 		});
 

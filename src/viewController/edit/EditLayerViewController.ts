@@ -38,10 +38,14 @@ export class EditLayerViewController {
 		});
 
 		if(this._layerViews){
-			$.each(this._layerViews, (i:number, layerView:LayerView)=>{
-				this.ulObj.prepend(this.items[i].obj);
-				this.items[i].layerView = layerView;
+			this._layerViews.forEach((layerView:LayerView, index:number)=>{
+				this.ulObj.prepend(this.items[index].obj);
+				this.items[index].layerView = layerView;
 			});
+			// $.each(this._layerViews, (i:number, layerView:LayerView)=>{
+			// 	this.ulObj.prepend(this.items[i].obj);
+			// 	this.items[i].layerView = layerView;
+			// });
 		}
 	}
 

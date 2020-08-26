@@ -25,6 +25,7 @@ export class ViewerDocument {
 	public title:string;
 	public createTime:number;
 	public editTime:number;
+	public isSensitive:boolean;
 
 	private _bgColor:string|undefined;
 

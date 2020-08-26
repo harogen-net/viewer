@@ -133,7 +133,7 @@ export class SlideStorage extends EventDispatcher {
 		switch(type){
 			case HVDataType.PNG:
 				var pages:number[] = options ? (options.pages || []) : [];
-				var thumbPng = new SlideToPNGConverter().convert(doc,pages);
+				var thumbPng = new SlideToPNGConverter().convert(doc,pages, false);
 				var zip = new JSZip();
 				zip.file("data.hvd",jsonStr);
 				zip.generateAsync({type:"uint8array",compression: "DEFLATE"})

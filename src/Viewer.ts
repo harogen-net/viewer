@@ -7,6 +7,7 @@ import { ViewerDocument } from "./model/ViewerDocument";
 import { Slide } from "./model/Slide";
 import { HistoryManager } from "./utils/HistoryManager";
 import CryptoJS from 'crypto-js';
+import { PropertyEvent } from "./events/PropertyEvent";
 
 declare var $:any;
 
@@ -29,34 +30,22 @@ export class Viewer {
 	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
 	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
-	private edit:EditViewController;
-	private list:ListViewController;
-	private slideShow:SlideShowViewController;
+	private editVC:EditViewController;
+	private listVC:ListViewController;
+	private slideShowVC:SlideShowViewController;
 	private storage:SlideStorage;
 	// private menu:Menu;
 
 	private _mode:ViewerMode;
 
 	private viewerDocument:ViewerDocument;
+	private IsDocumentModified:boolean;
 
 
     constructor(public obj:any, startUpMode:ViewerStartUpMode){
-
-
-// 		var hash = CryptoJS.SHA256("Message"); 
-// 		console.log(CryptoJS.enc);
-// 		console.log(hash.toString());
-// 		var encrypted = CryptoJS.AES.encrypt("Message", "Secret Passphrase");
-// ​		var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase");
-// 		console.log(decrypted.toString(CryptoJS.enc.Utf8));
-// 		console.log(decrypted.toString(CryptoJS.enc.Hex));
-
-
-//		if(localStorage.duration == undefined) localStorage.duration = 2000;
-//		if(localStorage.interval == undefined) localStorage.interval = 5000;
+		Viewer.startUpMode = startUpMode;
 
 		ImageManager.init($('#images > .container'));
-		Viewer.startUpMode = startUpMode;
 
 		if(startUpMode == ViewerStartUpMode.VIEW_AND_EDIT){
 			$(document).on("drop dragover", (e:any) => {
@@ -73,8 +62,8 @@ export class Viewer {
 		});
 
 		//
-		this.list = new ListViewController(obj.find(".list"));
-		this.slideShow = new SlideShowViewController($("<div />").appendTo(obj));
+		this.listVC = new ListViewController(obj.find(".list"));
+		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
 		this.storage = new SlideStorage();
 		this.storage.addEventListener("update", (e:CustomEvent)=>{
@@ -100,39 +89,43 @@ export class Viewer {
 
 
 		if(startUpMode == ViewerStartUpMode.VIEW_AND_EDIT){
+			HistoryManager.init();
+			HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, (pe:PropertyEvent)=>{
+				this.IsDocumentModified = HistoryManager.shared.canUndo;
+			});
 
-			this.edit = new EditViewController(obj.find(".canvas"));
+			this.editVC = new EditViewController(obj.find(".canvas"));
 
-			this.list.addEventListener("select", ()=>{
+			this.listVC.addEventListener("select", ()=>{
 				if(this._mode == ViewerMode.SELECT){
 				}else if(this._mode == ViewerMode.EDIT){
-					if(this.list.selectedSlide){
-						this.edit.setSlide(this.list.selectedSlide);
+					if(this.listVC.selectedSlide){
+						this.editVC.setSlide(this.listVC.selectedSlide);
 					}else{
-						this.edit.initialize();
+						this.editVC.initialize();
 					}
 				}
 			})
-			this.list.addEventListener("edit", ()=>{
-				if(this.list.selectedSlide){
+			this.listVC.addEventListener("edit", ()=>{
+				if(this.listVC.selectedSlide){
 					this.setMode(ViewerMode.EDIT);
 					setTimeout(()=>{
-						this.edit.setSlide(this.list.selectedSlide);
+						this.editVC.setSlide(this.listVC.selectedSlide);
 					}, 301);
 					
 				}
 			});
 	
-			this.edit.addEventListener("close",()=>{
+			this.editVC.addEventListener("close",()=>{
 				this.setMode(ViewerMode.SELECT);
 			});
-			this.list.addEventListener("close",()=>{
-				this.edit.initialize();
+			this.listVC.addEventListener("close",()=>{
+				this.editVC.initialize();
 				this.setMode(ViewerMode.SELECT);
 			});
 
-			this.edit.addEventListener("download", ()=>{
-				this.viewerDocument.downloadImage(this.list.selectedSlideIndex);
+			this.editVC.addEventListener("download", ()=>{
+				this.viewerDocument.downloadImage(this.listVC.selectedSlideIndex);
 			});
 		}
 
@@ -189,7 +182,7 @@ export class Viewer {
 				});
 				$(".new").click(()=>{
 					if(this.viewerDocument.slides.length == 0) return;
-					if(!Viewer.isStrictMode || window.confirm('clear slides and new document. Are you sure?')){
+					if(!this.IsDocumentModified || !Viewer.isStrictMode || window.confirm('clear slides and new document. Are you sure?')){
 						this.newDocument();
 					}
 				});
@@ -201,20 +194,20 @@ export class Viewer {
 				});
 
 				$(".export").click(()=>{
-					if(this.list.slides.length > 0 ){
+					if(this.listVC.slides.length > 0 ){
 						var type:HVDataType;
 						if($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
 						if($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
 						if($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
 	
 						this.storage.export(this.viewerDocument, type, {
-							pages:(this.list.selectedSlideIndex != -1) ? [this.list.selectedSlideIndex] : undefined
+							pages:(this.listVC.selectedSlideIndex != -1) ? [this.listVC.selectedSlideIndex] : undefined
 						});
 					}
 				});
 				$(".load").click(()=>{
 					if($('select.filename').val() == -1) return;
-					if(this.list.slides.length == 0 || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')){
+					if(!this.IsDocumentModified || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')){
 						this.storage.load($('select.filename').val());
 					}
 				});
@@ -241,17 +234,17 @@ export class Viewer {
 					var slide:Slide = this.viewerDocument.slides[i];
 					if(slide.disabled) continue;
 					slides.push(slide.clone());
-					if(i == this.list.selectedSlideIndex) startIndex = slides.length - 1;
+					if(i == this.listVC.selectedSlideIndex) startIndex = slides.length - 1;
 				}
 				if(slides.length == 0) return;
-				this.slideShow.setUp(slides);
-				this.slideShow.run(startIndex);
+				this.slideShowVC.setUp(slides);
+				this.slideShowVC.run(startIndex);
 			});
 			$("#cb_mirrorH").click(()=>{
-				this.slideShow.mirrorH = $("#cb_mirrorH").prop("checked");
+				this.slideShowVC.mirrorH = $("#cb_mirrorH").prop("checked");
 			});
 			$("#cb_mirrorV").click(()=>{
-				this.slideShow.mirrorV = $("#cb_mirrorV").prop("checked");
+				this.slideShowVC.mirrorV = $("#cb_mirrorV").prop("checked");
 			});
 
 						
@@ -272,7 +265,7 @@ export class Viewer {
 			});
 		
 			$(".save").click(()=>{
-				if(this.list.slides.length > 0){
+				if(this.listVC.slides.length > 0){
 					this.storage.save(this.viewerDocument);
 				}
 			});
@@ -282,7 +275,7 @@ export class Viewer {
 				this.viewerDocument.downloadImage();
 			});
 			$("button.import").click(()=>{
-				if(this.list.slides.length == 0 || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')){
+				if(!this.IsDocumentModified || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')){
 					$("input.import")[0].click();
 				}
 			});
@@ -329,9 +322,9 @@ export class Viewer {
 		 if(this.viewerDocument){
 			this.viewerDocument = null;
 
-			this.list.initialize();
+			this.listVC.initialize();
 			if(Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-				this.edit.initialize();
+				this.editVC.initialize();
 				HistoryManager.shared.initialize();
 			}
 		}
@@ -344,7 +337,8 @@ export class Viewer {
 		//
 
 		this.viewerDocument = nextDocument || new ViewerDocument();
-		this.list.slides = this.viewerDocument.slides;
+		this.listVC.slides = this.viewerDocument.slides;
+		this.IsDocumentModified = false;
 	}
 
 	public setMode(mode:ViewerMode){
@@ -356,22 +350,22 @@ export class Viewer {
 				this.obj.addClass("select");
 				this.obj.removeClass("edit");
 				if(Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-					this.edit.slideView.isActive = false;
+					this.editVC.slideView.isActive = false;
 				}
 			break;
 			case ViewerMode.EDIT:
 				this.obj.removeClass("select");
 				this.obj.addClass("edit");
 				if(Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-					this.edit.slideView.isActive = true;
+					this.editVC.slideView.isActive = true;
 				}
 			break;
 /*			case ViewerMode.SLIDESHOW:
 			break;*/
 		}
-		this.list.setMode(this._mode);
+		this.listVC.setMode(this._mode);
 		if(Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			this.edit.setMode(this._mode);
+			this.editVC.setMode(this._mode);
 		}
 	}
 }
