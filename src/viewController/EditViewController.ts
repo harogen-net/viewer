@@ -26,9 +26,6 @@ export class EditViewController extends EventDispatcher {
 	constructor(public obj:any){
 		super();
 		this.obj.addClass("slideCanvas");
-		
-
-		HistoryManager.init();
 
 		this.slideView = new EditableSlideView(new Slide(), $('<div />').appendTo(this.obj));
 		this.layerDiv = new EditLayerViewController($(".layer"));

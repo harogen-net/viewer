@@ -16,6 +16,7 @@
     "jquery-ui": "^1.12.1",
     "jszip": "^3.5.0",
     "matrixgl": "^1.0.1",
+    "stackblur-canvas": "^2.3.0",
     "ts-loader": "^8.0.0",
     "typescript": "^3.9.6",
     "uuid": "^8.2.0",
