@@ -140,11 +140,16 @@ export class SlideShowViewController extends EventDispatcher {
 		}
 
 		//index:-1を解決
-		$.each(this.data, (number, datum:any)=>{
+		this.data.forEach((datum:any)=>{
 			if(datum.index < 0){
 				datum.index += this.slides.length;
 			}
 		});
+		// $.each(this.data, (number, datum:any)=>{
+		// 	if(datum.index < 0){
+		// 		datum.index += this.slides.length;
+		// 	}
+		// });
 		//console.log(this.data);
 	}
 
@@ -196,7 +201,8 @@ export class SlideShowViewController extends EventDispatcher {
 		this.updateSlideSize();
 
 		if(this.data.length == 1){
-			$.each(this.slides, (index:number, slide:SlideView) =>{
+			this.slides.forEach(slide=>{
+			// $.each(this.slides, (index:number, slide:SlideView) =>{
 				slide.obj.css("opacity", 0);
 //				slide.updateSize();
 				slide.obj.show();
@@ -214,7 +220,8 @@ export class SlideShowViewController extends EventDispatcher {
 			return;
 		}
 
-		$.each(this.slides, (index:number, slide:SlideView) =>{
+		this.slides.forEach(slide=>{
+		// $.each(this.slides, (index:number, slide:SlideView) =>{
 			slide.obj.css("opacity", 0);
 			//slide.updateSize();
 		})
@@ -246,7 +253,8 @@ export class SlideShowViewController extends EventDispatcher {
 		}
 
 		clearInterval(this.timer);
-		$.each(this.slides, (index:number, slide:SlideView) =>{
+		this.slides.forEach(slide=>{
+		// $.each(this.slides, (index:number, slide:SlideView) =>{
 			slide.obj.stop().css({
 				"z-index":0,
 				"opacity":1

@@ -73,7 +73,8 @@ export class SlideToPNGConverter {
 		}
 		if(!slideScale) slideScale = 1;
 
-		$.each(slide.layers, (number, layer:Layer)=>{
+		slide.layers.forEach(layer=>{
+		// $.each(slide.layers, (number, layer:Layer)=>{
 			if(layer.type != LayerType.IMAGE) return;
 			var image = layer as ImageLayer;
 			if (!image.visible) return;

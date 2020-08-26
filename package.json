@@ -11,11 +11,11 @@
   "dependencies": {
     "@types/es6-promise": "^3.3.0",
     "crypto-js": "^4.0.0",
-    "javascript-natural-sort": "^0.7.1",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.12.1",
     "jszip": "^3.5.0",
     "matrixgl": "^1.0.1",
+    "natural-compare": "^1.4.0",
     "stackblur-canvas": "^2.3.0",
     "ts-loader": "^8.0.0",
     "typescript": "^3.9.6",
