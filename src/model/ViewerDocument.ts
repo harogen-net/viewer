@@ -40,6 +40,7 @@ export class ViewerDocument {
 		var title:string|undefined = DateUtil.getDateString();
 		var width:number|undefined = Viewer.SCREEN_WIDTH;
 		var height:number|undefined = Viewer.SCREEN_HEIGHT;
+		var isSensitive:boolean = false;
 		
 		if(options){
 			if(options.bgColor) bgColor = options.bgColor;
@@ -47,7 +48,8 @@ export class ViewerDocument {
 			if(options.editTime) editTime = options.editTime;
 			if(options.title) title = options.title;
 			if(options.width) width = options.width;
-			if(options.height) height = options = options.height;
+			if(options.height) height = options.height;
+			isSensitive = Boolean(options.isSensitive);
 		}
 		this.bgColor = bgColor;
 		this.createTime = createTime;
@@ -55,6 +57,7 @@ export class ViewerDocument {
 		this.title = title;
 		this.width = width;
 		this.height = height;
+		this.isSensitive = isSensitive;
 
 		ViewerDocument.shared = this;
 	}

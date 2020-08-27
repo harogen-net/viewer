@@ -23,8 +23,13 @@ export enum ViewerStartUpMode {
 }
 
 export class Viewer {
+
 	public static isStrictMode:boolean = true;
 	public static startUpMode:ViewerStartUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
+	public static get password():string {
+		return $("#passwordBox").val();
+		return window.prompt("enter password");
+	}
 
 	//スライドのサイズ基本値として必要
 	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
@@ -211,6 +216,11 @@ export class Viewer {
 						this.storage.load($('select.filename').val());
 					}
 				});
+				
+				$("#doc_sensitive").click(()=>{
+					this.viewerDocument.isSensitive = $("#doc_sensitive").prop("checked");
+				});
+
 	
 			}else{
 				$(".dispose").click(()=>{
@@ -339,6 +349,10 @@ export class Viewer {
 		this.viewerDocument = nextDocument || new ViewerDocument();
 		this.listVC.slides = this.viewerDocument.slides;
 		this.IsDocumentModified = false;
+
+		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+			$("#doc_sensitive").prop("checked",this.viewerDocument.isSensitive);
+		}
 	}
 
 	public setMode(mode:ViewerMode){

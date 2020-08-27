@@ -24,18 +24,6 @@ export enum HVDataType {
 
 export class SlideStorage extends EventDispatcher {
 
-	private static _key:string = "";
-	public static set key(value:string)  {
-		this._key = CryptoJS.SHA256(this._key).toString(CryptoJS.enc.Base64);
-	};
-	public static get key():string {
-		if (this._key == "") {
-			this.key = window.prompt("input key");
-			console.log(this._key);
-		}
-		return this._key;
-	}
-
 	private static readonly VERSION:number = 4;
 	private static readonly SAVE_KEY:string = "viewer.slideData";
 	private static readonly DBNAME:string = "viewer";
@@ -116,9 +104,12 @@ export class SlideStorage extends EventDispatcher {
 			};
 		}
 
-		var title = DateUtil.getDateString()
+		var title = DateUtil.getDateString();
+		if(doc.isSensitive){
+			title = "X" + title.substring(1);
+		}
 		var putReq1  = this.titleStore.put({"title":title});
-		var putReq2 = this.dataStore.put({title:DateUtil.getDateString(), data:jsonStr});
+		var putReq2 = this.dataStore.put({title:title, data:jsonStr});
 		putReq2.onsuccess = (e:any)=>{
 			verify(title);
 			this.updateTitleMenu();
@@ -133,7 +124,7 @@ export class SlideStorage extends EventDispatcher {
 		switch(type){
 			case HVDataType.PNG:
 				var pages:number[] = options ? (options.pages || []) : [];
-				var thumbPng = new SlideToPNGConverter().convert(doc,pages, false);
+				var thumbPng = new SlideToPNGConverter().convert(doc, pages, doc.isSensitive);
 				var zip = new JSZip();
 				zip.file("data.hvd",jsonStr);
 				zip.generateAsync({type:"uint8array",compression: "DEFLATE"})
@@ -266,6 +257,7 @@ export class SlideStorage extends EventDispatcher {
 		if(doc.bgColor) json.bgColor = doc.bgColor;
 		if(doc.createTime) json.createTime = doc.createTime;
 		if(doc.editTime) json.editTime = doc.editTime;
+		if(doc.isSensitive) json.isSensitive = doc.isSensitive;
 
 		var slideData:any[] = [];
 		var imageData:any = {};
@@ -283,33 +275,27 @@ export class SlideStorage extends EventDispatcher {
 				if(layer.type == LayerType.IMAGE) {
 					var imageLayer:ImageLayer = layer as ImageLayer;
 					if(imageData[imageLayer.imageId] == undefined){
-						//ver4 encrypt
+
+						//ver4 encrypt if sensitive;
 						var srcStr = ImageManager.shared.getSrcById(imageLayer.imageId);
-						var headStr = srcStr.split(",")[0];
-						var base64Str = srcStr.split(",")[1];
-						var encStr = CryptoJS.AES.encrypt(window.atob(base64Str), SlideStorage.key);
-						var encStr2 = CryptoJS.AES.encrypt(srcStr, SlideStorage.key);
-						// console.log(base64Str.length)
-						// console.log(window.atob(base64Str))
-						// console.log(window.atob(base64Str).length)
-						imageData[imageLayer.imageId] =srcStr;
-						// imageData[imageLayer.imageId] = encStr.toString(CryptoJS.enc.Base64);
-						// console.log(imageData[imageLayer.imageId]);
-						// console.log(imageData[imageLayer.imageId].length, srcStr.length);
-						// console.log(encStr);
-						// console.log(encStr.toString(CryptoJS.enc.Hex));
-						//console.log(srcStr.length, encStr.toString().length, encStr2.toString().length);
+
+						if (doc.isSensitive) {
+							if(Viewer.password == "" && !window.confirm("password is empty. Are you sure?")){
+								throw new Error("");
+							}
+							var key = CryptoJS.SHA256(Viewer.password).toString(CryptoJS.enc.Base64);
+							var encStr = CryptoJS.AES.encrypt(srcStr, key).toString();
+							imageData[imageLayer.imageId] = encStr;
+						}else{
+							imageData[imageLayer.imageId] = srcStr;
+						}
 					}
 				}
 			});
 			slideData.push(slideDatum);
 		});
 		json.slideData = slideData;
-
-		//ver4 encrypt
 		json.imageData = imageData;
-		console.log(JSON.stringify(imageData).length);
-		console.log(CryptoJS.AES.encrypt(JSON.stringify(imageData), "").toString().length);
 
 		var jsonStr:string = JSON.stringify(json);
 
@@ -340,9 +326,26 @@ export class SlideStorage extends EventDispatcher {
 			}
 			options.width = width;
 			options.height = height;
+			options.isSensitive = json.isSensitive;
 
 			for (let imageId in json.imageData){
-				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+				if (json.isSensitive) {
+					var encStr = json.imageData[imageId];
+					var key = CryptoJS.SHA256(Viewer.password).toString(CryptoJS.enc.Base64);
+					var srcStr = "";
+					try {
+						srcStr = CryptoJS.AES.decrypt(encStr, key).toString(CryptoJS.enc.Utf8);
+					}
+					catch(e){
+					}
+					if (srcStr.length < 11 || srcStr.substr(0,11) != "data:image/") {
+						window.alert("cant decrypt data.");
+						throw new Error("cant decrypt data.");
+					}
+					await ImageManager.shared.registImageData(imageId, srcStr);
+				}else{
+					await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+				}
 			}
 
 			json.slideData.forEach(slideDatum => {
