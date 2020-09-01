@@ -32,6 +32,16 @@ export class ThumbSlideView extends CanvasSlideView {
 				this.dispatchEvent(new CustomEvent("edit", {detail:this._slide}));
 				return false;
 			});
+
+			this.obj.on("dblclick.slide", ()=>{
+				if(this.doubleClickLock) return;
+				this.dispatchEvent(new CustomEvent("edit", {detail:this._slide}));
+				return false;
+			});
+			obj.on("contextmenu.slide", (e)=>{
+				this.dispatchEvent(new CustomEvent("contextmenu", {detail:{slide:this._slide, x:e.clientX, y:e.clientY }}));
+				return false;
+			});
 		}
 		
 		var durationDiv = $('<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>').appendTo(this.obj);
@@ -86,11 +96,7 @@ export class ThumbSlideView extends CanvasSlideView {
 			if(this.selected) return;
 			this.dispatchEvent(new CustomEvent("select", {detail:this._slide}));
 		});
-		this.obj.on("dblclick.slide", ()=>{
-			if(this.doubleClickLock) return;
-			this.dispatchEvent(new CustomEvent("edit", {detail:this._slide}));
-			return false;
-		});
+
 
 		//
 
@@ -128,6 +134,7 @@ export class ThumbSlideView extends CanvasSlideView {
 		this.obj.find("div.joinArrow").remove();
 		this.obj.off("click.slide");
 		this.obj.off("dblclick.slide");
+		this.obj.off("contextmenu.slide");
 		this.obj.off("mousedown.slide");
 
 		super.destroy();

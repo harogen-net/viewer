@@ -261,18 +261,19 @@ input.imageRef {
 .menu .buttonGroup button.at.l {right:2em; top:2em;}
 .menu .buttonGroup button.at.r {left:2em; top:2em;}
 
-.menu .pulldown {
+.pulldown {
 	display: inline-block;
 	position:relative;
 }
-.menu .pulldown button.pulldownOpener::after {
+.pulldown button.pulldownOpener::after {
 	content: "▼";
 }
-.menu .pulldown ul {
+.pulldown ul,
+ul.contextMenu
+{
 	display: none;
 	position: absolute;
 	z-index: 21;
-	top: 2rem;
 	left:0;
 	margin: 0;
 	padding: 0;
@@ -280,19 +281,27 @@ input.imageRef {
 	box-shadow: 2px 2px 2px 2px rgba(0,0,0,0.2);
 	border:1px solid gray;
 }
-.menu .pulldown ul li {
+.pulldown ul li,
+ul.contextMenu li
+{
 	display: block;
 }
-.menu .pulldown ul li button {
+.pulldown ul li button,
+ul.contextMenu li button
+{
 	width: 100%;
 	text-align: left;
 	border: none;
 	border-bottom: 1px solid white;
 }
-.menu .pulldown ul li + li {
+.pulldown ul li + li,
+ul.contextMenu li + li
+{
 	border-top: 1px solid gray;
 }
-.menu .pulldown ul li button i {
+.pulldown ul li button i,
+ul.contextMenu li button i
+{
 	width: 1em;
 	text-align: center;
 }

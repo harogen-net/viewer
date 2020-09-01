@@ -331,7 +331,7 @@ export class Viewer {
 
 		this.setMode(ViewerMode.SELECT);
 		if(!nextDocument){
-			ImageManager.shared.deleteAllImageData();
+			ImageManager.shared.initialize();
 		}
 
 		//
