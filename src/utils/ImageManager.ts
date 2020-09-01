@@ -1,5 +1,10 @@
 import { ImageLayer } from "../model/layer/ImageLayer";
 import CryptoJS from "crypto-js";
+import { Viewer } from "../Viewer";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { HistoryManager, Transaction, Command } from "./HistoryManager";
+import { Layer, LayerType } from "../model/Layer";
+import { Slide } from "../model/Slide";
 
 declare var $:any;
 
@@ -19,13 +24,21 @@ export class ImageManager {
 	
 	//
 
-	private allImages:ImageLayer[];
 	private _imageById:{[key:string]:{width:number, height:number, name:string, imgObj:any}};
 
 	private constructor(private container:any){
 		console.log("ImageManager constructor");
 		this._imageById = {};
-		this.allImages = [];
+	}
+
+	public initialize() {
+		for (let id in this._imageById) {
+			var imgObjData = this._imageById[id];
+			if(imgObjData == undefined) continue;
+	
+			imgObjData.imgObj.remove();
+			delete this._imageById[id];
+		}
 	}
 
 	public registImageData(id:string, src:string, name:string = "") {
@@ -58,6 +71,12 @@ export class ImageManager {
 					name:name
 				};
 				imgDom.src = src;
+
+				imgObj.on("dblclick", ()=>{
+					if (window.confirm("delete image. are you sure?")) {
+						this.deleteImageById(id);
+					}
+				});
 			}
 		});
 	}
@@ -83,17 +102,39 @@ export class ImageManager {
 		});
 	}
 
-	public deleteImageData(id:string) {
+	public deleteImageById(id:string) {
 		var imgObjData = this._imageById[id];
 		if(imgObjData == undefined) return;
 
-		imgObjData.imgObj.remove();
-		delete this._imageById[id];
-	}
-
-	public deleteAllImageData() {
-		for (let id in this._imageById) {
-			this.deleteImageData(id);
+		var targets:{slide:Slide, layer:Layer, index:number}[] = [];
+		ViewerDocument.shared.allLayers.forEach((layer)=>{
+			if (layer.type == LayerType.IMAGE && (layer as ImageLayer).imageId == id) {
+				targets.push({
+					slide:layer.parent,
+					layer:layer,
+					index:layer.parent.indexOf(layer)
+				});
+			}
+		});
+		if (targets.length > 0){
+			// HistoryManager.shared.record(new Command(
+			// 	()=>{
+					targets.forEach((target:{slide:Slide, layer:Layer, index:number})=>{
+						target.slide.removeLayer(target.layer);
+					});
+					// imgObjData.imgObj.detach();
+					imgObjData.imgObj.remove();
+					delete this._imageById[id];
+			// 	},
+			// 	()=>{
+			// 		targets.forEach((target:{slide:Slide, layer:Layer, index:number})=>{
+			// 			target.slide.addLayer(target.layer, target.index);
+			// 		});
+			// 		this.container.append(imgObjData.imgObj);
+			// 		this._imageById[id] = imgObjData;
+			// 	}
+			// )).do();
+			HistoryManager.shared.initialize();
 		}
 	}
 

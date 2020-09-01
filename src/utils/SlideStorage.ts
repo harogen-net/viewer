@@ -308,7 +308,7 @@ export class SlideStorage extends EventDispatcher {
 
 		var json:any = JSON.parse(jsonStr);
 
-		ImageManager.shared.deleteAllImageData();
+		ImageManager.shared.initialize();
 
 		//ver1
 		if(json.version == 1 || json.version == undefined){
