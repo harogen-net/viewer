@@ -132,6 +132,76 @@ export class VMToggleButton extends VMUI {
 	}
 }
 
+export class VMCheckBox extends VMUI {
+	constructor(protected _obj:any, targetClass:any, protected targetPropKey:string, protected targetPropFlag:number, protected isInverse){
+		super(_obj, targetClass);
+		if(_obj.prop("tagName") != "INPUT" || _obj.attr("type") != "checkbox"){
+			throw new Error("invalid jquery object. use <input type=\checkbox\" /> tag.");
+		}
+
+		_obj.prop("checked",this.isInverse);
+		_obj.on("click", ()=>{
+			if(!this._target) return;
+			this.onCheckBoxClick();
+		});
+	}
+
+	protected setTarget(){
+		if(this._target[this.targetPropKey] == undefined || !TypeChecker.isBoolean(this._target[this.targetPropKey])) {
+			throw new Error("invalid target. set target that have key with boolean.");
+		}
+		super.setTarget();
+
+		if(this._target[this.targetPropKey]){
+			this._obj.prop("checked",!this.isInverse);
+		}
+		this._target.addEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
+	}
+	protected destroyTarget(){
+		super.destroyTarget();
+		if(this._target[this.targetPropKey]){
+			this._obj.prop("checked",this.isInverse);
+		}
+		this._target.removeEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
+	}
+
+
+	//
+	// event handler
+	//
+	private onPropertyUpdate = (pe:PropertyEvent)=>{
+		if(pe.targe != this._target) return;
+		if(this.targetPropFlag & pe.propFlags){
+			this._obj.prop("checked", this._target[this.targetPropKey] ^ this.isInverse);	//排他的論理和！
+		}
+	}
+	protected onCheckBoxClick = ()=> {
+		this._target[this.targetPropKey] = !this._target[this.targetPropKey];
+	}
+}
+export class VMHistorycalCheckBox extends VMCheckBox {
+	protected onCheckBoxClick = ()=> {
+		var target;
+		var propKey;
+		var startValue;
+		var endValue;
+
+		target = this._target;
+		propKey = this.targetPropKey;
+		startValue = target[propKey];
+		endValue = !startValue;
+		HistoryManager.shared.record(new Command(
+			()=>{
+				target[propKey] = endValue;
+			},
+			()=>{
+				target[propKey] = startValue;
+			}
+		)).do();
+	}
+}
+
+
 export class VMVariableInput extends VMUI {
 
 	private _value:number;
@@ -189,7 +259,7 @@ export class VMVariableInput extends VMUI {
 
 		var v:number = options.v || 10;
 
-		this.obj.on("keydown.PropertyInput",(e:any)=>{
+		this.obj.on("keydown.VMUI",(e:any)=>{
 			//if(this.disabled) return;
 			if(!this.isFocus) return;
 
@@ -215,7 +285,7 @@ export class VMVariableInput extends VMUI {
 				this.obj.select();
 			}
 		});
-		$(window).on("wheel.PropertyInput",(e:any)=>{
+		$(window).on("wheel.VMUI",(e:any)=>{
 			//if(this.disabled) return;
 			if(!this.isFocus) return;
 
@@ -289,32 +359,17 @@ export class VMVariableInput extends VMUI {
 	}
 }
 
+
+
 export class VMTextInput extends VMUI {
-	constructor(protected _obj:any, targetClass:any, private targetPropKey:string, private targetPropFlag:number){
+	constructor(protected _obj:any, targetClass:any, protected targetPropKey:string, protected targetPropFlag:number){
 		super(_obj, targetClass);
 		if(_obj.prop("tagName") != "TEXTAREA"){
 			throw new Error("invalid jquery object. use <textarea /> tag.");
 		}
-
-		var target;
-		var propKey;
-		var startValue;
-		var endValue;
-		_obj.on("input propertychange", ()=>{
+		_obj.on("input.VMUI", ()=>{
 			if(!this._target) return;
-
-			target = this._target;
-			propKey = this.targetPropKey;
-			startValue = target[propKey];
-			endValue = _obj.val();
-			HistoryManager.shared.record(new Command(
-				()=>{
-					target[propKey] = endValue;
-				},
-				()=>{
-					target[propKey] = startValue;
-				}
-			)).do();
+			this._target[this.targetPropKey] = this._obj.val();
 		});
 	}
 
@@ -342,6 +397,35 @@ export class VMTextInput extends VMUI {
 		if(this.targetPropFlag & pe.propFlags){
 			this._obj.val(this._target[this.targetPropKey]);
 		}
+	}
+}
+export class VMHistoricalTextInput extends VMTextInput {
+
+	private startValue:string = "";
+
+	constructor(protected _obj:any, targetClass:any, protected targetPropKey:string, protected targetPropFlag:number){
+		super(_obj, targetClass, targetPropKey, targetPropFlag);
+
+		_obj.on("focus.VMUI", ()=>{
+			if(!this._target) return;
+			this.startValue = _obj.val();
+		});
+		_obj.on("blur.VMUI", ()=>{
+			if(!this._target) return;
+			var endValue = _obj.val();
+			var startValue = this.startValue;
+			var target = this._target;
+			if(startValue == endValue) return;
+
+			HistoryManager.shared.record(new Command(
+				()=>{
+					target[this.targetPropKey] = endValue;
+				},
+				()=>{
+					target[this.targetPropKey] = startValue;
+				}
+			));
+		});
 	}
 }
 

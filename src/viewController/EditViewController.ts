@@ -9,7 +9,7 @@ import { Slide, Direction } from "../model/Slide";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
 import { ViewerDocument } from "../model/ViewerDocument";
 import { IVMUI } from "../interface/IVMUI";
-import { VMButton, VMToggleButton, VMVariableInput, VMUI2, VMTextInput } from "../viewModel/VMUI";
+import { VMButton, VMToggleButton, VMVariableInput, VMUI2, VMTextInput, VMHistoricalTextInput } from "../viewModel/VMUI";
 import { PropFlags } from "../model/PropFlags";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { HistoryManager, Command, Transaction } from "../utils/HistoryManager";
@@ -226,7 +226,7 @@ export class EditViewController extends EventDispatcher {
 				)).do();
 			}),
 
-			new VMTextInput($("#main div.textEdit textarea"), TextLayer, "text", PropFlags.TXT_TEXT),
+			new VMHistoricalTextInput($("#main div.textEdit textarea"), TextLayer, "text", PropFlags.TXT_TEXT),
 
 
 			new VMUI2($("#main div.textEdit"), TextLayer),
