@@ -3,14 +3,10 @@ import { Layer, LayerType } from "../../model/Layer";
 import { KeyboardManager } from "../../utils/KeyboardManager";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
-import { TextLayer } from "../../model/layer/TextLayer";
-import { TextView } from "./TextView";
 import { Slide } from "../../model/Slide";
-import { threadId } from "worker_threads";
 import { HistoryManager, Command } from "../../utils/HistoryManager";
 import { Matrix4 } from "matrixgl";
-
-declare var $:any;
+import $ from "jquery";
 
 export class AdjustView extends LayerView {
 

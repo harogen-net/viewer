@@ -7,8 +7,7 @@ import { Viewer, ViewerMode, ViewerStartUpMode } from "../Viewer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
 import { ThumbSlideView } from "../view/slide/ThumbSlideView";
-
-declare var $: any;
+import $ from "jquery";
 
 export class ListViewController extends EventDispatcher implements IDroppable {
 

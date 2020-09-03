@@ -5,8 +5,6 @@ import { ImageManager } from "./ImageManager";
 import { Slide } from "../model/Slide";
 import * as StackBlur from 'stackblur-canvas';
 
-declare var $:any;
-
 enum SlidePNGTileType {
 	SINGLE = 1,
 	QUADRUPLE = 4,

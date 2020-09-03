@@ -1,12 +1,7 @@
 import {EventDispatcher} from "../events/EventDispatcher";
-import { Viewer } from "../Viewer";
-import { Layer, LayerType } from "../model/Layer";
 import { Slide } from "../model/Slide";
-import { ViewerDocument } from "../model/ViewerDocument";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
-
-declare var $: any;
 
 export class SlideView extends EventDispatcher {
 

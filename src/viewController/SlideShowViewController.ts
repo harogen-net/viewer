@@ -6,8 +6,7 @@ import { TextLayer } from "../model/layer/TextLayer";
 import { DOMSlideView } from "../view/slide/DOMSlideView";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-
-declare var $:any;
+import $ from "jquery";
 
 export class SlideShowViewController extends EventDispatcher {
 	private _isRun:boolean;

@@ -3,8 +3,6 @@ import {IDroppable} from "../interface/IDroppable";
 import { ImageManager } from "./ImageManager";
 import naturalCompare from "natural-compare";
 
-declare var $:any;
-
 export class DropHelper extends EventDispatcher {
 	public static readonly EVENT_DROP_COMPLETE:string = "DropHelper.EVENT_DROP_COMPLETE";
 	public static readonly EVENT_DROP_SLIDEDATA:string = "DropHelper.EVENT_DROP_SLIDEDATA";

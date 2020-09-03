@@ -3,9 +3,7 @@ import { SlideToPNGConverter } from "../../utils/SlideToPNGConverter";
 import { Slide } from "../../model/Slide";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
-
-
-declare var $: any;
+import $ from "jquery";
 
 export class CanvasSlideView extends SlideView {
 	

@@ -1,11 +1,9 @@
 import { CanvasSlideView } from "./CanvasSlideView";
 import { Slide } from "../../model/Slide";
-import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 import { VMCheckBox } from "../../viewModel/VMUI";
-
-declare var $:any;
+import $ from "jquery";
 
 export class ThumbSlideView extends CanvasSlideView {
 

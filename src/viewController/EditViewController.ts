@@ -9,13 +9,11 @@ import { Slide, Direction } from "../model/Slide";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
 import { ViewerDocument } from "../model/ViewerDocument";
 import { IVMUI } from "../interface/IVMUI";
-import { VMButton, VMToggleButton, VMVariableInput, VMUI2, VMTextInput, VMHistoricalTextInput } from "../viewModel/VMUI";
+import { VMButton, VMToggleButton, VMShowHideUI, VMHistoricalTextInput, VMHistorycalVariableInput } from "../viewModel/VMUI";
 import { PropFlags } from "../model/PropFlags";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { HistoryManager, Command, Transaction } from "../utils/HistoryManager";
-
-
-declare var $:any;
+import $ from "jquery";
 
 export class EditViewController extends EventDispatcher {
 
@@ -203,16 +201,16 @@ export class EditViewController extends EventDispatcher {
 				this.slideView.spreadLayers(this.selectedLayer);
 			}),
 
-			new VMVariableInput($(".property .position input").eq(0), Layer, "x", PropFlags.X, {v:-25}),
-			new VMVariableInput($(".property .position input").eq(1), Layer, "y", PropFlags.X, {v:-25}),
-			new VMVariableInput($(".property .scale input"), Layer, "scale", PropFlags.SCALE_X|PropFlags.SCALE_Y, {init:1, min:0.1, max:20, type:"multiply", v:0.1}),
-			new VMVariableInput($(".property .rotation input"), Layer, "rotation", PropFlags.ROTATION, {min:-180, max:180, v:5}),
-			new VMVariableInput($(".property .opacity input"), Layer, "opacity", PropFlags.OPACITY, {min:0, max:1, v:0.05}),
+			new VMHistorycalVariableInput($(".property .position input").eq(0), Layer, "x", PropFlags.X, {v:-25}),
+			new VMHistorycalVariableInput($(".property .position input").eq(1), Layer, "y", PropFlags.X, {v:-25}),
+			new VMHistorycalVariableInput($(".property .scale input"), Layer, "scale", PropFlags.SCALE_X|PropFlags.SCALE_Y, {init:1, min:0.1, max:20, type:"multiply", v:0.1}),
+			new VMHistorycalVariableInput($(".property .rotation input"), Layer, "rotation", PropFlags.ROTATION, {min:-180, max:180, v:5}),
+			new VMHistorycalVariableInput($(".property .opacity input"), Layer, "opacity", PropFlags.OPACITY, {min:0, max:1, v:0.05}),
 
-			new VMVariableInput($(".property .clip input").eq(0), ImageLayer, "clipT", PropFlags.IMG_CLIP, {v:-25, min:0}),
-			new VMVariableInput($(".property .clip input").eq(1), ImageLayer, "clipR", PropFlags.IMG_CLIP, {v:-25, min:0}),
-			new VMVariableInput($(".property .clip input").eq(2), ImageLayer, "clipB", PropFlags.IMG_CLIP, {v:-25, min:0}),
-			new VMVariableInput($(".property .clip input").eq(3), ImageLayer, "clipL", PropFlags.IMG_CLIP, {v:-25, min:0}),
+			new VMHistorycalVariableInput($(".property .clip input").eq(0), ImageLayer, "clipT", PropFlags.IMG_CLIP, {v:-25, min:0}),
+			new VMHistorycalVariableInput($(".property .clip input").eq(1), ImageLayer, "clipR", PropFlags.IMG_CLIP, {v:-25, min:0}),
+			new VMHistorycalVariableInput($(".property .clip input").eq(2), ImageLayer, "clipB", PropFlags.IMG_CLIP, {v:-25, min:0}),
+			new VMHistorycalVariableInput($(".property .clip input").eq(3), ImageLayer, "clipL", PropFlags.IMG_CLIP, {v:-25, min:0}),
 			new VMButton($("#main button.resetClip"), ImageLayer, (layer:ImageLayer)=>{
 				if (!layer.isClipped) return;
 				var clipRect = layer.clipRect.concat();
@@ -228,14 +226,10 @@ export class EditViewController extends EventDispatcher {
 
 			new VMHistoricalTextInput($("#main div.textEdit textarea"), TextLayer, "text", PropFlags.TXT_TEXT),
 
-
-			new VMUI2($("#main div.textEdit"), TextLayer),
-			new VMUI2($("#main dl.clip"), ImageLayer),
-			new VMUI2($("#main div.imageRef"), ImageLayer),
-
+			new VMShowHideUI($("#main div.textEdit"), TextLayer),
+			new VMShowHideUI($("#main dl.clip"), ImageLayer),
+			new VMShowHideUI($("#main div.imageRef"), ImageLayer),
 		];
-
-
 		
 
 

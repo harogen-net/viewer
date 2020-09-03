@@ -1,12 +1,10 @@
 import { ImageLayer } from "../model/layer/ImageLayer";
 import CryptoJS from "crypto-js";
-import { Viewer } from "../Viewer";
 import { ViewerDocument } from "../model/ViewerDocument";
 import { HistoryManager, Transaction, Command } from "./HistoryManager";
 import { Layer, LayerType } from "../model/Layer";
 import { Slide } from "../model/Slide";
-
-declare var $:any;
+import $ from "jquery";
 
 export class ImageManager {
 

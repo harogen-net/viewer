@@ -9,8 +9,7 @@ import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
 import { HistoryManager, Command } from "../../utils/HistoryManager";
 import { Slide } from "../../model/Slide";
-
-declare var $:any;
+import $ from "jquery";
 
 export class EditLayerListItem {
 	

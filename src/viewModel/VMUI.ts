@@ -2,8 +2,7 @@ import { TypeChecker } from "../utils/TypeChecker";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { HistoryManager, Command } from "../utils/HistoryManager";
 import { IVMUI } from "../interface/IVMUI";
-
-declare var $:any;
+import $ from "jquery";
 
 export class VMUI implements IVMUI {
 
@@ -204,7 +203,7 @@ export class VMHistorycalCheckBox extends VMCheckBox {
 
 export class VMVariableInput extends VMUI {
 
-	private _value:number;
+	protected _value:number;
 
 	private isFocus:boolean;
 	private isLocked:boolean;
@@ -212,7 +211,7 @@ export class VMVariableInput extends VMUI {
 	private min:number = -Infinity;
 	private max:number = Infinity;
 
-	constructor(protected _obj:any, targetClass:any, private targetPropKey:string, private targetPropFlag:number, options:any = {}){
+	constructor(protected _obj:any, targetClass:any, protected targetPropKey:string, protected targetPropFlag:number, options:any = {}){
 		super(_obj, targetClass);
 		if(_obj.prop("tagName") != "INPUT" || _obj.attr("type") != "text"){
 			throw new Error("invalid jquery object. use <input type='text' /> tag.");
@@ -224,37 +223,12 @@ export class VMVariableInput extends VMUI {
 
 		this._value = this.init;
 
-		var target;
-		var propKey;
-		var startValue;
-		var endValue;
-
 		this.obj.focus(()=>{
 			this.isFocus = true;
-
-			target = this._target;
-			propKey = this.targetPropKey;
-			startValue = this._value;
-			endValue = null;
-
 			this.obj.select();
 		});
 		this.obj.blur(()=>{
 			this.isFocus = false;
-			//this.value = parseFloat(this.obj.val());
-			//this.setValueToTarget();
-			endValue = this._value;
-
-			if(target != null && endValue != null && startValue != endValue){
-				HistoryManager.shared.record(new Command(
-					()=>{
-						target[propKey] = endValue;
-					},
-					()=>{
-						target[propKey] = startValue;
-					}
-				));
-			}
 		});
 
 		var v:number = options.v || 10;
@@ -359,6 +333,39 @@ export class VMVariableInput extends VMUI {
 	}
 }
 
+export class VMHistorycalVariableInput extends VMVariableInput {
+	constructor(protected _obj:any, targetClass:any, protected targetPropKey:string, protected targetPropFlag:number, options:any = {}){
+		super(_obj, targetClass, targetPropKey, targetPropFlag, options);
+
+		var target;
+		var propKey;
+		var startValue;
+		var endValue;
+
+		this.obj.focus(()=>{
+			target = this._target;
+			propKey = this.targetPropKey;
+			startValue = this._value;
+			endValue = null;
+		});
+		this.obj.blur(()=>{
+			endValue = this._value;
+
+			if(target != null && endValue != null && startValue != endValue){
+				HistoryManager.shared.record(new Command(
+					()=>{
+						target[propKey] = endValue;
+					},
+					()=>{
+						target[propKey] = startValue;
+					}
+				));
+			}
+		});
+
+	}
+}
+
 
 
 export class VMTextInput extends VMUI {
@@ -429,27 +436,21 @@ export class VMHistoricalTextInput extends VMTextInput {
 	}
 }
 
+//
 
-
-export class VMUI2 implements IVMUI {
+export class VMShowHideUI implements IVMUI {
 
 	protected _target:any;
 
 	constructor(protected _obj:any, private targetClass:any){
-		// if(_obj.prop("tagName") != "INPUT" && _obj.prop("tagName") != "SELECT" && _obj.prop("tagName") != "BUTTON"){
-		// 	throw new Error("invalid jquery object.");
-		// }
 		this._obj.hide();
-		//this._obj.prop("disabled", true);
 	}
 
 	protected setTarget(){
 		this._obj.show();
-		// this._obj.prop("disabled", false);
 	}
 	protected destroyTarget(){
 		this._obj.hide();
-		// this._obj.prop("disabled", true);
 	}
 
 	//
