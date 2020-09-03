@@ -2,7 +2,7 @@ import { Viewer, ViewerStartUpMode } from "./Viewer";
 declare const require: Function;
 require("jquery-ui/ui/widgets/sortable.js");
 require("jquery-ui/ui/widgets/resizable.js");
-declare var $: any;
+import $ from "jquery";
 declare var viewOnly:any;
 
 $(function(){

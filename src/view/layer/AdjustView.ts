@@ -3,14 +3,10 @@ import { Layer, LayerType } from "../../model/Layer";
 import { KeyboardManager } from "../../utils/KeyboardManager";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
-import { TextLayer } from "../../model/layer/TextLayer";
-import { TextView } from "./TextView";
 import { Slide } from "../../model/Slide";
-import { threadId } from "worker_threads";
 import { HistoryManager, Command } from "../../utils/HistoryManager";
 import { Matrix4 } from "matrixgl";
-
-declare var $:any;
+import $ from "jquery";
 
 export class AdjustView extends LayerView {
 
@@ -69,15 +65,6 @@ export class AdjustView extends LayerView {
 			this.startDrag(e);
 			e.stopImmediatePropagation();
 		});
-		// this.frame.on("dblclick.layer_edit", (e:any)=>{
-		// 	this.startEdit();
-		// 	e.stopImmediatePropagation();
-		// });
-
-
-
-
-
 
 		// this.frame.on("wheel", (e:any) => {
 		// 	if(!this._targetLayerView) return;
@@ -221,53 +208,6 @@ export class AdjustView extends LayerView {
 		});
 	}
 
-	// private startEdit(){
-	// 	if(!this._targetLayerView || this._targetLayerView.data.locked) return;
-
-	// 	if(this._targetLayerView.type == LayerType.TEXT){
-	// 		var textLayer:TextLayer = this._targetLayerView.data as TextLayer;
-	// 		var textView:TextView = this._targetLayerView as TextView;
-	// 		var text = textLayer.text;
-	// 		textView.textObj.attr("contenteditable","true");
-	// 		textView.textObj.focus();
-
-	// 		textView.textObj.off("focusout.textLayer_edit");
-	// 		textView.textObj.on("focusout.textLayer_edit", ()=>{
-	// 			textView.textObj.attr("contentEditable","false");
-	// 			textView.textObj.off("focusout.textLayer_edit");
-
-	// 			setTimeout(()=>{
-	// 				if(text != textView.textObj.text()){
-	// 					var text2 = textView.textObj.text();
-	// 					//textLayer.text = textView.textObj.text();
-	// 					HistoryManager.shared.record(new Command(
-	// 						()=>{
-	// 							textLayer.text = text2;
-	// 						},
-	// 						()=>{
-	// 							textLayer.text = text;
-	// 						}
-	// 					)).do();
-	// 				}
-	// 			},10)
-	// 		});
-	// 	}
-	// }
-
-	public updateSize(){
-		if(!this._data) return;
-
-		var anchorSizeX = 16 / (this._data.scaleX * this._base_scale);
-		var anchorSizeY = 16 / (this._data.scaleY * this._base_scale);
-		var cssObj = {"width":anchorSizeX, "height":anchorSizeY};
-		this.anchorPoint1.css(cssObj);
-		this.anchorPoint2.css(cssObj);
-		this.anchorPoint3.css(cssObj);
-		this.anchorPoint4.css(cssObj);
-		var borderSizeH = 3 / (this._data.scaleX * this._base_scale) + "px";
-		var borderSizeV = 3 / (this._data.scaleY * this._base_scale) + "px";
-		this.frame.css("border-width",borderSizeV + " " + borderSizeH);
-	}
 	protected updateView(flag:number = PropFlags.ALL) {
 		if(!this._data) return;
 
@@ -285,12 +225,36 @@ export class AdjustView extends LayerView {
 			this.obj.css("height", this._targetLayerView.data.originHeight + "px");
 			this.updateMatrix();
 		}
+		if(flag & PropFlags.TXT_TEXT) {
+			setTimeout(()=>{
+				if (this._targetLayerView.data) {
+					this.obj.css("width", this._targetLayerView.data.originWidth + "px");
+					this.obj.css("height", this._targetLayerView.data.originHeight + "px");
+					this.updateUISize();
+				}
+			},1);
+		}
 
 	}
 
 	protected updateMatrix() {
 		super.updateMatrix();
-		this.updateSize();
+		this.updateUISize();
+	}
+
+	private updateUISize(){
+		if(!this._data) return;
+
+		var anchorSizeX = 16 / (this._data.scaleX * this._base_scale);
+		var anchorSizeY = 16 / (this._data.scaleY * this._base_scale);
+		var cssObj = {"width":anchorSizeX, "height":anchorSizeY};
+		this.anchorPoint1.css(cssObj);
+		this.anchorPoint2.css(cssObj);
+		this.anchorPoint3.css(cssObj);
+		this.anchorPoint4.css(cssObj);
+		var borderSizeH = 3 / (this._data.scaleX * this._base_scale) + "px";
+		var borderSizeV = 3 / (this._data.scaleY * this._base_scale) + "px";
+		this.frame.css("border-width",borderSizeV + " " + borderSizeH);
 	}
 
 	//
@@ -298,7 +262,7 @@ export class AdjustView extends LayerView {
 	//
 	public set base_scale(value:number){
 		this._base_scale = value;
-		this.updateSize();
+		this.updateUISize();
 	}
 
 	public set targetLayerView(value:LayerView) {

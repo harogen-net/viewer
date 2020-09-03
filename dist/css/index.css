@@ -341,7 +341,8 @@ ul.contextMenu li button i
 	font-family: "メイリオ";
 	font-weight: bold;
 	font-size:48px;
-	line-height: 64px;
+	line-height:52px;
+	white-space: pre;
 	color:white;
 	text-shadow:
 	-1px -1px 20px var(--textGlowColor),

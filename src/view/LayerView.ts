@@ -1,18 +1,12 @@
 import { Layer, LayerType } from "../model/Layer";
-import { setTimeout } from "timers";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
 
-declare var $: any;
-
 export class LayerView extends EventDispatcher {
-
-//	protected _data:Layer;
 
 	protected _selected:boolean = false;
 	protected opacityObj:any;
-
 
 	constructor(protected _data:Layer, public obj:any) {
 		super();
@@ -24,11 +18,6 @@ export class LayerView extends EventDispatcher {
 		//override me
 		this._data.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 	}
-
-	// public clone():this {
-	// 	var ret:this = new (this.constructor as any)(this._data, this.obj.clone());
-	// 	return ret;
-	// }
 
 	public destroy(){
 		this.clearEventListener();
@@ -96,21 +85,12 @@ export class LayerView extends EventDispatcher {
 		return this.obj.height();
 	}
 
-	//
-
-
 	public get selected():boolean{ return this._selected;}
 	public set selected(value:boolean){
 		if(this._selected == value) return;
 		this._selected = value;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.LV_SELECT));
-//		if(this._selected){
-//			this.dispatchEvent(new CustomEvent("select", {detail:this}));
-//		}else{
-			//this.dispatchEvent(new CustomEvent("unselect", {detail:this}));
-//		}
 	}
-
 
 
 	//

@@ -1,10 +1,8 @@
-//import { ILayer } from "../layerModel/ILayer";
 import { LayerView } from "../LayerView";
 import { TextLayer } from "../../model/layer/TextLayer";
 import { Layer } from "../../model/Layer";
 import { PropFlags } from "../../model/PropFlags";
-
-declare var $:any;
+import $ from "jquery";
 
 export class TextView extends LayerView {
 
@@ -50,9 +48,9 @@ export class TextView extends LayerView {
 	//
 	// set get
 	//
-	private get textData():TextLayer {
-		return this._data as TextLayer;
-	}
+	// private get textData():TextLayer {
+	// 	return this._data as TextLayer;
+	// }
 
 
 }

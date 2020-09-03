@@ -1,4 +1,3 @@
-import {SlideView} from "../SlideView";
 import {Layer, LayerType} from "../../model/Layer";
 import {ImageLayer} from "../../model/layer/ImageLayer";
 import { TextLayer } from "../../model/layer/TextLayer";
@@ -8,16 +7,13 @@ import { IDroppable } from "../../interface/IDroppable";
 import { DOMSlideView } from "./DOMSlideView";
 import { LayerView } from "../LayerView";
 import { TextView } from "../layer/TextView";
-import { ImageView } from "../layer/ImageView";
-import { LayerViewFactory } from "../../utils/LayerViewFactory";
 import { Slide } from "../../model/Slide";
 import { ViewerDocument } from "../../model/ViewerDocument";
 import { PropFlags } from "../../model/PropFlags";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { AdjustView } from "../layer/AdjustView";
 import { HistoryManager, Command, Transaction } from "../../utils/HistoryManager";
-
-declare var $: any;
+import $ from "jquery";
 
 export class EditableSlideView extends DOMSlideView implements IDroppable {
 	public static SCALE_DEFAULT:number = 0.9;

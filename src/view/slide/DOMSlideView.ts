@@ -5,8 +5,7 @@ import { LayerViewFactory } from "../../utils/LayerViewFactory";
 import { Slide } from "../../model/Slide";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
-
-declare var $ :any;
+import $ from "jquery";
 
 export class DOMSlideView extends SlideView {
 

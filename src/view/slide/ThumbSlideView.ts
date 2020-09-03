@@ -1,10 +1,9 @@
 import { CanvasSlideView } from "./CanvasSlideView";
 import { Slide } from "../../model/Slide";
-import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
-
-declare var $:any;
+import { VMCheckBox } from "../../viewModel/VMUI";
+import $ from "jquery";
 
 export class ThumbSlideView extends CanvasSlideView {
 
@@ -80,11 +79,13 @@ export class ThumbSlideView extends CanvasSlideView {
 
 
 		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(this.obj);
-		enableCheck.on("click.slide", (e:any)=>{
-			this._slide.disabled = !enableCheck.prop("checked");
-			e.stopImmediatePropagation();
-		});
-		enableCheck.prop("checked", !this._slide.disabled);
+		new VMCheckBox(enableCheck, Slide, "disabled", PropFlags.S_DISABLED, true).target = this._slide;
+
+		// enableCheck.on("click.slide", (e:any)=>{
+		// 	this._slide.disabled = !enableCheck.prop("checked");
+		// 	e.stopImmediatePropagation();
+		// });
+		// enableCheck.prop("checked", !this._slide.disabled);
 
 
 		//

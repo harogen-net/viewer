@@ -4,8 +4,7 @@ import { ImageView } from "../view/layer/ImageView";
 import { TextView } from "../view/layer/TextView";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
-
-declare var $:any;
+import $ from "jquery";
 
 export class LayerViewFactory {
 	public static ViewFromLayer(layer:Layer):LayerView {

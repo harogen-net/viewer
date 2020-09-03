@@ -9,8 +9,7 @@ import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
 import { HistoryManager, Command } from "../../utils/HistoryManager";
 import { Slide } from "../../model/Slide";
-
-declare var $:any;
+import $ from "jquery";
 
 export class EditLayerListItem {
 	
@@ -119,7 +118,7 @@ export class EditLayerListItem {
 		}
 		if(flag & PropFlags.TXT_TEXT){
 			if(this._layerView.type == LayerType.TEXT){
-				this.label.text(((this._layerView as TextView).data as TextLayer).plainText);
+				this.label.text(((this._layerView as TextView).data as TextLayer).text);
 			}
 		}
 

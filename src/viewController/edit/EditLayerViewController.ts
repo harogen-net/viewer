@@ -2,8 +2,7 @@ import { EditLayerListItem } from "./EditLayerListItem";
 import { EditableSlideView } from "../../view/slide/EditableSlideView";
 import { Slide } from "../../model/Slide";
 import { LayerView } from "../../view/LayerView";
-
-declare var $:any;
+import $ from "jquery";
 
 export class EditLayerViewController {
 

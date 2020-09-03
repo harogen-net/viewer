@@ -6,10 +6,8 @@ import { ImageManager } from "./utils/ImageManager";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { Slide } from "./model/Slide";
 import { HistoryManager } from "./utils/HistoryManager";
-import CryptoJS from 'crypto-js';
 import { PropertyEvent } from "./events/PropertyEvent";
-
-declare var $:any;
+import $ from "jquery";
 
 
 export enum ViewerMode {

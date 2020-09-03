@@ -5,8 +5,7 @@ import { Layer } from "./Layer";
 import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
 import { DataUtil } from "../utils/DataUtil";
 import JSZip from "jszip";
-
-declare var $: any;
+import $ from "jquery";
 
 export class ViewerDocument {
 

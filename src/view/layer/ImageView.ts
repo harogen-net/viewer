@@ -1,11 +1,7 @@
 import { LayerView } from "../LayerView";
-//import { ILayer } from "../model/ILayer";
 import { ImageLayer } from "../../model/layer/ImageLayer";
 import { ImageManager } from "../../utils/ImageManager";
 import { PropFlags } from "../../model/PropFlags";
-//import { Layer } from "../layerModel/Layer";
-
-declare var $:any;
 
 export class ImageView extends LayerView {
 
