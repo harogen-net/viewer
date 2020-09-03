@@ -119,7 +119,7 @@ export class EditLayerListItem {
 		}
 		if(flag & PropFlags.TXT_TEXT){
 			if(this._layerView.type == LayerType.TEXT){
-				this.label.text(((this._layerView as TextView).data as TextLayer).plainText);
+				this.label.text(((this._layerView as TextView).data as TextLayer).text);
 			}
 		}
 
