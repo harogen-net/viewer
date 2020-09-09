@@ -178,7 +178,7 @@ export class VMCheckBox extends VMUI {
 		this._target[this.targetPropKey] = !this._target[this.targetPropKey];
 	}
 }
-export class VMHistorycalCheckBox extends VMCheckBox {
+export class VMHistoricalCheckBox extends VMCheckBox {
 	protected onCheckBoxClick = ()=> {
 		var target;
 		var propKey;
@@ -333,7 +333,7 @@ export class VMVariableInput extends VMUI {
 	}
 }
 
-export class VMHistorycalVariableInput extends VMVariableInput {
+export class VMHistoricalVariableInput extends VMVariableInput {
 	constructor(protected _obj:any, targetClass:any, protected targetPropKey:string, protected targetPropFlag:number, options:any = {}){
 		super(_obj, targetClass, targetPropKey, targetPropFlag, options);
 

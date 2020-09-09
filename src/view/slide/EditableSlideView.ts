@@ -202,6 +202,8 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		if(this.selectedLayerView !== null){
 			if(this.selectedLayerView.type == LayerType.IMAGE){
 				this.lastSelectedId = (this.selectedLayerView.data as ImageLayer).imageId;
+			}else if(this.selectedLayerView.type == LayerType.TEXT) {
+				this.lastSelectedId = (this.selectedLayerView.data as TextLayer).text;
 			}
 			this.lastSelectedIndex = this._slide.layers.indexOf(this.selectedLayerView.data);
 
@@ -308,10 +310,17 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 			if(this.lastSelectedId != ""){
 				this._slide.layers.forEach(layer=>{
-					if(layer.type != LayerType.IMAGE) return false;
-					if(this.lastSelectedId == (layer as ImageLayer).imageId){
-						if(!layer.locked && layer.visible){
-							autoSelectedLayer = layer;
+					if (layer.type == LayerType.IMAGE) {
+						if(this.lastSelectedId == (layer as ImageLayer).imageId){
+							if(!layer.locked && layer.visible){
+								autoSelectedLayer = layer;
+							}
+						}
+					}else if(layer.type == LayerType.TEXT) {
+						if(this.lastSelectedId == (layer as TextLayer).text){
+							if(!layer.locked && layer.visible){
+								autoSelectedLayer = layer;
+							}
 						}
 					}
 				});
@@ -355,6 +364,12 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				if(tmpLayer.type != layer.type) continue;
 				if(layer.type == LayerType.IMAGE){
 					if((layer as ImageLayer).imageId == (tmpLayer as ImageLayer).imageId){
+						find = true;
+						this.sharedLayersByUUID[layer.uuid].push(tmpLayer);
+						break;
+					}
+				}else if(layer.type == LayerType.TEXT) {
+					if((layer as TextLayer).text == (tmpLayer as TextLayer).text){
 						find = true;
 						this.sharedLayersByUUID[layer.uuid].push(tmpLayer);
 						break;
@@ -459,7 +474,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				}
 			}
 			if(layer.type == LayerType.TEXT){
-				if(flag & PropFlags.IMG_IMAGEID){
+				if(flag & PropFlags.TXT_TEXT){
 					(tmpLayer as TextLayer).text = (layer as TextLayer).text;
 				}
 			}
@@ -499,15 +514,27 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 									targetLayer.shared = false;
 								}
 							)
-//							tmpLayer.shared = true;
 						}
 						break;
 					}
-				// }else if(layer.type == LayerType.TEXT){
-				// 	if((layer as TextLayer).text == (tmpLayer as TextLayer).text){
-				// 		find = true;
-				// 		break;
-				// 	}
+				}else if(layer.type == LayerType.TEXT){
+					if((layer as TextLayer).text == (tmpLayer as TextLayer).text){
+						find = true;
+						if(tmpLayer.shared){
+							continueToNext = false;
+						}else{
+							var targetLayer = tmpLayer;
+							transaction.record(
+								()=>{
+									targetLayer.shared = true;
+								},
+								()=>{
+									targetLayer.shared = false;
+								}
+							)
+						}
+						break;
+					}
 				}
 			}
 			if(!find){
