@@ -147,10 +147,11 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	} 
 
 	initialize():void {
-		//documentの固有プロパティslidesをslideListが操作している悪い例
-		while(this.slides.length > 0){
-			this.removeSlide(this.slides[0]);
-		}
+		this._slideViews.forEach((slideView)=>{
+			slideView.clearEventListener();
+			slideView.destroy();
+		});
+		this._slideViews = [];
 	}
 
 
@@ -239,12 +240,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 
 		var slideView:ThumbSlideView = this.getSlideViewBySlide(slide);
-//		slide.removeEventListener("update", this.onSlideUpdate);
-		slideView.removeEventListener("select", this.onSlideSelect);
-		slideView.removeEventListener("edit", this.onSlideEdit);
-		slideView.removeEventListener("clone", this.onSlideClone);
-		slideView.removeEventListener("delete", this.onSlideDelete);
-		slideView.removeEventListener("contextmenu", this.onSlideDelete);
+		slideView.clearEventListener();
 
 		var nextSlide:Slide = null;
 		if(slideView.selected){

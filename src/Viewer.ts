@@ -322,6 +322,7 @@ export class Viewer {
 
 			this.listVC.initialize();
 			if(Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+				this.setMode(ViewerMode.SELECT);
 				this.editVC.initialize();
 				HistoryManager.shared.initialize();
 			}
@@ -329,12 +330,11 @@ export class Viewer {
 
 		this.setMode(ViewerMode.SELECT);
 		if(!nextDocument){
+			//nextDocumentがnullでない⇒slideStorageがdocumentを生成してImageManagerをリセット＆登録済みなので
 			ImageManager.shared.initialize();
+			nextDocument = new ViewerDocument();
 		}
-
-		//
-
-		this.viewerDocument = nextDocument || new ViewerDocument();
+		this.viewerDocument = nextDocument;
 		this.listVC.slides = this.viewerDocument.slides;
 		this.IsDocumentModified = false;
 	}

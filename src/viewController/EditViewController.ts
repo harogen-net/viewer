@@ -367,9 +367,9 @@ export class EditViewController extends EventDispatcher {
 	//
 
 	initialize(){
-		this.slideView.slide = new Slide();
-		//HistoryManager.shared.initialize();
-		$(".slideCanvas .menu span.name").text("");
+		this.setSlide(new Slide());
+		// this.slideView.slide = new Slide();
+		// $(".slideCanvas .menu span.name").text("");
 	}
 
 	setMode(mode:ViewerMode):void {
