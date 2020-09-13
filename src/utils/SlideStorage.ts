@@ -320,9 +320,9 @@ export class SlideStorage extends EventDispatcher {
 
 			json.slideData.forEach(slideDatum => {
 				var slide:Slide = new Slide(width, height);
-				slide.durationRatio = slideDatum.durationRatio;
-				slide.joining = slideDatum.joining;
-				slide.disabled = slideDatum.disabled;
+				slide.durationRatio = slideDatum.durationRatio || 1;
+				slide.joining = Boolean(slideDatum.joining);
+				slide.disabled = Boolean(slideDatum.disabled);
 				
 				var layers:any[];
 				if(json.version >= 2.1){
