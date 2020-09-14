@@ -23,7 +23,9 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private _mode:ViewerMode;
 
 	private newSlideBtn:any;
-	private contextMenu:any;
+	private listContextMenu:any;
+	private slideContextMenu:any;
+	private contextTargetSlide:Slide|null = null;	//こいつが原因でバグを発生しそうな予感
 
 
 	constructor(public obj:any) {
@@ -89,30 +91,53 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.selectSlide(slide);
 			});
 
-			this.contextMenu = $("#listContextMenu");
-			this.contextMenu.hide();
+			this.listContextMenu = $("#listContextMenu");
+			this.listContextMenu.hide();
 
-			this.contextMenu.find(".unjoin").click(()=>{
+			this.listContextMenu.find(".unjoin").click(()=>{
 				var isAllJoined = this.slides.every((slide)=>{return slide.joining});
 				this.slides.forEach((slide)=>{
 					slide.joining = !isAllJoined;
 					slide.durationRatio = 1;
 				});
 			});
-			this.contextMenu.find(".delete").click(()=>{
+			this.listContextMenu.find(".delete").click(()=>{
 				this.slides.filter((slide)=>{return slide.disabled}).forEach((slide)=>{this.removeSlide(slide, false)});
 			});
-			this.contextMenu.find(".enable").click(()=>{
+			this.listContextMenu.find(".enable").click(()=>{
 				this.slides.forEach((slide)=>{
 					slide.disabled = false;
 				});
 			});
-			this.contextMenu.find(".disable").click(()=>{
+			this.listContextMenu.find(".disable").click(()=>{
 				this.slides.forEach((slide)=>{
 					slide.disabled = true;
 				});
 			});
+			this.obj.on("contextmenu.slide", (e)=>{
+				if (this._slides.length > 0){
+					this.contextTargetSlide = null;
+					this.onSlideContextMenu(new CustomEvent("contextmenu", {detail:{x:e.clientX, y:e.clientY }}));
+					return false;
+				}
+			});
 
+			this.slideContextMenu = $("#slideContextMenu");
+			this.slideContextMenu.hide();
+			this.slideContextMenu.find(".delete").click(()=>{
+				if (this.contextTargetSlide == null) return;
+				this.removeSlide(this.contextTargetSlide, true);
+				this.contextTargetSlide = null;
+			});
+			this.slideContextMenu.find(".enable").click(()=>{
+				if (this.contextTargetSlide == null) return;
+				this.slides.forEach((slide)=>{
+					slide.disabled = true;
+				});
+				this.contextTargetSlide.disabled = false;
+				this.selectSlide(this.contextTargetSlide);
+				this.contextTargetSlide = null;
+			});
 
 			var prevSlideBtn = $('<button class="selectSlideBtn prev"><i class="fas fa-chevron-left"></i></button>');
 			this.obj.append(prevSlideBtn);
@@ -221,16 +246,21 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.clonseSlide(ce.detail as Slide);
 	}
 	private onSlideDelete = (ce:CustomEvent)=>{
-		this.removeSlide(ce.detail as Slide, true);
+		this.removeSlide(ce.detail as Slide, false);
 	}
 	private onSlideContextMenu = (ce:CustomEvent)=>{
 		var offset = this.obj.offset();
-		this.contextMenu.css({top: ce.detail.y - offset.top, left: ce.detail.x - offset.left});
-		this.contextMenu.show();
+
+		var targetContextMenu:any = (ce.detail.slide != undefined) ? this.slideContextMenu : this.listContextMenu;
+		this.contextTargetSlide = ce.detail.slide || null;
+
+		targetContextMenu.css({top: ce.detail.y - offset.top, left: ce.detail.x - offset.left});
+		targetContextMenu.show();
 		
 		$(document).on("mouseup.ListVieController", ()=>{
-			this.contextMenu.hide();
+			targetContextMenu.hide();
 			$(document).off("mouseup.ListVieController");
+//			this.contextTargetSlide = null;
 		});
 	}
 

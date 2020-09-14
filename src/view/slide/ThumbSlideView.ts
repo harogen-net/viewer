@@ -81,13 +81,6 @@ export class ThumbSlideView extends CanvasSlideView {
 		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(this.obj);
 		new VMCheckBox(enableCheck, Slide, "disabled", PropFlags.S_DISABLED, true).target = this._slide;
 
-		// enableCheck.on("click.slide", (e:any)=>{
-		// 	this._slide.disabled = !enableCheck.prop("checked");
-		// 	e.stopImmediatePropagation();
-		// });
-		// enableCheck.prop("checked", !this._slide.disabled);
-
-
 		//
 
 		this.obj.on("mousedown.slide",(e:any)=>{
@@ -97,7 +90,6 @@ export class ThumbSlideView extends CanvasSlideView {
 			if(this.selected) return;
 			this.dispatchEvent(new CustomEvent("select", {detail:this._slide}));
 		});
-
 
 		//
 
