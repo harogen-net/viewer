@@ -117,7 +117,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			this.obj.on("contextmenu.slide", (e)=>{
 				if (this._slides.length > 0){
 					this.contextTargetSlide = null;
-					this.onSlideContextMenu(new CustomEvent("contextmenu", {detail:{x:e.clientX, y:e.clientY }}));
+					this.onContextMenu(new CustomEvent("contextmenu", {detail:{x:e.clientX, y:e.clientY }}));
 					return false;
 				}
 			});
@@ -220,7 +220,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		slideView.addEventListener("edit", this.onSlideEdit);
 		slideView.addEventListener("clone", this.onSlideClone);
 		slideView.addEventListener("delete", this.onSlideDelete);
-		slideView.addEventListener("contextmenu", this.onSlideContextMenu);
+		slideView.addEventListener("contextmenu", this.onContextMenu);
 
 		slideView.show();
 	}
@@ -248,7 +248,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private onSlideDelete = (ce:CustomEvent)=>{
 		this.removeSlide(ce.detail as Slide, false);
 	}
-	private onSlideContextMenu = (ce:CustomEvent)=>{
+	private onContextMenu = (ce:CustomEvent)=>{
 		var offset = this.obj.offset();
 
 		var targetContextMenu:any = (ce.detail.slide != undefined) ? this.slideContextMenu : this.listContextMenu;
@@ -270,7 +270,12 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 
 		var slideView:ThumbSlideView = this.getSlideViewBySlide(slide);
-		slideView.clearEventListener();
+		slideView.removeEventListener("select", this.onSlideSelect);
+		slideView.removeEventListener("edit", this.onSlideEdit);
+		slideView.removeEventListener("clone", this.onSlideClone);
+		slideView.removeEventListener("delete", this.onSlideDelete);
+		slideView.removeEventListener("contextmenu", this.onContextMenu);
+		//slideView.clearEventListener();	//dispatchEventを発端とするスタック中で実行するとエラーになる
 
 		var nextSlide:Slide = null;
 		if(slideView.selected){
