@@ -107,6 +107,7 @@ export class ImageManager {
 		var targets:{slide:Slide, layer:Layer, index:number}[] = [];
 		ViewerDocument.shared.allLayers.forEach((layer)=>{
 			if (layer.type == LayerType.IMAGE && (layer as ImageLayer).imageId == id) {
+				if (layer.shared) layer.shared = false;
 				targets.push({
 					slide:layer.parent,
 					layer:layer,
@@ -133,6 +134,9 @@ export class ImageManager {
 			// 	}
 			// )).do();
 			HistoryManager.shared.initialize();
+		}else{
+			imgObjData.imgObj.remove();
+			delete this._imageById[id];
 		}
 	}
 
