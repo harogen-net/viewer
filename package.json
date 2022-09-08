@@ -13,7 +13,7 @@
     "crypto-js": "^4.0.0",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.12.1",
-    "jszip": "^3.5.0",
+    "jszip": "^3.7.0",
     "matrixgl": "^1.0.1",
     "natural-compare": "^1.4.0",
     "stackblur-canvas": "^2.3.0",
