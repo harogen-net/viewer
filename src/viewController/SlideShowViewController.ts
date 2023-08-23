@@ -53,6 +53,15 @@ export class SlideShowViewController extends EventDispatcher {
 		});
 
 		this.slideContainer = $('<div class="slideContainer" />').appendTo(obj);
+		this.slideContainer.on("mousedown", () => {
+			if (!this._isRun) return;
+			if (!this._isPause) {
+				this.pause();
+			} else {
+				this.resume();
+			}
+			return false;
+		});
 
 		var closeBtn = $('<button class="close"><i class="fas fa-times"></i></button>').appendTo(obj);
 		closeBtn.click(() => {
@@ -87,16 +96,17 @@ export class SlideShowViewController extends EventDispatcher {
 			$("#cb_mirrorV").prop("checked", !isMirrorV);
 			this.mirrorV = !isMirrorV;
 		});
-
-		document.onmousedown = () => {
-			if (!this._isRun) return;
-			if (!this._isPause) {
-				this.pause();
-			} else {
-				this.resume();
-			}
-			return false;
-		};
+		var prevBtn = $('<button class="prev"><i class="fas fa-arrow-left"></i></button>').appendTo(obj);
+		prevBtn.click(() => {
+			clearInterval(this.timer);
+			this.index -= -2;
+			this.slideShowFunc();
+		});
+		var nextBtn = $('<button class="next"><i class="fas fa-arrow-right"></i></button>').appendTo(obj);
+		nextBtn.click(() => {
+			clearInterval(this.timer);
+			this.slideShowFunc();
+		});
 	}
 
 	setUp(targetSlides: Slide[]): void {
@@ -241,6 +251,7 @@ export class SlideShowViewController extends EventDispatcher {
 					}
 				}
 			});
+			this.startCursorAutoHide();
 			return;
 		}
 
@@ -317,7 +328,6 @@ export class SlideShowViewController extends EventDispatcher {
 			this.timer = setTimeout(() => {
 				this.slideShowFunc();
 			}, restDuration);
-
 		}
 		//console.log("[resume]");
 		//console.log("restDuration : " + restDuration + "ms");
@@ -329,6 +339,8 @@ export class SlideShowViewController extends EventDispatcher {
 	//
 
 	private slideShowFunc() {
+		if (this.data.length <= 1) { return; }
+
 		this.started = new Date().getTime();
 		this.elapsed = 0;
 

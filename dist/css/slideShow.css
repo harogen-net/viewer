@@ -1,0 +1,113 @@
+/* slideShow */
+div.slideShow {
+	display: none;
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 2147483646;
+	background-color: black;
+	overflow: hidden;
+	overflow-x: hidden;
+	overflow-y: hidden;
+}
+
+div.slideShow div.slideContainer {
+	width: 100%;
+	height: 100%;
+}
+
+div.slideShow.playing {
+	cursor: none;
+}
+
+div.slideShow .slide {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	left: 0;
+	top: 0;
+	background-color: var(--slideBackgroundColor);
+}
+
+div.slideShow .slide .container {
+	background: none;
+}
+
+div.slideShow button {
+	position: absolute;
+	width: 60px;
+	height: 60px;
+	border: none;
+	opacity: 0;
+	cursor: pointer;
+	color: white;
+	background-color: rgba(0, 0, 0, 0.5);
+	text-align: center;
+	vertical-align: middle;
+	line-height: 60px;
+	font-size: 30px;
+	padding: 0;
+	margin: 0;
+	z-index: 2147483647;
+	opacity: 0;
+	transition: opacity 0.3s;
+}
+
+div.slideShow button:hover {
+	opacity: 1;
+}
+
+div.slideShow button.close {
+	right: 0;
+	top: 0;
+}
+
+div.slideShow button.fullScreen {
+	left: 0;
+	top: 0;
+}
+
+div.slideShow button.mirrorH {
+	left: 0;
+	bottom: 0;
+}
+
+div.slideShow button.mirrorV {
+	right: 0;
+	bottom: 0;
+}
+
+div.slideShow button.prev {
+	left: 0;
+	height: 50vh;
+	top: 0;
+	bottom: 0;
+	margin: auto 0;
+	border-radius: 0 40px 40px 0;
+}
+
+div.slideShow button.next {
+	right: 0;
+	height: 50vh;
+	top: 0;
+	bottom: 0;
+	margin: auto 0;
+	border-radius: 40px 0 0 40px;
+}
+
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+div.slideShow.pause {
+	cursor: wait;
+}
