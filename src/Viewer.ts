@@ -116,6 +116,9 @@ export class Viewer {
 	
 			this.editVC.addEventListener("close",()=>{
 				this.setMode(ViewerMode.SELECT);
+				setTimeout(()=>{
+					this.editVC.initialize();
+				}, 301);
 			});
 			this.listVC.addEventListener("close",()=>{
 				this.editVC.initialize();
