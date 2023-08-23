@@ -126,7 +126,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			this.slideContextMenu.hide();
 			this.slideContextMenu.find(".delete").click(()=>{
 				if (this.contextTargetSlide == null) return;
-				this.removeSlide(this.contextTargetSlide, true);
+				this.removeSlide(this.contextTargetSlide, false);
 				this.contextTargetSlide = null;
 			});
 			this.slideContextMenu.find(".enable").click(()=>{
@@ -246,7 +246,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.clonseSlide(ce.detail as Slide);
 	}
 	private onSlideDelete = (ce:CustomEvent)=>{
-		this.removeSlide(ce.detail as Slide, false);
+		this.removeSlide(ce.detail as Slide, true);
 	}
 	private onContextMenu = (ce:CustomEvent)=>{
 		var offset = this.obj.offset();
