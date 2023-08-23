@@ -100,15 +100,15 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		});
 
 
-		KeyboardManager.addEventListener("cut",()=>{
-			this.cut();
-		});
-		KeyboardManager.addEventListener("copy",()=>{
-			this.copy();
-		});
-		KeyboardManager.addEventListener("paste",()=>{
-			this.paste();
-		});
+		// KeyboardManager.addEventListener("cut",()=>{
+		// 	this.cut();
+		// });
+		// KeyboardManager.addEventListener("copy",()=>{
+		// 	this.copy();
+		// });
+		// KeyboardManager.addEventListener("paste",()=>{
+		// 	this.paste();
+		// });
 
 		//
 
