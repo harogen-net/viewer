@@ -207,7 +207,31 @@ export class EditViewController extends EventDispatcher {
 			new VMHistoricalVariableInput($(".property .position input").eq(1), Layer, "y", PropFlags.X, {v:-25}),
 			new VMHistoricalVariableInput($(".property .scale input"), Layer, "scale", PropFlags.SCALE_X|PropFlags.SCALE_Y, {init:1, min:0.1, max:20, type:"multiply", v:0.1}),
 			new VMHistoricalVariableInput($(".property .rotation input"), Layer, "rotation", PropFlags.ROTATION, {min:-180, max:180, v:5}),
+			new VMButton($("#main button.resetRotation"), Layer, (layer:ImageLayer)=>{
+				if (layer.rotation == 0) return;
+				var rotation = layer.rotation;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						layer.rotation = 0;
+					},
+					()=>{
+						layer.rotation = rotation;
+					}
+				)).do();
+			}),
 			new VMHistoricalVariableInput($(".property .opacity input"), Layer, "opacity", PropFlags.OPACITY, {min:0, max:1, v:0.05}),
+			new VMButton($("#main button.resetOpacity"), Layer, (layer:ImageLayer)=>{
+				if (layer.opacity == 1) return;
+				var opacity = layer.opacity;
+				HistoryManager.shared.record(new Command(
+					()=>{
+						layer.opacity = 1;
+					},
+					()=>{
+						layer.opacity = opacity;
+					}
+				)).do();
+			}),
 
 			new VMHistoricalVariableInput($(".property .clip input").eq(0), ImageLayer, "clipT", PropFlags.IMG_CLIP, {v:-25, min:0}),
 			new VMHistoricalVariableInput($(".property .clip input").eq(1), ImageLayer, "clipR", PropFlags.IMG_CLIP, {v:-25, min:0}),

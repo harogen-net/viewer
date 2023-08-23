@@ -40,7 +40,7 @@ export class ImageManager {
 	}
 
 	public registImageData(id:string, src:string, name:string = "") {
-		return new Promise((resolve)=>{
+		return new Promise<void>((resolve)=>{
 			if(this._imageById[id] != undefined) {
 				resolve();
 			}else{

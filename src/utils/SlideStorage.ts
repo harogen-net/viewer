@@ -169,7 +169,7 @@ export class SlideStorage extends EventDispatcher {
 		if(file.name.indexOf(".png") != -1){
 			var reader = new FileReader();
 			var loadFunc = (reader, filePath)=>{
-				return new Promise(resolve=>{
+				return new Promise<void>(resolve=>{
 					reader.addEventListener("load", (e:any)=>{
 						resolve();
 					});

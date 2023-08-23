@@ -51,13 +51,13 @@ export class Viewer {
 				e.stopImmediatePropagation();
 			});
 		}
-		document.addEventListener("webkitfullscreenchange",()=>{
-			if(document["webkitFullscreenElement"]){
-				obj.addClass("slideShow");
-			}else{
-				obj.removeClass("slideShow");
-			}
-		});
+		// document.addEventListener("webkitfullscreenchange",()=>{
+		// 	if(document["webkitFullscreenElement"]){
+		// 		obj.addClass("slideShow");
+		// 	}else{
+		// 		obj.removeClass("slideShow");
+		// 	}
+		// });
 
 		//
 		this.listVC = new ListViewController(obj.find(".list"));
@@ -116,6 +116,9 @@ export class Viewer {
 	
 			this.editVC.addEventListener("close",()=>{
 				this.setMode(ViewerMode.SELECT);
+				setTimeout(()=>{
+					this.editVC.initialize();
+				}, 301);
 			});
 			this.listVC.addEventListener("close",()=>{
 				this.editVC.initialize();

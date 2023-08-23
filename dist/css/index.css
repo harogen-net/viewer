@@ -1008,7 +1008,7 @@ div.slideShow .slide {
 div.slideShow .slide .container {
 	background:none;
 }
-div.slideShow button.close {
+div.slideShow button {
 	position: absolute;
 	width: 60px;
 	height: 60px;
@@ -1024,13 +1024,27 @@ div.slideShow button.close {
 	padding:0;
 	margin:0;
 	z-index:2147483647;
-	right:0;
-	top:0;
 	opacity: 0;
 	transition: opacity 0.3s;
 }
-div.slideShow button.close:hover {
+div.slideShow button:hover {
 	opacity: 1;
+}
+div.slideShow button.close {
+	right:0;
+	top:0;
+}
+div.slideShow button.fullScreen {
+	left:0;
+	top:0;
+}
+div.slideShow button.mirrorH {
+	left:0;
+	bottom:0;
+}
+div.slideShow button.mirrorV {
+	right:0;
+	bottom:0;
 }
 @keyframes fadeIn {
     from {opacity:0;}
