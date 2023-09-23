@@ -76,10 +76,11 @@ export class ViewerDocument {
 	}
 	//FileIO
 	public downloadImage(targetIndex:number = -1) {
+		var isTransparent = $("#saveImageAsTransparent").prop("checked")
 		if (targetIndex != -1) {
 			if (this.slides[targetIndex] != undefined)  {
 				var slide = this.slides[targetIndex];
-				var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(slide,slide.width, slide.height, 1, this.bgColor);
+				var canvas:HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(slide,slide.width, slide.height, 1, isTransparent ? undefined : this.bgColor);
 				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()),this.title + "_" + (targetIndex + 1) + ".png");
 			}else{
 				throw new Error("invalid index.");
@@ -94,7 +95,7 @@ export class ViewerDocument {
 			var converter = new SlideToPNGConverter();
 			this.slides.forEach((slide, index) => {
 				if (slide.disabled) return;
-				var canvas:HTMLCanvasElement = converter.slide2canvas(slide, slide.width, slide.height, 1, this.bgColor);
+				var canvas:HTMLCanvasElement = converter.slide2canvas(slide, slide.width, slide.height, 1, isTransparent ? undefined : this.bgColor);
 				zip.file(this.title + "_" + (index + 1) + ".png", DataUtil.dataURItoBlob(canvas.toDataURL()));
 			});
 			zip.generateAsync({type:"blob",compression: "DEFLATE"})
