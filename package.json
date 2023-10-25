@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@types/es6-promise": "^3.3.0",
-    "crypto-js": "^4.0.0",
+    "crypto-js": "^4.2.0",
     "jquery": "^3.5.1",
     "jquery-ui": "^1.12.1",
     "jszip": "^3.5.0",
