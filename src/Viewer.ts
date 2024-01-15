@@ -8,6 +8,7 @@ import { Slide } from "./model/Slide";
 import { HistoryManager } from "./utils/HistoryManager";
 import { PropertyEvent } from "./events/PropertyEvent";
 import $ from "jquery";
+import { ProgressBar } from "./view/ProgressBar";
 
 
 export enum ViewerMode {
@@ -59,6 +60,8 @@ export class Viewer {
 		// 	}
 		// });
 
+		let progressBar = new ProgressBar($("<div />").appendTo(obj))
+
 		//
 		this.listVC = new ListViewController(obj.find(".list"));
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
@@ -79,6 +82,10 @@ export class Viewer {
 			} else {
 				$("select.filename").prop("selectedIndex", this.storage.titles.length);
 			}
+		});
+		this.storage.addEventListener("loading", (e: CustomEvent) => {
+			let percentage = e.detail as number;
+			progressBar.go(percentage)
 		});
 		this.storage.addEventListener("loaded", (e: CustomEvent) => {
 			this.newDocument(e.detail as ViewerDocument);

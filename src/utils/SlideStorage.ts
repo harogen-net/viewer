@@ -322,9 +322,16 @@ export class SlideStorage extends EventDispatcher {
 			options.width = width;
 			options.height = height;
 
-			for (let imageId in json.imageData) {
+			let imageIds = Object.keys(json.imageData);
+			let totalImages = imageIds.length;
+			for (let i = 0; i < totalImages; i++) {
+				let percentage = i / totalImages;
+				this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
+
+				let imageId = imageIds[i];
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
+			this.dispatchEvent(new CustomEvent("loading", { detail: 1 }));
 
 			json.slideData.forEach(slideDatum => {
 				let slide: Slide = new Slide(width, height);
@@ -338,7 +345,6 @@ export class SlideStorage extends EventDispatcher {
 				} else {
 					layers = slideDatum.images;
 				}
-
 
 				layers.forEach(layerDatum => {
 					switch (layerDatum.type) {
