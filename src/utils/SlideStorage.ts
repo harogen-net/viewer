@@ -19,6 +19,12 @@ export enum HVDataType {
 	HVZ
 }
 
+interface SlideTitle {
+	id: number;
+	title: string;
+	update: number;
+}
+
 export class SlideStorage extends EventDispatcher {
 
 	private static readonly VERSION: number = 3;
@@ -33,8 +39,9 @@ export class SlideStorage extends EventDispatcher {
 
 	private embedder: PNGEmbedder;
 
-	public titles: { id: number, title: string }[] = [];
-	public titleById: { [key: string]: string } = {};
+	public titles: SlideTitle[] = [];
+	public titleById: { [key: number]: string } = {};
+	public idByTitle: { [key: string]: number } = {};
 
 	constructor() {
 		super();
@@ -80,6 +87,8 @@ export class SlideStorage extends EventDispatcher {
 		console.log("save at SlideStorage,", doc, isOverride);
 
 		let title = isOverride ? doc.title : DateUtil.getDateString();
+		let id = this.idByTitle[title];
+
 		let jsonStr: string = this.stringifyData(doc);
 
 		//
@@ -105,12 +114,12 @@ export class SlideStorage extends EventDispatcher {
 		// }
 
 
-		if (!isOverride) {
-			let putReq1 = this.titleStore.put({ "title": title });
+		if (id) {
+			this.titleStore.put({ id: id, title: title, update: new Date().getTime() });
+		} else {
+			this.titleStore.add({ title: title, update: new Date().getTime() });
 		}
 
-		console.log(title);
-		console.log(jsonStr)
 		this.dataStore.put({ title: title, data: jsonStr },).onsuccess = (e: any) => {
 			// verify(title);
 			doc.title = title;	//新データとなるのでタイトルを変更
@@ -156,14 +165,12 @@ export class SlideStorage extends EventDispatcher {
 		let title = this.titleById[id];
 		if (!title) return;
 
-		console.log("load", id, title)
+		console.log("load at slideStorage", id, title)
 		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.dataStore = transaction.objectStore("slideData");
 		let getReq = this.dataStore.get(title);
 		getReq.onsuccess = async (e: any) => {
-			//			//console.log(e.target.result); // {id : 'A1', name : 'test'}
 			let jsonStr: string = e.target.result.data;
-			console.log(jsonStr)
 			this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) }));
 		}
 		getReq.onerror = async (e: any) => {
@@ -423,15 +430,29 @@ export class SlideStorage extends EventDispatcher {
 	private updateTitleMenu() {
 		this.titles = [];
 		this.titleById = {};
+		this.idByTitle = {};
+
 		this.titleStore.openCursor().onsuccess = (event) => {
-			let cursor = (event.target as IDBRequest).result as IDBCursorWithValue;
+			let cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
 			if (cursor) {
 				let id = parseInt(cursor.value.id);
 				let title = cursor.value.title;
-				this.titles.push({ id: id, title: title });
+				let update = cursor.value.update || 0;
+				this.titles.push({ id: id, title: title, update: update });
 				this.titleById[id] = title;
+				this.idByTitle[title] = id;
 				cursor.continue();
 			} else {
+				this.titles.sort((a, b) => {
+					if (a.update == b.update) {
+						return a.id > b.id ? 1 : -1
+
+					} else {
+						return a.update > b.update ? 1 : -1
+					}
+				});
+				// console.log(this.titles)
+
 				this.dispatchEvent(new Event("update"));
 			}
 		};

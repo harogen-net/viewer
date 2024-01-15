@@ -68,17 +68,21 @@ export class Viewer {
 
 		this.storage = new SlideStorage();
 		this.storage.addEventListener("update", (e: CustomEvent) => {
-			//window.alert();
-			var index = $("select.filename").prop("selectedIndex");
-			var newItem = $("select.filename option")[0];
+			let index = $("select.filename").prop("selectedIndex");
+			let selectedValue = $("select.filename option")[index].value;
+			let initOption = $("select.filename option")[0];
 			$("select.filename").empty();
-			$("select.filename").append($(newItem));
+			$("select.filename").append($(initOption));
 
-			this.storage.titles.forEach(datum => {
+			let nextIndex = 0;
+			this.storage.titles.forEach((datum, index2) => {
+				if (datum.id == selectedValue) { nextIndex = index2 + 1; }
 				$("select.filename").append('<option value="' + datum.id + '">' + datum.title + '</option>');
 			});
-			if (index <= this.storage.titles.length) {
-				$("select.filename").prop("selectedIndex", index);
+
+			console.log(selectedValue, nextIndex)
+			if (nextIndex <= this.storage.titles.length) {
+				$("select.filename").prop("selectedIndex", nextIndex);
 			} else {
 				$("select.filename").prop("selectedIndex", this.storage.titles.length);
 			}
