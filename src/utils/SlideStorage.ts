@@ -1,4 +1,3 @@
-import {SlideView} from "../view/SlideView";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Viewer } from "../Viewer";
@@ -7,9 +6,8 @@ import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 import { DateUtil } from "./DateUtil";
 import { DataUtil } from "./DataUtil";
-import { Layer, LayerType } from "../model/Layer";
+import { LayerType } from "../model/Layer";
 import { TextLayer } from "../model/layer/TextLayer";
-import { CanvasSlideView } from "../view/slide/CanvasSlideView";
 import { ImageManager } from "./ImageManager";
 import { Slide } from "../model/Slide";
 import JSZip from "jszip";
@@ -23,222 +21,232 @@ export enum HVDataType {
 
 export class SlideStorage extends EventDispatcher {
 
-	private static readonly VERSION:number = 3;
-	private static readonly SAVE_KEY:string = "viewer.slideData";
-	private static readonly DBNAME:string = "viewer";
-	private static readonly PNG_DATA_FILE_PREFIX:string = "[hv]";
+	private static readonly VERSION: number = 3;
+	private static readonly SAVE_KEY: string = "viewer.slideData";
+	private static readonly DBNAME: string = "viewer";
+	private static readonly PNG_DATA_FILE_PREFIX: string = "[hv]";
 
-	private db:any;
-	private dbVersion:number;
-	private titleStore:any;
-	private dataStore:any;
+	private db: IDBDatabase;
+	private dbVersion: number;
+	private titleStore: IDBObjectStore;
+	private dataStore: IDBObjectStore;
 
-	private embedder:PNGEmbedder;
+	private embedder: PNGEmbedder;
 
-	public titles:{id:number, title:string}[] = [];
-	public titleById:{[key:string]:string} = {};
+	public titles: { id: number, title: string }[] = [];
+	public titleById: { [key: string]: string } = {};
 
-    constructor() {
+	constructor() {
 		super();
 
-		let create = ()=>{
-			var openReq  = indexedDB.open(SlideStorage.DBNAME);
-			openReq.onupgradeneeded = (e:any)=>{
+		let create = () => {
+			let openReq = indexedDB.open(SlideStorage.DBNAME);
+			openReq.onupgradeneeded = (e: any) => {
 				this.db = e.target.result;
-				this.db.createObjectStore("slideTitles", {keyPath:"id",autoIncrement:true});
-				this.db.createObjectStore("slideData",{keyPath:"title"});
+				this.db.createObjectStore("slideTitles", { keyPath: "id", autoIncrement: true });
+				this.db.createObjectStore("slideData", { keyPath: "title" });
 			}
-			openReq.onsuccess = (e:any)=>{
+			openReq.onsuccess = (e: any) => {
 				this.db = e.target.result;
 				this.dbVersion = this.db.version;
 
-				var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+				let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 
 				this.titleStore = transaction.objectStore("slideTitles");
 				this.dataStore = transaction.objectStore("slideData");
 				this.updateTitleMenu();
 			}
-			openReq.onerror = (e:any)=>{
+			openReq.onerror = (e: any) => {
 				//console.log('db open error');
 				alert("db open error");
 			}
 		};
 
 
-		if(0) {
-			var deleteReq = indexedDB.deleteDatabase(SlideStorage.DBNAME);
-			deleteReq.onsuccess = (e:any)=>{
+		if (0) {
+			let deleteReq = indexedDB.deleteDatabase(SlideStorage.DBNAME);
+			deleteReq.onsuccess = (e: any) => {
 				//console.log('db delete success');
 				create();
 			}
-		}else{
+		} else {
 			create();
 		}
 
 		this.embedder = new PNGEmbedder();
-    }
+	}
 
-    save(doc:ViewerDocument){
-		var jsonStr:string = this.stringifyData(doc);
+	save(doc: ViewerDocument, isOverride: boolean = false) {
+		console.log("save at SlideStorage,", doc, isOverride);
+
+		let title = isOverride ? doc.title : DateUtil.getDateString();
+		let jsonStr: string = this.stringifyData(doc);
 
 		//
-		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
-		var verify = async (title)=>{
-			var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
-			this.dataStore = transaction.objectStore("slideData");
-			var getReq = this.dataStore.get(title);
-			getReq.onsuccess = async (e:any)=>{
-				var jsonStr2:string = e.target.result.data;
-				if(jsonStr == jsonStr2){
-					alert("[" + title + "] save complete.");
-				}else{
-					alert("save error!");
-				}
-			}
-			getReq.onerror = async (e:any)=>{
-				alert("save error!");
-			};
+		// let verify = async (title) => {
+		// 	let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		// 	this.dataStore = transaction.objectStore("slideData");
+		// 	let getReq = this.dataStore.get(title);
+		// 	getReq.onsuccess = async (e: any) => {
+		// 		let jsonStr2: string = e.target.result.data;
+		// 		if (jsonStr == jsonStr2) {
+		// 			alert("[" + title + "] save complete.");
+		// 		} else {
+		// 			alert("save error!");
+		// 		}
+		// 	}
+		// 	getReq.onerror = async (e: any) => {
+		// 		alert("save error!");
+		// 	};
+		// }
+
+
+		if (!isOverride) {
+			let putReq1 = this.titleStore.put({ "title": title });
 		}
 
-		var title = DateUtil.getDateString()
-		var putReq1  = this.titleStore.put({"title":title});
-		var putReq2 = this.dataStore.put({title:DateUtil.getDateString(), data:jsonStr});
-		putReq2.onsuccess = (e:any)=>{
-			verify(title);
+		console.log(title);
+		console.log(jsonStr)
+		this.dataStore.put({ title: title, data: jsonStr },).onsuccess = (e: any) => {
+			// verify(title);
+			doc.title = title;	//新データとなるのでタイトルを変更
 			this.updateTitleMenu();
 		}
 	}
-	
-	public export(doc:ViewerDocument, type:HVDataType, options?:any){
-		var jsonStr:string = this.stringifyData(doc);
+
+	public export(doc: ViewerDocument, type: HVDataType, options?: any) {
+		let jsonStr: string = this.stringifyData(doc);
 
 		//
 
-		switch(type){
+		switch (type) {
 			case HVDataType.PNG:
-				var pages:number[] = options ? (options.pages || []) : [];
-				var thumbPng = new SlideToPNGConverter().convert(doc,pages, false);
+				let pages: number[] = options ? (options.pages || []) : [];
+				let thumbPng = new SlideToPNGConverter().convert(doc, pages, false);
 				var zip = new JSZip();
-				zip.file("data.hvd",jsonStr);
-				zip.generateAsync({type:"uint8array",compression: "DEFLATE"})
-				.then((u8a)=>{
-					this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL:string)=>{
-						DataUtil.downloadBlob(DataUtil.dataURItoBlob(embeddedPngDataURL), SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png");
+				zip.file("data.hvd", jsonStr);
+				zip.generateAsync({ type: "uint8array", compression: "DEFLATE" })
+					.then((u8a) => {
+						this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL: string) => {
+							DataUtil.downloadBlob(DataUtil.dataURItoBlob(embeddedPngDataURL), SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png");
+						});
 					});
-				});
-			break;
+				break;
 			case HVDataType.HVD:
-				var blob = new Blob([jsonStr], {type: "text/plain"});
+				let blob = new Blob([jsonStr], { type: "text/plain" });
 				DataUtil.downloadBlob(blob, doc.title + ".hvd");
-			break;
+				break;
 			case HVDataType.HVZ:
 				var zip = new JSZip();
 				zip.file(doc.title + ".hvd", jsonStr);
-				zip.generateAsync({type:"blob",compression: "DEFLATE"})
-				.then((blob)=>{
-					DataUtil.downloadBlob(blob, doc.title + ".hvz");
-				});
-			break;
+				zip.generateAsync({ type: "blob", compression: "DEFLATE" })
+					.then((blob) => {
+						DataUtil.downloadBlob(blob, doc.title + ".hvz");
+					});
+				break;
 		}
 	}
 
 
-    public load(id:string) {
-		var title = this.titleById[id];
-		if(!title) return;
+	public load(id: string) {
+		let title = this.titleById[id];
+		if (!title) return;
 
-		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		console.log("load", id, title)
+		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.dataStore = transaction.objectStore("slideData");
-		var getReq = this.dataStore.get(title);
-		getReq.onsuccess = async (e:any)=>{
-//			//console.log(e.target.result); // {id : 'A1', name : 'test'}
-			var jsonStr:string = e.target.result.data;
-			this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(jsonStr)}));
+		let getReq = this.dataStore.get(title);
+		getReq.onsuccess = async (e: any) => {
+			//			//console.log(e.target.result); // {id : 'A1', name : 'test'}
+			let jsonStr: string = e.target.result.data;
+			console.log(jsonStr)
+			this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) }));
 		}
-		getReq.onerror = async (e:any)=>{
+		getReq.onerror = async (e: any) => {
 
 		};
 	}
 
 
-	public async import(file:any){
-		
-		if(file.name.indexOf(".png") != -1){
-			var reader = new FileReader();
-			var loadFunc = (reader, filePath)=>{
-				return new Promise<void>(resolve=>{
-					reader.addEventListener("load", (e:any)=>{
+	public async import(file: any) {
+
+		if (file.name.indexOf(".png") != -1) {
+			let reader = new FileReader();
+			let loadFunc = (reader, filePath) => {
+				return new Promise<void>(resolve => {
+					reader.addEventListener("load", (e: any) => {
 						resolve();
 					});
 					reader.readAsDataURL(filePath);
 				});
 			}
 
-			try{
+			try {
 				await loadFunc(reader, file);
-				var u8a = this.embedder.extract(reader.result as string);
-				var zip = new JSZip();
+				let u8a = this.embedder.extract(reader.result as string);
+				let zip = new JSZip();
 				await zip.loadAsync(u8a);
 
-				var obj = await zip.file("data.hvd").async("uint8array");
-				var jsonStr:string = new TextDecoder().decode(obj);
-				if(!jsonStr) {
+				let obj = await zip.file("data.hvd").async("uint8array");
+				let jsonStr: string = new TextDecoder().decode(obj);
+				if (!jsonStr) {
 					alert("not data png file.");
 					return;
 				}
-				var title:string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
-				this.dispatchEvent(new CustomEvent("loaded", {detail: await this.parseData(jsonStr, {title:title})}));
+				let title: string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
+				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) }));
 			}
-			catch(e){
+			catch (e) {
 			}
 
-		}else if(file.name.indexOf(".hvz") != -1){
-			try{
-				var zip = await JSZip.loadAsync(file);
-				zip.forEach(async (a,b)=>{
-					var data:string = await b.async("string");
-					this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(data)}));
+		} else if (file.name.indexOf(".hvz") != -1) {
+			try {
+				let zip = await JSZip.loadAsync(file);
+				zip.forEach(async (a, b) => {
+					let data: string = await b.async("string");
+					this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
 				});
 			}
-			catch(e){
+			catch (e) {
 
 			}
-		}else if(file.name.indexOf(".hvd") != -1){
-			var reader = new FileReader();
-			reader.addEventListener("load", async (e:any)=>{
-				this.dispatchEvent(new CustomEvent("loaded", {detail:await this.parseData(reader.result as string)}));
+		} else if (file.name.indexOf(".hvd") != -1) {
+			let reader = new FileReader();
+			reader.addEventListener("load", async (e: any) => {
+				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(reader.result as string) }));
 			});
-			try{
+			try {
 				reader.readAsText(file);
 			}
-			catch(e){
+			catch (e) {
 			}
 		}
 
 	}
 
 
-	public delete(id:string) {
-		var title:string = this.titleById[id];
+	public delete(id: string) {
+		let title: string = this.titleById[id];
 
-		var transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
-		var deleteReq1  = this.titleStore.delete(parseInt(id));
-		if(!title) return;
-		var deleteReq2 = this.dataStore.delete(title);
-		deleteReq1.onsuccess = (e:any)=>{
+		let deleteReq1 = this.titleStore.delete(parseInt(id));
+		if (!title) return;
+		let deleteReq2 = this.dataStore.delete(title);
+		deleteReq1.onsuccess = (e: any) => {
 			this.updateTitleMenu();
 		};
 	}
 
 	//
 
-	private stringifyData(doc:ViewerDocument):string {
+	private stringifyData(doc: ViewerDocument): string {
 		//MARK : 更新時間上書き
 		doc.editTime = new Date().getTime();
 
@@ -246,30 +254,30 @@ export class SlideStorage extends EventDispatcher {
 
 		//console.log("stringifyData start ------------");
 
-		var json:any = {};
+		let json: any = {};
 		json.version = SlideStorage.VERSION;
-		json.screen = {width:doc.width, height:doc.height};
-		
-		if(doc.bgColor) json.bgColor = doc.bgColor;
-		if(doc.createTime) json.createTime = doc.createTime;
-		if(doc.editTime) json.editTime = doc.editTime;
+		json.screen = { width: doc.width, height: doc.height };
 
-		var slideData:any[] = [];
-		var imageData:any = {};
-		
-		doc.slides.forEach(slide=>{
-			var slideDatum:any = {};
+		if (doc.bgColor) json.bgColor = doc.bgColor;
+		if (doc.createTime) json.createTime = doc.createTime;
+		if (doc.editTime) json.editTime = doc.editTime;
+
+		let slideData: any[] = [];
+		let imageData: any = {};
+
+		doc.slides.forEach(slide => {
+			let slideDatum: any = {};
 			slideDatum.id = slide.id;
 			slideDatum.durationRatio = slide.durationRatio;
 			slideDatum.joining = slide.joining;
 			slideDatum.disabled = slide.disabled;
 
 			slideDatum.layers = [];
-			slide.layers.forEach(layer=>{
+			slide.layers.forEach(layer => {
 				slideDatum.layers.push(layer.getData());
-				if(layer.type == LayerType.IMAGE) {
-					var imageLayer:ImageLayer = layer as ImageLayer;
-					if(imageData[imageLayer.imageId] == undefined){
+				if (layer.type == LayerType.IMAGE) {
+					let imageLayer: ImageLayer = layer as ImageLayer;
+					if (imageData[imageLayer.imageId] == undefined) {
 						imageData[imageLayer.imageId] = ImageManager.shared.getSrcById(imageLayer.imageId);
 					}
 				}
@@ -280,7 +288,7 @@ export class SlideStorage extends EventDispatcher {
 			json.imageData = imageData;
 		});
 
-		var jsonStr:string = JSON.stringify(json);
+		let jsonStr: string = JSON.stringify(json);
 
 		//MARK: - debug用トレース
 		delete json.imageData;
@@ -288,138 +296,136 @@ export class SlideStorage extends EventDispatcher {
 		return jsonStr;
 	}
 
-	private async parseData(jsonStr:string, options?:any) {
+	private async parseData(jsonStr: string, options?: any) {
 
-		var slides:Slide[] = [];
+		let slides: Slide[] = [];
 		options = options || {};
 
-		var json:any = JSON.parse(jsonStr);
+		let json: any = JSON.parse(jsonStr);
 
 		ImageManager.shared.initialize();
 
 		//ver1
-		if(json.version == 1 || json.version == undefined){
+		if (json.version == 1 || json.version == undefined) {
 			window.alert("too old version.");
 			throw new Error("too old version.");
 		}
 
 		//ver2
-		if(json.version >= 2){
-			var width:number = Viewer.SCREEN_WIDTH;
-			var height:number = Viewer.SCREEN_HEIGHT;
-			if(json.screen){
+		if (json.version >= 2) {
+			let width: number = Viewer.SCREEN_WIDTH;
+			let height: number = Viewer.SCREEN_HEIGHT;
+			if (json.screen) {
 				width = parseInt(json.screen.width) || width;
 				height = parseInt(json.screen.height) || height;
 			}
 			options.width = width;
 			options.height = height;
 
-			for (let imageId in json.imageData){
+			for (let imageId in json.imageData) {
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
 
 			json.slideData.forEach(slideDatum => {
-				var slide:Slide = new Slide(width, height);
+				let slide: Slide = new Slide(width, height);
 				slide.durationRatio = slideDatum.durationRatio || 1;
 				slide.joining = Boolean(slideDatum.joining);
 				slide.disabled = Boolean(slideDatum.disabled);
-				
-				var layers:any[];
-				if(json.version >= 2.1){
+
+				let layers: any[];
+				if (json.version >= 2.1) {
 					layers = slideDatum.layers;
-				}else{
+				} else {
 					layers = slideDatum.images;
 				}
 
 
 				layers.forEach(layerDatum => {
-					switch(layerDatum.type){
+					switch (layerDatum.type) {
 						case LayerType.TEXT:
-							var textLayer = new TextLayer(layerDatum.text, {
-								transX:layerDatum.transX,
-								transY:layerDatum.transY,
-								scaleX:layerDatum.scaleX,
-								scaleY:layerDatum.scaleY,
-								rotation:layerDatum.rotation,
-								mirrorH:layerDatum.mirrorH,
-								mirrorV:layerDatum.mirrorV,
+							let textLayer = new TextLayer(layerDatum.text, {
+								transX: layerDatum.transX,
+								transY: layerDatum.transY,
+								scaleX: layerDatum.scaleX,
+								scaleY: layerDatum.scaleY,
+								rotation: layerDatum.rotation,
+								mirrorH: layerDatum.mirrorH,
+								mirrorV: layerDatum.mirrorV,
 							});
-							if(layerDatum.opacity != undefined){
-								textLayer.opacity = layerDatum.opacity;						
+							if (layerDatum.opacity != undefined) {
+								textLayer.opacity = layerDatum.opacity;
 							}
-							if(layerDatum.locked != undefined){
+							if (layerDatum.locked != undefined) {
 								textLayer.locked = layerDatum.locked;
 							}
-							if(layerDatum.shared != undefined){
+							if (layerDatum.shared != undefined) {
 								textLayer.shared = layerDatum.shared;
 							}
-							if(layerDatum.visible != undefined){
+							if (layerDatum.visible != undefined) {
 								textLayer.visible = layerDatum.visible;
 							}
 							slide.addLayer(textLayer);
-						break;
+							break;
 						case undefined:	//version < 2.1
 						case LayerType.IMAGE:
-							var img:ImageLayer = new ImageLayer(layerDatum.imageId, {
-								transX:layerDatum.transX,
-								transY:layerDatum.transY,
-								scaleX:layerDatum.scaleX,
-								scaleY:layerDatum.scaleY,
-								rotation:layerDatum.rotation,
-								mirrorH:layerDatum.mirrorH,
-								mirrorV:layerDatum.mirrorV,
+							let img: ImageLayer = new ImageLayer(layerDatum.imageId, {
+								transX: layerDatum.transX,
+								transY: layerDatum.transY,
+								scaleX: layerDatum.scaleX,
+								scaleY: layerDatum.scaleY,
+								rotation: layerDatum.rotation,
+								mirrorH: layerDatum.mirrorH,
+								mirrorV: layerDatum.mirrorV,
 							});
-							if(layerDatum.opacity != undefined){
-								img.opacity = layerDatum.opacity;						
+							if (layerDatum.opacity != undefined) {
+								img.opacity = layerDatum.opacity;
 							}
-							if(layerDatum.locked != undefined){
+							if (layerDatum.locked != undefined) {
 								img.locked = layerDatum.locked;
 							}
-							if(layerDatum.shared != undefined){
+							if (layerDatum.shared != undefined) {
 								img.shared = layerDatum.shared;
 							}
-							if(layerDatum.visible != undefined){
+							if (layerDatum.visible != undefined) {
 								img.visible = layerDatum.visible;
 							}
-							if(layerDatum.clipRect != undefined){
+							if (layerDatum.clipRect != undefined) {
 								img.clipRect = layerDatum.clipRect;
 							}
-							if(layerDatum.isText != undefined){
+							if (layerDatum.isText != undefined) {
 								img.isText = layerDatum.isText;
 							}
-							if(layerDatum.name != undefined){
+							if (layerDatum.name != undefined) {
 								img.name = layerDatum.name as string;
 							}
 							slide.addLayer(img);
-						break;
+							break;
 					}
 				});
 				slides.push(slide);
 			});
 
-			if(json.bgColor) options.bgColor = json.bgColor;
-			if(json.createTime) options.createTime = json.createTime;
-			if(json.editTime) options.editTime = json.editTime;
-			//if(json.title) options.title = json.title;
+			if (json.bgColor) options.bgColor = json.bgColor;
+			if (json.createTime) options.createTime = json.createTime;
+			if (json.editTime) options.editTime = json.editTime;
 
 			return new ViewerDocument(slides, options);
 		}
 	}
 	//
-	
+
 	private updateTitleMenu() {
 		this.titles = [];
 		this.titleById = {};
-
-		this.titleStore.openCursor().onsuccess = (event)=> {
-			var cursor = event.target.result;
+		this.titleStore.openCursor().onsuccess = (event) => {
+			let cursor = (event.target as IDBRequest).result as IDBCursorWithValue;
 			if (cursor) {
-				var id = parseInt(cursor.value.id);
-				var title = cursor.value.title;
-				this.titles.push({id:id, title:title});
+				let id = parseInt(cursor.value.id);
+				let title = cursor.value.title;
+				this.titles.push({ id: id, title: title });
 				this.titleById[id] = title;
 				cursor.continue();
-			}else{
+			} else {
 				this.dispatchEvent(new Event("update"));
 			}
 		};
