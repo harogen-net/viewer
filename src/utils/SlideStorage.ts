@@ -329,17 +329,34 @@ export class SlideStorage extends EventDispatcher {
 			options.width = width;
 			options.height = height;
 
+			//step calcurate
+			let totalSteps = 0;
+			let currentStep = 0;
+
 			let imageIds = Object.keys(json.imageData);
 			let totalImages = imageIds.length;
+			totalSteps += totalImages;
+
+			let totalLayers = json.slideData.reduce((sum, slideDatum) => {
+				if (json.version >= 2.1) {
+					return sum + slideDatum.layers.length;
+				} else {
+					return sum + slideDatum.images.length;
+				}
+			}, 0)
+			totalSteps += totalLayers;
+
+			//load images
 			for (let i = 0; i < totalImages; i++) {
-				let percentage = i / totalImages;
+				let percentage = currentStep++ / totalSteps;
 				this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
 
 				let imageId = imageIds[i];
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
-			this.dispatchEvent(new CustomEvent("loading", { detail: 1 }));
 
+
+			//construct slides
 			json.slideData.forEach(slideDatum => {
 				let slide: Slide = new Slide(width, height);
 				slide.durationRatio = slideDatum.durationRatio || 1;
@@ -354,6 +371,9 @@ export class SlideStorage extends EventDispatcher {
 				}
 
 				layers.forEach(layerDatum => {
+					let percentage = currentStep++ / totalSteps;
+					this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
+
 					switch (layerDatum.type) {
 						case LayerType.TEXT:
 							let textLayer = new TextLayer(layerDatum.text, {
@@ -417,6 +437,8 @@ export class SlideStorage extends EventDispatcher {
 				});
 				slides.push(slide);
 			});
+
+			this.dispatchEvent(new CustomEvent("loading", { detail: 1 }));
 
 			if (json.bgColor) options.bgColor = json.bgColor;
 			if (json.createTime) options.createTime = json.createTime;

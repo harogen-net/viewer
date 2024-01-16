@@ -1049,6 +1049,7 @@ body.slideShow .slideList {
 }
 .progress.hide {
   animation: fadeOut 1s;
+	animation-delay: 100ms;
   animation-fill-mode: forwards;
 }
 @keyframes fadeOut {
