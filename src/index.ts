@@ -1,15 +1,14 @@
-import { Viewer, ViewerStartUpMode } from "./Viewer";
-declare const require: Function;
-require("jquery-ui/ui/widgets/sortable.js");
-require("jquery-ui/ui/widgets/resizable.js");
+import '@fortawesome/fontawesome-free/css/all.css';
 import $ from "jquery";
-declare var viewOnly:any;
+import 'jquery-ui-dist/jquery-ui';
+import { Viewer, ViewerStartUpMode } from "./Viewer";
+declare var viewOnly: any;
 
-$(function(){
+$(function () {
 	console.log("init");
 	var startUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
 	try {
 		if (viewOnly) startUpMode = ViewerStartUpMode.VIEW_ONLY;
-	}catch(Exception){ }
-	let viewer:Viewer = new Viewer($("body"), startUpMode);
+	} catch (e) { }
+	new Viewer($("body"), startUpMode);
 });

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="jp">
+  <head>
+    <meta charset="UTF-8" />
+    <script type="module" src="src/index.ts"></script>
+    <link rel="stylesheet" type="text/css" href="css/index.css" />
+    <title>Viewer</title>
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="pref">
+        <button><i class="fas fa-ellipsis-h"></i></button>
+        <div class="menu">
+          <dl>
+            <dt>size</dt>
+            <dd>W<input type="text" /> x H<input type="text" /></dd>
+          </dl>
+          <dl>
+            <dt>contents</dt>
+            <dd>
+              <label for="doc_sensitive"><input type="checkbox" id="doc_sensitive" name="doc_sensitive" /><span>sensitive file</span></label>
+            </dd>
+          </dl>
+          <dl>
+            <dt>SAVE FORMAT TYPE</dt>
+            <dd>
+              <label for="saveFormat_png"><input type="radio" id="saveFormat_png" name="saveFormat" checked /><span>.png</span></label>
+              <label for="saveFormat_hvz"><input type="radio" id="saveFormat_hvz" name="saveFormat" /><span>.hvz(zipped)</span></label>
+              <label for="saveFormat_hvd"><input type="radio" id="saveFormat_hvd" name="saveFormat" /><span>.hvd(text)</span></label>
+            </dd>
+          </dl>
+        </div>
+      </div>
+      <div id="images">
+        <button><i class="fas fa-images"></i></button>
+        <div class="container"></div>
+      </div>
+      <div id="menu" class="menu">
+        <div>
+          <button class="startSlideShow"><i class="fas fa-play"></i></button>
+        </div>
+        <div class="pulldown">
+          <button class="pulldownOpener" data-target="fileIo">files...</button>
+          <ul id="fileIo">
+            <li>
+              <button class="new"><i class="far fa-file"></i> <span>new document</span></button>
+            </li>
+            <li>
+              <button class="export"><i class="fas fa-file-import"></i> <span>save to file</span></button>
+            </li>
+            <li>
+              <button class="import"><i class="fas fa-file-export"></i> <span>load from file</span></button>
+            </li>
+            <li>
+              <button class="zip"><i class="fas fa-file-archive"></i> <span>export images to zip</span></button>
+            </li>
+            <!-- <li><button class="cog"><i class="fas fa-cog"></i> <span>preference...</span></button></li> -->
+          </ul>
+          <input class="import" type="file" value="" accept=".png,.hvd,.hvz" />
+        </div>
+        <div>
+          <button class="fileSelect up"><i class="fas fa-chevron-left"></i></button>
+          <select class="filename">
+            <option value="-1">---quick save---</option>
+          </select>
+          <button class="fileSelect down"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div>
+          <button class="save"><i class="fas fa-save"></i></button>
+          <button class="load"><i class="fas fa-download"></i></button>
+          <button class="dispose"><i class="fas fa-trash"></i></button>
+        </div>
+        <div></div>
+        <div>
+          <span
+            >DURATION:<select id="duration">
+              <option value="1">0</option>
+              <option value="500">500</option>
+              <option value="1000">1000</option>
+              <option value="2000" selected>2000</option>
+              <option value="3000">3000</option>
+              <option value="4000">4000</option>
+              <option value="5000">5000</option>
+            </select>
+          </span>
+          <span
+            >INTERVAL:<select id="interval">
+              <option value="500">500</option>
+              <option value="1000">1000</option>
+              <option value="2000">2000</option>
+              <option value="3000">3000</option>
+              <option value="4000">4000</option>
+              <option value="5000">5000</option>
+              <option value="6000" selected>6000</option>
+              <option value="7000">7000</option>
+              <option value="8000">8000</option>
+              <option value="9000">9000</option>
+              <option value="10000">10000</option>
+              <option value="11000">11000</option>
+              <option value="12000">12000</option>
+              <option value="13000">13000</option>
+              <option value="14000">14000</option>
+              <option value="15000">15000</option>
+            </select>
+          </span>
+          <span><input id="bgColor" type="color" list="bgColorList" value="#999999" /></span>
+          <datalist id="bgColorList">
+            <option value="#000000"></option>
+            <option value="#333333"></option>
+            <option value="#666666"></option>
+            <option value="#999999"></option>
+            <option value="#FFFFFF"></option>
+          </datalist>
+        </div>
+        <div>
+          <label for="cb_fullscreen"><input id="cb_fullscreen" class="fullscreen" type="checkbox" /><span>FULLSCREEN</span></label>
+        </div>
+        <div>
+          <label for="cb_mirrorH"><input id="cb_mirrorH" class="fullscreen" type="checkbox" /><span>MIRROR H</span></label>
+          <label for="cb_mirrorV"><input id="cb_mirrorV" class="fullscreen" type="checkbox" /><span>MIRROR V</span></label>
+        </div>
+      </div>
+      <div id="main">
+        <div class="canvas">
+          <div class="menu">
+            <div>
+              <button class="undo" data-desc="undo operation"><i class="fas fa-arrow-circle-left"></i></button>
+              <button class="redo" data-desc="redo operation"><i class="fas fa-arrow-circle-right"></i></button>
+            </div>
+            <div>
+              <button class="zoomOut" data-desc="zoom out"><i class="fas fa-search-minus"></i></button>
+              <button class="showAll" data-desc="set canvas to default scale"><i class="far fa-window-maximize"></i></button>
+              <button class="zoomIn" data-desc="zoom in"><i class="fas fa-search-plus"></i></button>
+            </div>
+            <div>
+              <button class="cut" data-desc="cut selected image"><i class="fas fa-cut"></i></button>
+              <button class="copy" data-desc="copy selected image"><i class="fas fa-copy"></i></button>
+              <button class="paste" data-desc="paste copyed image"><i class="fas fa-paste"></i></button>
+            </div>
+            <div>
+              <button class="fit" data-desc="fit selected image to canvas"><i class="fas fa-expand"></i></button>
+              <button class="rotateL" data-desc="rotate selected image counterclockwise"><i class="fas fa-undo" data-desc="rotate selected image clockwise"></i></button>
+              <button class="rotateR" data-desc="rotate selected image clockwise"><i class="fas fa-redo"></i></button>
+              <div class="pulldown">
+                <button class="pulldownOpener toAnyWhere" data-target="direction" data-desc="move selected layer to..."><i class="fas fa-arrows-alt"></i></button>
+                <ul id="direction">
+                  <li>
+                    <button class="toTop at t" data-desc="move selected layer to top"><i class="fas fa-arrow-up"></i></button>
+                  </li>
+                  <li>
+                    <button class="toBottom at b" data-desc="move selected layer to bottom"><i class="fas fa-arrow-down"></i></button>
+                  </li>
+                  <li>
+                    <button class="toLeft at l" data-desc="move selected layer to left"><i class="fas fa-arrow-left"></i></button>
+                  </li>
+                  <li>
+                    <button class="toRight at r" data-desc="move selected layer to right"><i class="fas fa-arrow-right"></i></button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div>
+              <button class="slideDownload"><i class="fas fa-file-download"></i></button>
+            </div>
+            <div>
+              <button class="text"><i class="fas fa-font"></i></button>
+            </div>
+            <div>
+              <button class="same"><i class="fas fa-th-large"></i></button>
+              <button class="spread"><i class="far fa-clone"></i><i class="fas fa-exchange-alt" style="font-size: 70%"></i></button>
+            </div>
+            <div>
+              <span class="name">[スライド名]</span>
+            </div>
+            <button class="close"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="sideMenu">
+            <div class="property">
+              <div>
+                <dl class="position">
+                  <dt>position</dt>
+                  <dd><input type="text" value="0" /></dd>
+                  <dd><input type="text" value="0" /></dd>
+                </dl>
+                <dl class="scale">
+                  <dt>scale</dt>
+                  <dd><input type="text" value="1" /></dd>
+                  <dd>
+                    <button class="mirrorH" data-desc="flip selected image horizontally"><i class="fas fa-arrows-alt-h"></i></button
+                    ><button class="mirrorV" data-desc="flip selected image vertically"><i class="fas fa-arrows-alt-v"></i></button>
+                  </dd>
+                </dl>
+                <dl class="rotation">
+                  <dt>
+                    rotation<button class="resetRotation"><i class="fas fa-times"></i></button>
+                  </dt>
+                  <dd><input type="text" value="0" /></dd>
+                </dl>
+                <dl class="opacity">
+                  <dt>
+                    opacity<button class="resetOpacity"><i class="fas fa-times"></i></button>
+                  </dt>
+                  <dd><input type="text" value="1" /></dd>
+                  <dd>
+                    <button class="isText" data-desc="this image contains text"><i class="far fa-image"></i><i class="fas fa-font"></i></button>
+                  </dd>
+                </dl>
+                <dl class="clip">
+                  <dt>
+                    clip<button class="resetClip"><i class="fas fa-times"></i></button>
+                  </dt>
+                  <dd><input type="text" value="0" /></dd>
+                  <dd><input type="text" value="0" /></dd>
+                  <dd><input type="text" value="0" /></dd>
+                  <dd><input type="text" value="0" /></dd>
+                </dl>
+              </div>
+              <div class="copypaste">
+                <button class="copyTrans" title="変形をコピー"><i class="fas fa-clipboard"></i></button>
+                <button class="pasteTrans" title="変形をペースト"><i class="far fa-clipboard"></i></button>
+              </div>
+              <div class="imageRef">
+                <button class="imageRef">
+                  <span><i class="fas fa-file-image"></i> IMG REF. </span> <label for="cb_imageRef"><input id="cb_imageRef" type="checkbox" /><span>forALL</span></label>
+                </button>
+                <input class="imageRef" type="file" value="" accept="image/*" />
+                <button class="download"><i class="fas fa-file-download"></i></button>
+              </div>
+              <div class="textEdit">
+                <textarea spellcheck="false"></textarea>
+              </div>
+              <div class="swap">
+                <button class="bottom"><i class="fas fa-arrow-circle-down"></i></button><button class="down"><i class="fas fa-arrow-down"></i></button
+                ><button class="up"><i class="fas fa-arrow-up"></i></button><button class="top"><i class="fas fa-arrow-circle-up"></i></button>
+              </div>
+            </div>
+            <div class="layer">
+              <ul></ul>
+            </div>
+          </div>
+        </div>
+        <div class="list">
+          <ul id="slideContextMenu" class="contextMenu menu">
+            <li>
+              <button class="delete"><i class="far fa-trash-alt"></i> <span>delete this slide</span></button>
+            </li>
+            <li>
+              <button class="enable"><i class="far fa-check-square"></i> <span>enable only this slide</span></button>
+            </li>
+          </ul>
+          <ul id="listContextMenu" class="contextMenu menu">
+            <li>
+              <button class="unjoin"><i class="fas fa-unlink"></i> <span>toggle joining all slides</span></button>
+            </li>
+            <li>
+              <button class="delete"><i class="far fa-trash-alt"></i> <span>delete disabled slides</span></button>
+            </li>
+            <li>
+              <button class="enable"><i class="far fa-check-square"></i> <span>enable all slides</span></button>
+            </li>
+            <li>
+              <button class="disable"><i class="far fa-square"></i> <span>disable all slides</span></button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
