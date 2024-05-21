@@ -66,7 +66,7 @@ export class Viewer {
 		this.listVC = new ListViewController(obj.find(".list"));
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
-		this.storage = new SlideStorage();
+		this.storage = SlideStorage.getInstance();
 		this.storage.addEventListener("update", (e: CustomEvent) => {
 			let index = $("select.filename").prop("selectedIndex");
 			let selectedValue = $("select.filename option")[index].value;

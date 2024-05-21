@@ -26,6 +26,14 @@ interface SlideTitle {
 }
 
 export class SlideStorage extends EventDispatcher {
+	private static instance: SlideStorage;
+
+	public static getInstance(): SlideStorage {
+		if (!SlideStorage.instance) {
+			SlideStorage.instance = new SlideStorage();
+		}
+		return SlideStorage.instance;
+	}
 
 	private static readonly VERSION: number = 3;
 	private static readonly SAVE_KEY: string = "viewer.slideData";
@@ -43,7 +51,7 @@ export class SlideStorage extends EventDispatcher {
 	public titleById: { [key: number]: string } = {};
 	public idByTitle: { [key: string]: number } = {};
 
-	constructor() {
+	private constructor() {
 		super();
 
 		let create = () => {
