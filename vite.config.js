@@ -12,5 +12,11 @@ export default defineConfig({
       $: "jquery",
       jQuery: "jquery",
     }),
+    {
+      name: "remove-crossorigin",
+      transformIndexHtml(html) {
+        return html.replaceAll("crossorigin ", "").replace(`type="module" `, "");
+      },
+    },
   ],
 });
