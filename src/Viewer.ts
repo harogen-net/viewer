@@ -9,6 +9,7 @@ import { HistoryManager } from "./utils/HistoryManager";
 import { PropertyEvent } from "./events/PropertyEvent";
 import $ from "jquery";
 import { ProgressBar } from "./view/ProgressBar";
+import { FileSelector } from "./viewController/file/FileSelector";
 
 
 export enum ViewerMode {
@@ -22,6 +23,7 @@ export enum ViewerStartUpMode {
 }
 
 export class Viewer {
+	public static shared:Viewer
 	public static isStrictMode: boolean = true;
 	public static startUpMode: ViewerStartUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
 
@@ -38,10 +40,11 @@ export class Viewer {
 	private _mode: ViewerMode;
 
 	private viewerDocument: ViewerDocument;
-	private IsDocumentModified: boolean;
+	IsDocumentModified: boolean;
 
 
 	constructor(public obj: any, startUpMode: ViewerStartUpMode) {
+		Viewer.shared = this;
 		Viewer.startUpMode = startUpMode;
 
 		ImageManager.init($('#images > .container'));
@@ -67,26 +70,6 @@ export class Viewer {
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
 		this.storage = SlideStorage.getInstance();
-		this.storage.addEventListener("update", (e: CustomEvent) => {
-			let index = $("select.filename").prop("selectedIndex");
-			let selectedValue = $("select.filename option")[index].value;
-			let initOption = $("select.filename option")[0];
-			$("select.filename").empty();
-			$("select.filename").append($(initOption));
-
-			let nextIndex = 0;
-			this.storage.titles.forEach((datum, index2) => {
-				if (datum.id == selectedValue) { nextIndex = index2 + 1; }
-				$("select.filename").append('<option value="' + datum.id + '">' + datum.title + '</option>');
-			});
-
-			console.log(selectedValue, nextIndex)
-			if (nextIndex <= this.storage.titles.length) {
-				$("select.filename").prop("selectedIndex", nextIndex);
-			} else {
-				$("select.filename").prop("selectedIndex", this.storage.titles.length);
-			}
-		});
 		this.storage.addEventListener("loading", (e: CustomEvent) => {
 			let percentage = e.detail as number;
 			progressBar.go(percentage)
@@ -146,6 +129,8 @@ export class Viewer {
 
 		//IO section
 		{
+			new FileSelector();
+
 			if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 				//pulldown
 				$(".pulldown").each(function (index, element) {
@@ -198,12 +183,6 @@ export class Viewer {
 						this.newDocument();
 					}
 				});
-				$(".dispose").dblclick(() => {
-					if ($('select.filename').val() == -1) return;
-					//if(!Viewer.isStrictMode || window.confirm('delete selected save data. Are you sure?')){
-					this.storage.delete($('select.filename').val());
-					//}
-				});
 
 				$(".export").click(() => {
 					if (this.listVC.slides.length > 0) {
@@ -217,27 +196,11 @@ export class Viewer {
 						});
 					}
 				});
-				$(".load").click(() => {
-					if ($('select.filename').val() == -1) return;
-					if (!this.IsDocumentModified || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')) {
-						this.storage.load($('select.filename').val());
-					}
-				});
 
 			} else {
-				$(".dispose").click(() => {
-					if ($('select.filename').val() == -1) return;
-					if (window.confirm('delete selected save data. Are you sure?')) {
-						this.storage.delete($('select.filename').val());
-					}
-				});
 				$("label[for='cb_fullscreen']").hide();
 			}
 
-			$("select.filename").change((any) => {
-				if ($('select.filename').val() == -1) return;
-				this.storage.load($('select.filename').val());
-			});
 
 			$(".startSlideShow").click(() => {
 				var slides: Slide[] = [];
@@ -261,20 +224,6 @@ export class Viewer {
 
 
 
-			$(".fileSelect.up").click(() => {
-				var val = $('select.filename').val();
-				var prevOp = $('select.filename option[value="' + val + '"]').prev();
-				if (prevOp.length == 0) return;
-				$('select.filename').val(prevOp.attr("value"));
-				this.storage.load(prevOp.attr("value"));
-			});
-			$(".fileSelect.down").click(() => {
-				var val = $('select.filename').val();
-				var nextOp = $('select.filename option[value="' + val + '"]').next();
-				if (nextOp.length == 0) return;
-				$('select.filename').val(nextOp.attr("value"));
-				this.storage.load(nextOp.attr("value"));
-			});
 
 			$(".save").click(() => {
 				if (this.listVC.slides.length == 0) return;
