@@ -9,30 +9,25 @@ export class FileSelector {
 
 		storage.addEventListener("update", (e: CustomEvent) => {
 			let index = selectObj.prop("selectedIndex");
-			let selectedValue = parseInt(($("select.filename option")[index] as HTMLOptionElement).value);
+			let selectedValue = parseInt(($("select.filename option")[index] as HTMLOptionElement).value) || 0;
 			let initOption = $("select.filename option")[0];
 			selectObj.empty();
 			selectObj.append($(initOption));
 
-			let nextIndex = 0;
-			let found = false;
+			let nextIndex = index;
 			storage.titles.forEach((datum, index2) => {
 				if (datum.id == selectedValue) {
 					nextIndex = index2 + 1;
-					found = true;
 				}
 				selectObj.append(`<option value="${datum.id}">${datum.title}</option>`);
 			});
 
-			if (!found) {
-				nextIndex = index - 1; // If the previously selected option no longer exists, select the one before it
-			}
-
-			if (nextIndex > 0 && nextIndex <= storage.titles.length) {
-				selectObj.prop("selectedIndex", nextIndex);
-			} else {
-				selectObj.prop("selectedIndex", storage.titles.length);
-			}
+			if (nextIndex < 0) nextIndex = 0;
+			if (nextIndex > storage.titles.length) nextIndex = storage.titles.length;
+			selectObj.prop("selectedIndex", nextIndex);
+			
+			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
+			if (nextValue) storage.load(nextValue);
 		});
 
 		const handleSelectChange = (val: any) => {
