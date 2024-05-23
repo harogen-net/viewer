@@ -2,6 +2,10 @@ import '@fortawesome/fontawesome-free/css/all.css';
 import $ from "jquery";
 import 'jquery-ui-dist/jquery-ui';
 import { Viewer, ViewerStartUpMode } from "./Viewer";
+
+import '../css/ui.scss';
+import '../css/slideShow.scss';
+
 declare var viewOnly: any;
 
 $(function () {
