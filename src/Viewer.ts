@@ -23,7 +23,7 @@ export enum ViewerStartUpMode {
 }
 
 export class Viewer {
-	public static shared:Viewer
+	public static shared: Viewer
 	public static isStrictMode: boolean = true;
 	public static startUpMode: ViewerStartUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
 
@@ -261,7 +261,7 @@ export class Viewer {
 			// });
 
 			$("#bgColor").change((e) => {
-				this.viewerDocument.bgColor = $("#bgColor").val();
+				this.viewerDocument.bgColor = $("#bgColor").val().toString();
 			});
 
 
@@ -269,16 +269,18 @@ export class Viewer {
 
 		//
 
-		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
+		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT && process.env.NODE_ENV == "production") {
 			window.addEventListener('beforeunload', (e) => {
-				if (this.viewerDocument.slides.length > 0 || !Viewer.isStrictMode) {
+				if ((this.viewerDocument.slides.length > 0 || !Viewer.isStrictMode)) {
 					e.returnValue = "ページを離れます。よろしいですか？";
 				}
 			}, false);
 		}
+
 		this.newDocument();
 	}
 
+	//priate methods
 	private newDocument(nextDocument?: ViewerDocument) {
 		if (this.viewerDocument) {
 			this.viewerDocument = null;
