@@ -10,6 +10,7 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
+      injectRegister: "auto",
       manifest: {
         name: "Viewer",
         short_name: "Viewer",
@@ -18,6 +19,7 @@ export default defineConfig({
         start_url: "/",
         display: "fullscreen",
         orientation: "landscape",
+        lang: "ja",
         icons: [
           {
             src: "/icon-512x512.png",
