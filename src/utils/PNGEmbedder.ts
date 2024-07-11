@@ -1,6 +1,4 @@
-declare var Zlib:any;
-
-
+import CRC32 from "crc-32";
 
 export class PNGEmbedder {
 
@@ -27,7 +25,7 @@ export class PNGEmbedder {
             throw new Error('invalid signature');
         }
     
-        var createChunk = (data:any)=>{
+        var createChunk = (data:Uint8Array)=>{
             var dataLength = data.length;
             var chunk = new Uint8Array(4 + 4 + dataLength + 4);
             var type = PNGEmbedder.CHUNK_TYPE_BARRAY;
@@ -53,8 +51,8 @@ export class PNGEmbedder {
             }
             
             //crc
-            crc = Zlib.CRC32.calc(type);
-            crc = Zlib.CRC32.update(data, crc);
+            crc = CRC32.buf(type);
+            crc = CRC32.buf(data, crc);
             chunk[pos++] = (crc >> 24) & 0xff;
             chunk[pos++] = (crc >> 16) & 0xff;
             chunk[pos++] = (crc >>  8) & 0xff;

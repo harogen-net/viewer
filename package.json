@@ -1,19 +1,19 @@
 {
   "name": "viewer",
-  "main": "",
   "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "main": "",
   "scripts": {
-    "dev": "vite",
     "build": "vite build",
+    "dev": "vite",
     "serve": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^6.5.2",
-    "@rollup/plugin-inject": "^5.0.5",
-    "@types/es6-promise": "^3.3.0",
+    "crc-32": "^1.2.2",
     "crypto-js": "^4.2.0",
     "jquery": "^3.7.1",
     "jquery-ui-dist": "^1.13.2",
@@ -21,19 +21,19 @@
     "matrixgl": "^2.0.0",
     "natural-compare": "^1.4.0",
     "stackblur-canvas": "^2.3.0",
-    "ts-loader": "^9.4.2",
-    "typescript": "^4.9.5",
-    "uuid": "^9.0.0",
-    "webpack": "^5.75.0",
-    "zlibjs": "^0.3.1"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@fortawesome/fontawesome-free": "^6.5.2",
+    "@rollup/plugin-inject": "^5.0.5",
+    "@types/es6-promise": "^3.3.0",
     "@types/jquery": "^3.5.30",
     "@types/jqueryui": "^1.12.22",
     "@types/node": "^18.13.0",
+    "sass": "^1.77.2",
+    "ts-loader": "^9.4.2",
+    "typescript": "^4.9.5",
     "vite": "^5.2.11",
-    "webpack-cli": "^5.0.1"
-  },
-  "description": "",
-  "private": true
+    "vite-plugin-pwa": "^0.20.0"
+  }
 }
