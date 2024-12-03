@@ -1,3 +1,3 @@
 export interface IVMUI {
-	target:any;
+	target: any;
 }
