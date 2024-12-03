@@ -2,6 +2,7 @@
 import { defineConfig } from "vite";
 import inject from "@rollup/plugin-inject";
 import { VitePWA } from "vite-plugin-pwa";
+import react from "@vitejs/plugin-react-swc";
 
 export default defineConfig({
   base: "./",
@@ -9,6 +10,7 @@ export default defineConfig({
     outDir: "dist", // ビルドの出力ディレクトリ
   },
   plugins: [
+    react(),
     VitePWA({
       injectRegister: "auto",
       manifest: {
@@ -25,7 +27,7 @@ export default defineConfig({
             src: "/icon-512x512.png",
             sizes: "512x512",
             type: "image/png",
-          }
+          },
         ],
       },
     }),
@@ -40,4 +42,8 @@ export default defineConfig({
       },
     },
   ],
+  server: {
+    port: 5173,
+    host: true,
+  },
 });
