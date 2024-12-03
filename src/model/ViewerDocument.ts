@@ -11,7 +11,7 @@ export class ViewerDocument {
 
 	public static shared:ViewerDocument = null;
 
-	private readonly BG_COLOR_INIT:string = "#000000";
+	private readonly BG_COLOR_INIT:string = "#FFFFFF";
 
 	public slides:Slide[];
 	
