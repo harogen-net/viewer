@@ -1,5 +1,5 @@
 import { ListViewController } from "./viewController/ListViewController";
-import { SlideStorage, HVDataType } from "./utils/SlideStorage";
+import { SlideStorage } from "./utils/SlideStorage";
 import { SlideShowViewController } from "./viewController/SlideShowViewController";
 import { EditViewController } from "./viewController/EditViewController";
 import { ImageManager } from "./utils/ImageManager";
@@ -12,6 +12,9 @@ import { ProgressBar } from "./view/ProgressBar";
 import { FileSelector } from "./viewController/file/FileSelector";
 import * as ReactDOM from "react-dom/client";
 import { ConfigPanel } from "./components/ConfigPanel";
+import { DataType } from "./model/DataType";
+import { ImagePanel } from "./components/ImagePanel";
+import { ReactRoot } from "./utils/ReactRoot";
 
 export enum ViewerMode {
   SELECT,
@@ -168,9 +171,6 @@ export class Viewer {
         // 	$("#" + targetId).toggle();
         // });
 
-        $("#pref > button").click(() => {
-          $("#pref > .menu").toggle();
-        });
         $("#images > button").click(() => {
           $("#images > .container").toggle();
         });
@@ -183,10 +183,10 @@ export class Viewer {
 
         $(".export").click(() => {
           if (this.listVC.slides.length > 0) {
-            var type: HVDataType = HVDataType.PNG;
-            if ($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
-            if ($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
-            if ($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
+            var type: DataType = DataType.PNG;
+            if ($("#saveFormat_png").prop("checked")) type = DataType.PNG;
+            if ($("#saveFormat_hvz").prop("checked")) type = DataType.HVZ;
+            if ($("#saveFormat_hvd").prop("checked")) type = DataType.HVD;
 
             this.storage.export(this.viewerDocument!, type, {
               pages: this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,
@@ -271,8 +271,8 @@ export class Viewer {
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById("pref")!);
-    root.render(<ConfigPanel />);
+    ReactRoot.getRoot("pref").render(<ConfigPanel vdoc={this.viewerDocument} />);
+    // ReactRoot.getRoot("images").render(<ImagePanel vdoc={this.viewerDocument} />);
 
     this.newDocument();
   }
@@ -293,10 +293,12 @@ export class Viewer {
     this.setMode(ViewerMode.SELECT);
     if (!nextDocument) {
       //nextDocumentがnullでない⇒slideStorageがdocumentを生成してImageManagerをリセット＆登録済みなので
-      ImageManager.shared.initialize();
+      ImageManager.shared?.initialize();
       nextDocument = new ViewerDocument();
     }
     this.viewerDocument = nextDocument;
+    ReactRoot.getRoot("pref").render(<ConfigPanel vdoc={this.viewerDocument} />);
+
     this.listVC.slides = this.viewerDocument.slides;
     this.IsDocumentModified = false;
   }

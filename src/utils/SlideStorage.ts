@@ -11,13 +11,7 @@ import { TextLayer } from "../model/layer/TextLayer";
 import { ImageManager } from "./ImageManager";
 import { Slide } from "../model/Slide";
 import JSZip from "jszip";
-
-
-export enum HVDataType {
-	PNG,
-	HVD,
-	HVZ
-}
+import { DataType } from "../model/DataType";
 
 interface SlideTitle {
 	id: number;
@@ -40,10 +34,10 @@ export class SlideStorage extends EventDispatcher {
 	private static readonly DBNAME: string = "viewer";
 	private static readonly PNG_DATA_FILE_PREFIX: string = "[hv]";
 
-	private db: IDBDatabase;
-	private dbVersion: number;
-	private titleStore: IDBObjectStore;
-	private dataStore: IDBObjectStore;
+	private db?: IDBDatabase;
+	private dbVersion: number = 0;
+	private titleStore?: IDBObjectStore;
+	private dataStore?: IDBObjectStore;
 
 	private embedder: PNGEmbedder;
 
@@ -58,14 +52,14 @@ export class SlideStorage extends EventDispatcher {
 			let openReq = indexedDB.open(SlideStorage.DBNAME);
 			openReq.onupgradeneeded = (e: any) => {
 				this.db = e.target.result;
-				this.db.createObjectStore("slideTitles", { keyPath: "id", autoIncrement: true });
-				this.db.createObjectStore("slideData", { keyPath: "title" });
+				this.db!.createObjectStore("slideTitles", { keyPath: "id", autoIncrement: true });
+				this.db!.createObjectStore("slideData", { keyPath: "title" });
 			}
 			openReq.onsuccess = (e: any) => {
 				this.db = e.target.result;
-				this.dbVersion = this.db.version;
+				this.dbVersion = this.db!.version;
 
-				let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+				let transaction = this.db!.transaction(["slideTitles", "slideData"], "readwrite");
 
 				this.titleStore = transaction.objectStore("slideTitles");
 				this.dataStore = transaction.objectStore("slideData");
@@ -100,12 +94,12 @@ export class SlideStorage extends EventDispatcher {
 		let jsonStr: string = this.stringifyData(doc);
 
 		//
-		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		let transaction = this.db!.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
 		// let verify = async (title) => {
-		// 	let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		// 	let transaction = this.db!.transaction(["slideTitles", "slideData"], "readwrite");
 		// 	this.dataStore = transaction.objectStore("slideData");
 		// 	let getReq = this.dataStore.get(title);
 		// 	getReq.onsuccess = async (e: any) => {
@@ -134,14 +128,13 @@ export class SlideStorage extends EventDispatcher {
 			this.updateTitleMenu();
 		}
 	}
-
-	public export(doc: ViewerDocument, type: HVDataType, options?: any) {
+	public export(doc: ViewerDocument, type: DataType, options?: any) {
 		let jsonStr: string = this.stringifyData(doc);
 
 		//
 
 		switch (type) {
-			case HVDataType.PNG:
+			case DataType.PNG:
 				let pages: number[] = options ? (options.pages || []) : [];
 				let thumbPng = new SlideToPNGConverter().convert(doc, pages, false);
 				var zip = new JSZip();
@@ -153,11 +146,11 @@ export class SlideStorage extends EventDispatcher {
 						});
 					});
 				break;
-			case HVDataType.HVD:
+			case DataType.HVD:
 				let blob = new Blob([jsonStr], { type: "text/plain" });
 				DataUtil.downloadBlob(blob, doc.title + ".hvd");
 				break;
-			case HVDataType.HVZ:
+			case DataType.HVZ:
 				var zip = new JSZip();
 				zip.file(doc.title + ".hvd", jsonStr);
 				zip.generateAsync({ type: "blob", compression: "DEFLATE" })
@@ -169,12 +162,12 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 
-	public load(id: string) {
+	public load(id: number) {
 		let title = this.titleById[id];
 		if (!title) return;
 
 		console.log("load at slideStorage", id, title)
-		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		let transaction = this.db!.transaction(["slideTitles", "slideData"], "readwrite");
 		this.dataStore = transaction.objectStore("slideData");
 		let getReq = this.dataStore.get(title);
 		getReq.onsuccess = async (e: any) => {
@@ -206,7 +199,7 @@ export class SlideStorage extends EventDispatcher {
 				let zip = new JSZip();
 				await zip.loadAsync(u8a);
 
-				let obj = await zip.file("data.hvd").async("uint8array");
+				let obj = await zip.file("data.hvd")!.async("uint8array");
 				let jsonStr: string = new TextDecoder().decode(obj);
 				if (!jsonStr) {
 					alert("not data png file.");
@@ -244,10 +237,10 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 
-	public delete(id: string) {
+	public delete(id: number) {
 		let title: string = this.titleById[id];
 
-		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
+		let transaction = this.db!.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
@@ -462,7 +455,7 @@ export class SlideStorage extends EventDispatcher {
 		this.titleById = {};
 		this.idByTitle = {};
 
-		this.titleStore.openCursor().onsuccess = (event) => {
+		this.titleStore!.openCursor().onsuccess = (event) => {
 			let cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
 			if (cursor) {
 				let id = parseInt(cursor.value.id);
