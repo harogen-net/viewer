@@ -12,6 +12,9 @@ export class ImageLayer extends Layer {
 		super(transform, id);
 		this._type = LayerType.IMAGE;
 		var props = ImageManager.shared.getImagePropsById(_imageId);
+		if (!props) {
+			throw new Error("invalid imageId:" + _imageId);
+		}
 		this._originWidth = props.width;
 		this._originHeight = props.height;
 		this._name = props.name;
@@ -45,8 +48,11 @@ export class ImageLayer extends Layer {
 	//
 	public get imageId(): string { return this._imageId; }
 	public set imageId(value: string) {
+		var data = ImageManager.shared.getImageById(value);
+		if (!data) {
+			throw new Error("invalid imageId:" + value);
+		}
 		this._imageId = value;
-		var data = ImageManager.shared.getImageById(this._imageId);
 		this._originWidth = data.width;
 		this._originHeight = data.height;
 		this._name = data.name;

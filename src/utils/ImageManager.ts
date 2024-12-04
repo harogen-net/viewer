@@ -107,6 +107,8 @@ export class ImageManager {
 		var targets: { slide: Slide, layer: Layer, index: number }[] = [];
 		ViewerDocument.shared.allLayers.forEach((layer) => {
 			if (layer.type == LayerType.IMAGE && (layer as ImageLayer).imageId == id) {
+				if (!layer.parent) return;
+
 				if (layer.shared) layer.shared = false;
 				targets.push({
 					slide: layer.parent,
@@ -140,9 +142,9 @@ export class ImageManager {
 		}
 	}
 
-	public getImageById(id: string): { width: number, height: number, name: string, imgObj: any } | null {
+	public getImageById(id: string): { width: number, height: number, name: string, imgObj: any } | undefined {
 		var imgObjData = this._imageById[id];
-		if (imgObjData == undefined) return null;
+		if (imgObjData == undefined) return undefined;
 
 		return {
 			width: imgObjData.width,
@@ -151,9 +153,9 @@ export class ImageManager {
 			imgObj: imgObjData.imgObj.clone()
 		}
 	}
-	public getImagePropsById(id: string): { width: number, height: number, name: string } | null {
+	public getImagePropsById(id: string): { width: number, height: number, name: string } | undefined {
 		var imgObjData = this._imageById[id];
-		if (imgObjData == undefined) return null;
+		if (imgObjData == undefined) return undefined;
 
 		return {
 			width: imgObjData.width,
@@ -162,24 +164,15 @@ export class ImageManager {
 		}
 	}
 
-	public getSrcById(id: string): string | null {
+	public getSrcById(id: string): string | undefined {
 		var imgObjData = this._imageById[id];
-		if (imgObjData == undefined) return null;
+		if (imgObjData == undefined) return undefined;
 		return (imgObjData.imgObj[0] as HTMLImageElement).src;
 	}
 
-	public getImageElementById(id: string): HTMLImageElement | null {
+	public getImageElementById(id: string): HTMLImageElement | undefined {
 		var imgObjData = this._imageById[id];
-		if (imgObjData == undefined) return null;
+		if (imgObjData == undefined) return undefined;
 		return imgObjData.imgObj[0] as HTMLImageElement;
 	}
-
-
-
-
-
-
-
-
-
 }

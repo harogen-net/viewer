@@ -37,6 +37,7 @@
     "@types/jqueryui": "^1.12.22",
     "@types/node": "^18.13.0",
     "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react-swc": "^3.7.2",
     "sass": "^1.77.2",
     "tailwindcss": "^3.4.4",

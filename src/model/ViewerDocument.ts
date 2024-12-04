@@ -9,7 +9,7 @@ import $ from "jquery";
 
 export class ViewerDocument {
 
-	public static shared?: ViewerDocument = undefined;
+	public static shared: ViewerDocument;
 
 	private readonly BG_COLOR_INIT: string = "#FFFFFF";
 

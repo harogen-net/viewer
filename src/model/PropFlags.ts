@@ -43,11 +43,12 @@ enum PropFlags {	//52個まで設定可能？
 
 	ALL				= (2**27-1)
 }
+
 namespace PropFlags {
-	export const toBitIndexes = (flag: PropFlags):string[] => {
-		var ret = [];
-		flag.toString(2).split("").reverse().forEach((bit, index)=>{
-			if(bit == "1") {
+	export const toBitIndexes = (flag: PropFlags): number[] => {
+		var ret: number[] = [];
+		flag.toString(2).split("").reverse().forEach((bit, index) => {
+			if (bit == "1") {
 				ret.push(index);
 			}
 		});

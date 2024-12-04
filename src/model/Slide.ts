@@ -110,7 +110,7 @@ export class Slide extends EventDispatcher {
 			this._layers.splice(this._layers.indexOf(layer), 1);
 			//note:layer自身に設定する重要な部分
 			{
-				layer.parent = null;
+				layer.parent = undefined;
 				layer.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 			}
 
@@ -192,7 +192,7 @@ export class Slide extends EventDispatcher {
 		var toIndex: number = fromIndex + indexDef;
 		if (toIndex < 0) toIndex = 0;
 		if (toIndex > this._layers.length - 1) toIndex = this._layers.length - 1;
-		if (fromIndex == toIndex) return;
+		if (fromIndex == toIndex) return layer;
 		this.addLayer(layer, toIndex);
 		return layer;
 	}

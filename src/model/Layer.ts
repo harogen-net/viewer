@@ -46,7 +46,7 @@ export class Layer extends EventDispatcher {
 	protected _opacity: number = this.OPACITY;
 	protected _shared: boolean = this.SHARED;
 
-	protected _parent: Slide;
+	protected _parent?: Slide;
 
 	//
 
@@ -247,7 +247,7 @@ export class Layer extends EventDispatcher {
 	public get bounds(): { width: number, height: number } {
 		var cos = Math.cos(this.radian);
 		var sin = Math.sin(this.radian);
-		var rotate = (x, y): { x: number, y: number } => {
+		var rotate = (x: number, y: number): { x: number, y: number } => {
 			var nx = (cos * (x)) - (sin * (y));
 			var ny = (cos * (y)) + (sin * (x));
 			return { x: nx, y: ny };
@@ -312,10 +312,9 @@ export class Layer extends EventDispatcher {
 		return [matrix.values[0], matrix.values[1], matrix.values[4], matrix.values[5], matrix.values[12], matrix.values[13]];
 	}
 
-	public set parent(value: Slide) {
-		//	if(value != null && this._parent != null) throw new Error("");
+	public set parent(value: Slide | undefined) {
 		this._parent = value;
 	}
-	public get parent(): Slide { return this._parent; }
+	public get parent(): Slide | undefined { return this._parent; }
 
 }
