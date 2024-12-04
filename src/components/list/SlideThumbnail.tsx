@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { Slide } from "../../model/Slide";
 import { CanvasSlideView } from "../slide/CanvasSlideView";
-import { useDebounce } from "use-debounce";
 import { useExtendableTimeout } from "../../hooks/useExtendableTimer";
-import { set } from "rsuite/esm/internals/utils/date";
-import { PropertyEvent } from "../../events/PropertyEvent";
+import classNames from "classnames";
 
 export const SlideThumbnail: React.FC<{
   slide: Slide;
+  updateSlide: (id: string, updatedSlide: Partial<Slide>) => void;
   mode: "view" | "edit";
+  scale: number;
+  onSelect: (slide: Slide) => void;
   onEdit: (slide: Slide) => void;
   onDelete: (slide: Slide) => void;
   onClone: (slide: Slide) => void;
   onContextMenu: (slide: Slide, x: number, y: number) => void;
-}> = ({ slide, mode, onEdit, onDelete, onClone, onContextMenu }) => {
-  const [slideState, setSlideState] = useState(slide);
+}> = ({ slide, updateSlide, mode, scale, onSelect, onEdit, onDelete, onClone, onContextMenu }) => {
   const [dblClickLock, setDblClickLock] = useState(false);
   const [setTimeout] = useExtendableTimeout();
 
@@ -35,36 +35,48 @@ export const SlideThumbnail: React.FC<{
   const durationHandler = (direction: boolean) => {
     lockDoubleClick();
 
+    let nextDuration = slide.durationRatio;
     if (direction) {
       if (slide.durationRatio > 0.2) {
         if (slide.durationRatio > 2) {
-          slide.durationRatio -= 1;
+          nextDuration -= 1;
         } else if (slide.durationRatio > 1) {
-          slide.durationRatio -= 0.5;
+          nextDuration -= 0.5;
         } else {
-          slide.durationRatio -= 0.2;
+          nextDuration -= 0.2;
         }
       }
     } else {
       if (slide.durationRatio < 9) {
         if (slide.durationRatio >= 2) {
-          slide.durationRatio += 1;
+          nextDuration += 1;
         } else if (slide.durationRatio >= 1) {
-          slide.durationRatio += 0.5;
+          nextDuration += 0.5;
         } else {
-          slide.durationRatio += 0.2;
+          nextDuration += 0.2;
         }
       }
     }
+
+    updateSlide(slide.uuid, { durationRatio: nextDuration });
   };
+
+  var durationCorrection: number = Math.atan(slide.durationRatio - 1) * 0.5 + 1;
+  if (slide.durationRatio < 1) {
+    durationCorrection = Math.pow(slide.durationRatio, 0.4);
+  }
+  var fitWidth = Math.round(scale * slide.width * durationCorrection);
 
   return (
     <div
+      onClick={() => onSelect(slide)}
       onDoubleClick={doubleClickHandler}
       onContextMenu={(e) => {
         e.preventDefault();
         onContextMenu(slide, e.clientX, e.clientY);
       }}
+      style={{ width: fitWidth }}
+      className={classNames(slide.disabled ? "disabled" : "", slide.joining ? "joining" : "")}
     >
       {mode === "edit" && (
         <>
@@ -93,10 +105,19 @@ export const SlideThumbnail: React.FC<{
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          slide.joining = !slide.joining;
+
+          updateSlide(slide.uuid, { joining: !slide.joining });
         }}
       ></div>
-      <CanvasSlideView slide={slide} scale={0.5} />
+      <input
+        className="enableCheck"
+        type="checkbox"
+        checked={!slide.disabled}
+        onChange={() => {
+          updateSlide(slide.uuid, { disabled: !slide.disabled });
+        }}
+      />
+      <CanvasSlideView slide={slide} scale={scale} />
     </div>
   );
 };
