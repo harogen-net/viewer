@@ -9,36 +9,36 @@ import $ from "jquery";
 
 export class ViewerDocument {
 
-	public static shared: ViewerDocument = null;
+	public static shared?: ViewerDocument = undefined;
 
 	private readonly BG_COLOR_INIT: string = "#FFFFFF";
 
 	public slides: Slide[];
 
-	public duration: number | undefined;
-	public interval: number | undefined;
+	public duration: number;
+	public interval: number;
 
-	public width: number | undefined;
-	public height: number | undefined;
+	public width: number;
+	public height: number;
 
 	public title: string;
 	public createTime: number;
 	public editTime: number;
-	public isSensitive: boolean;
+	public isSensitive: boolean = false;
 
-	private _bgColor: string | undefined;
+	private _bgColor: string = this.BG_COLOR_INIT;
 
 
 	constructor(slides?: Slide[], options?: any) {
 		console.log("const at vdoc", slides, options);
 		this.slides = slides || [];
 
-		var bgColor: string | undefined = this.BG_COLOR_INIT;
-		var createTime: number | undefined = new Date().getTime();
-		var editTime: number | undefined = createTime;
-		var title: string | undefined = DateUtil.getDateString();
-		var width: number | undefined = Viewer.SCREEN_WIDTH;
-		var height: number | undefined = Viewer.SCREEN_HEIGHT;
+		var bgColor: string = this.BG_COLOR_INIT;
+		var createTime: number = new Date().getTime();
+		var editTime: number = createTime;
+		var title: string = DateUtil.getDateString();
+		var width: number = Viewer.SCREEN_WIDTH;
+		var height: number = Viewer.SCREEN_HEIGHT;
 
 		if (options) {
 			if (options.bgColor) bgColor = options.bgColor;
@@ -54,6 +54,9 @@ export class ViewerDocument {
 		this.title = title;
 		this.width = width;
 		this.height = height;
+
+		this.duration = 0;
+		this.interval = 0;
 
 		ViewerDocument.shared = this;
 	}
@@ -74,14 +77,13 @@ export class ViewerDocument {
 	public getNextSlide(slide: Slide): Slide | null {
 		return this.getSlideByOffset(slide, 1);
 	}
-	//FileIO
-	public downloadImage(targetIndex: number = -1) {
-		var isTransparent = $("#saveImageAsTransparent").prop("checked")
-		if (targetIndex != -1) {
-			if (this.slides[targetIndex] != undefined) {
-				var slide = this.slides[targetIndex];
+
+	public downloadImage(slideIndex: number = -1, isTransparent?: boolean) {
+		if (slideIndex != -1) {
+			if (this.slides[slideIndex] != undefined) {
+				var slide = this.slides[slideIndex];
 				var canvas: HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(slide, slide.width, slide.height, 1, isTransparent ? undefined : this.bgColor);
-				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()), this.title + "_" + (targetIndex + 1) + ".png");
+				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()), this.title + "_" + (slideIndex + 1) + ".png");
 			} else {
 				throw new Error("invalid index.");
 			}
@@ -108,10 +110,11 @@ export class ViewerDocument {
 	//
 	// get set
 	//
-	public set bgColor(value: string | undefined) {
+	public set bgColor(value: string) {
 		this._bgColor = value;
-		document.documentElement.style.setProperty("--slideBackgroundColor", this._bgColor || this.BG_COLOR_INIT);
-		$("#bgColor").val(this._bgColor || this.BG_COLOR_INIT);
+
+		document.documentElement.style.setProperty("--slideBackgroundColor", this._bgColor);
+		$("#bgColor").val(this._bgColor);
 	}
 	public get bgColor(): string { return this._bgColor; }
 
