@@ -2,9 +2,9 @@ import '@fortawesome/fontawesome-free/css/all.css';
 import $ from "jquery";
 import 'jquery-ui-dist/jquery-ui';
 import { Viewer, ViewerStartUpMode } from "./Viewer";
-
-import '../css/ui.scss';
-import '../css/slideShow.scss';
+import './css/ui.scss';
+import './css/slideShow.scss';
+import "./css/tailwind.css";
 
 $(function () {
 	console.log("init");
@@ -18,5 +18,5 @@ $(function () {
 
 function isIOS() {
 	return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window["MSStream"];
+	// return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window["MSStream"];
 }

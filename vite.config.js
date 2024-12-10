@@ -1,49 +1,38 @@
-// vite.config.js
-import { defineConfig } from "vite";
-import inject from "@rollup/plugin-inject";
-import { VitePWA } from "vite-plugin-pwa";
-import react from "@vitejs/plugin-react-swc";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import { VitePWA } from 'vite-plugin-pwa';
+import inject from '@rollup/plugin-inject';
 
 export default defineConfig({
-  base: "./",
+  base: './',
   build: {
-    outDir: "dist", // ビルドの出力ディレクトリ
+    outDir: 'dist',
   },
   plugins: [
     react(),
     VitePWA({
-      injectRegister: "auto",
+      injectRegister: 'auto',
       manifest: {
-        name: "Viewer",
-        short_name: "Viewer",
-        theme_color: "#ffffff",
-        background_color: "#ffffff",
-        start_url: "/",
-        display: "fullscreen",
-        orientation: "landscape",
-        lang: "ja",
+        name: 'Viewer',
+        short_name: 'Viewer',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        start_url: '/',
+        display: 'fullscreen',
+        orientation: 'landscape',
+        lang: 'ja',
         icons: [
           {
-            src: "/icon-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
+            src: '/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
           },
         ],
       },
     }),
     inject({
-      $: "jquery",
-      jQuery: "jquery",
+      $: 'jquery',
+      jQuery: 'jquery',
     }),
-    {
-      name: "remove-crossorigin",
-      transformIndexHtml(html) {
-        return html.replaceAll("crossorigin ", "").replace(`type="module" `, "");
-      },
-    },
   ],
-  server: {
-    port: 5173,
-    host: true,
-  },
 });

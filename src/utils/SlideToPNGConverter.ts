@@ -2,7 +2,7 @@ import { ViewerDocument } from "../model/ViewerDocument";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageManager } from "./ImageManager";
-import { Slide } from "../model/Slide";
+import { RSlide, Slide } from "../model/Slide";
 import * as StackBlur from 'stackblur-canvas';
 
 enum SlidePNGTileType {
@@ -41,7 +41,7 @@ export class SlideToPNGConverter {
 		slides = slides.sort(slideSortFunc);
 
 		while(pages.length < type && slides.length > 0){
-			pages.push(doc.slides.indexOf(slides.shift()));
+			pages.push(doc.slides.indexOf(slides.shift()!));
 		}
 
 		var canvas:HTMLCanvasElement = this.slide2canvas(doc.slides[pages[0]], width, height, 1, doc.bgColor);
@@ -59,8 +59,8 @@ export class SlideToPNGConverter {
 		return canvas;
 	}
 
-	public drawSlide2Canvas(slide:Slide, canvas:HTMLCanvasElement, slideScale?:number, bgColor?:string) {
-		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
+	public drawSlide2Canvas(slide:Slide | RSlide, canvas:HTMLCanvasElement, slideScale?:number, bgColor?:string) {
+		var ctx:CanvasRenderingContext2D = canvas.getContext("2d")!;
 		ctx.resetTransform();
 
 		if(bgColor){
@@ -97,23 +97,26 @@ export class SlideToPNGConverter {
 			//１：最初に画像のサイズの半分だけ動かし、画像の中心を原点に合わせる
 			ctx.translate(-image.originWidth  / 2, -image.originHeight / 2);
 
+			console.log(image);
 			ctx.globalAlpha = image.opacity;
 			//ctx.drawImage(image.imageElement, 0, 0);
-			var element = ImageManager.shared.getImageElementById(image.imageId);
+			var element = ImageManager.shared.getImageElementById(image.imageId)!;
 			//if(image.isClipped){
 				ctx.drawImage(
 					element,
 					image.clipRect[3],
 					image.clipRect[0],
-					image.clipedWidth,
-					image.clipedHeight,
+					image.originWidth - (image.clipRect[1] + image.clipRect[3]),
+					image.originHeight - (image.clipRect[2] + image.clipRect[0]),
+					// image.clipedWidth,
+					// image.clipedHeight,
 					image.clipRect[3],
 					image.clipRect[0],
-					image.clipedWidth,
-					image.clipedHeight
+					image.originWidth - (image.clipRect[1] + image.clipRect[3]),
+					image.originHeight - (image.clipRect[2] + image.clipRect[0]),
 				);
 			//}else{
-			//	ctx.drawImage(element, 0,0);
+				// ctx.drawImage(element, 0,0);
 			//}
 		});
 	}

@@ -1,5 +1,5 @@
 import { EventDispatcher } from "../events/EventDispatcher";
-import { Layer } from "./Layer";
+import { Layer, RLayer } from "./Layer";
 import { ViewerDocument } from "./ViewerDocument";
 import { Viewer } from "../Viewer";
 import { PropertyEvent } from "../events/PropertyEvent";
@@ -12,6 +12,134 @@ export enum Direction {
 	RIGHT,
 	BOTTOM,
 	LEFT
+}
+
+export interface RSlide {
+	uuid: string;
+	id: number;
+	width: number;
+	height: number;
+	centerX: number;
+	centerY: number;
+
+	durationRatio: number;
+	joining: boolean;
+	disabled: boolean;
+
+	layers: RLayer[];
+}
+
+export namespace RSlide {
+	export const create = (width: number, height: number, layers: RLayer[]): RSlide => {
+		return {
+			uuid: uuidv4(),
+			id: Math.floor(Math.random() * 90000) + 10000,
+			width: width,
+			height: height,
+			centerX: width >> 1,
+			centerY: height >> 1,
+			durationRatio: 1,
+			joining: false,
+			disabled: false,
+			
+			layers: layers
+		};
+	}
+
+	export const fromSlide = (slide: Slide): RSlide => {
+		return {
+			uuid: slide.uuid,
+			id: slide.id,
+			width: slide.width,
+			height: slide.height,
+			centerX: slide.centerX,
+			centerY: slide.centerY,
+			durationRatio: slide.durationRatio,
+			joining: slide.joining,
+			disabled: slide.disabled,
+			layers: slide.layers.map(layer => {
+				return RLayer.fromLayer(layer);
+			})
+		};
+	}
+
+	// export const addLayer = (slide: RSlide, layer: Layer, index: number = -1): RSlide => {
+	// 	if (!layer) return slide;
+	// 	if (index != -1) {
+	// 		if (index > slide.layers.length - (slide.layers.indexOf(layer) != -1 ? 1 : 0)) {
+	// 			//throw new Error("invalid index.");
+	// 			//index値上限を指定した場合は後ろに追加にする
+	// 			index = -1;
+	// 		}
+	// 	}
+	// 	if (slide.layers.length >= Slide.LAYER_NUM_MAX - (slide.layers.indexOf(layer) != -1 ? 1 : 0)) {
+	// 		throw new Error("exceeds max layer num.");
+	// 	}
+	// 	var fromIndex: number = slide.layers.indexOf(layer);
+	// 	var isAdd = (fromIndex == -1);
+	// 	if (!isAdd) {
+	// 		slide.layers.splice(slide.layers.indexOf(layer), 1);
+	// 	}
+	// 	if (index == -1) {
+	// 		slide.layers.push(layer);
+	// 	} else {
+	// 		slide.layers.splice(index, 0, layer);
+	// 	}
+	// 	return slide;
+	// }
+
+	// export const removeLayer = (slide: RSlide, layer: Layer): RSlide => {
+	// 	if (!layer) return slide;
+	// 	if (slide.layers.indexOf(layer) != -1) {
+	// 		slide.layers.splice(slide.layers.indexOf(layer), 1);
+	// 	}
+	// 	return slide;
+	// }
+
+	export const indexOf = (slide: RSlide, layer: Layer): number => {
+		return slide.layers.indexOf(layer);
+	}
+
+	export const contains = (slide: RSlide, layer: Layer): boolean => {
+		if (!layer) return false;
+		return slide.layers.indexOf(layer) != -1;
+	}
+
+	// export const removeAllLayers = (slide: RSlide): RSlide => {
+	// 	slide.layers = [];
+	// 	return slide;
+	// }
+
+	export const getFitLayerSize = (slide: RSlide, layer: Layer): { scale: number, x: number, y: number } => {
+		if (slide.layers.indexOf(layer) == -1) return { scale: layer.scale, x: layer.x, y: layer.y };
+		if (layer.originWidth == 0 || layer.originHeight == 0) {
+			return { scale: layer.scale, x: layer.x, y: layer.y };
+		}
+		var scaleX, scaleY;
+		if (layer.rotation == 90 || layer.rotation == -90) {
+			scaleX = slide.width / layer.originHeight;
+			scaleY = slide.height / layer.originWidth;
+		} else {
+			scaleX = slide.width / layer.originWidth;
+			scaleY = slide.height / layer.originHeight;
+		}
+		var scale1: number = Math.min(scaleX, scaleY);
+		var scale2: number = Math.max(scaleX, scaleY);
+		if (layer.x == slide.centerX && layer.y == slide.centerY) {
+			var compRatio: number = Math.pow(10, 10);
+			if (Math.round(layer.scale * compRatio) == Math.round(scale1 * compRatio)) {
+				layer.scale = scale2;
+			} else {
+				layer.scale = scale1;
+			}
+		} else {
+			layer.scale = scale1;
+			layer.x = slide.centerX;
+			layer.y = slide.centerY;
+		}
+
+		return { scale: layer.scale, x: layer.x, y: layer.y };
+	}
 }
 
 

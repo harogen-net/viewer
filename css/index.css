@@ -5,6 +5,12 @@
 	--slideHeight:1080px;*/
   --textGlowColor: black;
 }
+#menu {
+	height:80px;
+}
+#main {
+	height:calc(100% - 80px);
+}
 
 body,
 html {

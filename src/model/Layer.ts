@@ -4,6 +4,7 @@ import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "./PropFlags";
 import { v4 as uuidv4 } from 'uuid';
 import { Matrix4 } from "matrixgl";
+import { ImageLayer, RImageLayer } from "./layer/ImageLayer";
 
 export enum LayerType {
 	LAYER = "layer",
@@ -12,6 +13,106 @@ export enum LayerType {
 	SHAPE = "shape"
 }
 
+export interface RLayer {
+	type: RLayer.LayerType;
+	id: number;
+	uuid: string;
+	name: string;
+
+	originWidth: number;
+	originHeight: number;
+
+	transX: number;
+	transY: number;
+	scaleX: number;
+	scaleY: number;
+	rotation: number;
+	opacity: number;
+
+	visible: boolean;
+	mirrorH: boolean;
+	mirrorV: boolean;
+	shared: boolean;
+	locked: boolean;
+
+	x: number;
+	y: number
+}
+
+export namespace RLayer {
+	export enum LayerType {
+		LAYER = "layer",
+		IMAGE = "image",
+		TEXT = "text",
+		SHAPE = "shape"
+	}
+
+	export interface RLayerTransform {
+		offsetX: number;
+		offsetY: number;
+		scaleX: number;
+		scaleY: number;
+		rotation: number;
+
+		mirrorH: boolean;
+		mirrorV: boolean;
+	}
+
+	export const transform2matrix = (transform: RLayerTransform): number[] => {
+		var matrix = Matrix4.identity().translate(transform.offsetX, transform.offsetY, 0).rotateZ(transform.rotation * Math.PI / 180).scale(transform.scaleX * (transform.mirrorH ? -1 : 1), transform.scaleY * (transform.mirrorV ? -1 : 1), 1);
+		return [matrix.values[0], matrix.values[1], matrix.values[4], matrix.values[5], matrix.values[12], matrix.values[13]];
+	}
+
+	export const fromLayer = (layer: Layer): RLayer | RImageLayer => {
+		if (layer.type == LayerType.IMAGE) {
+			return {
+				type: layer.type,
+				id: layer.id,
+				uuid: layer.uuid,
+				name: layer.name,
+				originWidth: layer.originWidth,
+				originHeight: layer.originHeight,
+				transX: layer.transX,
+				transY: layer.transY,
+				scaleX: layer.scaleX,
+				scaleY: layer.scaleY,
+				rotation: layer.rotation,
+				opacity: layer.opacity,
+				visible: layer.visible,
+				mirrorH: layer.mirrorH,
+				mirrorV: layer.mirrorV,
+				shared: layer.shared,
+				locked: layer.locked,
+				x: layer.x,
+				y: layer.y,
+				imageId: (layer as ImageLayer).imageId,
+				clipRect: (layer as ImageLayer).clipRect,
+				isText: (layer as ImageLayer).isText
+			};
+		}
+		return {
+			type: layer.type,
+			id: layer.id,
+			uuid: layer.uuid,
+			name: layer.name,
+			originWidth: layer.originWidth,
+			originHeight: layer.originHeight,
+			transX: layer.transX,
+			transY: layer.transY,
+			scaleX: layer.scaleX,
+			scaleY: layer.scaleY,
+			rotation: layer.rotation,
+			opacity: layer.opacity,
+			visible: layer.visible,
+			mirrorH: layer.mirrorH,
+			mirrorV: layer.mirrorV,
+			shared: layer.shared,
+			locked: layer.locked,
+			x: layer.x,
+			y: layer.y
+		};
+	}
+}
 
 export class Layer extends EventDispatcher {
 
@@ -34,7 +135,6 @@ export class Layer extends EventDispatcher {
 
 	protected _scaleX_min: number = 0.1;
 	protected _scaleY_min: number = 0.1;
-
 
 	private readonly LOCKED: boolean = false;
 	private readonly VISIBLE: boolean = true;
@@ -74,11 +174,13 @@ export class Layer extends EventDispatcher {
 		this._transY = y - (this._originHeight / 2);
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.X | PropFlags.Y));
 	}
+
 	public moveBy(x: number, y: number): void {
 		this._transX += x;
 		this._transY += y;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.X | PropFlags.Y));
 	}
+
 	public scaleBy(scaleX: number, scaleY: number = NaN): void {
 		this._scaleX *= scaleX;
 		if (isNaN(scaleY)) {
@@ -88,6 +190,7 @@ export class Layer extends EventDispatcher {
 		}
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_X | PropFlags.SCALE_Y));
 	}
+	
 	public rotateBy(degree: number): void {
 		this._rotation += degree;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ROTATION));

@@ -1,7 +1,14 @@
-import { Layer, LayerType } from "../Layer";
+import { Layer, LayerType, RLayer } from "../Layer";
 import { ImageManager } from "../../utils/ImageManager";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../PropFlags";
+
+
+export interface RImageLayer extends RLayer {
+	imageId: string;
+	clipRect: number[];
+	isText: boolean;
+}
 
 export class ImageLayer extends Layer {
 
