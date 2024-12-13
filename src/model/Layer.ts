@@ -69,19 +69,27 @@ export namespace RLayer {
 	};
 
 	export const create = (transform?: RLayer.RLayerTransform, id?: number): RLayer => {
-		let layer = {
-			id: id,
-		} as RImageLayer;
-
-		if (transform) {
-			layer.transX = transform.offsetX;
-			layer.transY = transform.offsetY;
-			layer.scaleX = transform.scaleX;
-			layer.scaleY = transform.scaleY;
-			layer.rotation = transform.rotation;
-			layer.mirrorH = transform.mirrorH;
-			layer.mirrorV = transform.mirrorV;
-		}
+		const layer: RLayer = {
+			type: LayerType.LAYER,	//override me
+			id: id ?? Math.floor(Math.random() * 10000000),
+			uuid: uuidv4(),
+			name: "",
+			originWidth: 0,
+			originHeight: 0,
+			transX: transform?.offsetX ?? 0,
+			transY: transform?.offsetY ?? 0,
+			scaleX: transform?.scaleX ?? 1,
+			scaleY: transform?.scaleY ?? 1,
+			rotation: transform?.rotation ?? 0,
+			opacity: 1,
+			visible: true,
+			mirrorH: transform?.mirrorH ?? false,
+			mirrorV: transform?.mirrorV ?? false,
+			shared: false,
+			locked: false,
+			x: 0,
+			y: 0,
+		};
 
 		return layer;
 	}
@@ -91,55 +99,55 @@ export namespace RLayer {
 		return [matrix.values[0], matrix.values[1], matrix.values[4], matrix.values[5], matrix.values[12], matrix.values[13]];
 	}
 
-	export const fromLayer = (layer: Layer): RLayer | RImageLayer => {
-		if (layer.type == LayerType.IMAGE) {
-			return {
-				type: layer.type,
-				id: layer.id,
-				uuid: layer.uuid,
-				name: layer.name,
-				originWidth: layer.originWidth,
-				originHeight: layer.originHeight,
-				transX: layer.transX,
-				transY: layer.transY,
-				scaleX: layer.scaleX,
-				scaleY: layer.scaleY,
-				rotation: layer.rotation,
-				opacity: layer.opacity,
-				visible: layer.visible,
-				mirrorH: layer.mirrorH,
-				mirrorV: layer.mirrorV,
-				shared: layer.shared,
-				locked: layer.locked,
-				x: layer.x,
-				y: layer.y,
-				imageId: (layer as ImageLayer).imageId,
-				clipRect: (layer as ImageLayer).clipRect,
-				isText: (layer as ImageLayer).isText
-			};
-		}
-		return {
-			type: layer.type,
-			id: layer.id,
-			uuid: layer.uuid,
-			name: layer.name,
-			originWidth: layer.originWidth,
-			originHeight: layer.originHeight,
-			transX: layer.transX,
-			transY: layer.transY,
-			scaleX: layer.scaleX,
-			scaleY: layer.scaleY,
-			rotation: layer.rotation,
-			opacity: layer.opacity,
-			visible: layer.visible,
-			mirrorH: layer.mirrorH,
-			mirrorV: layer.mirrorV,
-			shared: layer.shared,
-			locked: layer.locked,
-			x: layer.x,
-			y: layer.y
-		};
-	}
+	// export const fromLayer = (layer: Layer): RLayer | RImageLayer => {
+	// 	if (layer.type == LayerType.IMAGE) {
+	// 		return {
+	// 			type: layer.type,
+	// 			id: layer.id,
+	// 			uuid: layer.uuid,
+	// 			name: layer.name,
+	// 			originWidth: layer.originWidth,
+	// 			originHeight: layer.originHeight,
+	// 			transX: layer.transX,
+	// 			transY: layer.transY,
+	// 			scaleX: layer.scaleX,
+	// 			scaleY: layer.scaleY,
+	// 			rotation: layer.rotation,
+	// 			opacity: layer.opacity,
+	// 			visible: layer.visible,
+	// 			mirrorH: layer.mirrorH,
+	// 			mirrorV: layer.mirrorV,
+	// 			shared: layer.shared,
+	// 			locked: layer.locked,
+	// 			x: layer.x,
+	// 			y: layer.y,
+	// 			imageId: (layer as ImageLayer).imageId,
+	// 			clipRect: (layer as ImageLayer).clipRect,
+	// 			isText: (layer as ImageLayer).isText
+	// 		};
+	// 	}
+	// 	return {
+	// 		type: layer.type,
+	// 		id: layer.id,
+	// 		uuid: layer.uuid,
+	// 		name: layer.name,
+	// 		originWidth: layer.originWidth,
+	// 		originHeight: layer.originHeight,
+	// 		transX: layer.transX,
+	// 		transY: layer.transY,
+	// 		scaleX: layer.scaleX,
+	// 		scaleY: layer.scaleY,
+	// 		rotation: layer.rotation,
+	// 		opacity: layer.opacity,
+	// 		visible: layer.visible,
+	// 		mirrorH: layer.mirrorH,
+	// 		mirrorV: layer.mirrorV,
+	// 		shared: layer.shared,
+	// 		locked: layer.locked,
+	// 		x: layer.x,
+	// 		y: layer.y
+	// 	};
+	// }
 }
 
 export class Layer extends EventDispatcher {

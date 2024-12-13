@@ -1,12 +1,14 @@
 import { DateUtil } from "../utils/DateUtil";
 import { Viewer } from "../Viewer";
 import { RSlide, Slide } from "./Slide";
-import { Layer, LayerType } from "./Layer";
+import { Layer, LayerType, RLayer } from "./Layer";
 import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
 import { DataUtil } from "../utils/DataUtil";
 import JSZip from "jszip";
 import $ from "jquery";
-import { RImageLayer } from "./layer/ImageLayer";
+import { ImageLayer, RImageLayer } from "./layer/ImageLayer";
+import { RTextLayer } from "./layer/TextLayer";
+import { text } from "stream/consumers";
 
 
 export type RViewerDocument = {
@@ -62,11 +64,11 @@ export namespace RViewerDocument {
 
 			slideDatum.layers = [];
 			slide.layers.forEach(layer => {
-				slideDatum.layers.push(layer.getData());
+				slideDatum.layers.push(layer);
 				if (layer.type == LayerType.IMAGE) {
-					let imageLayer: ImageLayer = layer as ImageLayer;
+					let imageLayer: RImageLayer = layer as RImageLayer;
 					if (imageData[imageLayer.imageId] == undefined) {
-						imageData[imageLayer.imageId] = ImageManager.shared.getSrcById(imageLayer.imageId);
+						// imageData[imageLayer.imageId] = ImageManager.shared.getSrcById(imageLayer.imageId);
 					}
 				}
 			});
@@ -150,47 +152,35 @@ export namespace RViewerDocument {
 				layers.forEach(layerDatum => {
 					// let percentage = currentStep++ / totalSteps;
 
+					let layer: RLayer;
 					switch (layerDatum.type) {
 						case LayerType.TEXT:
-							let textLayer = {
-								text: layerDatum.text,
-								transX: layerDatum.transX,
-								transY: layerDatum.transY,
-								scaleX: layerDatum.scaleX,
-								scaleY: layerDatum.scaleY,
-								rotation: layerDatum.rotation,
-								mirrorH: layerDatum.mirrorH,
-								mirrorV: layerDatum.mirrorV,
-								opacity: layerDatum.opacity,
-								locked: layerDatum.locked,
-								shared: layerDatum.shared,
-								visible: layerDatum.visible,
-							} as RTextLayer;
-							slide.layers.push(textLayer);
+							layer = RTextLayer.create(layerDatum.text, undefined, layerDatum.id);
 							break;
-						case undefined:	//version < 2.1
 						case LayerType.IMAGE:
-							let img: RImageLayer = {
-								id: layerDatum.id,
-								transX: layerDatum.transX,
-								transY: layerDatum.transY,
-								scaleX: layerDatum.scaleX,
-								scaleY: layerDatum.scaleY,
-								rotation: layerDatum.rotation,
-								mirrorH: layerDatum.mirrorH,
-								mirrorV: layerDatum.mirrorV,
-								opacity: layerDatum.opacity,
-								locked: layerDatum.locked,
-								shared: layerDatum.shared,
-								visible: layerDatum.visible,
+						default:	//version < 2.1はundefinedが入る
+							layer = {
+								...RImageLayer.create(layerDatum.id, undefined, layerDatum.id),
 								clipRect: layerDatum.clipRect,
 								isText: layerDatum.isText,
 								name: layerDatum.name,
 							} as RImageLayer;
-							slide.layers.push(img);
 							break;
 					}
+					layer.transX = layerDatum.transX;
+					layer.transY = layerDatum.transY;
+					layer.scaleX = layerDatum.scaleX;
+					layer.scaleY = layerDatum.scaleY;
+					layer.rotation = layerDatum.rotation;
+					layer.mirrorH = layerDatum.mirrorH;
+					layer.mirrorV = layerDatum.mirrorV;
+					layer.opacity = layerDatum.opacity;
+					layer.locked = layerDatum.locked;
+					layer.shared = layerDatum.shared;
+					layer.visible = layerDatum.visible;
+					slide.layers.push(layer);
 				});
+
 				slides.push(slide);
 			});
 
