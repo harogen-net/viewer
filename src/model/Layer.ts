@@ -40,6 +40,7 @@ export interface RLayer {
 }
 
 export namespace RLayer {
+
 	export enum LayerType {
 		LAYER = "layer",
 		IMAGE = "image",
@@ -56,6 +57,33 @@ export namespace RLayer {
 
 		mirrorH: boolean;
 		mirrorV: boolean;
+	}
+	export const IDENTITY_TRANSFORM: RLayerTransform = {
+		offsetX: 0,
+		offsetY: 0,
+		scaleX: 1,
+		scaleY: 1,
+		rotation: 0,
+		mirrorH: false,
+		mirrorV: false
+	};
+
+	export const create = (transform?: RLayer.RLayerTransform, id?: number): RLayer => {
+		let layer = {
+			id: id,
+		} as RImageLayer;
+
+		if (transform) {
+			layer.transX = transform.offsetX;
+			layer.transY = transform.offsetY;
+			layer.scaleX = transform.scaleX;
+			layer.scaleY = transform.scaleY;
+			layer.rotation = transform.rotation;
+			layer.mirrorH = transform.mirrorH;
+			layer.mirrorV = transform.mirrorV;
+		}
+
+		return layer;
 	}
 
 	export const transform2matrix = (transform: RLayerTransform): number[] => {
@@ -190,7 +218,7 @@ export class Layer extends EventDispatcher {
 		}
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.SCALE_X | PropFlags.SCALE_Y));
 	}
-	
+
 	public rotateBy(degree: number): void {
 		this._rotation += degree;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ROTATION));

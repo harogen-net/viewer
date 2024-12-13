@@ -1,6 +1,27 @@
-import { Layer, LayerType } from "../Layer";
+import { Layer, LayerType, RLayer } from "../Layer";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../PropFlags";
+
+
+export interface RTextLayer extends RLayer {
+	text: string;
+}
+
+export namespace RTextLayer {
+	export const create = (text: string, transform?: RLayer.RLayerTransform, id: number = -1): RTextLayer => {
+		let layer: RTextLayer = {
+			...RLayer.create(transform, id),
+			type: LayerType.TEXT,
+			text: text,
+		}
+
+		return layer;
+	}
+
+	export const plainText = (layer: RTextLayer) => {
+		return layer.text.split("\n").join().split("\r").join();
+	}
+}
 
 
 export class TextLayer extends Layer {

@@ -68,7 +68,7 @@ export const SlideThumbnail: React.FC<{
 				e.preventDefault();
 				onContextMenu(slide, e.clientX, e.clientY);
 			}}>
-			{mode === ViewerMode.EDIT && (
+			{mode === ViewerMode.SELECT && (
 				<>
 					<IconButton
 						icon={<FaTimes />}

@@ -94,63 +94,63 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.selectSlide(slide);
 			});
 
-			this.listContextMenu = $("#listContextMenu");
-			this.listContextMenu.hide();
+			// this.listContextMenu = $("#listContextMenu");
+			// this.listContextMenu.hide();
 
-			this.listContextMenu.find(".unjoin").click(() => {
-				var isAllJoined = this.slides.every((slide) => {
-					return slide.joining;
-				});
-				this.slides.forEach((slide) => {
-					slide.joining = !isAllJoined;
-					slide.durationRatio = 1;
-				});
-			});
-			this.listContextMenu.find(".delete").click(() => {
-				this.slides
-					.filter((slide) => {
-						return slide.disabled;
-					})
-					.forEach((slide) => {
-						this.removeSlide(slide, false);
-					});
-			});
-			this.listContextMenu.find(".enable").click(() => {
-				this.slides.forEach((slide) => {
-					slide.disabled = false;
-				});
-			});
-			this.listContextMenu.find(".disable").click(() => {
-				this.slides.forEach((slide) => {
-					slide.disabled = true;
-				});
-			});
-			this.obj.on("contextmenu.slide", (e: any) => {
-				if (this._slides.length > 0) {
-					this.contextTargetSlide = null;
-					this.onContextMenu(
-						new CustomEvent("contextmenu", { detail: { x: e.clientX, y: e.clientY } })
-					);
-					return false;
-				}
-			});
+			// this.listContextMenu.find(".unjoin").click(() => {
+			// 	var isAllJoined = this.slides.every((slide) => {
+			// 		return slide.joining;
+			// 	});
+			// 	this.slides.forEach((slide) => {
+			// 		slide.joining = !isAllJoined;
+			// 		slide.durationRatio = 1;
+			// 	});
+			// });
+			// this.listContextMenu.find(".delete").click(() => {
+			// 	this.slides
+			// 		.filter((slide) => {
+			// 			return slide.disabled;
+			// 		})
+			// 		.forEach((slide) => {
+			// 			this.removeSlide(slide, false);
+			// 		});
+			// });
+			// this.listContextMenu.find(".enable").click(() => {
+			// 	this.slides.forEach((slide) => {
+			// 		slide.disabled = false;
+			// 	});
+			// });
+			// this.listContextMenu.find(".disable").click(() => {
+			// 	this.slides.forEach((slide) => {
+			// 		slide.disabled = true;
+			// 	});
+			// });
+			// this.obj.on("contextmenu.slide", (e: any) => {
+			// 	if (this._slides.length > 0) {
+			// 		this.contextTargetSlide = null;
+			// 		this.onContextMenu(
+			// 			new CustomEvent("contextmenu", { detail: { x: e.clientX, y: e.clientY } })
+			// 		);
+			// 		return false;
+			// 	}
+			// });
 
-			this.slideContextMenu = $("#slideContextMenu");
-			this.slideContextMenu.hide();
-			this.slideContextMenu.find(".delete").click(() => {
-				if (this.contextTargetSlide == null) return;
-				this.removeSlide(this.contextTargetSlide, false);
-				this.contextTargetSlide = null;
-			});
-			this.slideContextMenu.find(".enable").click(() => {
-				if (this.contextTargetSlide == null) return;
-				this.slides.forEach((slide) => {
-					slide.disabled = true;
-				});
-				this.contextTargetSlide.disabled = false;
-				this.selectSlide(this.contextTargetSlide);
-				this.contextTargetSlide = null;
-			});
+			// this.slideContextMenu = $("#slideContextMenu");
+			// this.slideContextMenu.hide();
+			// this.slideContextMenu.find(".delete").click(() => {
+			// 	if (this.contextTargetSlide == null) return;
+			// 	this.removeSlide(this.contextTargetSlide, false);
+			// 	this.contextTargetSlide = null;
+			// });
+			// this.slideContextMenu.find(".enable").click(() => {
+			// 	if (this.contextTargetSlide == null) return;
+			// 	this.slides.forEach((slide) => {
+			// 		slide.disabled = true;
+			// 	});
+			// 	this.contextTargetSlide.disabled = false;
+			// 	this.selectSlide(this.contextTargetSlide);
+			// 	this.contextTargetSlide = null;
+			// });
 
 			var prevSlideBtn = $(
 				'<button class="selectSlideBtn prev"><i class="fas fa-chevron-left"></i></button>'

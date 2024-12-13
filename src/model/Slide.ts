@@ -30,7 +30,7 @@ export interface RSlide {
 }
 
 export namespace RSlide {
-	export const create = (width: number, height: number, layers: RLayer[]): RSlide => {
+	export const create = (width: number, height: number, layers: RLayer[] = []): RSlide => {
 		return {
 			uuid: uuidv4(),
 			id: Math.floor(Math.random() * 90000) + 10000,
@@ -46,69 +46,14 @@ export namespace RSlide {
 		};
 	}
 
-	export const fromSlide = (slide: Slide): RSlide => {
-		return {
-			uuid: slide.uuid,
-			id: slide.id,
-			width: slide.width,
-			height: slide.height,
-			centerX: slide.centerX,
-			centerY: slide.centerY,
-			durationRatio: slide.durationRatio,
-			joining: slide.joining,
-			disabled: slide.disabled,
-			layers: slide.layers.map(layer => {
-				return RLayer.fromLayer(layer);
-			})
-		};
-	}
-
-	// export const addLayer = (slide: RSlide, layer: Layer, index: number = -1): RSlide => {
-	// 	if (!layer) return slide;
-	// 	if (index != -1) {
-	// 		if (index > slide.layers.length - (slide.layers.indexOf(layer) != -1 ? 1 : 0)) {
-	// 			//throw new Error("invalid index.");
-	// 			//index値上限を指定した場合は後ろに追加にする
-	// 			index = -1;
-	// 		}
-	// 	}
-	// 	if (slide.layers.length >= Slide.LAYER_NUM_MAX - (slide.layers.indexOf(layer) != -1 ? 1 : 0)) {
-	// 		throw new Error("exceeds max layer num.");
-	// 	}
-	// 	var fromIndex: number = slide.layers.indexOf(layer);
-	// 	var isAdd = (fromIndex == -1);
-	// 	if (!isAdd) {
-	// 		slide.layers.splice(slide.layers.indexOf(layer), 1);
-	// 	}
-	// 	if (index == -1) {
-	// 		slide.layers.push(layer);
-	// 	} else {
-	// 		slide.layers.splice(index, 0, layer);
-	// 	}
-	// 	return slide;
-	// }
-
-	// export const removeLayer = (slide: RSlide, layer: Layer): RSlide => {
-	// 	if (!layer) return slide;
-	// 	if (slide.layers.indexOf(layer) != -1) {
-	// 		slide.layers.splice(slide.layers.indexOf(layer), 1);
-	// 	}
-	// 	return slide;
-	// }
-
-	export const indexOf = (slide: RSlide, layer: Layer): number => {
+	export const indexOf = (slide: RSlide, layer: RLayer): number => {
 		return slide.layers.indexOf(layer);
 	}
 
-	export const contains = (slide: RSlide, layer: Layer): boolean => {
+	export const contains = (slide: RSlide, layer: RLayer): boolean => {
 		if (!layer) return false;
 		return slide.layers.indexOf(layer) != -1;
 	}
-
-	// export const removeAllLayers = (slide: RSlide): RSlide => {
-	// 	slide.layers = [];
-	// 	return slide;
-	// }
 
 	export const getFitLayerSize = (slide: RSlide, layer: Layer): { scale: number, x: number, y: number } => {
 		if (slide.layers.indexOf(layer) == -1) return { scale: layer.scale, x: layer.x, y: layer.y };

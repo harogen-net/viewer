@@ -10,12 +10,39 @@ export interface RImageLayer extends RLayer {
 	isText: boolean;
 }
 
+export namespace RImageLayer {
+	export const create = (imageId: string, transform?: RLayer.RLayerTransform, id: number = -1): RImageLayer => {
+		let layer: RImageLayer = {
+			...RLayer.create(transform, id),
+			type: LayerType.IMAGE,
+			imageId: imageId,
+			clipRect: [0, 0, 0, 0],
+			isText: false
+		}
+
+		var props = ImageManager.shared.getImagePropsById(imageId);
+		if (!props) {
+			throw new Error("invalid imageId:" + imageId);
+		}
+		layer.originWidth = props.width;
+		layer.originHeight = props.height;
+		layer.name = props.name;
+
+		return layer;
+	}
+
+	export const clipString = (layer: RImageLayer) => {
+		return layer.clipRect.join(",");
+	}
+}
+
+
 export class ImageLayer extends Layer {
 
 	private _clipRect: number[] = [0, 0, 0, 0];
 	private _isText: boolean = false;
 
-	constructor(private _imageId: string, transform: any = null, id: number = -1) {
+	constructor(private _imageId: string, transform: any = {}, id: number = -1) {
 		super(transform, id);
 		this._type = LayerType.IMAGE;
 		var props = ImageManager.shared.getImagePropsById(_imageId);

@@ -1,11 +1,211 @@
 import { DateUtil } from "../utils/DateUtil";
 import { Viewer } from "../Viewer";
-import { Slide } from "./Slide";
-import { Layer } from "./Layer";
+import { RSlide, Slide } from "./Slide";
+import { Layer, LayerType } from "./Layer";
 import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
 import { DataUtil } from "../utils/DataUtil";
 import JSZip from "jszip";
 import $ from "jquery";
+import { RImageLayer } from "./layer/ImageLayer";
+
+
+export type RViewerDocument = {
+	slides: RSlide[];
+	duration: number;
+	interval: number;
+	width: number;
+	height: number;
+	title: string;
+	createTime: number;
+	editTime: number;
+	isSensitive: boolean;
+	bgColor: string;
+	allLayers: Layer[];
+	disabled: boolean;
+}
+
+export namespace RViewerDocument {
+
+	const VERSION: number = 3;
+
+	export const create = (slides?: RSlide[], options?: any): RViewerDocument => {
+		let vdoc = { slides: slides || [] } as RViewerDocument;
+
+		if (options?.bgColor) vdoc.bgColor = options.bgColor;
+		if (options?.createTime) vdoc.createTime = options.createTime;
+		if (options?.editTime) vdoc.editTime = options.editTime;
+		if (options?.title) vdoc.title = options.title;
+		if (options?.width) vdoc.width = options.width;
+		if (options?.height) vdoc.height = options.height;
+		return vdoc;
+
+	};
+
+	export const stringify = (vdoc: RViewerDocument): string => {
+		let json: any = {};
+		json.version = VERSION;
+		json.screen = { width: vdoc.width, height: vdoc.height };
+
+		if (vdoc.bgColor) json.bgColor = vdoc.bgColor;
+		if (vdoc.createTime) json.createTime = vdoc.createTime;
+		if (vdoc.editTime) json.editTime = vdoc.editTime;
+
+		let slideData: any[] = [];
+		let imageData: any = {};
+
+		vdoc.slides.forEach(slide => {
+			let slideDatum: any = {};
+			slideDatum.id = slide.id;
+			slideDatum.durationRatio = slide.durationRatio;
+			slideDatum.joining = slide.joining;
+			slideDatum.disabled = slide.disabled;
+
+			slideDatum.layers = [];
+			slide.layers.forEach(layer => {
+				slideDatum.layers.push(layer.getData());
+				if (layer.type == LayerType.IMAGE) {
+					let imageLayer: ImageLayer = layer as ImageLayer;
+					if (imageData[imageLayer.imageId] == undefined) {
+						imageData[imageLayer.imageId] = ImageManager.shared.getSrcById(imageLayer.imageId);
+					}
+				}
+			});
+			slideData.push(slideDatum);
+
+			json.slideData = slideData;
+			json.imageData = imageData;
+		});
+
+		let jsonStr: string = JSON.stringify(json);
+
+		//MARK: - debug用トレース
+		delete json.imageData;
+
+		return jsonStr;
+	}
+
+	export const parse = async (jsonStr: string, options?: any): Promise<RViewerDocument> => {
+		let slides: RSlide[] = [];
+		options = options || {};
+
+		let json: any = JSON.parse(jsonStr);
+
+		//ver1
+		if (json.version == 1 || json.version == undefined) {
+			throw new Error("too old version.");
+		}
+
+		//ver2
+		if (json.version >= 2) {
+			let width: number = Viewer.SCREEN_WIDTH;
+			let height: number = Viewer.SCREEN_HEIGHT;
+			if (json.screen) {
+				width = parseInt(json.screen.width) || width;
+				height = parseInt(json.screen.height) || height;
+			}
+			options.width = width;
+			options.height = height;
+
+			//step calcurate
+			let totalSteps = 0;
+			let currentStep = 0;
+
+			let imageIds = Object.keys(json.imageData);
+			let totalImages = imageIds.length;
+			totalSteps += totalImages;
+
+			let totalLayers = json.slideData.reduce((sum: number, slideDatum: any) => {
+				if (json.version >= 2.1) {
+					return sum + slideDatum.layers.length;
+				} else {
+					return sum + slideDatum.images.length;
+				}
+			}, 0)
+			totalSteps += totalLayers;
+
+			//load images
+			// for (let i = 0; i < totalImages; i++) {
+			// 	let percentage = currentStep++ / totalSteps;
+			// 	this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
+
+			// 	let imageId = imageIds[i];
+			// 	await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+			// }
+
+
+			//construct slides
+			json.slideData.forEach((slideDatum: any) => {
+				let slide: RSlide = RSlide.create(width, height, []);
+				slide.durationRatio = slideDatum.durationRatio || 1;
+				slide.joining = Boolean(slideDatum.joining);
+				slide.disabled = Boolean(slideDatum.disabled);
+
+				let layers: any[];
+				if (json.version >= 2.1) {
+					layers = slideDatum.layers;
+				} else {
+					layers = slideDatum.images;
+				}
+
+				layers.forEach(layerDatum => {
+					// let percentage = currentStep++ / totalSteps;
+
+					switch (layerDatum.type) {
+						case LayerType.TEXT:
+							let textLayer = {
+								text: layerDatum.text,
+								transX: layerDatum.transX,
+								transY: layerDatum.transY,
+								scaleX: layerDatum.scaleX,
+								scaleY: layerDatum.scaleY,
+								rotation: layerDatum.rotation,
+								mirrorH: layerDatum.mirrorH,
+								mirrorV: layerDatum.mirrorV,
+								opacity: layerDatum.opacity,
+								locked: layerDatum.locked,
+								shared: layerDatum.shared,
+								visible: layerDatum.visible,
+							} as RTextLayer;
+							slide.layers.push(textLayer);
+							break;
+						case undefined:	//version < 2.1
+						case LayerType.IMAGE:
+							let img: RImageLayer = {
+								id: layerDatum.id,
+								transX: layerDatum.transX,
+								transY: layerDatum.transY,
+								scaleX: layerDatum.scaleX,
+								scaleY: layerDatum.scaleY,
+								rotation: layerDatum.rotation,
+								mirrorH: layerDatum.mirrorH,
+								mirrorV: layerDatum.mirrorV,
+								opacity: layerDatum.opacity,
+								locked: layerDatum.locked,
+								shared: layerDatum.shared,
+								visible: layerDatum.visible,
+								clipRect: layerDatum.clipRect,
+								isText: layerDatum.isText,
+								name: layerDatum.name,
+							} as RImageLayer;
+							slide.layers.push(img);
+							break;
+					}
+				});
+				slides.push(slide);
+			});
+
+			// this.dispatchEvent(new CustomEvent("loading", { detail: 1 }));
+
+			if (json.bgColor) options.bgColor = json.bgColor;
+			if (json.createTime) options.createTime = json.createTime;
+			if (json.editTime) options.editTime = json.editTime;
+		}
+		return RViewerDocument.create(slides, options);
+	}
+
+}
+
+
 
 export class ViewerDocument {
 
