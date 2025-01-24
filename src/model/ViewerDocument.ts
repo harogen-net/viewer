@@ -9,7 +9,7 @@ import $ from "jquery";
 import { ImageLayer, RImageLayer } from "./layer/ImageLayer";
 import { RTextLayer } from "./layer/TextLayer";
 import { text } from "stream/consumers";
-
+import { ImageManager } from "../utils/ImageManager";
 
 export type RViewerDocument = {
 	slides: RSlide[];
@@ -24,10 +24,9 @@ export type RViewerDocument = {
 	bgColor: string;
 	allLayers: Layer[];
 	disabled: boolean;
-}
+};
 
 export namespace RViewerDocument {
-
 	const VERSION: number = 3;
 
 	export const create = (slides?: RSlide[], options?: any): RViewerDocument => {
@@ -40,7 +39,6 @@ export namespace RViewerDocument {
 		if (options?.width) vdoc.width = options.width;
 		if (options?.height) vdoc.height = options.height;
 		return vdoc;
-
 	};
 
 	export const stringify = (vdoc: RViewerDocument): string => {
@@ -55,7 +53,7 @@ export namespace RViewerDocument {
 		let slideData: any[] = [];
 		let imageData: any = {};
 
-		vdoc.slides.forEach(slide => {
+		vdoc.slides.forEach((slide) => {
 			let slideDatum: any = {};
 			slideDatum.id = slide.id;
 			slideDatum.durationRatio = slide.durationRatio;
@@ -63,7 +61,7 @@ export namespace RViewerDocument {
 			slideDatum.disabled = slide.disabled;
 
 			slideDatum.layers = [];
-			slide.layers.forEach(layer => {
+			slide.layers.forEach((layer) => {
 				slideDatum.layers.push(layer);
 				if (layer.type == LayerType.IMAGE) {
 					let imageLayer: RImageLayer = layer as RImageLayer;
@@ -84,7 +82,7 @@ export namespace RViewerDocument {
 		delete json.imageData;
 
 		return jsonStr;
-	}
+	};
 
 	export const parse = async (jsonStr: string, options?: any): Promise<RViewerDocument> => {
 		let slides: RSlide[] = [];
@@ -122,18 +120,17 @@ export namespace RViewerDocument {
 				} else {
 					return sum + slideDatum.images.length;
 				}
-			}, 0)
+			}, 0);
 			totalSteps += totalLayers;
 
 			//load images
-			// for (let i = 0; i < totalImages; i++) {
-			// 	let percentage = currentStep++ / totalSteps;
-			// 	this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
+			for (let i = 0; i < totalImages; i++) {
+				// let percentage = currentStep++ / totalSteps;
+				// this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
 
-			// 	let imageId = imageIds[i];
-			// 	await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
-			// }
-
+				let imageId = imageIds[i];
+				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
+			}
 
 			//construct slides
 			json.slideData.forEach((slideDatum: any) => {
@@ -149,18 +146,17 @@ export namespace RViewerDocument {
 					layers = slideDatum.images;
 				}
 
-				layers.forEach(layerDatum => {
+				layers.forEach((layerDatum) => {
 					// let percentage = currentStep++ / totalSteps;
-
 					let layer: RLayer;
 					switch (layerDatum.type) {
 						case LayerType.TEXT:
 							layer = RTextLayer.create(layerDatum.text, undefined, layerDatum.id);
 							break;
 						case LayerType.IMAGE:
-						default:	//version < 2.1はundefinedが入る
+						default: //version < 2.1はundefinedが入る
 							layer = {
-								...RImageLayer.create(layerDatum.id, undefined, layerDatum.id),
+								...RImageLayer.create(layerDatum.imageId, undefined, layerDatum.id),
 								clipRect: layerDatum.clipRect,
 								isText: layerDatum.isText,
 								name: layerDatum.name,
@@ -191,14 +187,10 @@ export namespace RViewerDocument {
 			if (json.editTime) options.editTime = json.editTime;
 		}
 		return RViewerDocument.create(slides, options);
-	}
-
+	};
 }
 
-
-
 export class ViewerDocument {
-
 	public static shared: ViewerDocument;
 
 	private readonly BG_COLOR_INIT: string = "#FFFFFF";
@@ -217,7 +209,6 @@ export class ViewerDocument {
 	public isSensitive: boolean = false;
 
 	private _bgColor: string = this.BG_COLOR_INIT;
-
 
 	constructor(slides?: Slide[], options?: any) {
 		console.log("const at vdoc", slides, options);
@@ -272,8 +263,17 @@ export class ViewerDocument {
 		if (slideIndex != -1) {
 			if (this.slides[slideIndex] != undefined) {
 				var slide = this.slides[slideIndex];
-				var canvas: HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(slide, slide.width, slide.height, 1, isTransparent ? undefined : this.bgColor);
-				DataUtil.downloadBlob(DataUtil.dataURItoBlob(canvas.toDataURL()), this.title + "_" + (slideIndex + 1) + ".png");
+				var canvas: HTMLCanvasElement = new SlideToPNGConverter().slide2canvas(
+					slide,
+					slide.width,
+					slide.height,
+					1,
+					isTransparent ? undefined : this.bgColor
+				);
+				DataUtil.downloadBlob(
+					DataUtil.dataURItoBlob(canvas.toDataURL()),
+					this.title + "_" + (slideIndex + 1) + ".png"
+				);
 			} else {
 				throw new Error("invalid index.");
 			}
@@ -287,13 +287,21 @@ export class ViewerDocument {
 			var converter = new SlideToPNGConverter();
 			this.slides.forEach((slide, index) => {
 				if (slide.disabled) return;
-				var canvas: HTMLCanvasElement = converter.slide2canvas(slide, slide.width, slide.height, 1, isTransparent ? undefined : this.bgColor);
-				zip.file(this.title + "_" + (index + 1) + ".png", DataUtil.dataURItoBlob(canvas.toDataURL()));
+				var canvas: HTMLCanvasElement = converter.slide2canvas(
+					slide,
+					slide.width,
+					slide.height,
+					1,
+					isTransparent ? undefined : this.bgColor
+				);
+				zip.file(
+					this.title + "_" + (index + 1) + ".png",
+					DataUtil.dataURItoBlob(canvas.toDataURL())
+				);
 			});
-			zip.generateAsync({ type: "blob", compression: "DEFLATE" })
-				.then((blob) => {
-					DataUtil.downloadBlob(blob, this.title + ".zip");
-				});
+			zip.generateAsync({ type: "blob", compression: "DEFLATE" }).then((blob) => {
+				DataUtil.downloadBlob(blob, this.title + ".zip");
+			});
 		}
 	}
 
@@ -306,13 +314,15 @@ export class ViewerDocument {
 		document.documentElement.style.setProperty("--slideBackgroundColor", this._bgColor);
 		$("#bgColor").val(this._bgColor);
 	}
-	public get bgColor(): string { return this._bgColor; }
+	public get bgColor(): string {
+		return this._bgColor;
+	}
 
 	public get allLayers(): Layer[] {
-		return this.slides.map(slide => slide.layers).flat();
+		return this.slides.map((slide) => slide.layers).flat();
 	}
 
 	public get disabled(): boolean {
-		return this.slides.every(slide => slide.disabled);
+		return this.slides.every((slide) => slide.disabled);
 	}
 }

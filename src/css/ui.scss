@@ -1,4 +1,26 @@
 @import './tailwind.css';
+body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width: 100vw;
+  // display: flex;
+  // justify-content: center;
+  // align-items: center;
+}
+
+#root {
+  transition: transform 0.1s ease-out;
+}
+
+/* 縦向きの場合 */
+@media (orientation: portrait) {
+  #root {
+    transform:  rotate(90deg) translate(calc(50vh - 50vw), calc(50vh - 50vw));
+    height: 100vw;  /* 回転後に縦横を逆転 */
+    width: 100vh;   /* 回転後に縦横を逆転 */
+  }
+}
 
 select {
   border: 1px solid #727272;

@@ -20,3 +20,4 @@ function isIOS() {
 	return false;
 	// return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window["MSStream"];
 }
+

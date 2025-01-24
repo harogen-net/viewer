@@ -3,18 +3,28 @@ import { RSlide, Slide } from "../../model/Slide";
 import { SlideThumbnail } from "./SlideThumbnail";
 import { produce } from "immer";
 import { ViewerMode } from "../../Viewer";
+import { useDocument } from "../../hooks/useDocument";
 
 export const SlideList: React.FC<{
 	mode: ViewerMode;
 	setMode: React.Dispatch<React.SetStateAction<ViewerMode>>;
-	slides: RSlide[];
-	setSlides: React.Dispatch<React.SetStateAction<RSlide[]>>;
 	selectedSlide: RSlide | undefined;
 	setSelectedSlide: React.Dispatch<React.SetStateAction<RSlide | undefined>>;
-}> = ({ mode, setMode, slides, setSlides, selectedSlide, setSelectedSlide }) => {
+}> = ({ mode, setMode, selectedSlide, setSelectedSlide }) => {
 	const THUMBNAIL_HEIGHT = 100;
 
 	const containerRef = React.useRef<HTMLDivElement>(null);
+
+	const [slides, setSlides] = useState<RSlide[]>([]);
+	const { document } = useDocument();
+
+	useEffect(() => {
+		console.log(document);
+		if (document && document.slides) {
+			setSlides(document.slides);
+		}
+	}, [document]);
+
 	useEffect(() => {
 		if (containerRef.current) {
 			$(containerRef.current).sortable({
@@ -35,7 +45,7 @@ export const SlideList: React.FC<{
 	}, [containerRef]);
 
 	return (
-		<div ref={containerRef} className="rounded-lg bg-gray-400 flex gap-2 p-4 shadow-inner">
+		<div ref={containerRef} className="rounded-lg bg-gray-400 flex gap-2 p-4 shadow-inner h-full">
 			{slides.map((slide, index) => (
 				<SlideThumbnail
 					key={index}
@@ -57,7 +67,7 @@ export const SlideList: React.FC<{
 					}}
 					onEdit={function (slide: RSlide): void {
 						setSelectedSlide(slide);
-            setMode(ViewerMode.EDIT);
+						setMode(ViewerMode.EDIT);
 						// throw new Error("Function not implemented.");
 					}}
 					onDelete={function (slide: RSlide): void {
