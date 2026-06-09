@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
-import path from "node:path";
+import { getPhase2FixturePaths } from "./phase2-fixture-lib.mjs";
 
-const root = process.cwd();
-const sensitivePath = path.join(root, "fixtures/sensitive/sensitive_locked_sample.hvd");
+const sensitivePath = getPhase2FixturePaths().sensitive;
 
 function fail(message) {
 	throw new Error(message);

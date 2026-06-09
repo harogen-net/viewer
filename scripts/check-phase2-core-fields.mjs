@@ -1,30 +1,11 @@
 #!/usr/bin/env node
 
-import JSZip from "jszip";
-import fs from "node:fs";
-import path from "node:path";
-
-const root = process.cwd();
-
-const paths = {
-	hvd: path.join(root, "fixtures/legacy/v2/compat_v2_minimal.hvd"),
-	hvz: path.join(root, "fixtures/legacy/v2/compat_v2_minimal.hvz"),
-	png: path.join(root, "fixtures/legacy/png/compat_png_embedded_minimal.png"),
-};
-
-const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-const EMBED_CHUNK_TYPE = "hvDc";
-
-function fail(message) {
-	throw new Error(message);
-}
-
-function ensureCompatShape(json, label) {
-	if (!json || typeof json !== "object") fail(label + ": invalid json root");
-	if (typeof json.version !== "number" || json.version < 2) fail(label + ": unsupported version");
-	if (!Array.isArray(json.slideData)) fail(label + ": slideData missing");
-	if (typeof json.imageData !== "object" || json.imageData == null) fail(label + ": imageData missing");
-}
+import {
+	getPhase2FixturePaths,
+	readHvdJson,
+	readHvzJson,
+	readPngEmbeddedHvdJson,
+} from "./phase2-fixture-lib.mjs";
 
 function pickCoreFields(json) {
 	const firstSlide = json.slideData[0] || {};
@@ -63,51 +44,18 @@ function assertDeepEqual(base, actual, label) {
 }
 
 async function readHvd() {
-	const text = fs.readFileSync(paths.hvd, "utf8");
-	const json = JSON.parse(text);
-	ensureCompatShape(json, "hvd");
-	return json;
+	const paths = getPhase2FixturePaths();
+	return readHvdJson(paths);
 }
 
 async function readHvz() {
-	const zipBuffer = fs.readFileSync(paths.hvz);
-	const zip = await JSZip.loadAsync(zipBuffer);
-	const hvdEntry = Object.values(zip.files).find((entry) => !entry.dir && entry.name.toLowerCase().endsWith(".hvd"));
-	if (!hvdEntry) fail("hvz: hvd entry missing");
-	const text = await hvdEntry.async("string");
-	const json = JSON.parse(text);
-	ensureCompatShape(json, "hvz");
-	return json;
-}
-
-function extractEmbedChunkData(pngBuffer) {
-	if (pngBuffer.subarray(0, 8).compare(PNG_SIGNATURE) !== 0) fail("png: invalid signature");
-
-	let offset = 8;
-	while (offset + 12 <= pngBuffer.length) {
-		const length = pngBuffer.readUInt32BE(offset);
-		const type = pngBuffer.subarray(offset + 4, offset + 8).toString("ascii");
-		const dataStart = offset + 8;
-		const dataEnd = dataStart + length;
-		const chunkEnd = dataEnd + 4;
-		if (chunkEnd > pngBuffer.length) fail("png: invalid chunk layout");
-		if (type === EMBED_CHUNK_TYPE) return pngBuffer.subarray(dataStart, dataEnd);
-		offset = chunkEnd;
-	}
-
-	fail("png: embedded chunk hvDc not found");
+	const paths = getPhase2FixturePaths();
+	return readHvzJson(paths);
 }
 
 async function readPngEmbeddedHvd() {
-	const pngBuffer = fs.readFileSync(paths.png);
-	const embeddedBytes = extractEmbedChunkData(pngBuffer);
-	const zip = await JSZip.loadAsync(embeddedBytes);
-	const entry = zip.file("data.hvd");
-	if (!entry) fail("png: data.hvd missing");
-	const text = await entry.async("string");
-	const json = JSON.parse(text);
-	ensureCompatShape(json, "png");
-	return json;
+	const paths = getPhase2FixturePaths();
+	return readPngEmbeddedHvdJson(paths);
 }
 
 async function main() {

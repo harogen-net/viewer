@@ -63,6 +63,7 @@
   - PNG埋め込みfixture再生成スクリプトと hvd/hvz/png 実解析チェックを追加（`gen:phase2-png-fixture`, `check:phase2-compat`）
   - round-trip最小観点に対応する主要項目比較チェックを追加（`check:phase2-core-fields`）
   - fixture/compat/core/sensitive を一括実行する総合チェックコマンドを追加（`check:phase2`）
+  - Phase2検証スクリプトの共通ライブラリを追加し、fixture解析ロジックを集約
   - 反映コード:
     - `src/storage/StorageAdapter.ts`
     - `src/storage/LegacySlideStorageAdapter.ts`
