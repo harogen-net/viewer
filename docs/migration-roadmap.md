@@ -10,6 +10,8 @@
 - docs/sensitive-mode-spec.md
 - docs/data-compatibility-spec.md
 - docs/test-plan.md
+- docs/phase1-closeout.md
+- docs/phase2-kickoff-checklist.md
 
 ## 実装進捗（2026-06-09）
 - Phase 1 完了
@@ -38,6 +40,10 @@
     - `src/viewController/ListViewController.ts`
     - `tsconfig.json`
     - `css/index.css`
+
+  - 判定ドキュメント
+    - `docs/phase1-closeout.md`
+    - `docs/phase2-kickoff-checklist.md`
 
   ## Phase 1 完了判定（チェック）
   - React エントリ追加: 完了
