@@ -151,6 +151,8 @@
   - 成功: `{ ok: true, action }`
   - 失敗: `{ ok: false, action, error, message }`
   - 失敗時の `error`: `PERMISSION_DENIED`, `INVALID_ARGUMENT`, `STORAGE_IO_ERROR` など
+- UI 側は `isStorageActionFailure` ヘルパーで結果を判定
+  - `Viewer` / `FileSelector` は失敗時に `result.message` を通知表示
 
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル

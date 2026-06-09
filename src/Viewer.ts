@@ -7,6 +7,7 @@ import { showNotice } from "./runtime/notice";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { StorageEventType } from "./storage/StorageAdapter";
 import { DocumentStorageUseCase } from "./useCase/DocumentStorageUseCase";
+import { isStorageActionFailure } from "./useCase/storageActionResult";
 import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { HVDataType } from "./utils/SlideStorage";
@@ -203,7 +204,7 @@ export class Viewer {
 							pages:
 								this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,
 						});
-						if (result.ok === false) {
+						if (isStorageActionFailure(result)) {
 							showNotice(result.message);
 						}
 					}
@@ -237,7 +238,7 @@ export class Viewer {
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm("override?");
 				const result = this.documentStorage.saveResult(this.viewerDocument, isOverride);
-				if (result.ok === false) {
+				if (isStorageActionFailure(result)) {
 					showNotice(result.message);
 				}
 			});
@@ -261,7 +262,7 @@ export class Viewer {
 				const target = e.target as HTMLInputElement;
 				if (target.files && target.files[0]) {
 					this.documentStorage.importResult(target.files[0]).then((result) => {
-						if (result.ok === false) {
+						if (isStorageActionFailure(result)) {
 							showNotice(result.message);
 						}
 					});

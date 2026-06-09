@@ -2,6 +2,7 @@ import $ from "jquery";
 import { showNotice } from "../../runtime/notice";
 import { StorageEventType } from "../../storage/StorageAdapter";
 import { DocumentStorageUseCase } from "../../useCase/DocumentStorageUseCase";
+import { isStorageActionFailure } from "../../useCase/storageActionResult";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
 type SelectValue = string | number | string[] | null;
@@ -34,7 +35,7 @@ export class FileSelector {
 			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
 			if (nextValue) {
 				const result = this.documentStorage.loadResult(nextValue);
-				if (result.ok === false) {
+				if (isStorageActionFailure(result)) {
 					showNotice(result.message);
 				}
 			}
@@ -43,7 +44,7 @@ export class FileSelector {
 		const handleSelectChange = (val: SelectValue) => {
 			if (val == -1 || val == null) return;
 			const result = this.documentStorage.loadResult(val);
-			if (result.ok === false) {
+			if (isStorageActionFailure(result)) {
 				showNotice(result.message);
 			}
 		};
@@ -59,7 +60,7 @@ export class FileSelector {
 			const nextVal = targetOp.attr("value");
 			selectObj.val(nextVal);
 			const result = this.documentStorage.loadResult(nextVal);
-			if (result.ok === false) {
+			if (isStorageActionFailure(result)) {
 				showNotice(result.message);
 			}
 		};
@@ -79,7 +80,7 @@ export class FileSelector {
 				window.confirm("delete selected save data. Are you sure?")
 			) {
 				const result = this.documentStorage.deleteResult(val);
-				if (result.ok === false) {
+				if (isStorageActionFailure(result)) {
 					showNotice(result.message);
 				}
 			}
