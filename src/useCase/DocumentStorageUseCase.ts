@@ -24,6 +24,25 @@ export class DocumentStorageUseCase {
     return this.lastError;
   }
 
+  getLastErrorMessage(action: string): string {
+    switch (this.lastError) {
+      case StorageErrorCode.PERMISSION_DENIED:
+        return action + " is not allowed in current mode.";
+      case StorageErrorCode.INVALID_ARGUMENT:
+        return action + " failed due to invalid selection.";
+      case StorageErrorCode.STORAGE_IO_ERROR:
+        return action + " failed due to storage I/O error.";
+      case StorageErrorCode.UNSUPPORTED_VERSION:
+        return "file version is not supported.";
+      case StorageErrorCode.PARSE_ERROR:
+        return "failed to parse file data.";
+      case StorageErrorCode.MISSING_ASSET:
+        return "file is missing required assets.";
+      default:
+        return action + " failed.";
+    }
+  }
+
   addEventListener(type: StorageEventType | string, callback: StorageEventCallback): void {
     this.storage.addEventListener(type, callback);
   }

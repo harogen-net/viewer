@@ -37,6 +37,38 @@ body.forced-landscape {
   box-sizing: border-box;
 }
 
+#appNotice {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2147483646;
+  max-width: min(78vw, 560px);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #fff;
+  background: rgba(20, 24, 33, 0.92);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+#appNotice[data-variant="error"] {
+  background: rgba(163, 35, 45, 0.96);
+}
+
+#appNotice[data-variant="info"] {
+  background: rgba(24, 78, 125, 0.96);
+}
+
+#appNotice.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 #menu {
   height: 60px;
 }

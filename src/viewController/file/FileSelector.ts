@@ -1,4 +1,5 @@
 import $ from "jquery";
+import { showNotice } from "../../runtime/notice";
 import { StorageEventType } from "../../storage/StorageAdapter";
 import { DocumentStorageUseCase } from "../../useCase/DocumentStorageUseCase";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
@@ -33,7 +34,7 @@ export class FileSelector {
 		const handleSelectChange = (val: any) => {
 			if (val == -1 || val == null) return;
 			if (!this.documentStorage.load(val)) {
-				console.warn("storage load rejected", this.documentStorage.getLastError());
+				showNotice(this.documentStorage.getLastErrorMessage("load"));
 			}
 		};
 
@@ -48,7 +49,7 @@ export class FileSelector {
 			const nextVal = targetOp.attr("value");
 			selectObj.val(nextVal);
 			if (!this.documentStorage.load(nextVal)) {
-				console.warn("storage load rejected", this.documentStorage.getLastError());
+				showNotice(this.documentStorage.getLastErrorMessage("load"));
 			}
 		};
 
@@ -64,7 +65,7 @@ export class FileSelector {
 			if (val == -1 || val == null) return;
 			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
 				if (!this.documentStorage.delete(val)) {
-					console.warn("storage delete rejected", this.documentStorage.getLastError());
+					showNotice(this.documentStorage.getLastErrorMessage("delete"));
 				}
 			}
 		};

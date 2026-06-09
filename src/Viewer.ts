@@ -3,6 +3,7 @@ import { PropertyEvent } from "./events/PropertyEvent";
 import { Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
+import { showNotice } from "./runtime/notice";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { StorageEventType } from "./storage/StorageAdapter";
 import { DocumentStorageUseCase } from "./useCase/DocumentStorageUseCase";
@@ -200,7 +201,7 @@ export class Viewer {
 						if (!this.documentStorage.export(this.viewerDocument, type, {
 							pages: (this.listVC.selectedSlideIndex != -1) ? [this.listVC.selectedSlideIndex] : undefined
 						})) {
-							console.warn("storage export rejected", this.documentStorage.getLastError());
+							showNotice(this.documentStorage.getLastErrorMessage("export"));
 						}
 					}
 				});
@@ -238,7 +239,7 @@ export class Viewer {
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm('override?');
 				if (!this.documentStorage.save(this.viewerDocument, isOverride)) {
-					console.warn("storage save rejected", this.documentStorage.getLastError());
+					showNotice(this.documentStorage.getLastErrorMessage("save"));
 				}
 			});
 
@@ -259,7 +260,7 @@ export class Viewer {
 				if (target.files && target.files[0]) {
 					const importPromise = this.documentStorage.import(target.files[0]);
 					if (!importPromise) {
-						console.warn("storage import rejected", this.documentStorage.getLastError());
+						showNotice(this.documentStorage.getLastErrorMessage("import"));
 					}
 					$("input.import").val("");
 				}
