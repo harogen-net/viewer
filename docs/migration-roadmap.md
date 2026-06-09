@@ -49,10 +49,12 @@
   - `StorageAdapter` interface を追加
   - `LegacySlideStorageAdapter` を追加し、現行 `SlideStorage` をラップ
   - `Viewer` と `FileSelector` の `SlideStorage` 直結依存を Adapter 経由へ差し替え
+  - `DocumentStorageUseCase` を追加し、保存系の feature gate 判定を UseCase 層へ移管
   - 反映コード:
     - `src/storage/StorageAdapter.ts`
     - `src/storage/LegacySlideStorageAdapter.ts`
     - `src/storage/createStorageAdapter.ts`
+    - `src/useCase/DocumentStorageUseCase.ts`
     - `src/Viewer.ts`
     - `src/viewController/file/FileSelector.ts`
     - `src/utils/SlideStorage.ts`

@@ -116,6 +116,29 @@
     既存ロジックを壊さず依存方向のみ反転する。
   - 次段で `StorageAdapter` の利用を UseCase 層へ段階移管する。
 
+### 6.2 UseCase 層移管（2026-06-09 追記）
+- 導入済み実装
+  - `src/useCase/DocumentStorageUseCase.ts`
+- 役割
+  - `StorageAdapter` の command/query/event を UI 層へ直接露出しない境界として機能する。
+  - `FeatureGate`（`canSave/canExport/canImport/canDeleteSavedData`）の判定を
+    保存系ユースケースに集約する。
+- 現在の利用側
+  - `Viewer` から save/export/import と loading/loaded event を呼び出し
+  - `FileSelector` から getTitles/load/delete と update event を呼び出し
+
+### 6.3 SlideStorage API 棚卸し（Phase2 初動）
+- 現行 public API
+  - event: `loading`, `loaded`, `update`
+  - command/query: `save`, `load`, `import`, `export`, `delete`, `titles`
+- 依存経路（現在）
+  - `Viewer` -> `DocumentStorageUseCase` -> `StorageAdapter` -> `LegacySlideStorageAdapter` -> `SlideStorage`
+  - `FileSelector` -> `DocumentStorageUseCase` -> `StorageAdapter` -> `LegacySlideStorageAdapter` -> `SlideStorage`
+- 置換優先順（確定）
+  1. `Viewer` の保存/出力/取込（完了）
+  2. `FileSelector` の保存データ一覧/読込/削除（完了）
+  3. import/export options とエラー型の型安全化（次段）
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch

@@ -1,13 +1,13 @@
 import $ from "jquery";
-import { FeatureGate } from "../../runtime/featureGate";
-import { StorageAdapter } from "../../storage/StorageAdapter";
+import { StorageEventType } from "../../storage/StorageAdapter";
+import { DocumentStorageUseCase } from "../../useCase/DocumentStorageUseCase";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
 export class FileSelector {
-	constructor(private readonly storage:StorageAdapter, private readonly gate?:FeatureGate) {
+	constructor(private readonly documentStorage: DocumentStorageUseCase) {
 		let selectObj = $("select.filename");
 
-		this.storage.addEventListener("update", (e: CustomEvent) => {
+		this.documentStorage.addEventListener(StorageEventType.UPDATE, (e: CustomEvent) => {
 			let index = selectObj.prop("selectedIndex");
 			let selectedValue = parseInt(($("select.filename option")[index] as HTMLOptionElement).value) || 0;
 			let initOption = $("select.filename option")[0];
@@ -15,7 +15,7 @@ export class FileSelector {
 			selectObj.append($(initOption));
 
 			let nextIndex = index;
-			this.storage.getTitles().forEach((datum, index2) => {
+			this.documentStorage.getTitles().forEach((datum, index2) => {
 				if (datum.id == selectedValue) {
 					nextIndex = index2 + 1;
 				}
@@ -23,16 +23,16 @@ export class FileSelector {
 			});
 
 			if (nextIndex < 0) nextIndex = 0;
-			if (nextIndex > this.storage.getTitles().length) nextIndex = this.storage.getTitles().length;
+			if (nextIndex > this.documentStorage.getTitles().length) nextIndex = this.documentStorage.getTitles().length;
 			selectObj.prop("selectedIndex", nextIndex);
 			
 			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
-			if (nextValue) this.storage.load(nextValue);
+			if (nextValue) this.documentStorage.load(nextValue);
 		});
 
 		const handleSelectChange = (val: any) => {
 			if (val == -1 || val == null) return;
-			this.storage.load(val);
+			this.documentStorage.load(val);
 		};
 
 		selectObj.change((e) => {
@@ -45,7 +45,7 @@ export class FileSelector {
 			if (targetOp.length == 0) return;
 			const nextVal = targetOp.attr("value");
 			selectObj.val(nextVal);
-			this.storage.load(nextVal);
+			this.documentStorage.load(nextVal);
 		};
 
 		$(".fileSelect.up").click(() => handleFileSelectClick(false));
@@ -56,20 +56,14 @@ export class FileSelector {
 		});
 
 		const handleDispose = () => {
-			if(!this.canDeleteSavedData()) return;
 			let val = selectObj.val();
 			if (val == -1 || val == null) return;
 			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
-				this.storage.delete(val);
+				this.documentStorage.delete(val.toString());
 			}
 		};
 
 		const disposeEvent = Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT ? "dblclick" : "click";
 		$(".dispose").on(disposeEvent, handleDispose);
-	}
-
-	private canDeleteSavedData(): boolean {
-		if(this.gate) return this.gate.canDeleteSavedData;
-		return true;
 	}
 }

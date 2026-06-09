@@ -4,14 +4,14 @@
 Phase2（データ層・永続化の分離）を迷いなく開始するための事前チェック項目。
 
 ## A. 仕様確定
-- [ ] Storage Adapter の責務を確定（save/load/import/export）
-- [ ] 互換仕様（v2+）を実装方針へ反映
-- [ ] センシティブ対応の Adapter 境界を定義（将来拡張含む）
+- [x] Storage Adapter の責務を確定（save/load/import/export）
+- [x] 互換仕様（v2+）を実装方針へ反映
+- [x] センシティブ対応の Adapter 境界を定義（将来拡張含む）
 
 ## B. 既存コード切り出し方針
-- [ ] SlideStorage の public API と内部依存を棚卸し
-- [ ] Viewer 直結の保存処理呼び出し箇所を一覧化
-- [ ] Adapter 経由に置き換える優先順を決定
+- [x] SlideStorage の public API と内部依存を棚卸し
+- [x] Viewer 直結の保存処理呼び出し箇所を一覧化
+- [x] Adapter 経由に置き換える優先順を決定
 
 ## C. テスト準備
 - [ ] 互換テスト用 fixture 配置を決定
@@ -31,4 +31,4 @@ Phase2（データ層・永続化の分離）を迷いなく開始するため�
 
 ## 完了判定
 - [ ] 上記 A-E が全て完了
-- [ ] Phase2 の最初のコミット単位が定義されている
+- [x] Phase2 の最初のコミット単位が定義されている

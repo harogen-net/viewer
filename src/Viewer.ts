@@ -4,7 +4,8 @@ import { Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
-import { StorageAdapter, StorageEventType } from "./storage/StorageAdapter";
+import { StorageEventType } from "./storage/StorageAdapter";
+import { DocumentStorageUseCase } from "./useCase/DocumentStorageUseCase";
 import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { HVDataType } from "./utils/SlideStorage";
@@ -37,7 +38,7 @@ export class Viewer {
 	private editVC: EditViewController;
 	private listVC: ListViewController;
 	private slideShowVC: SlideShowViewController;
-	private storage: StorageAdapter;
+	private documentStorage: DocumentStorageUseCase;
 	// private menu:Menu;
 
 	private _mode: ViewerMode;
@@ -72,12 +73,12 @@ export class Viewer {
 		this.listVC = new ListViewController(obj.find(".list"), this.canEdit());
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
-		this.storage = createStorageAdapter();
-		this.storage.addEventListener(StorageEventType.LOADING, (e: CustomEvent) => {
+		this.documentStorage = new DocumentStorageUseCase(createStorageAdapter(), this.featureGate);
+		this.documentStorage.addEventListener(StorageEventType.LOADING, (e: CustomEvent) => {
 			let percentage = e.detail as number;
 			progressBar.go(percentage)
 		});
-		this.storage.addEventListener(StorageEventType.LOADED, (e: CustomEvent) => {
+		this.documentStorage.addEventListener(StorageEventType.LOADED, (e: CustomEvent) => {
 			this.newDocument(e.detail as ViewerDocument);
 		});
 		//
@@ -132,7 +133,7 @@ export class Viewer {
 
 		//IO section
 		{
-			new FileSelector(this.storage, this.featureGate);
+			new FileSelector(this.documentStorage);
 
 			if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 				//pulldown
@@ -196,7 +197,7 @@ export class Viewer {
 						if ($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
 						if ($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
 
-						this.storage.export(this.viewerDocument, type, {
+						this.documentStorage.export(this.viewerDocument, type, {
 							pages: (this.listVC.selectedSlideIndex != -1) ? [this.listVC.selectedSlideIndex] : undefined
 						});
 					}
@@ -234,7 +235,7 @@ export class Viewer {
 				if (!this.canSave()) return;
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm('override?');
-				this.storage.save(this.viewerDocument, isOverride);
+				this.documentStorage.save(this.viewerDocument, isOverride);
 			});
 
 
@@ -252,7 +253,7 @@ export class Viewer {
 				if (!this.canImport()) return;
 				const target = e.target as HTMLInputElement;
 				if (target.files && target.files[0]) {
-					this.storage.import(target.files[0]);
+					this.documentStorage.import(target.files[0]);
 					$("input.import").val("");
 				}
 			});
