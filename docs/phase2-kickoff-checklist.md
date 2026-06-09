@@ -24,10 +24,10 @@ Phase2（データ層・永続化の分離）を迷いなく開始するため�
 - [ ] 影響範囲レビュー（保存/読込 UI・インポート）を実施
 
 ## E. 着手タスク（初動）
-- [ ] `StorageAdapter` interface を新規作成
-- [ ] `LegacySlideStorageAdapter` を作成し現行 SlideStorage をラップ
-- [ ] Viewer 側の保存/読込呼び出しを Adapter 経由へ差し替え
-- [ ] docs/state-management-design.md に Adapter 実装詳細を追記
+- [x] `StorageAdapter` interface を新規作成
+- [x] `LegacySlideStorageAdapter` を作成し現行 SlideStorage をラップ
+- [x] Viewer 側の保存/読込呼び出しを Adapter 経由へ差し替え
+- [x] docs/state-management-design.md に Adapter 実装詳細を追記
 
 ## 完了判定
 - [ ] 上記 A-E が全て完了

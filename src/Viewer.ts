@@ -3,9 +3,11 @@ import { PropertyEvent } from "./events/PropertyEvent";
 import { Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
+import { createStorageAdapter } from "./storage/createStorageAdapter";
+import { StorageAdapter, StorageEventType } from "./storage/StorageAdapter";
 import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
-import { HVDataType, SlideStorage } from "./utils/SlideStorage";
+import { HVDataType } from "./utils/SlideStorage";
 import { ProgressBar } from "./view/ProgressBar";
 import { EditViewController } from "./viewController/EditViewController";
 import { FileSelector } from "./viewController/file/FileSelector";
@@ -35,7 +37,7 @@ export class Viewer {
 	private editVC: EditViewController;
 	private listVC: ListViewController;
 	private slideShowVC: SlideShowViewController;
-	private storage: SlideStorage;
+	private storage: StorageAdapter;
 	// private menu:Menu;
 
 	private _mode: ViewerMode;
@@ -70,12 +72,12 @@ export class Viewer {
 		this.listVC = new ListViewController(obj.find(".list"), this.canEdit());
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
-		this.storage = SlideStorage.getInstance();
-		this.storage.addEventListener("loading", (e: CustomEvent) => {
+		this.storage = createStorageAdapter();
+		this.storage.addEventListener(StorageEventType.LOADING, (e: CustomEvent) => {
 			let percentage = e.detail as number;
 			progressBar.go(percentage)
 		});
-		this.storage.addEventListener("loaded", (e: CustomEvent) => {
+		this.storage.addEventListener(StorageEventType.LOADED, (e: CustomEvent) => {
 			this.newDocument(e.detail as ViewerDocument);
 		});
 		//
@@ -130,7 +132,7 @@ export class Viewer {
 
 		//IO section
 		{
-			new FileSelector(this.featureGate);
+			new FileSelector(this.storage, this.featureGate);
 
 			if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 				//pulldown

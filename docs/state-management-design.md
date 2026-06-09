@@ -99,6 +99,23 @@
 ルール:
 - Store は Adapter を直接持たず、UseCase 層経由で呼び出す。
 
+### 6.1 Phase2 実装詳細（2026-06-09）
+- 導入済み実装
+  - `src/storage/StorageAdapter.ts`
+  - `src/storage/LegacySlideStorageAdapter.ts`
+  - `src/storage/createStorageAdapter.ts`
+- 現在の `StorageAdapter` 契約
+  - event: `loading`, `loaded`, `update`（`StorageEventType`）
+  - command: `save`, `export`, `load`, `import`, `delete`
+  - query: `getTitles`
+- 差し替え済み呼び出し点
+  - `Viewer` の保存/読込/入出力呼び出し
+  - `FileSelector` のタイトル参照/ロード/削除
+- 現時点の実装方針
+  - `LegacySlideStorageAdapter` は既存 `SlideStorage` のラッパーとして機能し、
+    既存ロジックを壊さず依存方向のみ反転する。
+  - 次段で `StorageAdapter` の利用を UseCase 層へ段階移管する。
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch

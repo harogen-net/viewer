@@ -1,16 +1,16 @@
-import { ImageLayer } from "../model/layer/ImageLayer";
+import JSZip from "jszip";
 import { EventDispatcher } from "../events/EventDispatcher";
-import { Viewer } from "../Viewer";
+import { LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { TextLayer } from "../model/layer/TextLayer";
+import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
+import { Viewer } from "../Viewer";
+import { DataUtil } from "./DataUtil";
+import { DateUtil } from "./DateUtil";
+import { ImageManager } from "./ImageManager";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
-import { DateUtil } from "./DateUtil";
-import { DataUtil } from "./DataUtil";
-import { LayerType } from "../model/Layer";
-import { TextLayer } from "../model/layer/TextLayer";
-import { ImageManager } from "./ImageManager";
-import { Slide } from "../model/Slide";
-import JSZip from "jszip";
 
 
 export enum HVDataType {
@@ -19,7 +19,7 @@ export enum HVDataType {
 	HVZ
 }
 
-interface SlideTitle {
+export interface SlideTitle {
 	id: number;
 	title: string;
 	update: number;

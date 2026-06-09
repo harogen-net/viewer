@@ -1,14 +1,13 @@
 import $ from "jquery";
 import { FeatureGate } from "../../runtime/featureGate";
-import { SlideStorage } from "../../utils/SlideStorage";
+import { StorageAdapter } from "../../storage/StorageAdapter";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
 export class FileSelector {
-	constructor(private readonly gate?:FeatureGate) {
-		let storage = SlideStorage.getInstance();
+	constructor(private readonly storage:StorageAdapter, private readonly gate?:FeatureGate) {
 		let selectObj = $("select.filename");
 
-		storage.addEventListener("update", (e: CustomEvent) => {
+		this.storage.addEventListener("update", (e: CustomEvent) => {
 			let index = selectObj.prop("selectedIndex");
 			let selectedValue = parseInt(($("select.filename option")[index] as HTMLOptionElement).value) || 0;
 			let initOption = $("select.filename option")[0];
@@ -16,7 +15,7 @@ export class FileSelector {
 			selectObj.append($(initOption));
 
 			let nextIndex = index;
-			storage.titles.forEach((datum, index2) => {
+			this.storage.getTitles().forEach((datum, index2) => {
 				if (datum.id == selectedValue) {
 					nextIndex = index2 + 1;
 				}
@@ -24,16 +23,16 @@ export class FileSelector {
 			});
 
 			if (nextIndex < 0) nextIndex = 0;
-			if (nextIndex > storage.titles.length) nextIndex = storage.titles.length;
+			if (nextIndex > this.storage.getTitles().length) nextIndex = this.storage.getTitles().length;
 			selectObj.prop("selectedIndex", nextIndex);
 			
 			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
-			if (nextValue) storage.load(nextValue);
+			if (nextValue) this.storage.load(nextValue);
 		});
 
 		const handleSelectChange = (val: any) => {
 			if (val == -1 || val == null) return;
-			storage.load(val);
+			this.storage.load(val);
 		};
 
 		selectObj.change((e) => {
@@ -46,7 +45,7 @@ export class FileSelector {
 			if (targetOp.length == 0) return;
 			const nextVal = targetOp.attr("value");
 			selectObj.val(nextVal);
-			storage.load(nextVal);
+			this.storage.load(nextVal);
 		};
 
 		$(".fileSelect.up").click(() => handleFileSelectClick(false));
@@ -61,7 +60,7 @@ export class FileSelector {
 			let val = selectObj.val();
 			if (val == -1 || val == null) return;
 			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
-				storage.delete(val);
+				this.storage.delete(val);
 			}
 		};
 
