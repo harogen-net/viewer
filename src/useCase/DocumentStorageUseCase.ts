@@ -48,18 +48,16 @@ export class DocumentStorageUseCase {
 		});
 	}
 
-	loadResult(id: StorageInputId): StorageActionResult {
+	loadResult(id: StorageInputId): Promise<StorageActionResult> {
 		const recordId = this.normalizeId(id);
 		if (!recordId) {
-			return this.fail(StorageAction.LOAD, StorageErrorCode.INVALID_ARGUMENT);
+			return Promise.resolve(this.fail(StorageAction.LOAD, StorageErrorCode.INVALID_ARGUMENT));
 		}
 		if (!this.existsRecord(recordId)) {
-			return this.fail(StorageAction.LOAD, StorageErrorCode.INVALID_ARGUMENT);
+			return Promise.resolve(this.fail(StorageAction.LOAD, StorageErrorCode.INVALID_ARGUMENT));
 		}
 
-		return this.executeSyncResult(StorageAction.LOAD, true, () => {
-			this.storage.load(recordId);
-		});
+		return this.executeAsyncResult(StorageAction.LOAD, true, () => this.performLoad(recordId));
 	}
 
 	importResult(file: File): Promise<StorageActionResult> {
@@ -68,18 +66,20 @@ export class DocumentStorageUseCase {
 		);
 	}
 
-	deleteResult(id: StorageInputId): StorageActionResult {
+	deleteResult(id: StorageInputId): Promise<StorageActionResult> {
 		const recordId = this.normalizeId(id);
 		if (!recordId) {
-			return this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT);
+			return Promise.resolve(this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT));
 		}
 		if (!this.existsRecord(recordId)) {
-			return this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT);
+			return Promise.resolve(this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT));
 		}
 
-		return this.executeSyncResult(StorageAction.DELETE, this.canDeleteSavedData(), () => {
-			this.storage.delete(recordId);
-		});
+		return this.executeAsyncResult(
+			StorageAction.DELETE,
+			this.canDeleteSavedData(),
+			() => this.performDelete(recordId)
+		);
 	}
 
 	addEventListener(type: StorageEventType | string, callback: StorageEventCallback): void {
@@ -128,6 +128,64 @@ export class DocumentStorageUseCase {
 
 	private existsRecord(id: StorageRecordId): boolean {
 		return this.getTitles().some((title) => title.id.toString() == id);
+	}
+
+	private performLoad(recordId: StorageRecordId): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			const onLoaded = () => {
+				cleanup();
+				resolve();
+			};
+
+			const onError = (event: Event) => {
+				cleanup();
+				reject((event as CustomEvent).detail ?? event);
+			};
+
+			const cleanup = () => {
+				this.storage.removeEventListener(StorageEventType.LOADED, onLoaded);
+				this.storage.removeEventListener(StorageEventType.ERROR, onError);
+			};
+
+			this.storage.addEventListener(StorageEventType.LOADED, onLoaded);
+			this.storage.addEventListener(StorageEventType.ERROR, onError);
+
+			try {
+				this.storage.load(recordId);
+			} catch (error) {
+				cleanup();
+				reject(error);
+			}
+		});
+	}
+
+	private performDelete(recordId: StorageRecordId): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			const onUpdated = () => {
+				cleanup();
+				resolve();
+			};
+
+			const onError = (event: Event) => {
+				cleanup();
+				reject((event as CustomEvent).detail ?? event);
+			};
+
+			const cleanup = () => {
+				this.storage.removeEventListener(StorageEventType.UPDATE, onUpdated);
+				this.storage.removeEventListener(StorageEventType.ERROR, onError);
+			};
+
+			this.storage.addEventListener(StorageEventType.UPDATE, onUpdated);
+			this.storage.addEventListener(StorageEventType.ERROR, onError);
+
+			try {
+				this.storage.delete(recordId);
+			} catch (error) {
+				cleanup();
+				reject(error);
+			}
+		});
 	}
 
 	private executeSyncResult(

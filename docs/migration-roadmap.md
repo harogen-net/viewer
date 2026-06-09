@@ -52,6 +52,9 @@
   - `Viewer` と `FileSelector` の `SlideStorage` 直結依存を Adapter 経由へ差し替え
   - `DocumentStorageUseCase` を追加し、保存系の feature gate 判定を UseCase 層へ移管
   - `StorageActionResult`（Resultモデル）へ移行し、UI 側で失敗通知を一元化
+  - save/export/import を非同期 `Result` に統一し、`StorageEventType.ERROR` を追加して通知導線を event 経由へ統一
+  - load/delete も非同期 `Result` に統一し、Storage event 完了を待って成功/失敗を確定
+  - `SlideStorage` の境界型を強化（`StorageExportOptions`/`File` 適用、`any` 削減、未使用状態の整理）
   - 反映コード:
     - `src/storage/StorageAdapter.ts`
     - `src/storage/LegacySlideStorageAdapter.ts`

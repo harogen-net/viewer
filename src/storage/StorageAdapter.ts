@@ -22,6 +22,7 @@ export const StorageEventType = {
 	LOADING: "loading",
 	LOADED: "loaded",
 	UPDATE: "update",
+	ERROR: "error",
 } as const;
 
 export type StorageEventType = (typeof StorageEventType)[keyof typeof StorageEventType];

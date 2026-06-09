@@ -188,6 +188,18 @@
 - `Viewer` は save/export の結果を `.then(...)` で受け取り、import と同じ通知パターンに統一
 - 非同期処理中に発生する zip/embed/write 失敗も `STORAGE_IO_ERROR` として Result 化
 
+### 6.10 ストレージエラーイベント統一（2026-06-10 追記）
+- `StorageEventType.ERROR` を追加
+- `SlideStorage` 内の DB open/load/delete の失敗は `alert` ではなく `error` event を dispatch
+- `Viewer` は `StorageEventType.ERROR` を監視し、`showNotice` でユーザー通知
+- これにより storage 層から UI 直接依存を削減し、通知経路を event 経由に一本化
+
+### 6.11 load/delete 非同期 Result 統一（2026-06-10 追記）
+- `DocumentStorageUseCase.loadResult/deleteResult` を `Promise<StorageActionResult>` に統一
+- `load` は `LOADED/ERROR` event、`delete` は `UPDATE/ERROR` event を待って結果確定
+- `FileSelector` は load/delete を非同期 Result 経由で扱い、通知導線を save/export/import と同一化
+- `SlideStorage.load` の parse 失敗時も `ERROR` event を dispatch し、Result へ反映
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch

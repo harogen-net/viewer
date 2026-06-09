@@ -1,7 +1,7 @@
 import $ from "jquery";
 import { showNotice } from "../../runtime/notice";
 import { StorageEventType } from "../../storage/StorageAdapter";
-import { DocumentStorageUseCase } from "../../useCase/DocumentStorageUseCase";
+import { DocumentStorageUseCase, type StorageActionResult } from "../../useCase/DocumentStorageUseCase";
 import { isStorageActionFailure } from "../../useCase/storageActionResult";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
@@ -10,6 +10,14 @@ type SelectValue = string | number | string[] | null;
 export class FileSelector {
 	constructor(private readonly documentStorage: DocumentStorageUseCase) {
 		let selectObj = $("select.filename");
+
+		const handleResult = (resultPromise: Promise<StorageActionResult>) => {
+			resultPromise.then((result) => {
+				if (isStorageActionFailure(result)) {
+					showNotice(result.message);
+				}
+			});
+		};
 
 		this.documentStorage.addEventListener(StorageEventType.UPDATE, (e: CustomEvent) => {
 			let index = selectObj.prop("selectedIndex");
@@ -34,19 +42,13 @@ export class FileSelector {
 
 			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
 			if (nextValue) {
-				const result = this.documentStorage.loadResult(nextValue);
-				if (isStorageActionFailure(result)) {
-					showNotice(result.message);
-				}
+				handleResult(this.documentStorage.loadResult(nextValue));
 			}
 		});
 
 		const handleSelectChange = (val: SelectValue) => {
 			if (val == -1 || val == null) return;
-			const result = this.documentStorage.loadResult(val);
-			if (isStorageActionFailure(result)) {
-				showNotice(result.message);
-			}
+			handleResult(this.documentStorage.loadResult(val));
 		};
 
 		selectObj.change((e) => {
@@ -59,10 +61,7 @@ export class FileSelector {
 			if (targetOp.length == 0) return;
 			const nextVal = targetOp.attr("value");
 			selectObj.val(nextVal);
-			const result = this.documentStorage.loadResult(nextVal);
-			if (isStorageActionFailure(result)) {
-				showNotice(result.message);
-			}
+			handleResult(this.documentStorage.loadResult(nextVal));
 		};
 
 		$(".fileSelect.up").click(() => handleFileSelectClick(false));
@@ -79,10 +78,7 @@ export class FileSelector {
 				Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY ||
 				window.confirm("delete selected save data. Are you sure?")
 			) {
-				const result = this.documentStorage.deleteResult(val);
-				if (isStorageActionFailure(result)) {
-					showNotice(result.message);
-				}
+				handleResult(this.documentStorage.deleteResult(val));
 			}
 		};
 

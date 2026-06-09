@@ -5,7 +5,11 @@ import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-import { createStorageOperationError, StorageErrorCode } from "../storage/StorageAdapter";
+import {
+	createStorageOperationError,
+	StorageErrorCode,
+	type StorageExportOptions,
+} from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../storage/storageTypes";
 import { Viewer } from "../Viewer";
 import { DataUtil } from "./DataUtil";
@@ -25,16 +29,18 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 	private static readonly VERSION: number = 3;
-	private static readonly SAVE_KEY: string = "viewer.slideData";
 	private static readonly DBNAME: string = "viewer";
 	private static readonly PNG_DATA_FILE_PREFIX: string = "[hv]";
 
 	private db: IDBDatabase;
-	private dbVersion: number;
 	private titleStore: IDBObjectStore;
 	private dataStore: IDBObjectStore;
 
 	private embedder: PNGEmbedder;
+
+	private dispatchStorageError(message: string, code: StorageErrorCode = StorageErrorCode.STORAGE_IO_ERROR) {
+		this.dispatchEvent(new CustomEvent("error", { detail: createStorageOperationError(code, message) }));
+	}
 
 	public titles: SlideTitle[] = [];
 	public titleById: { [key: number]: string } = {};
@@ -45,14 +51,13 @@ export class SlideStorage extends EventDispatcher {
 
 		let create = () => {
 			let openReq = indexedDB.open(SlideStorage.DBNAME);
-			openReq.onupgradeneeded = (e: any) => {
-				this.db = e.target.result;
+			openReq.onupgradeneeded = (e: IDBVersionChangeEvent) => {
+				this.db = (e.target as IDBOpenDBRequest).result;
 				this.db.createObjectStore("slideTitles", { keyPath: "id", autoIncrement: true });
 				this.db.createObjectStore("slideData", { keyPath: "title" });
 			};
-			openReq.onsuccess = (e: any) => {
-				this.db = e.target.result;
-				this.dbVersion = this.db.version;
+			openReq.onsuccess = (e: Event) => {
+				this.db = (e.target as IDBOpenDBRequest).result;
 
 				let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 
@@ -60,15 +65,14 @@ export class SlideStorage extends EventDispatcher {
 				this.dataStore = transaction.objectStore("slideData");
 				this.updateTitleMenu();
 			};
-			openReq.onerror = (e: any) => {
-				//console.log('db open error');
-				alert("db open error");
+			openReq.onerror = () => {
+				this.dispatchStorageError("db open error", StorageErrorCode.STORAGE_IO_ERROR);
 			};
 		};
 
 		if (0) {
 			let deleteReq = indexedDB.deleteDatabase(SlideStorage.DBNAME);
-			deleteReq.onsuccess = (e: any) => {
+			deleteReq.onsuccess = () => {
 				//console.log('db delete success');
 				create();
 			};
@@ -134,7 +138,7 @@ export class SlideStorage extends EventDispatcher {
 		});
 	}
 
-	public export(doc: ViewerDocument, type: HVDataType, options?: any): Promise<void> {
+	public export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): Promise<void> {
 		let jsonStr: string = this.stringifyData(doc);
 
 		//
@@ -207,21 +211,39 @@ export class SlideStorage extends EventDispatcher {
 		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.dataStore = transaction.objectStore("slideData");
 		let getReq = this.dataStore.get(title);
-		getReq.onsuccess = async (e: any) => {
-			let jsonStr: string = e.target.result.data;
-			this.dispatchEvent(
-				new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) })
-			);
+		getReq.onsuccess = async (e: Event) => {
+			try {
+				const req = e.target as IDBRequest<{ data: string }>;
+				let jsonStr: string = req.result.data;
+				this.dispatchEvent(
+					new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) })
+				);
+			} catch (error) {
+				if (error && typeof error == "object" && "code" in error) {
+					const coded = error as { code?: unknown; message?: unknown };
+					if (typeof coded.code == "string") {
+						this.dispatchStorageError(
+							typeof coded.message == "string" ? coded.message : "load parse failed",
+							coded.code as StorageErrorCode
+						);
+						return;
+					}
+				}
+
+				this.dispatchStorageError("load parse failed", StorageErrorCode.PARSE_ERROR);
+			}
 		};
-		getReq.onerror = async (e: any) => {};
+		getReq.onerror = async () => {
+			this.dispatchStorageError("load request failed", StorageErrorCode.STORAGE_IO_ERROR);
+		};
 	}
 
-	public async import(file: any) {
+	public async import(file: File) {
 		if (file.name.indexOf(".png") != -1) {
 			let reader = new FileReader();
-			let loadFunc = (reader, filePath) => {
+			let loadFunc = (reader: FileReader, filePath: File) => {
 				return new Promise<void>((resolve) => {
-					reader.addEventListener("load", (e: any) => {
+					reader.addEventListener("load", () => {
 						resolve();
 					});
 					reader.readAsDataURL(filePath);
@@ -302,6 +324,12 @@ export class SlideStorage extends EventDispatcher {
 
 		let deleteReq1 = this.titleStore.delete(numericId);
 		let deleteReq2 = this.dataStore.delete(title);
+		deleteReq1.onerror = (e: any) => {
+			this.dispatchStorageError("delete title failed", StorageErrorCode.STORAGE_IO_ERROR);
+		};
+		deleteReq2.onerror = (e: any) => {
+			this.dispatchStorageError("delete data failed", StorageErrorCode.STORAGE_IO_ERROR);
+		};
 		deleteReq1.onsuccess = (e: any) => {
 			this.updateTitleMenu();
 		};

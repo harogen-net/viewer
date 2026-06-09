@@ -90,6 +90,10 @@ export class Viewer {
 		this.documentStorage.addEventListener(StorageEventType.LOADED, (e: CustomEvent) => {
 			this.newDocument(e.detail as ViewerDocument);
 		});
+		this.documentStorage.addEventListener(StorageEventType.ERROR, (e: CustomEvent) => {
+			const detail = e.detail as { message?: string } | undefined;
+			showNotice(detail?.message || "ストレージアクセスでエラーが発生しました。");
+		});
 		//
 
 		if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
