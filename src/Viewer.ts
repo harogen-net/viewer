@@ -1,15 +1,16 @@
-import { ListViewController } from "./viewController/ListViewController";
-import { SlideStorage, HVDataType } from "./utils/SlideStorage";
-import { SlideShowViewController } from "./viewController/SlideShowViewController";
-import { EditViewController } from "./viewController/EditViewController";
-import { ImageManager } from "./utils/ImageManager";
-import { ViewerDocument } from "./model/ViewerDocument";
-import { Slide } from "./model/Slide";
-import { HistoryManager } from "./utils/HistoryManager";
-import { PropertyEvent } from "./events/PropertyEvent";
 import $ from "jquery";
+import { PropertyEvent } from "./events/PropertyEvent";
+import { Slide } from "./model/Slide";
+import { ViewerDocument } from "./model/ViewerDocument";
+import { FeatureGate } from "./runtime/featureGate";
+import { HistoryManager } from "./utils/HistoryManager";
+import { ImageManager } from "./utils/ImageManager";
+import { HVDataType, SlideStorage } from "./utils/SlideStorage";
 import { ProgressBar } from "./view/ProgressBar";
+import { EditViewController } from "./viewController/EditViewController";
 import { FileSelector } from "./viewController/file/FileSelector";
+import { ListViewController } from "./viewController/ListViewController";
+import { SlideShowViewController } from "./viewController/SlideShowViewController";
 
 
 export enum ViewerMode {
@@ -43,7 +44,7 @@ export class Viewer {
 	IsDocumentModified: boolean;
 
 
-	constructor(public obj: any, startUpMode: ViewerStartUpMode) {
+	constructor(public obj: any, startUpMode: ViewerStartUpMode, private featureGate?: FeatureGate) {
 		Viewer.shared = this;
 		Viewer.startUpMode = startUpMode;
 
@@ -66,7 +67,7 @@ export class Viewer {
 		let progressBar = new ProgressBar($("<div />").appendTo(obj))
 
 		//
-		this.listVC = new ListViewController(obj.find(".list"));
+		this.listVC = new ListViewController(obj.find(".list"), this.canEdit());
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
 		this.storage = SlideStorage.getInstance();
@@ -129,7 +130,7 @@ export class Viewer {
 
 		//IO section
 		{
-			new FileSelector();
+			new FileSelector(this.featureGate);
 
 			if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 				//pulldown
@@ -152,7 +153,7 @@ export class Viewer {
 						isOpen = true;
 						target.slideDown(100);
 						$(document).on(key, function (e) {
-							if (e.target == opener[0]) return;
+							if ((e.target as Node) == opener[0]) return;
 							hide();
 						});
 					}
@@ -178,6 +179,7 @@ export class Viewer {
 					$("#images > .container").toggle();
 				});
 				$(".new").click(() => {
+					if (!this.canEdit()) return;
 					if (this.viewerDocument.slides.length == 0) return;
 					if (!this.IsDocumentModified || !Viewer.isStrictMode || window.confirm('clear slides and new document. Are you sure?')) {
 						this.newDocument();
@@ -185,6 +187,7 @@ export class Viewer {
 				});
 
 				$(".export").click(() => {
+					if (!this.canExport()) return;
 					if (this.listVC.slides.length > 0) {
 						var type: HVDataType;
 						if ($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
@@ -226,6 +229,7 @@ export class Viewer {
 
 
 			$(".save").click(() => {
+				if (!this.canSave()) return;
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm('override?');
 				this.storage.save(this.viewerDocument, isOverride);
@@ -233,16 +237,20 @@ export class Viewer {
 
 
 			$("button.zip").click(() => {
+				if (!this.canExport()) return;
 				this.viewerDocument.downloadImage();
 			});
 			$("button.import").click(() => {
+				if (!this.canImport()) return;
 				if (!this.IsDocumentModified || !Viewer.isStrictMode || window.confirm('load slides. Are you sure?')) {
 					$("input.import")[0].click();
 				}
 			});
 			$("input.import").change((e) => {
-				if (e.target.files[0]) {
-					this.storage.import(e.target.files[0]);
+				if (!this.canImport()) return;
+				const target = e.target as HTMLInputElement;
+				if (target.files && target.files[0]) {
+					this.storage.import(target.files[0]);
 					$("input.import").val("");
 				}
 			});
@@ -261,6 +269,10 @@ export class Viewer {
 			// });
 
 			$("#bgColor").change((e) => {
+				if (!this.canEdit()) {
+					$("#bgColor").val(this.viewerDocument.bgColor);
+					return;
+				}
 				this.viewerDocument.bgColor = $("#bgColor").val().toString();
 			});
 
@@ -330,5 +342,25 @@ export class Viewer {
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 			this.editVC.setMode(this._mode);
 		}
+	}
+
+	private canEdit(): boolean {
+		if (this.featureGate) return this.featureGate.canEdit;
+		return Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT;
+	}
+
+	private canSave(): boolean {
+		if (this.featureGate) return this.featureGate.canSave;
+		return Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT;
+	}
+
+	private canExport(): boolean {
+		if (this.featureGate) return this.featureGate.canExport;
+		return Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT;
+	}
+
+	private canImport(): boolean {
+		if (this.featureGate) return this.featureGate.canImport;
+		return true;
 	}
 }

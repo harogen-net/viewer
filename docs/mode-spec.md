@@ -10,21 +10,35 @@
 
 ## 実装状況（2026-06-09）
 - 実装済み
+  - React + Mantine Runtime Shell 導入
+  - React 製 Slide List mirror（閲覧ミラー）
   - query 強制モード（`?mode=browser|mobile`）
   - standalone + mobile 判定による mode 解決
   - mobile pwa mode 時の編集/保存系初期ゲート
   - mobile pwa mode 時の readonly UI ガード（編集領域非表示）
+  - action-level reject（保存/出力/背景更新）
+  - readonly 時のスライド並び替え禁止
+  - ListViewController の add/clone/remove/sort reject
+  - FileSelector の dispose reject（保存データ削除禁止）
+  - FeatureGate 粒度拡張（canImport / canDeleteSavedData）
   - 縦起動時の transform 回転フォールバック
 - 実装ファイル
+  - `src/react/mountRuntimeShell.tsx`
+  - `src/react/RuntimeShell.tsx`
+  - `src/types/styles.d.ts`
   - `src/runtime/applyFeatureGate.ts`
   - `src/runtime/mode.ts`
   - `src/runtime/featureGate.ts`
   - `src/runtime/mobileOrientation.ts`
   - `src/index.ts`
+  - `src/Viewer.ts`
   - `css/index.css`
 - 未実装
-  - feature gate の網羅化（操作単位の reject 実装）
+  - feature gate の網羅化（全編集操作単位の reject 実装）
   - orientation フォールバックの端末別最適化（セーフエリア調整など）
+
+注記:
+- mobile pwa mode では import は「読込用途」として許可し、保存/出力は拒否する。
 
 ## 1. 用語
 - browser mode

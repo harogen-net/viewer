@@ -1,9 +1,10 @@
 import $ from "jquery";
+import { FeatureGate } from "../../runtime/featureGate";
 import { SlideStorage } from "../../utils/SlideStorage";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
 export class FileSelector {
-	constructor() {
+	constructor(private readonly gate?:FeatureGate) {
 		let storage = SlideStorage.getInstance();
 		let selectObj = $("select.filename");
 
@@ -56,6 +57,7 @@ export class FileSelector {
 		});
 
 		const handleDispose = () => {
+			if(!this.canDeleteSavedData()) return;
 			let val = selectObj.val();
 			if (val == -1 || val == null) return;
 			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
@@ -65,5 +67,10 @@ export class FileSelector {
 
 		const disposeEvent = Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT ? "dblclick" : "click";
 		$(".dispose").on(disposeEvent, handleDispose);
+	}
+
+	private canDeleteSavedData(): boolean {
+		if(this.gate) return this.gate.canDeleteSavedData;
+		return true;
 	}
 }

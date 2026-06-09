@@ -1,13 +1,13 @@
-import { SlideView } from "../view/SlideView";
-import { ImageLayer } from "../model/layer/ImageLayer";
+import $ from "jquery";
 import { EventDispatcher } from "../events/EventDispatcher";
-import { DropHelper } from "../utils/DropHelper";
 import { IDroppable } from "../interface/IDroppable";
-import { Viewer, ViewerMode, ViewerStartUpMode } from "../Viewer";
+import { ImageLayer } from "../model/layer/ImageLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
+import { DropHelper } from "../utils/DropHelper";
 import { ThumbSlideView } from "../view/slide/ThumbSlideView";
-import $ from "jquery";
+import { SlideView } from "../view/SlideView";
+import { Viewer, ViewerMode, ViewerStartUpMode } from "../Viewer";
 
 export class ListViewController extends EventDispatcher implements IDroppable {
 
@@ -28,7 +28,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private contextTargetSlide:Slide|null = null;	//こいつが原因でバグを発生しそうな予感
 
 
-	constructor(public obj:any) {
+	constructor(public obj:any, private readonly canEdit:boolean = true) {
 		super();
 		document.documentElement.style.setProperty("--slideThumbHeight", this.THUMB_HEIGHT + "px");
 
@@ -45,6 +45,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			//helper:"clone",
 			forcePlaceholderSize:true,
 			forceHelperSize:true,
+			disabled: !this.canEdit,
 			 update:()=>{
 				this.onSlideSort();
             }
@@ -181,6 +182,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 
 	addSlide(slide:Slide, index:number = -1):Slide {
+		if(!this.canEdit) return slide;
 		console.log("addSlide called : " + this._slides.length);
 
 		if(index != -1 && index < this._slides.length){
@@ -226,6 +228,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	}
 
 	clonseSlide(slide:Slide):Slide {
+		if(!this.canEdit) return slide;
 		if(this._slides.indexOf(slide) == -1) return;
 
 		var clonedSlide:Slide = slide.clone();
@@ -265,6 +268,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	}
 
 	removeSlide(slide:Slide, isAnimation:boolean = false):Slide{
+		if(!this.canEdit) return slide;
 		var index:number = this._slides.indexOf(slide);
 		if(index == -1) return;
 
@@ -381,6 +385,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	//
 
 	private onSlideSort() {
+		if(!this.canEdit) return;
 		this.containerObj.find(".slide").each((i:number, elem:any)=>{
 			this._slideViews[i] = this._slideViewsById[$(elem).data("id")];
 		});

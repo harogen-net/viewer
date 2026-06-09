@@ -12,18 +12,39 @@
 - docs/test-plan.md
 
 ## 実装進捗（2026-06-09）
-- Phase 1 着手
+- Phase 1 完了
+  - React エントリを追加し、jQuery と共存する段階置換構造を導入
+  - Mantine ThemeProvider とデザイントークンを導入
+  - React 製のスライド一覧閲覧ミラー UI を追加（Slide List mirror）
   - モード判定の実装を追加（query override + standalone/mobile 判定）
   - feature gate の初期実装を追加（mobile pwa で編集/保存系を無効化）
   - スマホ縦起動時の横向きフォールバック（transform 回転）を追加
   - readonly 時の UI ガードを追加（編集領域非表示、破壊操作ボタン無効化）
+  - action-level ガードを追加（保存/出力/背景更新を runtime gate で reject）
+  - readonly 時のスライド並び替えを禁止（sortable disabled）
+  - ListViewController の編集操作 API に reject を追加（add/clone/remove/sort）
+  - FileSelector の保存データ削除（dispose）を readonly 時に reject
+  - FeatureGate を拡張（canImport/canDeleteSavedData）して権限粒度を明確化
   - 反映コード:
+    - `src/react/mountRuntimeShell.tsx`
+    - `src/react/RuntimeShell.tsx`
+    - `src/types/styles.d.ts`
     - `src/runtime/applyFeatureGate.ts`
     - `src/runtime/mode.ts`
     - `src/runtime/featureGate.ts`
     - `src/runtime/mobileOrientation.ts`
     - `src/index.ts`
+    - `src/Viewer.ts`
+    - `src/viewController/ListViewController.ts`
+    - `tsconfig.json`
     - `css/index.css`
+
+  ## Phase 1 完了判定（チェック）
+  - React エントリ追加: 完了
+  - Mantine ThemeProvider 導入: 完了
+  - browser/mobile 判定と feature gate: 完了
+  - スライド一覧閲覧 UI の React 化: 完了（ミラー UI 方式）
+  - スライドショー起動導線維持: 完了
 
 ## 前提
 - 段階移行とし、各フェーズで動作する成果物を維持する
