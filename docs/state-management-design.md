@@ -137,7 +137,16 @@
 - 置換優先順（確定）
   1. `Viewer` の保存/出力/取込（完了）
   2. `FileSelector` の保存データ一覧/読込/削除（完了）
-  3. import/export options とエラー型の型安全化（次段）
+  3. import/export options とエラー型の型安全化（完了）
+
+### 6.4 型安全化（2026-06-09 追記）
+- `StorageAdapter` に以下を導入
+  - `StorageRecordId`
+  - `StorageExportOptions`
+  - `StorageErrorCode`
+- `DocumentStorageUseCase` で ID 正規化を実施
+  - 入力: `string | number | string[] | null | undefined`
+  - 出力: `StorageRecordId`（invalid は reject）
 
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル

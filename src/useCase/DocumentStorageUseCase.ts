@@ -1,7 +1,15 @@
 import { ViewerDocument } from "../model/ViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
-import { StorageAdapter, StorageEventCallback, StorageEventType } from "../storage/StorageAdapter";
+import {
+  StorageAdapter,
+  StorageEventCallback,
+  StorageEventType,
+  StorageExportOptions,
+  StorageRecordId,
+} from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../utils/SlideStorage";
+
+type StorageInputId = string | number | string[] | null | undefined;
 
 export class DocumentStorageUseCase {
   constructor(
@@ -27,14 +35,17 @@ export class DocumentStorageUseCase {
     return true;
   }
 
-  export(doc: ViewerDocument, type: HVDataType, options?: any): boolean {
+  export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): boolean {
     if (!this.canExport()) return false;
     this.storage.export(doc, type, options);
     return true;
   }
 
-  load(id: string): void {
-    this.storage.load(id);
+  load(id: StorageInputId): boolean {
+    const recordId = this.normalizeId(id);
+    if (!recordId) return false;
+    this.storage.load(recordId);
+    return true;
   }
 
   import(file: File): Promise<void> | undefined {
@@ -42,9 +53,11 @@ export class DocumentStorageUseCase {
     return this.storage.import(file);
   }
 
-  delete(id: string): boolean {
+  delete(id: StorageInputId): boolean {
     if (!this.canDeleteSavedData()) return false;
-    this.storage.delete(id);
+    const recordId = this.normalizeId(id);
+    if (!recordId) return false;
+    this.storage.delete(recordId);
     return true;
   }
 
@@ -62,5 +75,21 @@ export class DocumentStorageUseCase {
 
   canDeleteSavedData(): boolean {
     return this.gate ? this.gate.canDeleteSavedData : true;
+  }
+
+  private normalizeId(id: StorageInputId): StorageRecordId | undefined {
+    if (id == null) return undefined;
+
+    if (Array.isArray(id)) {
+      return id.length > 0 ? id[0] : undefined;
+    }
+
+    if (typeof id == "number") {
+      return id.toString();
+    }
+
+    const normalized = id.toString().trim();
+    if (!normalized || normalized == "-1") return undefined;
+    return normalized;
   }
 }

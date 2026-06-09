@@ -1,6 +1,12 @@
 import { ViewerDocument } from "../model/ViewerDocument";
 import { HVDataType, SlideStorage, SlideTitle } from "../utils/SlideStorage";
-import { StorageAdapter, StorageEventCallback, StorageEventType } from "./StorageAdapter";
+import {
+  StorageAdapter,
+  StorageEventCallback,
+  StorageEventType,
+  StorageExportOptions,
+  StorageRecordId,
+} from "./StorageAdapter";
 
 export class LegacySlideStorageAdapter implements StorageAdapter {
   private static instance: LegacySlideStorageAdapter;
@@ -30,11 +36,11 @@ export class LegacySlideStorageAdapter implements StorageAdapter {
     this.storage.save(doc, isOverride);
   }
 
-  export(doc: ViewerDocument, type: HVDataType, options?: any): void {
+  export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): void {
     this.storage.export(doc, type, options);
   }
 
-  load(id: string): void {
+  load(id: StorageRecordId): void {
     this.storage.load(id);
   }
 
@@ -42,7 +48,7 @@ export class LegacySlideStorageAdapter implements StorageAdapter {
     await this.storage.import(file);
   }
 
-  delete(id: string): void {
+  delete(id: StorageRecordId): void {
     this.storage.delete(id);
   }
 }

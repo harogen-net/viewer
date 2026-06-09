@@ -1,6 +1,20 @@
 import { ViewerDocument } from "../model/ViewerDocument";
 import { HVDataType, SlideTitle } from "../utils/SlideStorage";
 
+export type StorageRecordId = string;
+
+export type StorageExportOptions = {
+  pages?: number[];
+};
+
+export enum StorageErrorCode {
+  UNSUPPORTED_VERSION = "UNSUPPORTED_VERSION",
+  PARSE_ERROR = "PARSE_ERROR",
+  MISSING_ASSET = "MISSING_ASSET",
+  STORAGE_IO_ERROR = "STORAGE_IO_ERROR",
+  INVALID_ARGUMENT = "INVALID_ARGUMENT",
+}
+
 export enum StorageEventType {
   LOADING = "loading",
   LOADED = "loaded",
@@ -14,8 +28,8 @@ export interface StorageAdapter {
   removeEventListener(type: StorageEventType | string, callback: StorageEventCallback): void;
   getTitles(): SlideTitle[];
   save(doc: ViewerDocument, isOverride: boolean): void;
-  export(doc: ViewerDocument, type: HVDataType, options?: any): void;
-  load(id: string): void;
+  export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): void;
+  load(id: StorageRecordId): void;
   import(file: File): Promise<void>;
-  delete(id: string): void;
+  delete(id: StorageRecordId): void;
 }

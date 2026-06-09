@@ -59,7 +59,7 @@ export class FileSelector {
 			let val = selectObj.val();
 			if (val == -1 || val == null) return;
 			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
-				this.documentStorage.delete(val.toString());
+				this.documentStorage.delete(val);
 			}
 		};
 
