@@ -112,6 +112,12 @@
 - `npm run check:phase2-fixtures`
 - 期待値: 0 exit（不足ファイルなし・各 fixture が最小サイズ以上）
 - NG時: missing/tooSmall の内訳と summary が表示される
+- 総合実行: `npm run check:phase2`
+
+互換チェック（実データ解析）:
+- `npm run gen:phase2-png-fixture`
+- `npm run check:phase2-compat`
+- 期待値: hvd/hvz/png埋め込みの解析が成功し、version と slide 数の整合が取れる
 
 ### 6.2 round-trip 最小観点（Phase2）
 - 入力: `compat_v2_minimal.hvd`
@@ -122,6 +128,14 @@
   - 各 slide の `durationRatio/joining/disabled`
   - layer 数
   - 先頭 layer の transform（`transX/transY/scaleX/scaleY/rotation`）
+
+実行チェック（fixture間整合の自動検証）:
+- `npm run check:phase2-core-fields`
+- 期待値: hvd/hvz/png 埋め込みの主要項目（bgColor, slide数, 先頭slide項目, 先頭layer transform）が一致
+
+センシティブ fixture 最小妥当性:
+- `npm run check:phase2-sensitive`
+- 期待値: `isSensitive === true` かつ version/slideData が妥当
 
 ### 6.3 エラー分類（Phase2）
 - `UNSUPPORTED_VERSION`

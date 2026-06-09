@@ -60,6 +60,9 @@
   - `SlideStorage` の境界型を強化（`StorageExportOptions`/`File` 適用、`any` 削減、未使用状態の整理）
   - Phase2 fixture 存在チェックをスクリプト化（`npm run check:phase2-fixtures`）し、互換テスト前提を明示化
   - fixture チェックを強化し、欠落に加えて最小サイズ未満（空/不完全ファイル）も検出
+  - PNG埋め込みfixture再生成スクリプトと hvd/hvz/png 実解析チェックを追加（`gen:phase2-png-fixture`, `check:phase2-compat`）
+  - round-trip最小観点に対応する主要項目比較チェックを追加（`check:phase2-core-fields`）
+  - fixture/compat/core/sensitive を一括実行する総合チェックコマンドを追加（`check:phase2`）
   - 反映コード:
     - `src/storage/StorageAdapter.ts`
     - `src/storage/LegacySlideStorageAdapter.ts`
