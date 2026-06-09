@@ -2,7 +2,7 @@ import { ViewerDocument } from "../model/ViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
 import {
 	StorageAdapter,
-  StorageErrorCode,
+	StorageErrorCode,
 	StorageEventCallback,
 	StorageEventType,
 	StorageExportOptions,
