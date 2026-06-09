@@ -8,17 +8,19 @@ import {
 	StorageExportOptions,
 	StorageRecordId,
 } from "../storage/StorageAdapter";
-import { HVDataType, SlideTitle } from "../utils/SlideStorage";
+import { HVDataType, SlideTitle } from "../storage/storageTypes";
 
 type StorageInputId = string | number | string[] | null | undefined;
 
-export enum StorageAction {
-	SAVE = "save",
-	EXPORT = "export",
-	IMPORT = "import",
-	LOAD = "load",
-	DELETE = "delete",
-}
+export const StorageAction = {
+	SAVE: "save",
+	EXPORT: "export",
+	IMPORT: "import",
+	LOAD: "load",
+	DELETE: "delete",
+} as const;
+
+export type StorageAction = (typeof StorageAction)[keyof typeof StorageAction];
 
 export type StorageActionResult =
 	| { ok: true; action: StorageAction }
@@ -130,8 +132,8 @@ export class DocumentStorageUseCase {
 		try {
 			operation();
 			return { ok: true, action };
-		} catch {
-			return this.fail(action, StorageErrorCode.STORAGE_IO_ERROR);
+		} catch (error) {
+			return this.fail(action, this.mapStorageErrorCode(error));
 		}
 	}
 
@@ -147,12 +149,43 @@ export class DocumentStorageUseCase {
 		try {
 			return operation()
 				.then(() => ({ ok: true, action }) as StorageActionResult)
-				.catch(() => {
-					return this.fail(action, StorageErrorCode.STORAGE_IO_ERROR);
+				.catch((error) => {
+					return this.fail(action, this.mapStorageErrorCode(error));
 				});
-		} catch {
-			return Promise.resolve(this.fail(action, StorageErrorCode.STORAGE_IO_ERROR));
+		} catch (error) {
+			return Promise.resolve(this.fail(action, this.mapStorageErrorCode(error)));
 		}
+	}
+
+	private mapStorageErrorCode(error: unknown): StorageErrorCode {
+		if (error && typeof error == "object" && "code" in error) {
+			const code = (error as { code?: unknown }).code;
+			if (typeof code == "string") {
+				const matched = (Object.values(StorageErrorCode) as string[]).find((value) => value == code);
+				if (matched) {
+					return matched as StorageErrorCode;
+				}
+			}
+		}
+
+		if (error instanceof SyntaxError) {
+			return StorageErrorCode.PARSE_ERROR;
+		}
+
+		if (error instanceof Error) {
+			const msg = error.message.toLowerCase();
+			if (msg.indexOf("too old version") != -1 || msg.indexOf("unsupported") != -1) {
+				return StorageErrorCode.UNSUPPORTED_VERSION;
+			}
+			if (msg.indexOf("parse") != -1 || msg.indexOf("json") != -1 || msg.indexOf("zip") != -1) {
+				return StorageErrorCode.PARSE_ERROR;
+			}
+			if (msg.indexOf("asset") != -1 || msg.indexOf("image") != -1) {
+				return StorageErrorCode.MISSING_ASSET;
+			}
+		}
+
+		return StorageErrorCode.STORAGE_IO_ERROR;
 	}
 
 	private fail(action: StorageAction, error: StorageErrorCode): StorageActionResult {

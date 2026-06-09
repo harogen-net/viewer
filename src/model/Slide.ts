@@ -1,17 +1,19 @@
-import { EventDispatcher } from "../events/EventDispatcher";
-import { Layer } from "./Layer";
-import { ViewerDocument } from "./ViewerDocument";
-import { Viewer } from "../Viewer";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { PropFlags } from "./PropFlags";
 import { v4 as uuidv4 } from "uuid";
+import { Viewer } from "../Viewer";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { PropertyEvent } from "../events/PropertyEvent";
+import { Layer } from "./Layer";
+import { PropFlags } from "./PropFlags";
+import { ViewerDocument } from "./ViewerDocument";
 
-export enum Direction {
-	TOP = 0,
-	RIGHT,
-	BOTTOM,
-	LEFT,
-}
+export const Direction = {
+	TOP: 0,
+	RIGHT: 1,
+	BOTTOM: 2,
+	LEFT: 3,
+} as const;
+
+export type Direction = (typeof Direction)[keyof typeof Direction];
 
 export class Slide extends EventDispatcher {
 	static readonly LAYER_NUM_MAX: number = 20;

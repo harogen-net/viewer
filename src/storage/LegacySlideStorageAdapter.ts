@@ -1,5 +1,5 @@
 import { ViewerDocument } from "../model/ViewerDocument";
-import { HVDataType, SlideStorage, SlideTitle } from "../utils/SlideStorage";
+import { SlideStorage } from "../utils/SlideStorage";
 import {
 	StorageAdapter,
 	StorageEventCallback,
@@ -7,6 +7,7 @@ import {
 	StorageExportOptions,
 	StorageRecordId,
 } from "./StorageAdapter";
+import { HVDataType, SlideTitle } from "./storageTypes";
 
 export class LegacySlideStorageAdapter implements StorageAdapter {
 	private static instance: LegacySlideStorageAdapter;

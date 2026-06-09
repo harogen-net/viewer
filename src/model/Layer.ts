@@ -1,16 +1,18 @@
+import { Matrix4 } from "matrixgl";
+import { v4 as uuidv4 } from "uuid";
 import { EventDispatcher } from "../events/EventDispatcher";
-import { Slide } from "./Slide";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "./PropFlags";
-import { v4 as uuidv4 } from "uuid";
-import { Matrix4 } from "matrixgl";
+import { Slide } from "./Slide";
 
-export enum LayerType {
-	LAYER = "layer",
-	IMAGE = "image",
-	TEXT = "text",
-	SHAPE = "shape",
-}
+export const LayerType = {
+	LAYER: "layer",
+	IMAGE: "image",
+	TEXT: "text",
+	SHAPE: "shape",
+} as const;
+
+export type LayerType = (typeof LayerType)[keyof typeof LayerType];
 
 export class Layer extends EventDispatcher {
 	protected _type: LayerType = LayerType.LAYER;

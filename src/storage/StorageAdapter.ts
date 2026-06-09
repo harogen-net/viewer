@@ -1,5 +1,5 @@
 import { ViewerDocument } from "../model/ViewerDocument";
-import { HVDataType, SlideTitle } from "../utils/SlideStorage";
+import { HVDataType, SlideTitle } from "./storageTypes";
 
 export type StorageRecordId = string;
 
@@ -7,20 +7,24 @@ export type StorageExportOptions = {
 	pages?: number[];
 };
 
-export enum StorageErrorCode {
-	UNSUPPORTED_VERSION = "UNSUPPORTED_VERSION",
-	PARSE_ERROR = "PARSE_ERROR",
-	MISSING_ASSET = "MISSING_ASSET",
-	STORAGE_IO_ERROR = "STORAGE_IO_ERROR",
-	PERMISSION_DENIED = "PERMISSION_DENIED",
-	INVALID_ARGUMENT = "INVALID_ARGUMENT",
-}
+export const StorageErrorCode = {
+	UNSUPPORTED_VERSION: "UNSUPPORTED_VERSION",
+	PARSE_ERROR: "PARSE_ERROR",
+	MISSING_ASSET: "MISSING_ASSET",
+	STORAGE_IO_ERROR: "STORAGE_IO_ERROR",
+	PERMISSION_DENIED: "PERMISSION_DENIED",
+	INVALID_ARGUMENT: "INVALID_ARGUMENT",
+} as const;
 
-export enum StorageEventType {
-	LOADING = "loading",
-	LOADED = "loaded",
-	UPDATE = "update",
-}
+export type StorageErrorCode = (typeof StorageErrorCode)[keyof typeof StorageErrorCode];
+
+export const StorageEventType = {
+	LOADING: "loading",
+	LOADED: "loaded",
+	UPDATE: "update",
+} as const;
+
+export type StorageEventType = (typeof StorageEventType)[keyof typeof StorageEventType];
 
 export type StorageEventCallback = (event: Event) => void;
 

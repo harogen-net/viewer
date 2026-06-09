@@ -6,26 +6,31 @@ import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { StorageEventType } from "./storage/StorageAdapter";
+import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase } from "./useCase/DocumentStorageUseCase";
 import { isStorageActionFailure } from "./useCase/storageActionResult";
 import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
-import { HVDataType } from "./utils/SlideStorage";
 import { ProgressBar } from "./view/ProgressBar";
 import { EditViewController } from "./viewController/EditViewController";
 import { FileSelector } from "./viewController/file/FileSelector";
 import { ListViewController } from "./viewController/ListViewController";
 import { SlideShowViewController } from "./viewController/SlideShowViewController";
 
-export enum ViewerMode {
-	SELECT,
-	EDIT,
-	SLIDESHOW,
-}
-export enum ViewerStartUpMode {
-	VIEW_AND_EDIT,
-	VIEW_ONLY,
-}
+export const ViewerMode = {
+	SELECT: 0,
+	EDIT: 1,
+	SLIDESHOW: 2,
+} as const;
+
+export type ViewerMode = (typeof ViewerMode)[keyof typeof ViewerMode];
+
+export const ViewerStartUpMode = {
+	VIEW_AND_EDIT: 0,
+	VIEW_ONLY: 1,
+} as const;
+
+export type ViewerStartUpMode = (typeof ViewerStartUpMode)[keyof typeof ViewerStartUpMode];
 
 export class Viewer {
 	public static shared: Viewer;

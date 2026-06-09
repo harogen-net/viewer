@@ -5,24 +5,13 @@ import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
+import { HVDataType, SlideTitle } from "../storage/storageTypes";
 import { Viewer } from "../Viewer";
 import { DataUtil } from "./DataUtil";
 import { DateUtil } from "./DateUtil";
 import { ImageManager } from "./ImageManager";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
-
-export enum HVDataType {
-	PNG,
-	HVD,
-	HVZ,
-}
-
-export interface SlideTitle {
-	id: number;
-	title: string;
-	update: number;
-}
 
 export class SlideStorage extends EventDispatcher {
 	private static instance: SlideStorage;
@@ -204,32 +193,40 @@ export class SlideStorage extends EventDispatcher {
 				let obj = await zip.file("data.hvd").async("uint8array");
 				let jsonStr: string = new TextDecoder().decode(obj);
 				if (!jsonStr) {
-					alert("not data png file.");
-					return;
+					throw new Error("parse error: embedded data is empty.");
 				}
 				let title: string = file.name.split(".png")[0].split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
 				this.dispatchEvent(
 					new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) })
 				);
-			} catch (e) {}
+			} catch (e) {
+				throw e;
+			}
 		} else if (file.name.indexOf(".hvz") != -1) {
 			try {
 				let zip = await JSZip.loadAsync(file);
-				zip.forEach(async (a, b) => {
-					let data: string = await b.async("string");
-					this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
+				let targetEntry = Object.values(zip.files).find((entry) => {
+					return !entry.dir && entry.name.toLowerCase().indexOf(".hvd") != -1;
 				});
-			} catch (e) {}
+
+				if (!targetEntry) {
+					throw new Error("import data file not found.");
+				}
+
+				let data: string = await targetEntry.async("string");
+				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
+			} catch (e) {
+				throw e;
+			}
 		} else if (file.name.indexOf(".hvd") != -1) {
-			let reader = new FileReader();
-			reader.addEventListener("load", async (e: any) => {
-				this.dispatchEvent(
-					new CustomEvent("loaded", { detail: await this.parseData(reader.result as string) })
-				);
-			});
 			try {
-				reader.readAsText(file);
-			} catch (e) {}
+				let data = await file.text();
+				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
+			} catch (e) {
+				throw e;
+			}
+		} else {
+			throw new Error("unsupported import file type.");
 		}
 	}
 
@@ -310,7 +307,6 @@ export class SlideStorage extends EventDispatcher {
 
 		//ver1
 		if (json.version == 1 || json.version == undefined) {
-			window.alert("too old version.");
 			throw new Error("too old version.");
 		}
 

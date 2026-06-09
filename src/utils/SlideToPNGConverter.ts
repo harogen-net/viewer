@@ -1,15 +1,17 @@
+import * as StackBlur from "stackblur-canvas";
+import { LayerType } from "../model/Layer";
+import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
 import { ImageLayer } from "../model/layer/ImageLayer";
-import { Layer, LayerType } from "../model/Layer";
 import { ImageManager } from "./ImageManager";
-import { Slide } from "../model/Slide";
-import * as StackBlur from "stackblur-canvas";
 
-enum SlidePNGTileType {
-	SINGLE = 1,
-	QUADRUPLE = 4,
-	NONUPLE = 9,
-}
+const SlidePNGTileType = {
+	SINGLE: 1,
+	QUADRUPLE: 4,
+	NONUPLE: 9,
+} as const;
+
+type SlidePNGTileType = (typeof SlidePNGTileType)[keyof typeof SlidePNGTileType];
 
 export class SlideToPNGConverter {
 	constructor() {}

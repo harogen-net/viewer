@@ -154,6 +154,21 @@
 - UI 側は `isStorageActionFailure` ヘルパーで結果を判定
   - `Viewer` / `FileSelector` は失敗時に `result.message` を通知表示
 
+### 6.5 import 完了同期とエラー分類改善（2026-06-10 追記）
+- `SlideStorage.import` を修正し、`Promise` が実処理完了まで解決されるよう統一
+  - `.hvz`: zip 内の `.hvd` を特定して parse 完了後に resolve
+  - `.hvd`: `file.text()` で読込後、parse 完了後に resolve
+  - 失敗時は例外を握りつぶさず reject
+- `DocumentStorageUseCase` は例外から `StorageErrorCode` を推定するマッピングを追加
+  - `SyntaxError` や parse/zip 由来メッセージ -> `PARSE_ERROR`
+  - old version / unsupported -> `UNSUPPORTED_VERSION`
+  - asset/image 関連 -> `MISSING_ASSET`
+
+### 6.6 storage 型の分離（2026-06-10 追記）
+- `HVDataType` / `SlideTitle` を `src/storage/storageTypes.ts` へ移動
+- `Viewer` / `DocumentStorageUseCase` / `StorageAdapter` は `utils/SlideStorage` の型依存を解消
+- `SlideStorage` は legacy 実装として `storageTypes` を参照する形に変更
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch
