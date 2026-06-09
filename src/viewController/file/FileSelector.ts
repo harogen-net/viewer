@@ -1,6 +1,5 @@
 import $ from "jquery";
 import { showNotice } from "../../runtime/notice";
-import { StorageEventType } from "../../storage/StorageAdapter";
 import { DocumentStorageUseCase, type StorageActionResult } from "../../useCase/DocumentStorageUseCase";
 import { isStorageActionFailure } from "../../useCase/storageActionResult";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
@@ -19,7 +18,7 @@ export class FileSelector {
 			});
 		};
 
-		this.documentStorage.addEventListener(StorageEventType.UPDATE, (e: CustomEvent) => {
+		this.documentStorage.onUpdated(() => {
 			let index = selectObj.prop("selectedIndex");
 			let selectedValue =
 				parseInt(($("select.filename option")[index] as HTMLOptionElement).value) || 0;

@@ -5,7 +5,6 @@ import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
-import { StorageEventType } from "./storage/StorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase } from "./useCase/DocumentStorageUseCase";
 import { isStorageActionFailure } from "./useCase/storageActionResult";
@@ -83,16 +82,15 @@ export class Viewer {
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
 		this.documentStorage = new DocumentStorageUseCase(createStorageAdapter(), this.featureGate);
-		this.documentStorage.addEventListener(StorageEventType.LOADING, (e: CustomEvent) => {
-			let percentage = e.detail as number;
+		this.documentStorage.onLoading((percentage) => {
 			progressBar.go(percentage);
 		});
-		this.documentStorage.addEventListener(StorageEventType.LOADED, (e: CustomEvent) => {
-			this.newDocument(e.detail as ViewerDocument);
+		this.documentStorage.onLoaded((doc) => {
+			this.newDocument(doc);
 		});
-		this.documentStorage.addEventListener(StorageEventType.ERROR, (e: CustomEvent) => {
-			const detail = e.detail as { message?: string } | undefined;
-			showNotice(detail?.message || "ストレージアクセスでエラーが発生しました。");
+		this.documentStorage.onError((error) => {
+			const detail = error as { message?: string } | undefined;
+			showNotice(detail && typeof detail.message == "string" ? detail.message : "ストレージアクセスでエラーが発生しました。");
 		});
 		//
 

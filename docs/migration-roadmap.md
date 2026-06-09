@@ -54,7 +54,12 @@
   - `StorageActionResult`（Resultモデル）へ移行し、UI 側で失敗通知を一元化
   - save/export/import を非同期 `Result` に統一し、`StorageEventType.ERROR` を追加して通知導線を event 経由へ統一
   - load/delete も非同期 `Result` に統一し、Storage event 完了を待って成功/失敗を確定
+  - load/delete の event 待機にタイムアウト制御を追加し、未完了ハングを失敗として扱う
+  - `DocumentStorageUseCase` の event 待機ロジックを共通化し、非同期処理の拡張点を整理
+  - `DocumentStorageUseCase` に意味論イベント API（`onLoading/onLoaded/onUpdated/onError`）を追加し、UI 層の event 名依存を削減
   - `SlideStorage` の境界型を強化（`StorageExportOptions`/`File` 適用、`any` 削減、未使用状態の整理）
+  - Phase2 fixture 存在チェックをスクリプト化（`npm run check:phase2-fixtures`）し、互換テスト前提を明示化
+  - fixture チェックを強化し、欠落に加えて最小サイズ未満（空/不完全ファイル）も検出
   - 反映コード:
     - `src/storage/StorageAdapter.ts`
     - `src/storage/LegacySlideStorageAdapter.ts`

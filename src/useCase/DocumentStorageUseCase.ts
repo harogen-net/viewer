@@ -1,6 +1,7 @@
 import { ViewerDocument } from "../model/ViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
 import {
+	createStorageOperationError,
 	StorageAdapter,
 	StorageErrorCode,
 	StorageEventCallback,
@@ -25,6 +26,8 @@ export type StorageAction = (typeof StorageAction)[keyof typeof StorageAction];
 export type StorageActionResult =
 	| { ok: true; action: StorageAction }
 	| { ok: false; action: StorageAction; error: StorageErrorCode; message: string };
+
+const STORAGE_EVENT_WAIT_TIMEOUT_MS = 15000;
 
 export class DocumentStorageUseCase {
 	constructor(
@@ -90,6 +93,40 @@ export class DocumentStorageUseCase {
 		this.storage.removeEventListener(type, callback);
 	}
 
+	onLoading(callback: (percentage: number) => void): () => void {
+		const handler: StorageEventCallback = (event) => {
+			const detail = (event as CustomEvent).detail;
+			callback(typeof detail == "number" ? detail : 0);
+		};
+		this.storage.addEventListener(StorageEventType.LOADING, handler);
+		return () => this.storage.removeEventListener(StorageEventType.LOADING, handler);
+	}
+
+	onLoaded(callback: (doc: ViewerDocument) => void): () => void {
+		const handler: StorageEventCallback = (event) => {
+			const detail = (event as CustomEvent).detail as ViewerDocument;
+			callback(detail);
+		};
+		this.storage.addEventListener(StorageEventType.LOADED, handler);
+		return () => this.storage.removeEventListener(StorageEventType.LOADED, handler);
+	}
+
+	onUpdated(callback: () => void): () => void {
+		const handler: StorageEventCallback = () => {
+			callback();
+		};
+		this.storage.addEventListener(StorageEventType.UPDATE, handler);
+		return () => this.storage.removeEventListener(StorageEventType.UPDATE, handler);
+	}
+
+	onError(callback: (error: unknown) => void): () => void {
+		const handler: StorageEventCallback = (event) => {
+			callback((event as CustomEvent).detail ?? event);
+		};
+		this.storage.addEventListener(StorageEventType.ERROR, handler);
+		return () => this.storage.removeEventListener(StorageEventType.ERROR, handler);
+	}
+
 	getTitles(): SlideTitle[] {
 		return this.storage.getTitles();
 	}
@@ -131,37 +168,30 @@ export class DocumentStorageUseCase {
 	}
 
 	private performLoad(recordId: StorageRecordId): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
-			const onLoaded = () => {
-				cleanup();
-				resolve();
-			};
-
-			const onError = (event: Event) => {
-				cleanup();
-				reject((event as CustomEvent).detail ?? event);
-			};
-
-			const cleanup = () => {
-				this.storage.removeEventListener(StorageEventType.LOADED, onLoaded);
-				this.storage.removeEventListener(StorageEventType.ERROR, onError);
-			};
-
-			this.storage.addEventListener(StorageEventType.LOADED, onLoaded);
-			this.storage.addEventListener(StorageEventType.ERROR, onError);
-
-			try {
-				this.storage.load(recordId);
-			} catch (error) {
-				cleanup();
-				reject(error);
-			}
-		});
+		return this.waitForStorageCompletion(
+			StorageEventType.LOADED,
+			"load operation timed out",
+			() => this.storage.load(recordId)
+		);
 	}
 
 	private performDelete(recordId: StorageRecordId): Promise<void> {
+		return this.waitForStorageCompletion(
+			StorageEventType.UPDATE,
+			"delete operation timed out",
+			() => this.storage.delete(recordId)
+		);
+	}
+
+	private waitForStorageCompletion(
+		successEventType: StorageEventType,
+		timeoutMessage: string,
+		operation: () => void
+	): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			const onUpdated = () => {
+			let timer: ReturnType<typeof setTimeout> | undefined;
+
+			const onSuccess = () => {
 				cleanup();
 				resolve();
 			};
@@ -172,37 +202,29 @@ export class DocumentStorageUseCase {
 			};
 
 			const cleanup = () => {
-				this.storage.removeEventListener(StorageEventType.UPDATE, onUpdated);
+				if (timer) {
+					clearTimeout(timer);
+					timer = undefined;
+				}
+				this.storage.removeEventListener(successEventType, onSuccess);
 				this.storage.removeEventListener(StorageEventType.ERROR, onError);
 			};
 
-			this.storage.addEventListener(StorageEventType.UPDATE, onUpdated);
+			this.storage.addEventListener(successEventType, onSuccess);
 			this.storage.addEventListener(StorageEventType.ERROR, onError);
 
+			timer = setTimeout(() => {
+				cleanup();
+				reject(createStorageOperationError(StorageErrorCode.STORAGE_IO_ERROR, timeoutMessage));
+			}, STORAGE_EVENT_WAIT_TIMEOUT_MS);
+
 			try {
-				this.storage.delete(recordId);
+				operation();
 			} catch (error) {
 				cleanup();
 				reject(error);
 			}
 		});
-	}
-
-	private executeSyncResult(
-		action: StorageAction,
-		canExecute: boolean,
-		operation: () => void
-	): StorageActionResult {
-		if (!canExecute) {
-			return this.fail(action, StorageErrorCode.PERMISSION_DENIED);
-		}
-
-		try {
-			operation();
-			return { ok: true, action };
-		} catch (error) {
-			return this.fail(action, this.mapStorageErrorCode(error));
-		}
 	}
 
 	private executeAsyncResult(

@@ -199,6 +199,17 @@
 - `load` は `LOADED/ERROR` event、`delete` は `UPDATE/ERROR` event を待って結果確定
 - `FileSelector` は load/delete を非同期 Result 経由で扱い、通知導線を save/export/import と同一化
 - `SlideStorage.load` の parse 失敗時も `ERROR` event を dispatch し、Result へ反映
+- `DocumentStorageUseCase` に event 待機タイムアウト（15秒）を追加し、未完了ハングを `STORAGE_IO_ERROR` として失敗化
+
+### 6.12 非同期待機ロジックの共通化（2026-06-10 追記）
+- `DocumentStorageUseCase` に `waitForStorageCompletion` を追加
+- `performLoad` / `performDelete` の event 待機・timeout・cleanup を共通化
+- 重複コードを削減し、将来の操作追加時に同一パターンで拡張可能に整理
+
+### 6.13 UseCase イベントAPIの意味論化（2026-06-10 追記）
+- `DocumentStorageUseCase` に `onLoading/onLoaded/onUpdated/onError` を追加
+- `Viewer` / `FileSelector` は `StorageEventType` 直接依存を減らし、UseCase の意味論 API を利用
+- UI 層から storage event 名の知識を剥離し、境界責務を明確化
 
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル

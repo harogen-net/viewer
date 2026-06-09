@@ -9,6 +9,7 @@
   "main": "",
   "scripts": {
     "build": "vite build",
+    "check:phase2-fixtures": "node scripts/check-phase2-fixtures.mjs",
     "dev": "vite",
     "serve": "vite preview"
   },

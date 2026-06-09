@@ -108,6 +108,11 @@
 - `fixtures/legacy/png/compat_png_embedded_minimal.png`
 - `fixtures/sensitive/sensitive_locked_sample.hvd`
 
+実行チェック:
+- `npm run check:phase2-fixtures`
+- 期待値: 0 exit（不足ファイルなし・各 fixture が最小サイズ以上）
+- NG時: missing/tooSmall の内訳と summary が表示される
+
 ### 6.2 round-trip 最小観点（Phase2）
 - 入力: `compat_v2_minimal.hvd`
 - 手順: load -> save(override) -> load
