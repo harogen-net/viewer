@@ -99,8 +99,34 @@
 ## 6. テストデータセット
 - `fixtures/legacy/v2/*.hvz`
 - `fixtures/legacy/v2/*.hvd`
-- `fixtures/legacy/*.png`
+- `fixtures/legacy/png/*.png`
 - `fixtures/sensitive/*.hvd`
+
+### 6.1 Phase2 最小 fixture セット
+- `fixtures/legacy/v2/compat_v2_minimal.hvd`
+- `fixtures/legacy/v2/compat_v2_minimal.hvz`
+- `fixtures/legacy/png/compat_png_embedded_minimal.png`
+- `fixtures/sensitive/sensitive_locked_sample.hvd`
+
+### 6.2 round-trip 最小観点（Phase2）
+- 入力: `compat_v2_minimal.hvd`
+- 手順: load -> save(override) -> load
+- 検証項目:
+  - `ViewerDocument.bgColor`
+  - slide 数
+  - 各 slide の `durationRatio/joining/disabled`
+  - layer 数
+  - 先頭 layer の transform（`transX/transY/scaleX/scaleY/rotation`）
+
+### 6.3 エラー分類（Phase2）
+- `UNSUPPORTED_VERSION`
+  - v1 または version 未定義データを読込時に reject
+- `PARSE_ERROR`
+  - JSON parse 失敗、zip 展開失敗、PNG 埋め込み抽出失敗
+- `MISSING_ASSET`
+  - `imageData` 不足により画像復元に失敗
+- `STORAGE_IO_ERROR`
+  - IndexedDB read/write/delete の失敗
 
 注記:
 - 実ファイル配置は実装時にプロジェクト構成へ合わせる。

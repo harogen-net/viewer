@@ -12,6 +12,7 @@
 - docs/test-plan.md
 - docs/phase1-closeout.md
 - docs/phase2-kickoff-checklist.md
+- docs/phase2-risk-control.md
 
 ## 実装進捗（2026-06-09）
 - Phase 1 完了
