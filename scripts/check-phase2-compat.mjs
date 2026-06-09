@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import {
-	getPhase2FixturePaths,
-	readHvdJson,
-	readHvzJson,
-	readPngEmbeddedHvdJson,
+    getPhase2FixturePaths,
+    readHvdJson,
+    readHvzJson,
+    readPngEmbeddedHvdJson,
 } from "./phase2-fixture-lib.mjs";
 
 function compareCoreShape(base, other, label) {

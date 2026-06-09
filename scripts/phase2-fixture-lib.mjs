@@ -1,6 +1,6 @@
+import JSZip from "jszip";
 import fs from "node:fs";
 import path from "node:path";
-import JSZip from "jszip";
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const EMBED_CHUNK_TYPE = "hvDc";
