@@ -20,37 +20,52 @@ export enum StorageAction {
   DELETE = "delete",
 }
 
-export class DocumentStorageUseCase {
-  private lastError: StorageErrorCode | undefined;
+export type StorageActionResult =
+  | { ok: true; action: StorageAction }
+  | { ok: false; action: StorageAction; error: StorageErrorCode; message: string };
 
+export class DocumentStorageUseCase {
   constructor(
     private readonly storage: StorageAdapter,
     private readonly gate?: FeatureGate,
   ) {}
 
-  getLastError(): StorageErrorCode | undefined {
-    return this.lastError;
+  saveResult(doc: ViewerDocument, isOverride: boolean): StorageActionResult {
+    return this.executeSyncResult(StorageAction.SAVE, this.canSave(), () => {
+      this.storage.save(doc, isOverride);
+    });
   }
 
-  getLastErrorMessage(action: StorageAction): string {
-    const actionLabel = this.getActionLabel(action);
+  exportResult(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): StorageActionResult {
+    return this.executeSyncResult(StorageAction.EXPORT, this.canExport(), () => {
+      this.storage.export(doc, type, options);
+    });
+  }
 
-    switch (this.lastError) {
-      case StorageErrorCode.PERMISSION_DENIED:
-        return actionLabel + "は現在のモードでは許可されていません。";
-      case StorageErrorCode.INVALID_ARGUMENT:
-        return actionLabel + "に失敗しました。選択項目を確認してください。";
-      case StorageErrorCode.STORAGE_IO_ERROR:
-        return actionLabel + "に失敗しました。ストレージへのアクセスでエラーが発生しました。";
-      case StorageErrorCode.UNSUPPORTED_VERSION:
-        return "このファイル形式のバージョンはサポートされていません。";
-      case StorageErrorCode.PARSE_ERROR:
-        return "ファイルデータの解析に失敗しました。";
-      case StorageErrorCode.MISSING_ASSET:
-        return "必要な画像データが不足しています。";
-      default:
-        return actionLabel + "に失敗しました。";
+  loadResult(id: StorageInputId): StorageActionResult {
+    const recordId = this.normalizeId(id);
+    if (!recordId) {
+      return this.fail(StorageAction.LOAD, StorageErrorCode.INVALID_ARGUMENT);
     }
+
+    return this.executeSyncResult(StorageAction.LOAD, true, () => {
+      this.storage.load(recordId);
+    });
+  }
+
+  importResult(file: File): Promise<StorageActionResult> {
+    return this.executeAsyncResult(StorageAction.IMPORT, this.canImport(), () => this.storage.import(file));
+  }
+
+  deleteResult(id: StorageInputId): StorageActionResult {
+    const recordId = this.normalizeId(id);
+    if (!recordId) {
+      return this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT);
+    }
+
+    return this.executeSyncResult(StorageAction.DELETE, this.canDeleteSavedData(), () => {
+      this.storage.delete(recordId);
+    });
   }
 
   addEventListener(type: StorageEventType | string, callback: StorageEventCallback): void {
@@ -63,46 +78,6 @@ export class DocumentStorageUseCase {
 
   getTitles(): SlideTitle[] {
     return this.storage.getTitles();
-  }
-
-  save(doc: ViewerDocument, isOverride: boolean): boolean {
-    return this.executeSync(this.canSave(), () => {
-      this.storage.save(doc, isOverride);
-    });
-  }
-
-  export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): boolean {
-    return this.executeSync(this.canExport(), () => {
-      this.storage.export(doc, type, options);
-    });
-  }
-
-  load(id: StorageInputId): boolean {
-    const recordId = this.normalizeId(id);
-    if (!recordId) {
-      this.lastError = StorageErrorCode.INVALID_ARGUMENT;
-      return false;
-    }
-
-    return this.executeSync(true, () => {
-      this.storage.load(recordId);
-    });
-  }
-
-  import(file: File): Promise<boolean> {
-    return this.executeAsync(this.canImport(), () => this.storage.import(file));
-  }
-
-  delete(id: StorageInputId): boolean {
-    const recordId = this.normalizeId(id);
-    if (!recordId) {
-      this.lastError = StorageErrorCode.INVALID_ARGUMENT;
-      return false;
-    }
-
-    return this.executeSync(this.canDeleteSavedData(), () => {
-      this.storage.delete(recordId);
-    });
   }
 
   canSave(): boolean {
@@ -137,39 +112,62 @@ export class DocumentStorageUseCase {
     return normalized;
   }
 
-  private executeSync(canExecute: boolean, operation: () => void): boolean {
-    this.lastError = undefined;
+  private executeSyncResult(action: StorageAction, canExecute: boolean, operation: () => void): StorageActionResult {
     if (!canExecute) {
-      this.lastError = StorageErrorCode.PERMISSION_DENIED;
-      return false;
+      return this.fail(action, StorageErrorCode.PERMISSION_DENIED);
     }
 
     try {
       operation();
-      return true;
+      return { ok: true, action };
     } catch {
-      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      return false;
+      return this.fail(action, StorageErrorCode.STORAGE_IO_ERROR);
     }
   }
 
-  private executeAsync(canExecute: boolean, operation: () => Promise<void>): Promise<boolean> {
-    this.lastError = undefined;
+  private executeAsyncResult(action: StorageAction, canExecute: boolean, operation: () => Promise<void>): Promise<StorageActionResult> {
     if (!canExecute) {
-      this.lastError = StorageErrorCode.PERMISSION_DENIED;
-      return Promise.resolve(false);
+      return Promise.resolve(this.fail(action, StorageErrorCode.PERMISSION_DENIED));
     }
 
     try {
       return operation()
-        .then(() => true)
+        .then(() => ({ ok: true, action } as StorageActionResult))
         .catch(() => {
-          this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-          return false;
+          return this.fail(action, StorageErrorCode.STORAGE_IO_ERROR);
         });
     } catch {
-      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      return Promise.resolve(false);
+      return Promise.resolve(this.fail(action, StorageErrorCode.STORAGE_IO_ERROR));
+    }
+  }
+
+  private fail(action: StorageAction, error: StorageErrorCode): StorageActionResult {
+    return {
+      ok: false,
+      action,
+      error,
+      message: this.getErrorMessage(action, error),
+    };
+  }
+
+  private getErrorMessage(action: StorageAction, error: StorageErrorCode): string {
+    const actionLabel = this.getActionLabel(action);
+
+    switch (error) {
+      case StorageErrorCode.PERMISSION_DENIED:
+        return actionLabel + "は現在のモードでは許可されていません。";
+      case StorageErrorCode.INVALID_ARGUMENT:
+        return actionLabel + "に失敗しました。選択項目を確認してください。";
+      case StorageErrorCode.STORAGE_IO_ERROR:
+        return actionLabel + "に失敗しました。ストレージへのアクセスでエラーが発生しました。";
+      case StorageErrorCode.UNSUPPORTED_VERSION:
+        return "このファイル形式のバージョンはサポートされていません。";
+      case StorageErrorCode.PARSE_ERROR:
+        return "ファイルデータの解析に失敗しました。";
+      case StorageErrorCode.MISSING_ASSET:
+        return "必要な画像データが不足しています。";
+      default:
+        return actionLabel + "に失敗しました。";
     }
   }
 

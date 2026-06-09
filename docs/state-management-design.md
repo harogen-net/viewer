@@ -147,10 +147,10 @@
 - `DocumentStorageUseCase` で ID 正規化を実施
   - 入力: `string | number | string[] | null | undefined`
   - 出力: `StorageRecordId`（invalid は reject）
-- `DocumentStorageUseCase` で `lastError` を保持
-  - gate 拒否時: `PERMISSION_DENIED`
-  - ID 不正時: `INVALID_ARGUMENT`
-  - storage 失敗時: `STORAGE_IO_ERROR`
+- `DocumentStorageUseCase` は `StorageActionResult` を返却
+  - 成功: `{ ok: true, action }`
+  - 失敗: `{ ok: false, action, error, message }`
+  - 失敗時の `error`: `PERMISSION_DENIED`, `INVALID_ARGUMENT`, `STORAGE_IO_ERROR` など
 
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
