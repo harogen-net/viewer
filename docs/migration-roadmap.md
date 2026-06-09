@@ -11,6 +11,20 @@
 - docs/data-compatibility-spec.md
 - docs/test-plan.md
 
+## 実装進捗（2026-06-09）
+- Phase 1 着手
+  - モード判定の実装を追加（query override + standalone/mobile 判定）
+  - feature gate の初期実装を追加（mobile pwa で編集/保存系を無効化）
+  - スマホ縦起動時の横向きフォールバック（transform 回転）を追加
+  - readonly 時の UI ガードを追加（編集領域非表示、破壊操作ボタン無効化）
+  - 反映コード:
+    - `src/runtime/applyFeatureGate.ts`
+    - `src/runtime/mode.ts`
+    - `src/runtime/featureGate.ts`
+    - `src/runtime/mobileOrientation.ts`
+    - `src/index.ts`
+    - `css/index.css`
+
 ## 前提
 - 段階移行とし、各フェーズで動作する成果物を維持する
 - 原則は同一 HTML（同一エントリ）で実装する

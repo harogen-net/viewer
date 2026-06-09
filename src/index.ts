@@ -2,21 +2,25 @@ import '@fortawesome/fontawesome-free/css/all.css';
 import $ from "jquery";
 import 'jquery-ui-dist/jquery-ui';
 import { Viewer, ViewerStartUpMode } from "./Viewer";
+import { applyFeatureGate } from "./runtime/applyFeatureGate";
+import { getFeatureGate } from "./runtime/featureGate";
+import { setUpMobileLandscapeFallback } from "./runtime/mobileOrientation";
+import { resolveRuntimeMode } from "./runtime/mode";
 
-import '../css/ui.scss';
 import '../css/slideShow.scss';
+import '../css/ui.scss';
 
 $(function () {
-	console.log("init");
+	const runtimeMode = resolveRuntimeMode();
+	const gate = getFeatureGate(runtimeMode);
 
-	var startUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
-	try {
-		if (isIOS()) startUpMode = ViewerStartUpMode.VIEW_ONLY;
-	} catch (e) { }
+	document.body.setAttribute("data-runtime-mode", runtimeMode);
+	applyFeatureGate(gate);
+
+	const startUpMode = gate.canEdit ? ViewerStartUpMode.VIEW_AND_EDIT : ViewerStartUpMode.VIEW_ONLY;
 	new Viewer($("body"), startUpMode);
-});
 
-function isIOS() {
-	return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window["MSStream"];
-}
+	if (runtimeMode === "mobile-pwa") {
+		setUpMobileLandscapeFallback(document.getElementById("wrapper"));
+	}
+});

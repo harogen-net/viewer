@@ -8,6 +8,24 @@
 - docs/function-list.md
 - docs/migration-roadmap.md
 
+## 実装状況（2026-06-09）
+- 実装済み
+  - query 強制モード（`?mode=browser|mobile`）
+  - standalone + mobile 判定による mode 解決
+  - mobile pwa mode 時の編集/保存系初期ゲート
+  - mobile pwa mode 時の readonly UI ガード（編集領域非表示）
+  - 縦起動時の transform 回転フォールバック
+- 実装ファイル
+  - `src/runtime/applyFeatureGate.ts`
+  - `src/runtime/mode.ts`
+  - `src/runtime/featureGate.ts`
+  - `src/runtime/mobileOrientation.ts`
+  - `src/index.ts`
+  - `css/index.css`
+- 未実装
+  - feature gate の網羅化（操作単位の reject 実装）
+  - orientation フォールバックの端末別最適化（セーフエリア調整など）
+
 ## 1. 用語
 - browser mode
   - PC ブラウザ起動時のモード

@@ -18,6 +18,18 @@ html {
   color: black;
 }
 
+body.runtime-readonly .canvas {
+  display: none;
+}
+
+body.runtime-readonly .list {
+  height: 100%;
+}
+
+body.forced-landscape {
+  overflow: hidden;
+}
+
 #wrapper {
   width: 100%;
   height: 100%;
