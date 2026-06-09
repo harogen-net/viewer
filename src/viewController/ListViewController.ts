@@ -10,25 +10,26 @@ import { SlideView } from "../view/SlideView";
 import { Viewer, ViewerMode, ViewerStartUpMode } from "../Viewer";
 
 export class ListViewController extends EventDispatcher implements IDroppable {
+	private readonly THUMB_HEIGHT: number = 110;
 
-	private readonly THUMB_HEIGHT:number = 110;
+	private containerObj: any;
 
-	private containerObj:any;
+	private _slides: Slide[];
+	private _slideViews: ThumbSlideView[];
+	private _slideViewsById: any;
+	private _selectedSlide: Slide;
 
-	private _slides:Slide[];
-	private _slideViews:ThumbSlideView[];
-	private _slideViewsById:any;
-	private _selectedSlide:Slide;
+	private _mode: ViewerMode;
 
-	private _mode:ViewerMode;
+	private newSlideBtn: any;
+	private listContextMenu: any;
+	private slideContextMenu: any;
+	private contextTargetSlide: Slide | null = null; //こいつが原因でバグを発生しそうな予感
 
-	private newSlideBtn:any;
-	private listContextMenu:any;
-	private slideContextMenu:any;
-	private contextTargetSlide:Slide|null = null;	//こいつが原因でバグを発生しそうな予感
-
-
-	constructor(public obj:any, private readonly canEdit:boolean = true) {
+	constructor(
+		public obj: any,
+		private readonly canEdit: boolean = true
+	) {
 		super();
 		document.documentElement.style.setProperty("--slideThumbHeight", this.THUMB_HEIGHT + "px");
 
@@ -36,19 +37,19 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 		this.containerObj = $('<div class="container" />').appendTo(this.obj);
 		this.containerObj.sortable({
-			items:".slide",
-            revert:200,
-			scroll:false,
-			distance:10,
-			cursor:"move",
-			tolerance:"pointer",
+			items: ".slide",
+			revert: 200,
+			scroll: false,
+			distance: 10,
+			cursor: "move",
+			tolerance: "pointer",
 			//helper:"clone",
-			forcePlaceholderSize:true,
-			forceHelperSize:true,
+			forcePlaceholderSize: true,
+			forceHelperSize: true,
 			disabled: !this.canEdit,
-			 update:()=>{
+			update: () => {
 				this.onSlideSort();
-            }
+			},
 		});
 
 		this._slides = [];
@@ -57,82 +58,93 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 			var dropHelper = new DropHelper(this);
-			dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e:CustomEvent)=>{
-				var layer = (new ImageLayer(e.detail));
-				if(layer.originHeight > (layer.originWidth * 1.2)) {
+			dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e: CustomEvent) => {
+				var layer = new ImageLayer(e.detail);
+				if (layer.originHeight > layer.originWidth * 1.2) {
 					layer.rotation -= 90;
 				}
-				var slide = new Slide(null,null,[layer]);
+				var slide = new Slide(null, null, [layer]);
 				slide.fitLayer(layer);
 				this.addSlide(slide);
-			}); 
+			});
 		}
 
-		$(window).resize(()=>{
-			setTimeout(()=>{
-				this._slideViews.forEach(slide=>{
-				// $.each(this._slideViews, (index:number, slide:ThumbSlideView) =>{
-					var bool:boolean = slide.selected;
+		$(window).resize(() => {
+			setTimeout(() => {
+				this._slideViews.forEach((slide) => {
+					// $.each(this._slideViews, (index:number, slide:ThumbSlideView) =>{
+					var bool: boolean = slide.selected;
 					slide.selected = false;
 					slide.fitToHeight();
 					slide.selected = bool;
-				})
-			},50);
-
+				});
+			}, 50);
 		});
 
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(this.containerObj);
-			this.newSlideBtn.click(()=>{
-				if(this._slideViews.length > 0){
+			this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(
+				this.containerObj
+			);
+			this.newSlideBtn.click(() => {
+				if (this._slideViews.length > 0) {
 					this._slideViews[this._slideViews.length - 1].slide.joining = false;
 				}
 				var slide = new Slide(ViewerDocument.shared.width, ViewerDocument.shared.height);
-				this.addSlide(slide)
+				this.addSlide(slide);
 				this.selectSlide(slide);
 			});
 
 			this.listContextMenu = $("#listContextMenu");
 			this.listContextMenu.hide();
 
-			this.listContextMenu.find(".unjoin").click(()=>{
-				var isAllJoined = this.slides.every((slide)=>{return slide.joining});
-				this.slides.forEach((slide)=>{
+			this.listContextMenu.find(".unjoin").click(() => {
+				var isAllJoined = this.slides.every((slide) => {
+					return slide.joining;
+				});
+				this.slides.forEach((slide) => {
 					slide.joining = !isAllJoined;
 					slide.durationRatio = 1;
 				});
 			});
-			this.listContextMenu.find(".delete").click(()=>{
-				this.slides.filter((slide)=>{return slide.disabled}).forEach((slide)=>{this.removeSlide(slide, false)});
+			this.listContextMenu.find(".delete").click(() => {
+				this.slides
+					.filter((slide) => {
+						return slide.disabled;
+					})
+					.forEach((slide) => {
+						this.removeSlide(slide, false);
+					});
 			});
-			this.listContextMenu.find(".enable").click(()=>{
-				this.slides.forEach((slide)=>{
+			this.listContextMenu.find(".enable").click(() => {
+				this.slides.forEach((slide) => {
 					slide.disabled = false;
 				});
 			});
-			this.listContextMenu.find(".disable").click(()=>{
-				this.slides.forEach((slide)=>{
+			this.listContextMenu.find(".disable").click(() => {
+				this.slides.forEach((slide) => {
 					slide.disabled = true;
 				});
 			});
-			this.obj.on("contextmenu.slide", (e)=>{
-				if (this._slides.length > 0){
+			this.obj.on("contextmenu.slide", (e) => {
+				if (this._slides.length > 0) {
 					this.contextTargetSlide = null;
-					this.onContextMenu(new CustomEvent("contextmenu", {detail:{x:e.clientX, y:e.clientY }}));
+					this.onContextMenu(
+						new CustomEvent("contextmenu", { detail: { x: e.clientX, y: e.clientY } })
+					);
 					return false;
 				}
 			});
 
 			this.slideContextMenu = $("#slideContextMenu");
 			this.slideContextMenu.hide();
-			this.slideContextMenu.find(".delete").click(()=>{
+			this.slideContextMenu.find(".delete").click(() => {
 				if (this.contextTargetSlide == null) return;
 				this.removeSlide(this.contextTargetSlide, false);
 				this.contextTargetSlide = null;
 			});
-			this.slideContextMenu.find(".enable").click(()=>{
+			this.slideContextMenu.find(".enable").click(() => {
 				if (this.contextTargetSlide == null) return;
-				this.slides.forEach((slide)=>{
+				this.slides.forEach((slide) => {
 					slide.disabled = true;
 				});
 				this.contextTargetSlide.disabled = false;
@@ -140,54 +152,57 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.contextTargetSlide = null;
 			});
 
-			var prevSlideBtn = $('<button class="selectSlideBtn prev"><i class="fas fa-chevron-left"></i></button>');
+			var prevSlideBtn = $(
+				'<button class="selectSlideBtn prev"><i class="fas fa-chevron-left"></i></button>'
+			);
 			this.obj.append(prevSlideBtn);
-			prevSlideBtn.click(()=>{
+			prevSlideBtn.click(() => {
 				this.selectSlideOffset(-1);
 			});
-			var nextSlideBtn = $('<button class="selectSlideBtn next"><i class="fas fa-chevron-right"></i></button>');
+			var nextSlideBtn = $(
+				'<button class="selectSlideBtn next"><i class="fas fa-chevron-right"></i></button>'
+			);
 			this.obj.append(nextSlideBtn);
-			nextSlideBtn.click(()=>{
+			nextSlideBtn.click(() => {
 				this.selectSlideOffset(1);
 			});
 		}
 	}
 
- 	setMode(mode:ViewerMode):void {
+	setMode(mode: ViewerMode): void {
 		this._mode = mode;
-		switch(mode){
+		switch (mode) {
 			case ViewerMode.SELECT:
-				this._slideViews.forEach(slideView=>{
+				this._slideViews.forEach((slideView) => {
 					slideView.fitToHeight();
 				});
-			break;
+				break;
 			case ViewerMode.EDIT:
-				this._slideViews.forEach(slideView=>{
+				this._slideViews.forEach((slideView) => {
 					slideView.fitToHeight();
 				});
-				setTimeout(()=>{
+				setTimeout(() => {
 					this.scrollToSelected();
-				},300);
-		break;
+				}, 300);
+				break;
 		}
-	} 
+	}
 
-	initialize():void {
-		this._slideViews.forEach((slideView)=>{
+	initialize(): void {
+		this._slideViews.forEach((slideView) => {
 			slideView.clearEventListener();
 			slideView.destroy();
 		});
 		this._slideViews = [];
 	}
 
-
-	addSlide(slide:Slide, index:number = -1):Slide {
-		if(!this.canEdit) return slide;
+	addSlide(slide: Slide, index: number = -1): Slide {
+		if (!this.canEdit) return slide;
 		console.log("addSlide called : " + this._slides.length);
 
-		if(index != -1 && index < this._slides.length){
-			this._slides.splice(index,0,slide);
-		}else{
+		if (index != -1 && index < this._slides.length) {
+			this._slides.splice(index, 0, slide);
+		} else {
 			this._slides.push(slide);
 		}
 
@@ -197,16 +212,16 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		return slide;
 	}
 
-	private getSlideViewBySlide(slide:Slide):ThumbSlideView {
+	private getSlideViewBySlide(slide: Slide): ThumbSlideView {
 		return this._slideViewsById[slide.id] || null;
 	}
 
-	private setSlideUp(slide:Slide, index:number = -1) {
-		var scale:number = this.THUMB_HEIGHT / slide.height;
-		var slideView:ThumbSlideView = new ThumbSlideView(slide, $('<div />'), scale);
-		if(index != -1 && index < this._slides.length){
-			this._slideViews.splice(index,0,slideView);
-		}else{
+	private setSlideUp(slide: Slide, index: number = -1) {
+		var scale: number = this.THUMB_HEIGHT / slide.height;
+		var slideView: ThumbSlideView = new ThumbSlideView(slide, $("<div />"), scale);
+		if (index != -1 && index < this._slides.length) {
+			this._slideViews.splice(index, 0, slideView);
+		} else {
 			this._slideViews.push(slideView);
 		}
 		this._slideViewsById[slide.id] = slideView;
@@ -227,11 +242,11 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		slideView.show();
 	}
 
-	clonseSlide(slide:Slide):Slide {
-		if(!this.canEdit) return slide;
-		if(this._slides.indexOf(slide) == -1) return;
+	clonseSlide(slide: Slide): Slide {
+		if (!this.canEdit) return slide;
+		if (this._slides.indexOf(slide) == -1) return;
 
-		var clonedSlide:Slide = slide.clone();
+		var clonedSlide: Slide = slide.clone();
 		this.addSlide(clonedSlide, this._slides.indexOf(slide) + 1);
 		this.selectSlide(clonedSlide);
 		slide.joining = true;
@@ -239,41 +254,41 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		return clonedSlide;
 	}
 
-	private onSlideSelect = (ce:CustomEvent)=>{
+	private onSlideSelect = (ce: CustomEvent) => {
 		this.selectSlide(ce.detail as Slide);
-	}
-	private onSlideEdit = (ce:CustomEvent)=>{
+	};
+	private onSlideEdit = (ce: CustomEvent) => {
 		this.dispatchEvent(new Event("edit"));
-	}
-	private onSlideClone = (ce:CustomEvent)=>{
+	};
+	private onSlideClone = (ce: CustomEvent) => {
 		this.clonseSlide(ce.detail as Slide);
-	}
-	private onSlideDelete = (ce:CustomEvent)=>{
+	};
+	private onSlideDelete = (ce: CustomEvent) => {
 		this.removeSlide(ce.detail as Slide, true);
-	}
-	private onContextMenu = (ce:CustomEvent)=>{
+	};
+	private onContextMenu = (ce: CustomEvent) => {
 		var offset = this.obj.offset();
 
-		var targetContextMenu:any = (ce.detail.slide != undefined) ? this.slideContextMenu : this.listContextMenu;
+		var targetContextMenu: any =
+			ce.detail.slide != undefined ? this.slideContextMenu : this.listContextMenu;
 		this.contextTargetSlide = ce.detail.slide || null;
 
-		targetContextMenu.css({top: ce.detail.y - offset.top, left: ce.detail.x - offset.left});
+		targetContextMenu.css({ top: ce.detail.y - offset.top, left: ce.detail.x - offset.left });
 		targetContextMenu.show();
-		
-		$(document).on("mouseup.ListVieController", ()=>{
+
+		$(document).on("mouseup.ListVieController", () => {
 			targetContextMenu.hide();
 			$(document).off("mouseup.ListVieController");
-//			this.contextTargetSlide = null;
+			//			this.contextTargetSlide = null;
 		});
-	}
+	};
 
-	removeSlide(slide:Slide, isAnimation:boolean = false):Slide{
-		if(!this.canEdit) return slide;
-		var index:number = this._slides.indexOf(slide);
-		if(index == -1) return;
+	removeSlide(slide: Slide, isAnimation: boolean = false): Slide {
+		if (!this.canEdit) return slide;
+		var index: number = this._slides.indexOf(slide);
+		if (index == -1) return;
 
-
-		var slideView:ThumbSlideView = this.getSlideViewBySlide(slide);
+		var slideView: ThumbSlideView = this.getSlideViewBySlide(slide);
 		slideView.removeEventListener("select", this.onSlideSelect);
 		slideView.removeEventListener("edit", this.onSlideEdit);
 		slideView.removeEventListener("clone", this.onSlideClone);
@@ -281,15 +296,15 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		slideView.removeEventListener("contextmenu", this.onContextMenu);
 		//slideView.clearEventListener();	//dispatchEventを発端とするスタック中で実行するとエラーになる
 
-		var nextSlide:Slide = null;
-		if(slideView.selected){
-			if(index < this._slideViews.length - 1) {
+		var nextSlide: Slide = null;
+		if (slideView.selected) {
+			if (index < this._slideViews.length - 1) {
 				nextSlide = this._slideViews[index + 1].slide;
-			}else if(index > 0){
+			} else if (index > 0) {
 				nextSlide = this._slideViews[index - 1].slide;
 			}
 		}
-		var removeMain = ()=>{
+		var removeMain = () => {
 			this._slideViews.splice(index, 1);
 			delete this._slideViewsById[slide.id];
 			slideView.destroy();
@@ -299,15 +314,15 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			slide.removeAllLayers();
 			slide.clearEventListener();
 			slide = null;
-		}
+		};
 
-		if(isAnimation){
-			this.obj.css("pointer-events","none");
+		if (isAnimation) {
+			this.obj.css("pointer-events", "none");
 			slideView.obj.fadeOut(200, () => {
-				this.obj.css("pointer-events","");
-				if(nextSlide){
+				this.obj.css("pointer-events", "");
+				if (nextSlide) {
 					this.selectSlide(nextSlide);
-				}else{
+				} else {
 					this.dispatchEvent(new Event("close"));
 				}
 				//実際に削除するのは、editableに表示されなくなってから
@@ -315,63 +330,68 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				removeMain();
 				this.sortSlideViewByIndex();
 			});
-		}else{
+		} else {
 			removeMain();
 			this.sortSlideViewByIndex();
-			if(nextSlide){
+			if (nextSlide) {
 				this.selectSlide(nextSlide);
-			}else{
+			} else {
 				this.dispatchEvent(new Event("close"));
 			}
 		}
 
-
 		return slide;
 	}
 
-
 	//
 
-	private selectSlide(slide:Slide = null){
+	private selectSlide(slide: Slide = null) {
 		this._selectedSlide = slide;
 
-		this._slideViews.forEach(slideView=>{
-			slideView.selected = (slide == slideView.slide);
+		this._slideViews.forEach((slideView) => {
+			slideView.selected = slide == slideView.slide;
 		});
 
 		this.dispatchEvent(new Event("select"));
 		this.scrollToSelected();
 	}
 
-	private selectSlideOffset(offset:number = 0){
-		if(offset == 0) return;
+	private selectSlideOffset(offset: number = 0) {
+		if (offset == 0) return;
 		var index = this._slides.indexOf(this._selectedSlide);
-		if(index == -1) return;
+		if (index == -1) return;
 		var index2 = index + offset;
-		if(index2 < 0) index2 = 0;
-		if(index2 > this._slides.length - 1) index2 = this._slides.length - 1;
-		if(index2 == index) return;
+		if (index2 < 0) index2 = 0;
+		if (index2 > this._slides.length - 1) index2 = this._slides.length - 1;
+		if (index2 == index) return;
 		this.selectSlide(this._slides[index2]);
 	}
 
-	private scrollToSelected(){
-		if(!this._selectedSlide) return;
-		switch(this._mode){
+	private scrollToSelected() {
+		if (!this._selectedSlide) return;
+		switch (this._mode) {
 			case ViewerMode.SELECT:
-			//	this.obj.animate({"scrollTop":this._selectedSlide.obj.position().top});
-			break;
+				//	this.obj.animate({"scrollTop":this._selectedSlide.obj.position().top});
+				break;
 			case ViewerMode.EDIT:
-				this.containerObj.animate({"scrollLeft":this.selectedSlideView.obj.position().left + this.containerObj.scrollLeft() - this.containerObj.width() / 2 + this.selectedSlideView.obj.width() / 2 - 40});
+				this.containerObj.animate({
+					scrollLeft:
+						this.selectedSlideView.obj.position().left +
+						this.containerObj.scrollLeft() -
+						this.containerObj.width() / 2 +
+						this.selectedSlideView.obj.width() / 2 -
+						40,
+				});
 				//「40」はbody.edit .slideList .containerの左右padding値
-			break;
+				break;
 		}
 	}
 
-	private sortSlideViewByIndex(){
-		if(this._slideViews.length == 0) return;
+	private sortSlideViewByIndex() {
+		if (this._slideViews.length == 0) return;
 
-		this._slideViews.forEach(slide=>{
-		// $.each(this._slideViews, (i:number, slide:ThumbSlideView) => {
+		this._slideViews.forEach((slide) => {
+			// $.each(this._slideViews, (i:number, slide:ThumbSlideView) => {
 			this.containerObj.append(slide.obj);
 			slide.obj.removeClass("last");
 		});
@@ -385,53 +405,54 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	//
 
 	private onSlideSort() {
-		if(!this.canEdit) return;
-		this.containerObj.find(".slide").each((i:number, elem:any)=>{
+		if (!this.canEdit) return;
+		this.containerObj.find(".slide").each((i: number, elem: any) => {
 			this._slideViews[i] = this._slideViewsById[$(elem).data("id")];
 		});
-		this._slides.sort((a:Slide, b:Slide)=>{
-			return this._slideViews.indexOf(this.getSlideViewBySlide(a)) < this._slideViews.indexOf(this.getSlideViewBySlide(b)) ? -1 : 1;
+		this._slides.sort((a: Slide, b: Slide) => {
+			return this._slideViews.indexOf(this.getSlideViewBySlide(a)) <
+				this._slideViews.indexOf(this.getSlideViewBySlide(b))
+				? -1
+				: 1;
 		});
 		this.sortSlideViewByIndex();
 	}
 
-
-	
 	//
 	// getset
 	//
-	get selectedSlide():Slide {
+	get selectedSlide(): Slide {
 		return this._selectedSlide;
 	}
-	get selectedSlideView():SlideView {
+	get selectedSlideView(): SlideView {
 		return this.getSlideViewBySlide(this._selectedSlide);
 	}
 
-	get isActive():boolean {
+	get isActive(): boolean {
 		return true;
 	}
 
-	public set slides(value:Slide[]) {
-		if(!value) return;
+	public set slides(value: Slide[]) {
+		if (!value) return;
 		this.initialize();
 
 		this._slides = value;
 
 		//valueの参照を消さずに、valueの中のslideがaddSlideされた後のようにする
 		//割とめんどくさい処理
-		for(var i = 0; i < this._slides.length; i++){
+		for (var i = 0; i < this._slides.length; i++) {
 			this.setSlideUp(this._slides[i]);
 		}
 		this.sortSlideViewByIndex();
 	}
-	public get slides():Slide[] {
+	public get slides(): Slide[] {
 		return this._slides;
 	}
 
-	get selectedSlideIndex():number{
-		if(this._selectedSlide == null){
+	get selectedSlideIndex(): number {
+		if (this._selectedSlide == null) {
 			return -1;
-		}else{
+		} else {
 			return this._slides.indexOf(this._selectedSlide);
 		}
 	}

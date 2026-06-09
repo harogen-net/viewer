@@ -5,36 +5,38 @@ import { PropFlags } from "../../model/PropFlags";
 import $ from "jquery";
 
 export class TextView extends LayerView {
+	public textObj: any;
 
-	public textObj:any;
-
-
-	constructor(protected _data:TextLayer, public obj:any) {
+	constructor(
+		protected _data: TextLayer,
+		public obj: any
+	) {
 		super(_data, obj);
 	}
 	protected constructMain() {
 		super.constructMain();
-		
-		this.textObj = $('<div class="text" style="display:inline-block;" contenteditable="false" spellcheck="false"><span></span></div>');
+
+		this.textObj = $(
+			'<div class="text" style="display:inline-block;" contenteditable="false" spellcheck="false"><span></span></div>'
+		);
 		this.obj.append(this.textObj);
 
 		this.opacityObj = this.textObj;
-		this.opacityObj.css("opacity",this._data.opacity);
+		this.opacityObj.css("opacity", this._data.opacity);
 	}
 
-	public destroy(){
+	public destroy() {
 		this.textObj.remove();
 		this.textObj = null;
 
 		super.destroy();
 	}
 
-
-	protected updateView(flag:number = PropFlags.ALL):void {
-		if(flag & PropFlags.TXT_TEXT){
+	protected updateView(flag: number = PropFlags.ALL): void {
+		if (flag & PropFlags.TXT_TEXT) {
 			this.textObj.find("span").html(this._data.text);
 
-			setTimeout(()=>{
+			setTimeout(() => {
 				this._data.originWidth = this.textObj.find("span").width();
 				this._data.originHeight = this.textObj.find("span").height();
 			}, 0);
@@ -44,13 +46,10 @@ export class TextView extends LayerView {
 		super.updateView(flag);
 	}
 
-
 	//
 	// set get
 	//
 	// private get textData():TextLayer {
 	// 	return this._data as TextLayer;
 	// }
-
-
 }

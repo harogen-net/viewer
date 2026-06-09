@@ -12,7 +12,8 @@ export class FileSelector {
 
 		this.documentStorage.addEventListener(StorageEventType.UPDATE, (e: CustomEvent) => {
 			let index = selectObj.prop("selectedIndex");
-			let selectedValue = parseInt(($("select.filename option")[index] as HTMLOptionElement).value) || 0;
+			let selectedValue =
+				parseInt(($("select.filename option")[index] as HTMLOptionElement).value) || 0;
 			let initOption = $("select.filename option")[0];
 			selectObj.empty();
 			selectObj.append($(initOption));
@@ -26,9 +27,10 @@ export class FileSelector {
 			});
 
 			if (nextIndex < 0) nextIndex = 0;
-			if (nextIndex > this.documentStorage.getTitles().length) nextIndex = this.documentStorage.getTitles().length;
+			if (nextIndex > this.documentStorage.getTitles().length)
+				nextIndex = this.documentStorage.getTitles().length;
 			selectObj.prop("selectedIndex", nextIndex);
-			
+
 			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
 			if (nextValue) {
 				const result = this.documentStorage.loadResult(nextValue);
@@ -72,7 +74,10 @@ export class FileSelector {
 		const handleDispose = () => {
 			let val = selectObj.val();
 			if (val == -1 || val == null) return;
-			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
+			if (
+				Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY ||
+				window.confirm("delete selected save data. Are you sure?")
+			) {
 				const result = this.documentStorage.deleteResult(val);
 				if (result.ok === false) {
 					showNotice(result.message);
@@ -80,7 +85,8 @@ export class FileSelector {
 			}
 		};
 
-		const disposeEvent = Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT ? "dblclick" : "click";
+		const disposeEvent =
+			Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT ? "dblclick" : "click";
 		$(".dispose").on(disposeEvent, handleDispose);
 	}
 }

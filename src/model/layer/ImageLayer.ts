@@ -4,25 +4,28 @@ import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../PropFlags";
 
 export class ImageLayer extends Layer {
+	private _clipRect: number[] = [0, 0, 0, 0];
+	private _isText: boolean = false;
 
-	private _clipRect:number[] = [0,0,0,0];
-	private _isText:boolean = false;
-	
-	constructor(private _imageId:string, transform:any = null, id:number = -1){
+	constructor(
+		private _imageId: string,
+		transform: any = null,
+		id: number = -1
+	) {
 		super(transform, id);
 		this._type = LayerType.IMAGE;
 		var props = ImageManager.shared.getImagePropsById(_imageId);
 		this._originWidth = props.width;
 		this._originHeight = props.height;
 		this._name = props.name;
-	//	console.log("Image const:" , _imageId.slice(0,3) + "..", this._originWidth, this._originHeight);
+		//	console.log("Image const:" , _imageId.slice(0,3) + "..", this._originWidth, this._originHeight);
 	}
 
 	//
 	// override
 	//
-	public clone(id:number = -1):this {
-		var ret:this = new (this.constructor as any)(this._imageId, this.transform, this._id);
+	public clone(id: number = -1): this {
+		var ret: this = new (this.constructor as any)(this._imageId, this.transform, this._id);
 		ret.visible = this._visible;
 		ret.locked = this._locked;
 		ret.opacity = this._opacity;
@@ -32,8 +35,8 @@ export class ImageLayer extends Layer {
 		return ret;
 	}
 
-	public getData():any {
-		var ret:any = super.getData();
+	public getData(): any {
+		var ret: any = super.getData();
 		ret.imageId = this._imageId;
 		ret.clipRect = this._clipRect.concat();
 		ret.isText = this._isText;
@@ -43,84 +46,91 @@ export class ImageLayer extends Layer {
 	//
 	// getset
 	//
-	public get imageId():string {return this._imageId;}
-	public set imageId(value:string) {
+	public get imageId(): string {
+		return this._imageId;
+	}
+	public set imageId(value: string) {
 		this._imageId = value;
 		var data = ImageManager.shared.getImageById(this._imageId);
 		this._originWidth = data.width;
 		this._originHeight = data.height;
 		this._name = data.name;
-		
+
 		//変形も変えてもらいたいためSCALE_Xも同時に投げているがはたして
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_IMAGEID|PropFlags.NAME|PropFlags.SCALE_X));	
-	}	
-	public set clipRect(value:number[]){
-		this._clipRect = value.slice(0,4);
+		this.dispatchEvent(
+			new PropertyEvent(
+				PropertyEvent.UPDATE,
+				this,
+				PropFlags.IMG_IMAGEID | PropFlags.NAME | PropFlags.SCALE_X
+			)
+		);
+	}
+	public set clipRect(value: number[]) {
+		this._clipRect = value.slice(0, 4);
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
-	public get clipRect():number[]{
+	public get clipRect(): number[] {
 		return this._clipRect;
 	}
-	public set clipT(value:number){
+	public set clipT(value: number) {
 		this._clipRect[0] = value;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
-	public get clipT():number {
+	public get clipT(): number {
 		return this._clipRect[0];
 	}
-	public set clipR(value:number){
+	public set clipR(value: number) {
 		this._clipRect[1] = value;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
-	public get clipR():number {
+	public get clipR(): number {
 		return this._clipRect[1];
 	}
-	public set clipB(value:number){
+	public set clipB(value: number) {
 		this._clipRect[2] = value;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
-	public get clipB():number {
+	public get clipB(): number {
 		return this._clipRect[2];
 	}
-	public set clipL(value:number){
+	public set clipL(value: number) {
 		this._clipRect[3] = value;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_CLIP));
 	}
-	public get clipL():number {
+	public get clipL(): number {
 		return this._clipRect[3];
 	}
-	public get clipedWidth(){
+	public get clipedWidth() {
 		return this._originWidth - (this._clipRect[1] + this._clipRect[3]);
 	}
-	public get clipedHeight(){
+	public get clipedHeight() {
 		return this._originHeight - (this._clipRect[0] + this._clipRect[2]);
 	}
-	public get isClipped():boolean {
-		return this._clipRect.some(value=>{
+	public get isClipped(): boolean {
+		return this._clipRect.some((value) => {
 			return value != 0;
 		});
 	}
-	public get clipString():string {
+	public get clipString(): string {
 		//クリップ情報を比較する際に使う
 		return this._clipRect.join(",");
 	}
 
-	public get isText(){
+	public get isText() {
 		return this._isText;
 	}
-	public set isText(value:boolean){
-		if(this._isText == value) return;
+	public set isText(value: boolean) {
+		if (this._isText == value) return;
 		this._isText = value;
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.IMG_TEXT));
 	}
 
 	//
 
-	public get width(){
+	public get width() {
 		return this._scaleX * this.originWidth;
 	}
-	public get height(){
+	public get height() {
 		return this._scaleY * this.originHeight;
 	}
-	
 }

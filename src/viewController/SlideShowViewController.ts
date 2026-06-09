@@ -49,7 +49,6 @@ export class SlideShowViewController extends EventDispatcher {
 			setTimeout(() => {
 				this.updateSlideSize();
 			}, 50);
-
 		});
 
 		this.slideContainer = $('<div class="slideContainer" />').appendTo(obj);
@@ -68,7 +67,9 @@ export class SlideShowViewController extends EventDispatcher {
 			//this.stop();
 			this.intialize();
 		});
-		var fullScreenBtn = $('<button class="fullScreen"><i class="fas fa-expand"></i></button>').appendTo(obj);
+		var fullScreenBtn = $(
+			'<button class="fullScreen"><i class="fas fa-expand"></i></button>'
+		).appendTo(obj);
 		fullScreenBtn.click(() => {
 			let isFullscreen = $("#cb_fullscreen").prop("checked");
 			$("#cb_fullscreen").prop("checked", !isFullscreen);
@@ -78,31 +79,39 @@ export class SlideShowViewController extends EventDispatcher {
 			} else {
 				try {
 					document.exitFullscreen(); //HTML5 Fullscreen API仕様
-				} catch (e) { };
+				} catch (e) {}
 				try {
 					document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
-				} catch (e) { };
+				} catch (e) {}
 			}
 		});
-		var mirrorHBtn = $('<button class="mirrorH"><i class="fas fa-arrows-alt-h"></i></button>').appendTo(obj);
+		var mirrorHBtn = $(
+			'<button class="mirrorH"><i class="fas fa-arrows-alt-h"></i></button>'
+		).appendTo(obj);
 		mirrorHBtn.click(() => {
 			let isMirrorH = $("#cb_mirrorH").prop("checked");
 			$("#cb_mirrorH").prop("checked", !isMirrorH);
 			this.mirrorH = !isMirrorH;
 		});
-		var mirrorVBtn = $('<button class="mirrorV"><i class="fas fa-arrows-alt-v"></i></button>').appendTo(obj);
+		var mirrorVBtn = $(
+			'<button class="mirrorV"><i class="fas fa-arrows-alt-v"></i></button>'
+		).appendTo(obj);
 		mirrorVBtn.click(() => {
 			let isMirrorV = $("#cb_mirrorV").prop("checked");
 			$("#cb_mirrorV").prop("checked", !isMirrorV);
 			this.mirrorV = !isMirrorV;
 		});
-		var prevBtn = $('<button class="prev"><i class="fas fa-arrow-left"></i></button>').appendTo(obj);
+		var prevBtn = $('<button class="prev"><i class="fas fa-arrow-left"></i></button>').appendTo(
+			obj
+		);
 		prevBtn.click(() => {
 			clearInterval(this.timer);
 			this.index -= -2;
 			this.slideShowFunc();
 		});
-		var nextBtn = $('<button class="next"><i class="fas fa-arrow-right"></i></button>').appendTo(obj);
+		var nextBtn = $('<button class="next"><i class="fas fa-arrow-right"></i></button>').appendTo(
+			obj
+		);
 		nextBtn.click(() => {
 			clearInterval(this.timer);
 			this.slideShowFunc();
@@ -125,9 +134,9 @@ export class SlideShowViewController extends EventDispatcher {
 		var lastSlide: Slide = undefined;
 		for (var i: number = 0; i < targetSlides.length; i++) {
 			var slide: Slide = targetSlides[i];
-			var lastSlide: Slide = (i == 0) ? targetSlides[targetSlides.length - 1] : targetSlides[i - 1];
+			var lastSlide: Slide = i == 0 ? targetSlides[targetSlides.length - 1] : targetSlides[i - 1];
 
-			var newObj: any = $('<div />');
+			var newObj: any = $("<div />");
 			var slideForSS: Slide = slide.clone();
 			var slideViewForSS: DOMSlideView = new DOMSlideView(slide.clone(), newObj);
 			slideForSS.id = slide.id;
@@ -164,7 +173,7 @@ export class SlideShowViewController extends EventDispatcher {
 		if (this.slides.length == 0) {
 			//var slideForSS:SlideView = slides[0].clone();
 
-			var newObj: any = $('<div />');
+			var newObj: any = $("<div />");
 			var slideForSS: Slide = slide.clone();
 			var slideViewForSS: DOMSlideView = new DOMSlideView(slideForSS, newObj);
 			slideForSS.id = targetSlides[0].id;
@@ -203,10 +212,10 @@ export class SlideShowViewController extends EventDispatcher {
 		if ($("#cb_fullscreen").prop("checked")) {
 			try {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
-			} catch (e) { };
+			} catch (e) {}
 			try {
 				document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
-			} catch (e) { };
+			} catch (e) {}
 		}
 
 		if (this.slides) {
@@ -235,18 +244,21 @@ export class SlideShowViewController extends EventDispatcher {
 		this.updateSlideSize();
 
 		if (this.data.length == 1) {
-			this.slides.forEach(slide => {
+			this.slides.forEach((slide) => {
 				// $.each(this.slides, (index:number, slide:SlideView) =>{
 				slide.obj.css("opacity", 0);
 				//				slide.updateSize();
 				slide.obj.show();
-				slide.obj.animate({ "opacity": 1 }, 1000);
+				slide.obj.animate({ opacity: 1 }, 1000);
 
 				for (var i: number = 0; i < slide.slide.layers.length; i++) {
 					var layer = slide.slide.layers[i];
 					var trans = layer.transform;
 					//文字要素を反転から救う
-					if (layer.type == LayerType.TEXT || (layer.type == LayerType.IMAGE && (layer as ImageLayer).isText)) {
+					if (
+						layer.type == LayerType.TEXT ||
+						(layer.type == LayerType.IMAGE && (layer as ImageLayer).isText)
+					) {
 						this.avoidMirror(layer, trans.mirrorH, trans.mirrorV);
 					}
 				}
@@ -255,11 +267,11 @@ export class SlideShowViewController extends EventDispatcher {
 			return;
 		}
 
-		this.slides.forEach(slide => {
+		this.slides.forEach((slide) => {
 			// $.each(this.slides, (index:number, slide:SlideView) =>{
 			slide.obj.css("opacity", 0);
 			//slide.updateSize();
-		})
+		});
 
 		this.index = initIndex;
 		this.timer = setTimeout(() => {
@@ -281,18 +293,18 @@ export class SlideShowViewController extends EventDispatcher {
 		} else {
 			try {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
-			} catch (e) { };
+			} catch (e) {}
 			try {
 				document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
-			} catch (e) { };
+			} catch (e) {}
 		}
 
 		clearInterval(this.timer);
-		this.slides.forEach(slide => {
+		this.slides.forEach((slide) => {
 			// $.each(this.slides, (index:number, slide:SlideView) =>{
 			slide.obj.stop().css({
 				"z-index": 0,
-				"opacity": 1
+				opacity: 1,
 			});
 			slide.obj.find(".layerWrapper").css("transition", "");
 		});
@@ -339,7 +351,9 @@ export class SlideShowViewController extends EventDispatcher {
 	//
 
 	private slideShowFunc() {
-		if (this.data.length <= 1) { return; }
+		if (this.data.length <= 1) {
+			return;
+		}
 
 		this.started = new Date().getTime();
 		this.elapsed = 0;
@@ -350,12 +364,16 @@ export class SlideShowViewController extends EventDispatcher {
 		this.slideDuration = this.interval * datum.durationRatio;
 
 		if (datum.keep && !this.isInit) {
-			slide.obj.stop().css({ "opacity": 1 });
-			var keepDurationOffset: number = Math.min(this.slideDuration * 0.2, (this.interval - this.duration));
-			var transitionDuration = ((this.slideDuration - keepDurationOffset) / 1000);
+			slide.obj.stop().css({ opacity: 1 });
+			var keepDurationOffset: number = Math.min(
+				this.slideDuration * 0.2,
+				this.interval - this.duration
+			);
+			var transitionDuration = (this.slideDuration - keepDurationOffset) / 1000;
 			var bezierStr = "cubic-bezier(.4,0,.7,1)";
-			slide.obj.find(".layerWrapper").css("transition", "transform " + transitionDuration + "s " + bezierStr);
-
+			slide.obj
+				.find(".layerWrapper")
+				.css("transition", "transform " + transitionDuration + "s " + bezierStr);
 
 			var imgTransitions: string[] = [];
 			imgTransitions.push("opacity " + transitionDuration + "s linear");
@@ -370,9 +388,9 @@ export class SlideShowViewController extends EventDispatcher {
 			slide.obj.show();
 			slide.obj.css({
 				"z-index": this.index + 100,
-				"opacity": 0
+				opacity: 0,
 			});
-			slide.obj.animate({ "opacity": 1 }, Math.min(this.duration, this.slideDuration));
+			slide.obj.animate({ opacity: 1 }, Math.min(this.duration, this.slideDuration));
 
 			if (this.history.indexOf(slide) != -1) {
 				this.history.splice(this.history.indexOf(slide), 1);
@@ -385,7 +403,10 @@ export class SlideShowViewController extends EventDispatcher {
 			layer.transform = trans;
 
 			//文字要素を反転から救う
-			if (layer.type == LayerType.TEXT || (layer.type == LayerType.IMAGE && (layer as ImageLayer).isText)) {
+			if (
+				layer.type == LayerType.TEXT ||
+				(layer.type == LayerType.IMAGE && (layer as ImageLayer).isText)
+			) {
 				this.avoidMirror(layer, trans.mirrorH, trans.mirrorV);
 			}
 			layer.opacity = datum.transforms[i].opacity;
@@ -446,18 +467,22 @@ export class SlideShowViewController extends EventDispatcher {
 		//		console.log("updateSlideSize");
 		let dispWidth = this.obj.width();
 		let dispHeight = this.obj.height();
-		let dispScale = Math.min(dispWidth / ViewerDocument.shared.width, dispHeight / ViewerDocument.shared.height);
+		let dispScale = Math.min(
+			dispWidth / ViewerDocument.shared.width,
+			dispHeight / ViewerDocument.shared.height
+		);
 		let offsetX = (dispWidth - ViewerDocument.shared.width) / 2;
 		let offsetY = (dispHeight - ViewerDocument.shared.height) / 2;
 
 		this.slideContainer.find(".slide").each((i, elem) => {
-			$(elem).css("transform", "translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")");
+			$(elem).css(
+				"transform",
+				"translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")"
+			);
 			$(elem).css("width", ViewerDocument.shared.width + "px");
 			$(elem).css("height", ViewerDocument.shared.height + "px");
 		});
-
 	}
-
 
 	//スライドの構造が同じかどうかを調べる
 	private checkSlidesSame(slide1: Slide, slide2: Slide): boolean {
@@ -465,11 +490,10 @@ export class SlideShowViewController extends EventDispatcher {
 		if (slide1.layers.length == 0) return false;
 		if (slide2.layers.length == 0) return false;
 
-		var visibleLayers1 = slide1.layers.filter(layer => layer.visible);
-		var visibleLayers2 = slide2.layers.filter(layer => layer.visible);
+		var visibleLayers1 = slide1.layers.filter((layer) => layer.visible);
+		var visibleLayers2 = slide2.layers.filter((layer) => layer.visible);
 
 		if (visibleLayers1.length != visibleLayers2.length) return false;
-
 
 		for (var i = 0; i < visibleLayers1.length; i++) {
 			var layer1: Layer = visibleLayers1[i];
@@ -501,14 +525,20 @@ export class SlideShowViewController extends EventDispatcher {
 	//回転角が±90度あたりならば鏡面の縦横を逆にして判定
 	private avoidMirror(layer: Layer, defaultMirrorH: boolean, defaultMirrorV: boolean) {
 		if (this._mirrorH) {
-			if ((layer.rotation > 45 && layer.rotation < 135) || (layer.rotation < -45 && layer.rotation > -135)) {
+			if (
+				(layer.rotation > 45 && layer.rotation < 135) ||
+				(layer.rotation < -45 && layer.rotation > -135)
+			) {
 				layer.mirrorV = !defaultMirrorV;
 			} else {
 				layer.mirrorH = !defaultMirrorH;
 			}
 		}
 		if (this._mirrorV) {
-			if ((layer.rotation > 45 && layer.rotation < 135) || (layer.rotation < -45 && layer.rotation > -135)) {
+			if (
+				(layer.rotation > 45 && layer.rotation < 135) ||
+				(layer.rotation < -45 && layer.rotation > -135)
+			) {
 				layer.mirrorH = !defaultMirrorH;
 			} else {
 				layer.mirrorV = !defaultMirrorV;

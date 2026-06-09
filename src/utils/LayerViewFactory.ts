@@ -7,15 +7,15 @@ import { TextLayer } from "../model/layer/TextLayer";
 import $ from "jquery";
 
 export class LayerViewFactory {
-	public static ViewFromLayer(layer:Layer):LayerView {
-		switch(layer.type){
+	public static ViewFromLayer(layer: Layer): LayerView {
+		switch (layer.type) {
 			case LayerType.IMAGE:
 				return new ImageView(layer as ImageLayer, $('<div class="layerWrapper" />'));
 			case LayerType.TEXT:
 				return new TextView(layer as TextLayer, $('<div class="layerWrapper"  />'));
 			default:
 				return new LayerView(layer, $('<div class="layerWrapper"  />'));
-//				return null;
+			//				return null;
 		}
 	}
 }

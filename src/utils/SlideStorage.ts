@@ -12,11 +12,10 @@ import { ImageManager } from "./ImageManager";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 
-
 export enum HVDataType {
 	PNG,
 	HVD,
-	HVZ
+	HVZ,
 }
 
 export interface SlideTitle {
@@ -60,7 +59,7 @@ export class SlideStorage extends EventDispatcher {
 				this.db = e.target.result;
 				this.db.createObjectStore("slideTitles", { keyPath: "id", autoIncrement: true });
 				this.db.createObjectStore("slideData", { keyPath: "title" });
-			}
+			};
 			openReq.onsuccess = (e: any) => {
 				this.db = e.target.result;
 				this.dbVersion = this.db.version;
@@ -70,20 +69,19 @@ export class SlideStorage extends EventDispatcher {
 				this.titleStore = transaction.objectStore("slideTitles");
 				this.dataStore = transaction.objectStore("slideData");
 				this.updateTitleMenu();
-			}
+			};
 			openReq.onerror = (e: any) => {
 				//console.log('db open error');
 				alert("db open error");
-			}
+			};
 		};
-
 
 		if (0) {
 			let deleteReq = indexedDB.deleteDatabase(SlideStorage.DBNAME);
 			deleteReq.onsuccess = (e: any) => {
 				//console.log('db delete success');
 				create();
-			}
+			};
 		} else {
 			create();
 		}
@@ -121,18 +119,17 @@ export class SlideStorage extends EventDispatcher {
 		// 	};
 		// }
 
-
 		if (id) {
 			this.titleStore.put({ id: id, title: title, update: new Date().getTime() });
 		} else {
 			this.titleStore.add({ title: title, update: new Date().getTime() });
 		}
 
-		this.dataStore.put({ title: title, data: jsonStr },).onsuccess = (e: any) => {
+		this.dataStore.put({ title: title, data: jsonStr }).onsuccess = (e: any) => {
 			// verify(title);
-			doc.title = title;	//新データとなるのでタイトルを変更
+			doc.title = title; //新データとなるのでタイトルを変更
 			this.updateTitleMenu();
-		}
+		};
 	}
 
 	public export(doc: ViewerDocument, type: HVDataType, options?: any) {
@@ -142,16 +139,18 @@ export class SlideStorage extends EventDispatcher {
 
 		switch (type) {
 			case HVDataType.PNG:
-				let pages: number[] = options ? (options.pages || []) : [];
+				let pages: number[] = options ? options.pages || [] : [];
 				let thumbPng = new SlideToPNGConverter().convert(doc, pages, false);
 				var zip = new JSZip();
 				zip.file("data.hvd", jsonStr);
-				zip.generateAsync({ type: "uint8array", compression: "DEFLATE" })
-					.then((u8a) => {
-						this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL: string) => {
-							DataUtil.downloadBlob(DataUtil.dataURItoBlob(embeddedPngDataURL), SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png");
-						});
+				zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }).then((u8a) => {
+					this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL: string) => {
+						DataUtil.downloadBlob(
+							DataUtil.dataURItoBlob(embeddedPngDataURL),
+							SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png"
+						);
 					});
+				});
 				break;
 			case HVDataType.HVD:
 				let blob = new Blob([jsonStr], { type: "text/plain" });
@@ -160,45 +159,41 @@ export class SlideStorage extends EventDispatcher {
 			case HVDataType.HVZ:
 				var zip = new JSZip();
 				zip.file(doc.title + ".hvd", jsonStr);
-				zip.generateAsync({ type: "blob", compression: "DEFLATE" })
-					.then((blob) => {
-						DataUtil.downloadBlob(blob, doc.title + ".hvz");
-					});
+				zip.generateAsync({ type: "blob", compression: "DEFLATE" }).then((blob) => {
+					DataUtil.downloadBlob(blob, doc.title + ".hvz");
+				});
 				break;
 		}
 	}
-
 
 	public load(id: string) {
 		let title = this.titleById[id];
 		if (!title) return;
 
-		console.log("load at slideStorage", id, title)
+		console.log("load at slideStorage", id, title);
 		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.dataStore = transaction.objectStore("slideData");
 		let getReq = this.dataStore.get(title);
 		getReq.onsuccess = async (e: any) => {
 			let jsonStr: string = e.target.result.data;
-			this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) }));
-		}
-		getReq.onerror = async (e: any) => {
-
+			this.dispatchEvent(
+				new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) })
+			);
 		};
+		getReq.onerror = async (e: any) => {};
 	}
 
-
 	public async import(file: any) {
-
 		if (file.name.indexOf(".png") != -1) {
 			let reader = new FileReader();
 			let loadFunc = (reader, filePath) => {
-				return new Promise<void>(resolve => {
+				return new Promise<void>((resolve) => {
 					reader.addEventListener("load", (e: any) => {
 						resolve();
 					});
 					reader.readAsDataURL(filePath);
 				});
-			}
+			};
 
 			try {
 				await loadFunc(reader, file);
@@ -212,12 +207,11 @@ export class SlideStorage extends EventDispatcher {
 					alert("not data png file.");
 					return;
 				}
-				let title: string = (file.name.split(".png")[0]).split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
-				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) }));
-			}
-			catch (e) {
-			}
-
+				let title: string = file.name.split(".png")[0].split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
+				this.dispatchEvent(
+					new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) })
+				);
+			} catch (e) {}
 		} else if (file.name.indexOf(".hvz") != -1) {
 			try {
 				let zip = await JSZip.loadAsync(file);
@@ -225,24 +219,19 @@ export class SlideStorage extends EventDispatcher {
 					let data: string = await b.async("string");
 					this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
 				});
-			}
-			catch (e) {
-
-			}
+			} catch (e) {}
 		} else if (file.name.indexOf(".hvd") != -1) {
 			let reader = new FileReader();
 			reader.addEventListener("load", async (e: any) => {
-				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(reader.result as string) }));
+				this.dispatchEvent(
+					new CustomEvent("loaded", { detail: await this.parseData(reader.result as string) })
+				);
 			});
 			try {
 				reader.readAsText(file);
-			}
-			catch (e) {
-			}
+			} catch (e) {}
 		}
-
 	}
-
 
 	public delete(id: string) {
 		let title: string = this.titleById[id];
@@ -280,7 +269,7 @@ export class SlideStorage extends EventDispatcher {
 		let slideData: any[] = [];
 		let imageData: any = {};
 
-		doc.slides.forEach(slide => {
+		doc.slides.forEach((slide) => {
 			let slideDatum: any = {};
 			slideDatum.id = slide.id;
 			slideDatum.durationRatio = slide.durationRatio;
@@ -288,7 +277,7 @@ export class SlideStorage extends EventDispatcher {
 			slideDatum.disabled = slide.disabled;
 
 			slideDatum.layers = [];
-			slide.layers.forEach(layer => {
+			slide.layers.forEach((layer) => {
 				slideDatum.layers.push(layer.getData());
 				if (layer.type == LayerType.IMAGE) {
 					let imageLayer: ImageLayer = layer as ImageLayer;
@@ -312,7 +301,6 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 	private async parseData(jsonStr: string, options?: any) {
-
 		let slides: Slide[] = [];
 		options = options || {};
 
@@ -351,7 +339,7 @@ export class SlideStorage extends EventDispatcher {
 				} else {
 					return sum + slideDatum.images.length;
 				}
-			}, 0)
+			}, 0);
 			totalSteps += totalLayers;
 
 			//load images
@@ -363,9 +351,8 @@ export class SlideStorage extends EventDispatcher {
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
 
-
 			//construct slides
-			json.slideData.forEach(slideDatum => {
+			json.slideData.forEach((slideDatum) => {
 				let slide: Slide = new Slide(width, height);
 				slide.durationRatio = slideDatum.durationRatio || 1;
 				slide.joining = Boolean(slideDatum.joining);
@@ -378,7 +365,7 @@ export class SlideStorage extends EventDispatcher {
 					layers = slideDatum.images;
 				}
 
-				layers.forEach(layerDatum => {
+				layers.forEach((layerDatum) => {
 					let percentage = currentStep++ / totalSteps;
 					this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
 
@@ -407,7 +394,7 @@ export class SlideStorage extends EventDispatcher {
 							}
 							slide.addLayer(textLayer);
 							break;
-						case undefined:	//version < 2.1
+						case undefined: //version < 2.1
 						case LayerType.IMAGE:
 							let img: ImageLayer = new ImageLayer(layerDatum.imageId, {
 								transX: layerDatum.transX,
@@ -475,10 +462,9 @@ export class SlideStorage extends EventDispatcher {
 			} else {
 				this.titles.sort((a, b) => {
 					if (a.update == b.update) {
-						return a.id > b.id ? 1 : -1
-
+						return a.id > b.id ? 1 : -1;
 					} else {
-						return a.update > b.update ? 1 : -1
+						return a.update > b.update ? 1 : -1;
 					}
 				});
 				// console.log(this.titles)
@@ -487,5 +473,4 @@ export class SlideStorage extends EventDispatcher {
 			}
 		};
 	}
-
 }
