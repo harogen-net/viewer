@@ -32,7 +32,9 @@ export class FileSelector {
 
 		const handleSelectChange = (val: any) => {
 			if (val == -1 || val == null) return;
-			this.documentStorage.load(val);
+			if (!this.documentStorage.load(val)) {
+				console.warn("storage load rejected", this.documentStorage.getLastError());
+			}
 		};
 
 		selectObj.change((e) => {
@@ -45,7 +47,9 @@ export class FileSelector {
 			if (targetOp.length == 0) return;
 			const nextVal = targetOp.attr("value");
 			selectObj.val(nextVal);
-			this.documentStorage.load(nextVal);
+			if (!this.documentStorage.load(nextVal)) {
+				console.warn("storage load rejected", this.documentStorage.getLastError());
+			}
 		};
 
 		$(".fileSelect.up").click(() => handleFileSelectClick(false));
@@ -59,7 +63,9 @@ export class FileSelector {
 			let val = selectObj.val();
 			if (val == -1 || val == null) return;
 			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
-				this.documentStorage.delete(val);
+				if (!this.documentStorage.delete(val)) {
+					console.warn("storage delete rejected", this.documentStorage.getLastError());
+				}
 			}
 		};
 

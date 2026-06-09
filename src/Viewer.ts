@@ -197,9 +197,11 @@ export class Viewer {
 						if ($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
 						if ($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
 
-						this.documentStorage.export(this.viewerDocument, type, {
+						if (!this.documentStorage.export(this.viewerDocument, type, {
 							pages: (this.listVC.selectedSlideIndex != -1) ? [this.listVC.selectedSlideIndex] : undefined
-						});
+						})) {
+							console.warn("storage export rejected", this.documentStorage.getLastError());
+						}
 					}
 				});
 
@@ -235,7 +237,9 @@ export class Viewer {
 				if (!this.canSave()) return;
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm('override?');
-				this.documentStorage.save(this.viewerDocument, isOverride);
+				if (!this.documentStorage.save(this.viewerDocument, isOverride)) {
+					console.warn("storage save rejected", this.documentStorage.getLastError());
+				}
 			});
 
 
@@ -253,7 +257,10 @@ export class Viewer {
 				if (!this.canImport()) return;
 				const target = e.target as HTMLInputElement;
 				if (target.files && target.files[0]) {
-					this.documentStorage.import(target.files[0]);
+					const importPromise = this.documentStorage.import(target.files[0]);
+					if (!importPromise) {
+						console.warn("storage import rejected", this.documentStorage.getLastError());
+					}
 					$("input.import").val("");
 				}
 			});

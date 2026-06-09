@@ -127,6 +127,8 @@
   - `imageData` 不足により画像復元に失敗
 - `STORAGE_IO_ERROR`
   - IndexedDB read/write/delete の失敗
+- `PERMISSION_DENIED`
+  - feature gate により save/export/import/delete を拒否
 
 注記:
 - 実ファイル配置は実装時にプロジェクト構成へ合わせる。
