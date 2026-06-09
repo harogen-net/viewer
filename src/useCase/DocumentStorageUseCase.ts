@@ -1,11 +1,11 @@
 import { ViewerDocument } from "../model/ViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
 import {
-  StorageAdapter,
-  StorageEventCallback,
-  StorageEventType,
-  StorageExportOptions,
-  StorageRecordId,
+	StorageAdapter,
+	StorageEventCallback,
+	StorageEventType,
+	StorageExportOptions,
+	StorageRecordId,
 } from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../utils/SlideStorage";
 
