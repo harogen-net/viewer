@@ -6,7 +6,7 @@ import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { StorageEventType } from "./storage/StorageAdapter";
-import { DocumentStorageUseCase } from "./useCase/DocumentStorageUseCase";
+import { DocumentStorageUseCase, StorageAction } from "./useCase/DocumentStorageUseCase";
 import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { HVDataType } from "./utils/SlideStorage";
@@ -201,7 +201,7 @@ export class Viewer {
 						if (!this.documentStorage.export(this.viewerDocument, type, {
 							pages: (this.listVC.selectedSlideIndex != -1) ? [this.listVC.selectedSlideIndex] : undefined
 						})) {
-							showNotice(this.documentStorage.getLastErrorMessage("export"));
+							this.notifyStorageFailure(StorageAction.EXPORT);
 						}
 					}
 				});
@@ -239,7 +239,7 @@ export class Viewer {
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm('override?');
 				if (!this.documentStorage.save(this.viewerDocument, isOverride)) {
-					showNotice(this.documentStorage.getLastErrorMessage("save"));
+					this.notifyStorageFailure(StorageAction.SAVE);
 				}
 			});
 
@@ -258,10 +258,11 @@ export class Viewer {
 				if (!this.canImport()) return;
 				const target = e.target as HTMLInputElement;
 				if (target.files && target.files[0]) {
-					const importPromise = this.documentStorage.import(target.files[0]);
-					if (!importPromise) {
-						showNotice(this.documentStorage.getLastErrorMessage("import"));
-					}
+					this.documentStorage.import(target.files[0]).then((ok) => {
+						if (!ok) {
+							this.notifyStorageFailure(StorageAction.IMPORT);
+						}
+					});
 					$("input.import").val("");
 				}
 			});
@@ -373,5 +374,9 @@ export class Viewer {
 	private canImport(): boolean {
 		if (this.featureGate) return this.featureGate.canImport;
 		return true;
+	}
+
+	private notifyStorageFailure(action: StorageAction): void {
+		showNotice(this.documentStorage.getLastErrorMessage(action));
 	}
 }

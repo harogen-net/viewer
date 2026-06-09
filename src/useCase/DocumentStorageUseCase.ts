@@ -12,6 +12,14 @@ import { HVDataType, SlideTitle } from "../utils/SlideStorage";
 
 type StorageInputId = string | number | string[] | null | undefined;
 
+export enum StorageAction {
+  SAVE = "save",
+  EXPORT = "export",
+  IMPORT = "import",
+  LOAD = "load",
+  DELETE = "delete",
+}
+
 export class DocumentStorageUseCase {
   private lastError: StorageErrorCode | undefined;
 
@@ -24,22 +32,24 @@ export class DocumentStorageUseCase {
     return this.lastError;
   }
 
-  getLastErrorMessage(action: string): string {
+  getLastErrorMessage(action: StorageAction): string {
+    const actionLabel = this.getActionLabel(action);
+
     switch (this.lastError) {
       case StorageErrorCode.PERMISSION_DENIED:
-        return action + " is not allowed in current mode.";
+        return actionLabel + "は現在のモードでは許可されていません。";
       case StorageErrorCode.INVALID_ARGUMENT:
-        return action + " failed due to invalid selection.";
+        return actionLabel + "に失敗しました。選択項目を確認してください。";
       case StorageErrorCode.STORAGE_IO_ERROR:
-        return action + " failed due to storage I/O error.";
+        return actionLabel + "に失敗しました。ストレージへのアクセスでエラーが発生しました。";
       case StorageErrorCode.UNSUPPORTED_VERSION:
-        return "file version is not supported.";
+        return "このファイル形式のバージョンはサポートされていません。";
       case StorageErrorCode.PARSE_ERROR:
-        return "failed to parse file data.";
+        return "ファイルデータの解析に失敗しました。";
       case StorageErrorCode.MISSING_ASSET:
-        return "file is missing required assets.";
+        return "必要な画像データが不足しています。";
       default:
-        return action + " failed.";
+        return actionLabel + "に失敗しました。";
     }
   }
 
@@ -56,91 +66,43 @@ export class DocumentStorageUseCase {
   }
 
   save(doc: ViewerDocument, isOverride: boolean): boolean {
-    this.lastError = undefined;
-    if (!this.canSave()) {
-      this.lastError = StorageErrorCode.PERMISSION_DENIED;
-      return false;
-    }
-
-    try {
+    return this.executeSync(this.canSave(), () => {
       this.storage.save(doc, isOverride);
-    } catch {
-      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      return false;
-    }
-    return true;
+    });
   }
 
   export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): boolean {
-    this.lastError = undefined;
-    if (!this.canExport()) {
-      this.lastError = StorageErrorCode.PERMISSION_DENIED;
-      return false;
-    }
-
-    try {
+    return this.executeSync(this.canExport(), () => {
       this.storage.export(doc, type, options);
-    } catch {
-      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      return false;
-    }
-    return true;
+    });
   }
 
   load(id: StorageInputId): boolean {
-    this.lastError = undefined;
     const recordId = this.normalizeId(id);
     if (!recordId) {
       this.lastError = StorageErrorCode.INVALID_ARGUMENT;
       return false;
     }
 
-    try {
+    return this.executeSync(true, () => {
       this.storage.load(recordId);
-    } catch {
-      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      return false;
-    }
-    return true;
+    });
   }
 
-  import(file: File): Promise<void> | undefined {
-    this.lastError = undefined;
-    if (!this.canImport()) {
-      this.lastError = StorageErrorCode.PERMISSION_DENIED;
-      return undefined;
-    }
-
-    try {
-      return this.storage.import(file).catch(() => {
-        this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      });
-    } catch {
-      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      return undefined;
-    }
+  import(file: File): Promise<boolean> {
+    return this.executeAsync(this.canImport(), () => this.storage.import(file));
   }
 
   delete(id: StorageInputId): boolean {
-    this.lastError = undefined;
-    if (!this.canDeleteSavedData()) {
-      this.lastError = StorageErrorCode.PERMISSION_DENIED;
-      return false;
-    }
-
     const recordId = this.normalizeId(id);
     if (!recordId) {
       this.lastError = StorageErrorCode.INVALID_ARGUMENT;
       return false;
     }
 
-    try {
+    return this.executeSync(this.canDeleteSavedData(), () => {
       this.storage.delete(recordId);
-    } catch {
-      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
-      return false;
-    }
-    return true;
+    });
   }
 
   canSave(): boolean {
@@ -173,5 +135,58 @@ export class DocumentStorageUseCase {
     const normalized = id.toString().trim();
     if (!normalized || normalized == "-1") return undefined;
     return normalized;
+  }
+
+  private executeSync(canExecute: boolean, operation: () => void): boolean {
+    this.lastError = undefined;
+    if (!canExecute) {
+      this.lastError = StorageErrorCode.PERMISSION_DENIED;
+      return false;
+    }
+
+    try {
+      operation();
+      return true;
+    } catch {
+      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
+      return false;
+    }
+  }
+
+  private executeAsync(canExecute: boolean, operation: () => Promise<void>): Promise<boolean> {
+    this.lastError = undefined;
+    if (!canExecute) {
+      this.lastError = StorageErrorCode.PERMISSION_DENIED;
+      return Promise.resolve(false);
+    }
+
+    try {
+      return operation()
+        .then(() => true)
+        .catch(() => {
+          this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
+          return false;
+        });
+    } catch {
+      this.lastError = StorageErrorCode.STORAGE_IO_ERROR;
+      return Promise.resolve(false);
+    }
+  }
+
+  private getActionLabel(action: StorageAction): string {
+    switch (action) {
+      case StorageAction.SAVE:
+        return "保存";
+      case StorageAction.EXPORT:
+        return "書き出し";
+      case StorageAction.IMPORT:
+        return "読み込み";
+      case StorageAction.LOAD:
+        return "読込";
+      case StorageAction.DELETE:
+        return "削除";
+      default:
+        return action;
+    }
   }
 }

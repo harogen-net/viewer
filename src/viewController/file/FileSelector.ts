@@ -1,8 +1,10 @@
 import $ from "jquery";
 import { showNotice } from "../../runtime/notice";
 import { StorageEventType } from "../../storage/StorageAdapter";
-import { DocumentStorageUseCase } from "../../useCase/DocumentStorageUseCase";
+import { DocumentStorageUseCase, StorageAction } from "../../useCase/DocumentStorageUseCase";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
+
+type SelectValue = string | number | string[] | null;
 
 export class FileSelector {
 	constructor(private readonly documentStorage: DocumentStorageUseCase) {
@@ -28,13 +30,15 @@ export class FileSelector {
 			selectObj.prop("selectedIndex", nextIndex);
 			
 			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
-			if (nextValue) this.documentStorage.load(nextValue);
+			if (nextValue && !this.documentStorage.load(nextValue)) {
+				this.notifyStorageFailure(StorageAction.LOAD);
+			}
 		});
 
-		const handleSelectChange = (val: any) => {
+		const handleSelectChange = (val: SelectValue) => {
 			if (val == -1 || val == null) return;
 			if (!this.documentStorage.load(val)) {
-				showNotice(this.documentStorage.getLastErrorMessage("load"));
+				this.notifyStorageFailure(StorageAction.LOAD);
 			}
 		};
 
@@ -49,7 +53,7 @@ export class FileSelector {
 			const nextVal = targetOp.attr("value");
 			selectObj.val(nextVal);
 			if (!this.documentStorage.load(nextVal)) {
-				showNotice(this.documentStorage.getLastErrorMessage("load"));
+				this.notifyStorageFailure(StorageAction.LOAD);
 			}
 		};
 
@@ -65,12 +69,16 @@ export class FileSelector {
 			if (val == -1 || val == null) return;
 			if (Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY || (window.confirm('delete selected save data. Are you sure?'))) {
 				if (!this.documentStorage.delete(val)) {
-					showNotice(this.documentStorage.getLastErrorMessage("delete"));
+					this.notifyStorageFailure(StorageAction.DELETE);
 				}
 			}
 		};
 
 		const disposeEvent = Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT ? "dblclick" : "click";
 		$(".dispose").on(disposeEvent, handleDispose);
+	}
+
+	private notifyStorageFailure(action: StorageAction): void {
+		showNotice(this.documentStorage.getLastErrorMessage(action));
 	}
 }
