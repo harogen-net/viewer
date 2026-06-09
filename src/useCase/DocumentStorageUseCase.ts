@@ -32,9 +32,9 @@ export class DocumentStorageUseCase {
 		private readonly gate?: FeatureGate
 	) {}
 
-	saveResult(doc: ViewerDocument, isOverride: boolean): StorageActionResult {
-		return this.executeSyncResult(StorageAction.SAVE, this.canSave(), () => {
-			this.storage.save(doc, isOverride);
+	saveResult(doc: ViewerDocument, isOverride: boolean): Promise<StorageActionResult> {
+		return this.executeAsyncResult(StorageAction.SAVE, this.canSave(), () => {
+			return this.storage.save(doc, isOverride);
 		});
 	}
 
@@ -42,15 +42,18 @@ export class DocumentStorageUseCase {
 		doc: ViewerDocument,
 		type: HVDataType,
 		options?: StorageExportOptions
-	): StorageActionResult {
-		return this.executeSyncResult(StorageAction.EXPORT, this.canExport(), () => {
-			this.storage.export(doc, type, options);
+	): Promise<StorageActionResult> {
+		return this.executeAsyncResult(StorageAction.EXPORT, this.canExport(), () => {
+			return this.storage.export(doc, type, options);
 		});
 	}
 
 	loadResult(id: StorageInputId): StorageActionResult {
 		const recordId = this.normalizeId(id);
 		if (!recordId) {
+			return this.fail(StorageAction.LOAD, StorageErrorCode.INVALID_ARGUMENT);
+		}
+		if (!this.existsRecord(recordId)) {
 			return this.fail(StorageAction.LOAD, StorageErrorCode.INVALID_ARGUMENT);
 		}
 
@@ -68,6 +71,9 @@ export class DocumentStorageUseCase {
 	deleteResult(id: StorageInputId): StorageActionResult {
 		const recordId = this.normalizeId(id);
 		if (!recordId) {
+			return this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT);
+		}
+		if (!this.existsRecord(recordId)) {
 			return this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT);
 		}
 
@@ -120,6 +126,10 @@ export class DocumentStorageUseCase {
 		return normalized;
 	}
 
+	private existsRecord(id: StorageRecordId): boolean {
+		return this.getTitles().some((title) => title.id.toString() == id);
+	}
+
 	private executeSyncResult(
 		action: StorageAction,
 		canExecute: boolean,
@@ -170,19 +180,6 @@ export class DocumentStorageUseCase {
 
 		if (error instanceof SyntaxError) {
 			return StorageErrorCode.PARSE_ERROR;
-		}
-
-		if (error instanceof Error) {
-			const msg = error.message.toLowerCase();
-			if (msg.indexOf("too old version") != -1 || msg.indexOf("unsupported") != -1) {
-				return StorageErrorCode.UNSUPPORTED_VERSION;
-			}
-			if (msg.indexOf("parse") != -1 || msg.indexOf("json") != -1 || msg.indexOf("zip") != -1) {
-				return StorageErrorCode.PARSE_ERROR;
-			}
-			if (msg.indexOf("asset") != -1 || msg.indexOf("image") != -1) {
-				return StorageErrorCode.MISSING_ASSET;
-			}
 		}
 
 		return StorageErrorCode.STORAGE_IO_ERROR;

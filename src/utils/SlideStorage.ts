@@ -5,6 +5,7 @@ import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
+import { createStorageOperationError, StorageErrorCode } from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../storage/storageTypes";
 import { Viewer } from "../Viewer";
 import { DataUtil } from "./DataUtil";
@@ -78,7 +79,7 @@ export class SlideStorage extends EventDispatcher {
 		this.embedder = new PNGEmbedder();
 	}
 
-	save(doc: ViewerDocument, isOverride: boolean = false) {
+	save(doc: ViewerDocument, isOverride: boolean = false): Promise<void> {
 		console.log("save at SlideStorage,", doc, isOverride);
 
 		let title = isOverride ? doc.title : DateUtil.getDateString();
@@ -108,56 +109,99 @@ export class SlideStorage extends EventDispatcher {
 		// 	};
 		// }
 
-		if (id) {
-			this.titleStore.put({ id: id, title: title, update: new Date().getTime() });
-		} else {
-			this.titleStore.add({ title: title, update: new Date().getTime() });
-		}
+		return new Promise<void>((resolve, reject) => {
+			const onRequestError = () => {
+				reject(
+					createStorageOperationError(StorageErrorCode.STORAGE_IO_ERROR, "save request failed")
+				);
+			};
 
-		this.dataStore.put({ title: title, data: jsonStr }).onsuccess = (e: any) => {
-			// verify(title);
-			doc.title = title; //新データとなるのでタイトルを変更
-			this.updateTitleMenu();
-		};
+			if (id) {
+				const titlePutReq = this.titleStore.put({ id: id, title: title, update: new Date().getTime() });
+				titlePutReq.onerror = onRequestError;
+			} else {
+				const titleAddReq = this.titleStore.add({ title: title, update: new Date().getTime() });
+				titleAddReq.onerror = onRequestError;
+			}
+
+			const dataPutReq = this.dataStore.put({ title: title, data: jsonStr });
+			dataPutReq.onerror = onRequestError;
+			dataPutReq.onsuccess = () => {
+				doc.title = title; //新データとなるのでタイトルを変更
+				this.updateTitleMenu();
+				resolve();
+			};
+		});
 	}
 
-	public export(doc: ViewerDocument, type: HVDataType, options?: any) {
+	public export(doc: ViewerDocument, type: HVDataType, options?: any): Promise<void> {
 		let jsonStr: string = this.stringifyData(doc);
 
 		//
 
 		switch (type) {
 			case HVDataType.PNG:
+				return new Promise<void>((resolve, reject) => {
 				let pages: number[] = options ? options.pages || [] : [];
 				let thumbPng = new SlideToPNGConverter().convert(doc, pages, false);
 				var zip = new JSZip();
 				zip.file("data.hvd", jsonStr);
-				zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }).then((u8a) => {
-					this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL: string) => {
-						DataUtil.downloadBlob(
-							DataUtil.dataURItoBlob(embeddedPngDataURL),
-							SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png"
+				zip.generateAsync({ type: "uint8array", compression: "DEFLATE" })
+					.then((u8a) => {
+						this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL: string) => {
+							DataUtil.downloadBlob(
+								DataUtil.dataURItoBlob(embeddedPngDataURL),
+								SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png"
+							);
+							resolve();
+						});
+					})
+					.catch(() => {
+						reject(
+							createStorageOperationError(
+								StorageErrorCode.STORAGE_IO_ERROR,
+								"png export failed"
+							)
 						);
 					});
 				});
-				break;
 			case HVDataType.HVD:
 				let blob = new Blob([jsonStr], { type: "text/plain" });
 				DataUtil.downloadBlob(blob, doc.title + ".hvd");
-				break;
+				return Promise.resolve();
 			case HVDataType.HVZ:
+				return new Promise<void>((resolve, reject) => {
 				var zip = new JSZip();
 				zip.file(doc.title + ".hvd", jsonStr);
-				zip.generateAsync({ type: "blob", compression: "DEFLATE" }).then((blob) => {
-					DataUtil.downloadBlob(blob, doc.title + ".hvz");
+				zip.generateAsync({ type: "blob", compression: "DEFLATE" })
+					.then((blob) => {
+						DataUtil.downloadBlob(blob, doc.title + ".hvz");
+						resolve();
+					})
+					.catch(() => {
+						reject(
+							createStorageOperationError(
+								StorageErrorCode.STORAGE_IO_ERROR,
+								"hvz export failed"
+							)
+						);
+					});
 				});
-				break;
+			default:
+				return Promise.reject(
+					createStorageOperationError(
+					StorageErrorCode.INVALID_ARGUMENT,
+					"unsupported export type"
+					)
+				);
 		}
 	}
 
 	public load(id: string) {
 		let title = this.titleById[id];
-		if (!title) return;
+		if (!title) {
+			throw createStorageOperationError(StorageErrorCode.INVALID_ARGUMENT, "load target not found");
+		}
 
 		console.log("load at slideStorage", id, title);
 		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
@@ -184,61 +228,79 @@ export class SlideStorage extends EventDispatcher {
 				});
 			};
 
-			try {
-				await loadFunc(reader, file);
-				let u8a = this.embedder.extract(reader.result as string);
-				let zip = new JSZip();
-				await zip.loadAsync(u8a);
+			await loadFunc(reader, file);
+			let u8a = this.embedder.extract(reader.result as string);
+			let zip = new JSZip();
+			await zip.loadAsync(u8a);
 
-				let obj = await zip.file("data.hvd").async("uint8array");
-				let jsonStr: string = new TextDecoder().decode(obj);
-				if (!jsonStr) {
-					throw new Error("parse error: embedded data is empty.");
-				}
-				let title: string = file.name.split(".png")[0].split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
-				this.dispatchEvent(
-					new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) })
+			const dataFile = zip.file("data.hvd");
+			if (!dataFile) {
+				throw createStorageOperationError(
+					StorageErrorCode.PARSE_ERROR,
+					"embedded data.hvd not found"
 				);
-			} catch (e) {
-				throw e;
 			}
+
+			let obj = await dataFile.async("uint8array");
+			let jsonStr: string = new TextDecoder().decode(obj);
+			if (!jsonStr) {
+				throw createStorageOperationError(
+					StorageErrorCode.PARSE_ERROR,
+					"embedded data is empty"
+				);
+			}
+			let title: string = file.name.split(".png")[0].split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
+			this.dispatchEvent(
+				new CustomEvent("loaded", { detail: await this.parseData(jsonStr, { title: title }) })
+			);
 		} else if (file.name.indexOf(".hvz") != -1) {
-			try {
-				let zip = await JSZip.loadAsync(file);
-				let targetEntry = Object.values(zip.files).find((entry) => {
-					return !entry.dir && entry.name.toLowerCase().indexOf(".hvd") != -1;
-				});
+			let zip = await JSZip.loadAsync(file);
+			let targetEntry = Object.values(zip.files).find((entry) => {
+				return !entry.dir && entry.name.toLowerCase().indexOf(".hvd") != -1;
+			});
 
-				if (!targetEntry) {
-					throw new Error("import data file not found.");
-				}
-
-				let data: string = await targetEntry.async("string");
-				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
-			} catch (e) {
-				throw e;
+			if (!targetEntry) {
+				throw createStorageOperationError(
+					StorageErrorCode.PARSE_ERROR,
+					"import data file not found"
+				);
 			}
+
+			let data: string = await targetEntry.async("string");
+			this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
 		} else if (file.name.indexOf(".hvd") != -1) {
-			try {
-				let data = await file.text();
-				this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
-			} catch (e) {
-				throw e;
-			}
+			let data = await file.text();
+			this.dispatchEvent(new CustomEvent("loaded", { detail: await this.parseData(data) }));
 		} else {
-			throw new Error("unsupported import file type.");
+			throw createStorageOperationError(
+				StorageErrorCode.INVALID_ARGUMENT,
+				"unsupported import file type"
+			);
 		}
 	}
 
 	public delete(id: string) {
 		let title: string = this.titleById[id];
+		if (!title) {
+			throw createStorageOperationError(
+				StorageErrorCode.INVALID_ARGUMENT,
+				"delete target not found"
+			);
+		}
+
+		const numericId = parseInt(id);
+		if (isNaN(numericId)) {
+			throw createStorageOperationError(
+				StorageErrorCode.INVALID_ARGUMENT,
+				"delete target id is invalid"
+			);
+		}
 
 		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
 
-		let deleteReq1 = this.titleStore.delete(parseInt(id));
-		if (!title) return;
+		let deleteReq1 = this.titleStore.delete(numericId);
 		let deleteReq2 = this.dataStore.delete(title);
 		deleteReq1.onsuccess = (e: any) => {
 			this.updateTitleMenu();
@@ -307,7 +369,10 @@ export class SlideStorage extends EventDispatcher {
 
 		//ver1
 		if (json.version == 1 || json.version == undefined) {
-			throw new Error("too old version.");
+			throw createStorageOperationError(
+				StorageErrorCode.UNSUPPORTED_VERSION,
+				"too old version"
+			);
 		}
 
 		//ver2
@@ -344,6 +409,12 @@ export class SlideStorage extends EventDispatcher {
 				this.dispatchEvent(new CustomEvent("loading", { detail: percentage }));
 
 				let imageId = imageIds[i];
+				if (json.imageData[imageId] == undefined) {
+					throw createStorageOperationError(
+						StorageErrorCode.MISSING_ASSET,
+						"missing image asset"
+					);
+				}
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}
 

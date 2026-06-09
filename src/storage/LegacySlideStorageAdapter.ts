@@ -35,12 +35,12 @@ export class LegacySlideStorageAdapter implements StorageAdapter {
 		return this.storage.titles;
 	}
 
-	save(doc: ViewerDocument, isOverride: boolean): void {
-		this.storage.save(doc, isOverride);
+	save(doc: ViewerDocument, isOverride: boolean): Promise<void> {
+		return this.storage.save(doc, isOverride);
 	}
 
-	export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): void {
-		this.storage.export(doc, type, options);
+	export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): Promise<void> {
+		return this.storage.export(doc, type, options);
 	}
 
 	load(id: StorageRecordId): void {

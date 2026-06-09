@@ -28,12 +28,23 @@ export type StorageEventType = (typeof StorageEventType)[keyof typeof StorageEve
 
 export type StorageEventCallback = (event: Event) => void;
 
+export type StorageOperationError = Error & { code: StorageErrorCode };
+
+export function createStorageOperationError(
+	code: StorageErrorCode,
+	message: string
+): StorageOperationError {
+	const error = new Error(message) as StorageOperationError;
+	error.code = code;
+	return error;
+}
+
 export interface StorageAdapter {
 	addEventListener(type: StorageEventType | string, callback: StorageEventCallback): void;
 	removeEventListener(type: StorageEventType | string, callback: StorageEventCallback): void;
 	getTitles(): SlideTitle[];
-	save(doc: ViewerDocument, isOverride: boolean): void;
-	export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): void;
+	save(doc: ViewerDocument, isOverride: boolean): Promise<void>;
+	export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): Promise<void>;
 	load(id: StorageRecordId): void;
 	import(file: File): Promise<void>;
 	delete(id: StorageRecordId): void;

@@ -209,9 +209,11 @@ export class Viewer {
 							pages:
 								this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,
 						});
-						if (isStorageActionFailure(result)) {
-							showNotice(result.message);
-						}
+						result.then((res) => {
+							if (isStorageActionFailure(res)) {
+								showNotice(res.message);
+							}
+						});
 					}
 				});
 			} else {
@@ -243,9 +245,11 @@ export class Viewer {
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm("override?");
 				const result = this.documentStorage.saveResult(this.viewerDocument, isOverride);
-				if (isStorageActionFailure(result)) {
-					showNotice(result.message);
-				}
+				result.then((res) => {
+					if (isStorageActionFailure(res)) {
+						showNotice(res.message);
+					}
+				});
 			});
 
 			$("button.zip").click(() => {

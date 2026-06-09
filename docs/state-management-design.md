@@ -169,6 +169,25 @@
 - `Viewer` / `DocumentStorageUseCase` / `StorageAdapter` は `utils/SlideStorage` の型依存を解消
 - `SlideStorage` は legacy 実装として `storageTypes` を参照する形に変更
 
+### 6.7 型付きストレージエラー伝播（2026-06-10 追記）
+- `StorageAdapter` に `StorageOperationError` / `createStorageOperationError` を追加
+- `SlideStorage` の import/parse 処理は `StorageErrorCode` 付きエラーを throw
+  - `UNSUPPORTED_VERSION`, `PARSE_ERROR`, `MISSING_ASSET`, `INVALID_ARGUMENT`
+- `DocumentStorageUseCase` はコード付きエラーを優先して `StorageActionResult.error` へ反映
+  - 文字列メッセージ依存の推定ロジックを削減し、Result の安定性を向上
+
+### 6.8 load/delete 失敗の Result 厳密化（2026-06-10 追記）
+- `DocumentStorageUseCase` は `loadResult/deleteResult` 実行前に record 存在を検証
+  - 未選択・未存在 ID は `INVALID_ARGUMENT` で即時失敗
+- `SlideStorage` も `load/delete/export` の不正引数を `createStorageOperationError` で明示的に throw
+- これにより `load/delete` の失敗理由が UI 通知まで一貫して伝播
+
+### 6.9 save/export 非同期 Result 統一（2026-06-10 追記）
+- `StorageAdapter.save/export` を `Promise<void>` に統一
+- `DocumentStorageUseCase.saveResult/exportResult` は `Promise<StorageActionResult>` を返却
+- `Viewer` は save/export の結果を `.then(...)` で受け取り、import と同じ通知パターンに統一
+- 非同期処理中に発生する zip/embed/write 失敗も `STORAGE_IO_ERROR` として Result 化
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch
