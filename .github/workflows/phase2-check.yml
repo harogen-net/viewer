@@ -23,5 +23,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run phase2 checks
-        run: npm run check:phase2
+      - name: Check fixtures
+        run: npm run check:phase2-fixtures
+
+      - name: Check compatibility
+        run: npm run check:phase2-compat
+
+      - name: Check core fields
+        run: npm run check:phase2-core-fields
+
+      - name: Check structure
+        run: npm run check:phase2-structure
+
+      - name: Check error cases
+        run: npm run check:phase2-error-cases
+
+      - name: Check sensitive fixture
+        run: npm run check:phase2-sensitive

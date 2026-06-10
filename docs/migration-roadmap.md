@@ -67,6 +67,7 @@
   - fixture/compat/core/sensitive を一括実行する総合チェックコマンドを追加（`check:phase2`）
   - Phase2検証スクリプトの共通ライブラリを追加し、fixture解析ロジックを集約
   - `check:phase2` を pull request / develop2 push で自動実行する CI workflow を追加
+  - CI の Phase2 チェックを個別ステップ化し、失敗箇所の特定性を向上
   - 反映コード:
     - `.github/workflows/phase2-check.yml`
     - `src/storage/StorageAdapter.ts`
