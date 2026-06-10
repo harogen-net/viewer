@@ -107,6 +107,54 @@ export function toStableJsonString(value) {
 	return JSON.stringify(toStableValue(value));
 }
 
+export function toNormalizedJson(value) {
+	return toStableValue(value);
+}
+
+function pathTokenize(pathText) {
+	if (!pathText || pathText === "$") {
+		return [];
+	}
+	const tokens = [];
+	let i = pathText.startsWith("$") ? 1 : 0;
+	while (i < pathText.length) {
+		if (pathText[i] === ".") {
+			i += 1;
+			let start = i;
+			while (i < pathText.length && pathText[i] !== "." && pathText[i] !== "[") {
+				i += 1;
+			}
+			tokens.push(pathText.slice(start, i));
+			continue;
+		}
+		if (pathText[i] === "[") {
+			i += 1;
+			let start = i;
+			while (i < pathText.length && pathText[i] !== "]") {
+				i += 1;
+			}
+			const rawIndex = pathText.slice(start, i);
+			tokens.push(Number(rawIndex));
+			i += 1;
+			continue;
+		}
+		i += 1;
+	}
+	return tokens;
+}
+
+export function getValueAtPath(value, pathText) {
+	const tokens = pathTokenize(pathText);
+	let current = value;
+	for (const token of tokens) {
+		if (current == null) {
+			return undefined;
+		}
+		current = current[token];
+	}
+	return current;
+}
+
 function findFirstDiffPath(base, actual, currentPath = "$") {
 	const baseIsArray = Array.isArray(base);
 	const actualIsArray = Array.isArray(actual);
@@ -162,10 +210,23 @@ export function compareNormalizedJson(base, actual) {
 	const actualNormalized = toStableValue(actual);
 	const same = toStableJsonString(baseNormalized) === toStableJsonString(actualNormalized);
 	if (same) {
-		return { same: true, firstDiffPath: null };
+		return {
+			same: true,
+			firstDiffPath: null,
+			baseValueAtDiff: undefined,
+			actualValueAtDiff: undefined,
+		};
 	}
+	const firstDiffPath = findFirstDiffPath(baseNormalized, actualNormalized);
 	return {
 		same: false,
-		firstDiffPath: findFirstDiffPath(baseNormalized, actualNormalized),
+		firstDiffPath,
+		baseValueAtDiff: getValueAtPath(baseNormalized, firstDiffPath),
+		actualValueAtDiff: getValueAtPath(actualNormalized, firstDiffPath),
 	};
+}
+
+export function writeJsonFile(filePath, data) {
+	fs.mkdirSync(path.dirname(filePath), { recursive: true });
+	fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }

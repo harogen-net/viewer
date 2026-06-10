@@ -68,6 +68,7 @@
   - Phase2検証スクリプトの共通ライブラリを追加し、fixture解析ロジックを集約
   - `check:phase2` を pull request / develop2 push で自動実行する CI workflow を追加
   - CI の Phase2 チェックを個別ステップ化し、失敗箇所の特定性を向上
+  - 構造チェックの差分レポート出力と CI artifact 収集を追加し、失敗時の診断性を向上
   - 反映コード:
     - `.github/workflows/phase2-check.yml`
     - `src/storage/StorageAdapter.ts`

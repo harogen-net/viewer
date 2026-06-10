@@ -137,6 +137,11 @@
 - `npm run check:phase2-structure`
 - 期待値: hvd/hvz/png 埋め込みの JSON 構造全体（キー順を正規化後）が一致
 - NG時: 最初に不一致となった JSON path（例: `$.slideData[0].layers[1]`）が出力される
+- 実行時: `artifacts/phase2/structure-check-report.json` に検証結果（OK/NG と mismatch詳細）を出力
+
+CI実行時のレポート収集:
+- `.github/workflows/phase2-check.yml` で `artifacts/phase2/` を artifact として保存
+- 期待値: 失敗時も差分レポートをダウンロードして原因を特定できる
 
 センシティブ fixture 最小妥当性:
 - `npm run check:phase2-sensitive`

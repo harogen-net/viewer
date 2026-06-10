@@ -79,6 +79,9 @@ build/Release
 node_modules/
 jspm_packages/
 
+
+# phase2 check reports
+artifacts/
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 

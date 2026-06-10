@@ -33,6 +33,8 @@ jobs:
         run: npm run check:phase2-core-fields
 
       - name: Check structure
+        env:
+          PHASE2_STRUCTURE_REPORT: artifacts/phase2/structure-check-report.json
         run: npm run check:phase2-structure
 
       - name: Check error cases
@@ -40,3 +42,11 @@ jobs:
 
       - name: Check sensitive fixture
         run: npm run check:phase2-sensitive
+
+      - name: Upload phase2 reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-check-reports
+          path: artifacts/phase2/
+          if-no-files-found: warn
