@@ -1,5 +1,5 @@
-import { Badge, Group, Paper, ScrollArea, Stack, Text } from "@mantine/core";
-import { useEffect, useMemo, useState } from "react";
+import { Badge, Button, Group, Paper, ScrollArea, Stack, Text } from "@mantine/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
 
@@ -9,6 +9,7 @@ type RuntimeShellProps = {
 };
 
 type SlideSnapshot = {
+	index: number;
 	label: string;
 	selected: boolean;
 };
@@ -16,31 +17,27 @@ type SlideSnapshot = {
 export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [slides, setSlides] = useState<SlideSnapshot[]>([]);
 
+	const collectSlides = useCallback(() => {
+		const nodes = Array.from(document.querySelectorAll(".list .slide"));
+		const nextSlides = nodes.map((node, index) => {
+			const selected = node.classList.contains("selected");
+			return {
+				index,
+				label: `Slide ${index + 1}`,
+				selected,
+			};
+		});
+		setSlides(nextSlides);
+	}, []);
+
 	useEffect(() => {
-		const collect = () => {
-			const nodes = Array.from(document.querySelectorAll(".list .slide"));
-			const nextSlides = nodes.map((node, index) => {
-				const selected = node.classList.contains("selected");
-				return {
-					label: `Slide ${index + 1}`,
-					selected,
-				};
-			});
-			setSlides(nextSlides);
-		};
-
-		collect();
-
-		const container = document.querySelector(".list .container");
-		if (!container) {
-			return;
-		}
+		collectSlides();
 
 		const observer = new MutationObserver(() => {
-			collect();
+			collectSlides();
 		});
 
-		observer.observe(container, {
+		observer.observe(document.body, {
 			childList: true,
 			subtree: true,
 			attributes: true,
@@ -50,7 +47,50 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		return () => {
 			observer.disconnect();
 		};
-	}, []);
+	}, [collectSlides]);
+
+	const selectedSlide = useMemo(() => {
+		return slides.find((slide) => slide.selected) || null;
+	}, [slides]);
+
+	const clickNode = useCallback((selector: string) => {
+		const node = document.querySelector(selector) as HTMLElement | null;
+		if (!node) {
+			return false;
+		}
+		node.click();
+		collectSlides();
+		return true;
+	}, [collectSlides]);
+
+	const selectSlide = useCallback((index: number) => {
+		const nodes = Array.from(document.querySelectorAll(".list .slide"));
+		const target = nodes[index] as HTMLElement | undefined;
+		if (!target) {
+			return;
+		}
+		target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+		target.click();
+		collectSlides();
+	}, [collectSlides]);
+
+	const cloneSelected = useCallback(() => {
+		const node = document.querySelector(".list .slide.selected .clone") as HTMLElement | null;
+		if (!node) {
+			return;
+		}
+		node.click();
+		collectSlides();
+	}, [collectSlides]);
+
+	const deleteSelected = useCallback(() => {
+		const node = document.querySelector(".list .slide.selected .delete") as HTMLElement | null;
+		if (!node) {
+			return;
+		}
+		node.click();
+		collectSlides();
+	}, [collectSlides]);
 
 	const modeText = useMemo(() => {
 		return mode === "mobile-pwa" ? "mobile-pwa" : "browser";
@@ -64,9 +104,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			withBorder
 			style={{
 				position: "fixed",
-				left: 12,
-				bottom: 12,
-				width: 220,
+				right: 12,
+				top: 12,
+				width: 280,
 				zIndex: 2147483646,
 				background: "rgba(255, 255, 255, 0.92)",
 				backdropFilter: "blur(2px)",
@@ -91,8 +131,23 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				</Group>
 
 				<Text size="xs" c="dimmed">
-					Slide List (React mirror)
+					Slide List (React control)
 				</Text>
+				<Group grow>
+					<Button size="xs" variant="light" onClick={() => clickNode(".list .newSlideBtn")} disabled={!gate.canEdit}>
+						New
+					</Button>
+					<Button size="xs" variant="light" onClick={cloneSelected} disabled={!gate.canEdit || !selectedSlide}>
+						Clone
+					</Button>
+					<Button size="xs" color="red" variant="light" onClick={deleteSelected} disabled={!gate.canEdit || !selectedSlide}>
+						Delete
+					</Button>
+				</Group>
+				<Group grow>
+					<Button size="xs" variant="default" onClick={() => clickNode(".selectSlideBtn.prev")}>Prev</Button>
+					<Button size="xs" variant="default" onClick={() => clickNode(".selectSlideBtn.next")}>Next</Button>
+				</Group>
 				<ScrollArea h={120} type="auto">
 					<Stack gap={4}>
 						{slides.length === 0 ? (
@@ -101,7 +156,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 							</Text>
 						) : (
 							slides.map((slide) => (
-								<Text key={slide.label} size="xs" fw={slide.selected ? 700 : 400}>
+								<Text
+									key={slide.label}
+									size="xs"
+									fw={slide.selected ? 700 : 400}
+									style={{ cursor: "pointer" }}
+									onClick={() => selectSlide(slide.index)}>
 									{slide.selected ? "● " : "○ "}
 									{slide.label}
 								</Text>

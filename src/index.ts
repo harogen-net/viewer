@@ -16,9 +16,7 @@ $(function () {
 	const gate = getFeatureGate(runtimeMode);
 
 	document.body.setAttribute("data-runtime-mode", runtimeMode);
-	if (process.env.NODE_ENV != "production") {
-		mountRuntimeShell({ mode: runtimeMode, gate });
-	}
+	mountRuntimeShell({ mode: runtimeMode, gate });
 	applyFeatureGate(gate);
 
 	const startUpMode = gate.canEdit ? ViewerStartUpMode.VIEW_AND_EDIT : ViewerStartUpMode.VIEW_ONLY;
