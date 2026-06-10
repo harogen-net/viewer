@@ -9,10 +9,12 @@
   "main": "",
   "scripts": {
     "build": "vite build",
-    "check:phase2": "npm run check:phase2-fixtures && npm run check:phase2-compat && npm run check:phase2-core-fields && npm run check:phase2-sensitive",
+    "check:phase2": "npm run check:phase2-fixtures && npm run check:phase2-compat && npm run check:phase2-core-fields && npm run check:phase2-structure && npm run check:phase2-error-cases && npm run check:phase2-sensitive",
     "check:phase2-compat": "node scripts/check-phase2-compat.mjs",
     "check:phase2-core-fields": "node scripts/check-phase2-core-fields.mjs",
+    "check:phase2-error-cases": "node scripts/check-phase2-error-cases.mjs",
     "check:phase2-fixtures": "node scripts/check-phase2-fixtures.mjs",
+    "check:phase2-structure": "node scripts/check-phase2-structure.mjs",
     "check:phase2-sensitive": "node scripts/check-phase2-sensitive.mjs",
     "dev": "vite",
     "gen:phase2-png-fixture": "node scripts/generate-phase2-png-fixture.mjs",

@@ -133,9 +133,17 @@
 - `npm run check:phase2-core-fields`
 - 期待値: hvd/hvz/png 埋め込みの主要項目（bgColor, slide数, 先頭slide項目, 先頭layer transform）が一致
 
+構造等価チェック（fixture間整合の強化）:
+- `npm run check:phase2-structure`
+- 期待値: hvd/hvz/png 埋め込みの JSON 構造全体（キー順を正規化後）が一致
+
 センシティブ fixture 最小妥当性:
 - `npm run check:phase2-sensitive`
 - 期待値: `isSensitive === true` かつ version/slideData が妥当
+
+エラーケース最小妥当性:
+- `npm run check:phase2-error-cases`
+- 期待値: unsupported version / imageData欠落 / PNG署名不正 などの失敗系を検知できる
 
 ### 6.3 エラー分類（Phase2）
 - `UNSUPPORTED_VERSION`

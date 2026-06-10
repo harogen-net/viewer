@@ -62,6 +62,8 @@
   - fixture チェックを強化し、欠落に加えて最小サイズ未満（空/不完全ファイル）も検出
   - PNG埋め込みfixture再生成スクリプトと hvd/hvz/png 実解析チェックを追加（`gen:phase2-png-fixture`, `check:phase2-compat`）
   - round-trip最小観点に対応する主要項目比較チェックを追加（`check:phase2-core-fields`）
+  - fixture間のJSON構造等価チェックを追加（`check:phase2-structure`）
+  - unsupported version / 破損入力など失敗系の最小検証を追加（`check:phase2-error-cases`）
   - fixture/compat/core/sensitive を一括実行する総合チェックコマンドを追加（`check:phase2`）
   - Phase2検証スクリプトの共通ライブラリを追加し、fixture解析ロジックを集約
   - `check:phase2` を pull request / develop2 push で自動実行する CI workflow を追加

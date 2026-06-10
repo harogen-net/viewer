@@ -88,3 +88,21 @@ export async function readPngEmbeddedHvdJson(paths) {
 	ensureCompatShape(json, "png");
 	return json;
 }
+
+function toStableValue(value) {
+	if (Array.isArray(value)) {
+		return value.map((item) => toStableValue(item));
+	}
+	if (value && typeof value === "object") {
+		const out = {};
+		for (const key of Object.keys(value).sort()) {
+			out[key] = toStableValue(value[key]);
+		}
+		return out;
+	}
+	return value;
+}
+
+export function toStableJsonString(value) {
+	return JSON.stringify(toStableValue(value));
+}
