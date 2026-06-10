@@ -76,7 +76,17 @@
   - Phase2 完了判定を満たしたため、以後は追加厳密化を停止し Phase3 実装へ移行
   - React RuntimeShell を常時マウントに変更し、スライド選択/追加/複製/削除の操作導線を React 側に移管開始
   - React RuntimeShell に file/new/import/export/save/load/delete/slideshow 操作導線を追加し、運用導線の React 側置換を開始
+  - Phase3 方針を確定: ハードコードDOMをTSX構築へ段階移行し、新規移行ロジックはクラスを追加せず hooks/関数ベースで実装
+  - `#menu` 領域を index.html 直書きから TSX (`LegacyMenu`) へ移管し、jQuery 既存セレクタ互換を維持して置換開始
+  - `#pref` / `#images` 領域を index.html 直書きから TSX (`LegacyPanels`) へ移管し、既存セレクタ互換のまま置換範囲を拡大
+  - `#main .canvas .menu` 領域を index.html 直書きから TSX (`LegacyCanvasMenu`) へ移管し、編集系コマンドDOMのReact化を開始
   - 反映コード:
+    - `src/react/LegacyCanvasMenu.tsx`
+    - `src/react/mountLegacyCanvasMenu.tsx`
+    - `src/react/LegacyPanels.tsx`
+    - `src/react/mountLegacyPanels.tsx`
+    - `src/react/LegacyMenu.tsx`
+    - `src/react/mountLegacyMenu.tsx`
     - `.github/workflows/phase2-check.yml`
     - `src/react/RuntimeShell.tsx`
     - `src/index.ts`

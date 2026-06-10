@@ -2,6 +2,9 @@ import "@fortawesome/fontawesome-free/css/all.css";
 import $ from "jquery";
 import "jquery-ui-dist/jquery-ui";
 import { Viewer, ViewerStartUpMode } from "./Viewer";
+import { mountLegacyCanvasMenu } from "./react/mountLegacyCanvasMenu";
+import { mountLegacyMenu } from "./react/mountLegacyMenu";
+import { mountLegacyPanels } from "./react/mountLegacyPanels";
 import { mountRuntimeShell } from "./react/mountRuntimeShell";
 import { applyFeatureGate } from "./runtime/applyFeatureGate";
 import { getFeatureGate } from "./runtime/featureGate";
@@ -15,6 +18,9 @@ $(function () {
 	const runtimeMode = resolveRuntimeMode();
 	const gate = getFeatureGate(runtimeMode);
 
+	mountLegacyPanels();
+	mountLegacyMenu();
+	mountLegacyCanvasMenu();
 	document.body.setAttribute("data-runtime-mode", runtimeMode);
 	mountRuntimeShell({ mode: runtimeMode, gate });
 	applyFeatureGate(gate);
