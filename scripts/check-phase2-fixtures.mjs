@@ -10,6 +10,9 @@ const expectedFiles = [
 	{ path: "fixtures/legacy/v2/compat_v2_minimal.hvz", minBytes: 32 },
 	{ path: "fixtures/legacy/png/compat_png_embedded_minimal.png", minBytes: 64 },
 	{ path: "fixtures/sensitive/sensitive_locked_sample.hvd", minBytes: 32 },
+	{ path: "fixtures/error/unsupported_v1_sample.hvd", minBytes: 16 },
+	{ path: "fixtures/error/broken_payload_sample.hvz", minBytes: 8 },
+	{ path: "fixtures/error/broken_embed_sample.png", minBytes: 8 },
 ];
 
 const missing = [];

@@ -70,6 +70,7 @@
   - CI の Phase2 チェックを個別ステップ化し、失敗箇所の特定性を向上
   - 構造チェックの差分レポート出力と CI artifact 収集を追加し、失敗時の診断性を向上
   - 構造差分を複数件収集するレポート拡張と error-case レポート出力を追加
+  - 実ファイル異常fixture（broken hvz/png, unsupported v1 hvd）を追加し、失敗系検証を自動化
   - 反映コード:
     - `.github/workflows/phase2-check.yml`
     - `src/storage/StorageAdapter.ts`

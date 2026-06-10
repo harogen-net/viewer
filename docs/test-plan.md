@@ -153,6 +153,12 @@ CI実行時のレポート収集:
 - 期待値: unsupported version / imageData欠落 / PNG署名不正 などの失敗系を検知できる
 - 実行時: `artifacts/phase2/error-case-report.json` にケース別の期待値・実際メッセージを出力
 
+異常fixture妥当性（実ファイルベース）:
+- `npm run check:phase2-error-fixtures`
+- 対象: `fixtures/error/unsupported_v1_sample.hvd`, `fixtures/error/broken_payload_sample.hvz`, `fixtures/error/broken_embed_sample.png`
+- 期待値: 各fixtureで想定した失敗が検出される
+- 実行時: `artifacts/phase2/error-fixture-report.json` にfixture別結果を出力
+
 ### 6.3 エラー分類（Phase2）
 - `UNSUPPORTED_VERSION`
   - v1 または version 未定義データを読込時に reject
