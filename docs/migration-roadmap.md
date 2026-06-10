@@ -72,6 +72,7 @@
   - 構造差分を複数件収集するレポート拡張と error-case レポート出力を追加
   - 実ファイル異常fixture（broken hvz/png, unsupported v1 hvd）を追加し、失敗系検証を自動化
   - 生成レポート（structure/error-case/error-fixture）の整合チェックを追加し、CI失敗時の検知精度を向上
+  - レポート整合チェックを厳格化（期待label集合の検証）し、統合サマリーレポートを追加
   - 反映コード:
     - `.github/workflows/phase2-check.yml`
     - `src/storage/StorageAdapter.ts`

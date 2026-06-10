@@ -147,6 +147,8 @@ CI実行時のレポート収集:
 レポート整合チェック:
 - `npm run check:phase2-reports`
 - 期待値: structure/error-case/error-fixture の3レポートが存在し、スキーマと `ok === true` を満たす
+- 追加検証: error-case / error-fixture の label 集合が期待値と一致する
+- 実行時: `artifacts/phase2/phase2-report-summary.json` に統合サマリーを出力
 
 センシティブ fixture 最小妥当性:
 - `npm run check:phase2-sensitive`
