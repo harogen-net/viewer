@@ -226,6 +226,75 @@ export function compareNormalizedJson(base, actual) {
 	};
 }
 
+function collectDiffs(base, actual, currentPath, diffs, maxDiffs) {
+	if (diffs.length >= maxDiffs) {
+		return;
+	}
+
+	const baseIsArray = Array.isArray(base);
+	const actualIsArray = Array.isArray(actual);
+	if (baseIsArray || actualIsArray) {
+		if (!baseIsArray || !actualIsArray) {
+			diffs.push({ path: currentPath, baseValue: base, actualValue: actual });
+			return;
+		}
+		if (base.length !== actual.length) {
+			diffs.push({ path: currentPath + ".length", baseValue: base.length, actualValue: actual.length });
+		}
+		const minLength = Math.min(base.length, actual.length);
+		for (let i = 0; i < minLength; i += 1) {
+			collectDiffs(base[i], actual[i], currentPath + "[" + i + "]", diffs, maxDiffs);
+			if (diffs.length >= maxDiffs) {
+				return;
+			}
+		}
+		return;
+	}
+
+	const baseIsObject = base && typeof base === "object";
+	const actualIsObject = actual && typeof actual === "object";
+	if (baseIsObject || actualIsObject) {
+		if (!baseIsObject || !actualIsObject) {
+			diffs.push({ path: currentPath, baseValue: base, actualValue: actual });
+			return;
+		}
+
+		const keys = Array.from(new Set([...Object.keys(base), ...Object.keys(actual)])).sort();
+		for (const key of keys) {
+			const hasBase = Object.prototype.hasOwnProperty.call(base, key);
+			const hasActual = Object.prototype.hasOwnProperty.call(actual, key);
+			if (!hasBase || !hasActual) {
+				diffs.push({
+					path: currentPath + "." + key,
+					baseValue: hasBase ? base[key] : undefined,
+					actualValue: hasActual ? actual[key] : undefined,
+				});
+				if (diffs.length >= maxDiffs) {
+					return;
+				}
+				continue;
+			}
+			collectDiffs(base[key], actual[key], currentPath + "." + key, diffs, maxDiffs);
+			if (diffs.length >= maxDiffs) {
+				return;
+			}
+		}
+		return;
+	}
+
+	if (!Object.is(base, actual)) {
+		diffs.push({ path: currentPath, baseValue: base, actualValue: actual });
+	}
+}
+
+export function collectNormalizedDiffs(base, actual, maxDiffs = 20) {
+	const baseNormalized = toStableValue(base);
+	const actualNormalized = toStableValue(actual);
+	const diffs = [];
+	collectDiffs(baseNormalized, actualNormalized, "$", diffs, maxDiffs);
+	return diffs;
+}
+
 export function writeJsonFile(filePath, data) {
 	fs.mkdirSync(path.dirname(filePath), { recursive: true });
 	fs.writeFileSync(filePath, JSON.stringify(data, null, 2));

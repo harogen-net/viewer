@@ -2,15 +2,17 @@
 
 import path from "node:path";
 import {
+	collectNormalizedDiffs,
 	compareNormalizedJson,
-    getPhase2FixturePaths,
-    readHvdJson,
-    readHvzJson,
-    readPngEmbeddedHvdJson,
+	getPhase2FixturePaths,
+	readHvdJson,
+	readHvzJson,
+	readPngEmbeddedHvdJson,
 	writeJsonFile,
 } from "./phase2-fixture-lib.mjs";
 
 const reportPath = path.resolve(process.cwd(), process.env.PHASE2_STRUCTURE_REPORT || "artifacts/phase2/structure-check-report.json");
+const maxDiffsPerSource = Number(process.env.PHASE2_STRUCTURE_MAX_DIFFS || "10");
 
 function fail(message) {
 	throw new Error(message);
@@ -21,11 +23,14 @@ function summarizeMismatch(label, baseJson, actualJson) {
 	if (result.same) {
 		return null;
 	}
+	const diffs = collectNormalizedDiffs(baseJson, actualJson, maxDiffsPerSource);
 	return {
 		label,
 		firstDiffPath: result.firstDiffPath || "unknown",
 		baseValueAtDiff: result.baseValueAtDiff,
 		actualValueAtDiff: result.actualValueAtDiff,
+		diffCount: diffs.length,
+		diffs,
 	};
 }
 
@@ -49,6 +54,7 @@ async function main() {
 		checkedAt: new Date().toISOString(),
 		sources: ["hvd", "hvz", "png embedded"],
 		reportVersion: 1,
+		maxDiffsPerSource,
 		slideCount: hvdJson.slideData.length,
 		imageCount: Object.keys(hvdJson.imageData || {}).length,
 		ok: mismatches.length === 0,
@@ -65,6 +71,7 @@ async function main() {
 	console.log("- compared sources: hvd/hvz/png embedded");
 	console.log("- slideCount: " + hvdJson.slideData.length);
 	console.log("- imageCount: " + Object.keys(hvdJson.imageData || {}).length);
+	console.log("- maxDiffsPerSource: " + maxDiffsPerSource);
 	console.log("- report: " + reportPath);
 }
 

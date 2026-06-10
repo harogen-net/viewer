@@ -38,6 +38,8 @@ jobs:
         run: npm run check:phase2-structure
 
       - name: Check error cases
+        env:
+          PHASE2_ERROR_REPORT: artifacts/phase2/error-case-report.json
         run: npm run check:phase2-error-cases
 
       - name: Check sensitive fixture
