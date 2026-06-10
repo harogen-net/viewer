@@ -95,6 +95,7 @@
   - `LegacyAppShell` / `LegacyMainShell` / `LegacyMenu` / `LegacyPanels` に新命名エクスポート（`AppShell`/`MainShell`/`Menu`/`PrefPanel`/`ImagesPanel`）を追加し、段階的な命名移行を開始
   - `LegacyCanvasMenu` / `LegacyListContextMenus` / `LegacySideControls` に新命名エクスポート（`CanvasMenu`/`ListContextMenus`/`CopyPasteControls` ほか）を追加し、`MainShell` 側参照を新命名へ切り替え
   - 新しい再エクスポートファイル（`AppShell`/`MainShell`/`Menu`/`Panels`/`CanvasMenu`/`ListContextMenus`/`SideControls`）を追加し、import 参照の段階移行を開始
+  - 本体実装を新ファイル側（`AppShell.tsx` など）へ移し、`Legacy*.tsx` は互換再エクスポート層へ反転
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`
