@@ -93,6 +93,8 @@
   - `LegacyAppShell` 内で `#pref`/`#images`/`#menu` を直接合成する構成へ統合し、`mountLegacyPanels`/`mountLegacyMenu` を廃止
   - `index.ts` から `LegacyAppShell` を直接マウントする構成へ変更し、`mountLegacyAppShell` を廃止
   - `LegacyAppShell` / `LegacyMainShell` / `LegacyMenu` / `LegacyPanels` に新命名エクスポート（`AppShell`/`MainShell`/`Menu`/`PrefPanel`/`ImagesPanel`）を追加し、段階的な命名移行を開始
+  - `LegacyCanvasMenu` / `LegacyListContextMenus` / `LegacySideControls` に新命名エクスポート（`CanvasMenu`/`ListContextMenus`/`CopyPasteControls` ほか）を追加し、`MainShell` 側参照を新命名へ切り替え
+  - 新しい再エクスポートファイル（`AppShell`/`MainShell`/`Menu`/`Panels`/`CanvasMenu`/`ListContextMenus`/`SideControls`）を追加し、import 参照の段階移行を開始
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`

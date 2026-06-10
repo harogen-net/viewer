@@ -1,6 +1,6 @@
-import { MainShell } from "./LegacyMainShell";
-import { Menu } from "./LegacyMenu";
-import { ImagesPanel, PrefPanel } from "./LegacyPanels";
+import { MainShell } from "./MainShell";
+import { Menu } from "./Menu";
+import { ImagesPanel, PrefPanel } from "./Panels";
 
 export function AppShell() {
 	return (

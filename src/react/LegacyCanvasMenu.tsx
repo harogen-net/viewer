@@ -1,4 +1,4 @@
-export function LegacyCanvasMenu() {
+export function CanvasMenu() {
 	return (
 		<>
 			<div>
@@ -97,3 +97,5 @@ export function LegacyCanvasMenu() {
 		</>
 	);
 }
+
+export const LegacyCanvasMenu = CanvasMenu;

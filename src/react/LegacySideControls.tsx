@@ -1,4 +1,4 @@
-export function LegacyCopyPasteControls() {
+export function CopyPasteControls() {
 	return (
 		<>
 			<button className="copyTrans" title="変形をコピー">
@@ -11,7 +11,7 @@ export function LegacyCopyPasteControls() {
 	);
 }
 
-export function LegacySwapControls() {
+export function SwapControls() {
 	return (
 		<>
 			<button className="bottom">
@@ -30,7 +30,7 @@ export function LegacySwapControls() {
 	);
 }
 
-export function LegacyImageRefControls() {
+export function ImageRefControls() {
 	return (
 		<>
 			<button className="imageRef">
@@ -50,11 +50,11 @@ export function LegacyImageRefControls() {
 	);
 }
 
-export function LegacyTextEditControls() {
+export function TextEditControls() {
 	return <textarea spellCheck={false}></textarea>;
 }
 
-export function LegacyPropertyControls() {
+export function PropertyControls() {
 	return (
 		<>
 			<dl className="position">
@@ -132,6 +132,13 @@ export function LegacyPropertyControls() {
 	);
 }
 
-export function LegacyLayerControls() {
+export function LayerControls() {
 	return <ul></ul>;
 }
+
+export const LegacyCopyPasteControls = CopyPasteControls;
+export const LegacySwapControls = SwapControls;
+export const LegacyImageRefControls = ImageRefControls;
+export const LegacyTextEditControls = TextEditControls;
+export const LegacyPropertyControls = PropertyControls;
+export const LegacyLayerControls = LayerControls;

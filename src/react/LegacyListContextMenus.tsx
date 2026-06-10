@@ -1,4 +1,4 @@
-export function LegacyListContextMenus() {
+export function ListContextMenus() {
 	return (
 		<>
 			<ul id="slideContextMenu" className="contextMenu menu">
@@ -38,3 +38,5 @@ export function LegacyListContextMenus() {
 		</>
 	);
 }
+
+export const LegacyListContextMenus = ListContextMenus;

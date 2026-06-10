@@ -1,46 +1,46 @@
-import { LegacyCanvasMenu } from "./LegacyCanvasMenu";
-import { LegacyListContextMenus } from "./LegacyListContextMenus";
+import { CanvasMenu } from "./CanvasMenu";
+import { ListContextMenus } from "./ListContextMenus";
 import {
-    LegacyCopyPasteControls,
-    LegacyImageRefControls,
-    LegacyLayerControls,
-    LegacyPropertyControls,
-    LegacySwapControls,
-    LegacyTextEditControls,
-} from "./LegacySideControls";
+    CopyPasteControls,
+    ImageRefControls,
+    LayerControls,
+    PropertyControls,
+    SwapControls,
+    TextEditControls,
+} from "./SideControls";
 
 export function MainShell() {
 	return (
 		<>
 			<div className="canvas">
 				<div className="menu">
-					<LegacyCanvasMenu />
+					<CanvasMenu />
 				</div>
 				<div className="sideMenu">
 					<div className="property">
 						<div>
-							<LegacyPropertyControls />
+							<PropertyControls />
 						</div>
 						<div className="copypaste">
-							<LegacyCopyPasteControls />
+							<CopyPasteControls />
 						</div>
 						<div className="imageRef">
-							<LegacyImageRefControls />
+							<ImageRefControls />
 						</div>
 						<div className="textEdit">
-							<LegacyTextEditControls />
+							<TextEditControls />
 						</div>
 						<div className="swap">
-							<LegacySwapControls />
+							<SwapControls />
 						</div>
 					</div>
 					<div className="layer">
-						<LegacyLayerControls />
+						<LayerControls />
 					</div>
 				</div>
 			</div>
 			<div className="list">
-				<LegacyListContextMenus />
+				<ListContextMenus />
 			</div>
 		</>
 	);
