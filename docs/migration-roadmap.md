@@ -75,6 +75,7 @@
   - レポート整合チェックを厳格化（期待label集合の検証）し、統合サマリーレポートを追加
   - Phase2 完了判定を満たしたため、以後は追加厳密化を停止し Phase3 実装へ移行
   - React RuntimeShell を常時マウントに変更し、スライド選択/追加/複製/削除の操作導線を React 側に移管開始
+  - React RuntimeShell に file/new/import/export/save/load/delete/slideshow 操作導線を追加し、運用導線の React 側置換を開始
   - 反映コード:
     - `.github/workflows/phase2-check.yml`
     - `src/react/RuntimeShell.tsx`

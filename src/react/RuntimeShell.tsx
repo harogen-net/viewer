@@ -14,8 +14,15 @@ type SlideSnapshot = {
 	selected: boolean;
 };
 
+type SavedFileSnapshot = {
+	value: string;
+	label: string;
+	selected: boolean;
+};
+
 export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [slides, setSlides] = useState<SlideSnapshot[]>([]);
+	const [savedFiles, setSavedFiles] = useState<SavedFileSnapshot[]>([]);
 
 	const collectSlides = useCallback(() => {
 		const nodes = Array.from(document.querySelectorAll(".list .slide"));
@@ -30,11 +37,30 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		setSlides(nextSlides);
 	}, []);
 
+	const collectSavedFiles = useCallback(() => {
+		const select = document.querySelector("#menu select.filename") as HTMLSelectElement | null;
+		if (!select) {
+			setSavedFiles([]);
+			return;
+		}
+		const options = Array.from(select.options);
+		const files = options.map((option) => {
+			return {
+				value: option.value,
+				label: option.textContent || option.value,
+				selected: option.selected,
+			};
+		});
+		setSavedFiles(files);
+	}, []);
+
 	useEffect(() => {
 		collectSlides();
+		collectSavedFiles();
 
 		const observer = new MutationObserver(() => {
 			collectSlides();
+			collectSavedFiles();
 		});
 
 		observer.observe(document.body, {
@@ -47,7 +73,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		return () => {
 			observer.disconnect();
 		};
-	}, [collectSlides]);
+	}, [collectSavedFiles, collectSlides]);
 
 	const selectedSlide = useMemo(() => {
 		return slides.find((slide) => slide.selected) || null;
@@ -60,8 +86,19 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		}
 		node.click();
 		collectSlides();
+		collectSavedFiles();
 		return true;
-	}, [collectSlides]);
+	}, [collectSavedFiles, collectSlides]);
+
+	const selectSavedFile = useCallback((value: string) => {
+		const select = document.querySelector("#menu select.filename") as HTMLSelectElement | null;
+		if (!select) {
+			return;
+		}
+		select.value = value;
+		select.dispatchEvent(new Event("change", { bubbles: true }));
+		collectSavedFiles();
+	}, [collectSavedFiles]);
 
 	const selectSlide = useCallback((index: number) => {
 		const nodes = Array.from(document.querySelectorAll(".list .slide"));
@@ -95,6 +132,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const modeText = useMemo(() => {
 		return mode === "mobile-pwa" ? "mobile-pwa" : "browser";
 	}, [mode]);
+
+	const selectedFile = useMemo(() => {
+		return savedFiles.find((file) => file.selected) || null;
+	}, [savedFiles]);
 
 	return (
 		<Paper
@@ -164,6 +205,56 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onClick={() => selectSlide(slide.index)}>
 									{slide.selected ? "● " : "○ "}
 									{slide.label}
+								</Text>
+							))
+						)}
+					</Stack>
+				</ScrollArea>
+
+				<Text size="xs" c="dimmed">
+					File Ops (React control)
+				</Text>
+				<Group grow>
+					<Button size="xs" variant="light" onClick={() => clickNode("#menu #fileIo .new")} disabled={!gate.canEdit}>
+						New Doc
+					</Button>
+					<Button size="xs" variant="light" onClick={() => clickNode("#menu #fileIo .import")} disabled={!gate.canImport}>
+						Import
+					</Button>
+					<Button size="xs" variant="light" onClick={() => clickNode("#menu #fileIo .export")} disabled={!gate.canExport}>
+						Export
+					</Button>
+				</Group>
+				<Group grow>
+					<Button size="xs" variant="light" onClick={() => clickNode("#menu .save")} disabled={!gate.canSave}>
+						Save
+					</Button>
+					<Button size="xs" variant="light" onClick={() => clickNode("#menu .load")}>
+						Load
+					</Button>
+					<Button size="xs" color="red" variant="light" onClick={() => clickNode("#menu .dispose")} disabled={!gate.canDeleteSavedData || !selectedFile || selectedFile.value === "-1"}>
+						Delete
+					</Button>
+				</Group>
+				<Button size="xs" variant="default" onClick={() => clickNode("#menu .startSlideShow")}>
+					Start SlideShow
+				</Button>
+				<ScrollArea h={84} type="auto">
+					<Stack gap={4}>
+						{savedFiles.length === 0 ? (
+							<Text size="xs" c="dimmed">
+								No save slots
+							</Text>
+						) : (
+							savedFiles.map((file) => (
+								<Text
+									key={file.value + file.label}
+									size="xs"
+									fw={file.selected ? 700 : 400}
+									style={{ cursor: "pointer" }}
+									onClick={() => selectSavedFile(file.value)}>
+									{file.selected ? "● " : "○ "}
+									{file.label}
 								</Text>
 							))
 						)}
