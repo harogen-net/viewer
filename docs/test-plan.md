@@ -136,6 +136,7 @@
 構造等価チェック（fixture間整合の強化）:
 - `npm run check:phase2-structure`
 - 期待値: hvd/hvz/png 埋め込みの JSON 構造全体（キー順を正規化後）が一致
+- NG時: 最初に不一致となった JSON path（例: `$.slideData[0].layers[1]`）が出力される
 
 センシティブ fixture 最小妥当性:
 - `npm run check:phase2-sensitive`

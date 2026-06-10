@@ -106,3 +106,66 @@ function toStableValue(value) {
 export function toStableJsonString(value) {
 	return JSON.stringify(toStableValue(value));
 }
+
+function findFirstDiffPath(base, actual, currentPath = "$") {
+	const baseIsArray = Array.isArray(base);
+	const actualIsArray = Array.isArray(actual);
+	if (baseIsArray || actualIsArray) {
+		if (!baseIsArray || !actualIsArray) {
+			return currentPath;
+		}
+		if (base.length !== actual.length) {
+			return currentPath + ".length";
+		}
+		for (let i = 0; i < base.length; i += 1) {
+			const childPath = findFirstDiffPath(base[i], actual[i], currentPath + "[" + i + "]");
+			if (childPath) {
+				return childPath;
+			}
+		}
+		return null;
+	}
+
+	const baseIsObject = base && typeof base === "object";
+	const actualIsObject = actual && typeof actual === "object";
+	if (baseIsObject || actualIsObject) {
+		if (!baseIsObject || !actualIsObject) {
+			return currentPath;
+		}
+		const baseKeys = Object.keys(base).sort();
+		const actualKeys = Object.keys(actual).sort();
+		if (baseKeys.length !== actualKeys.length) {
+			return currentPath + ".keys";
+		}
+		for (let i = 0; i < baseKeys.length; i += 1) {
+			if (baseKeys[i] !== actualKeys[i]) {
+				return currentPath + "." + baseKeys[i];
+			}
+		}
+		for (const key of baseKeys) {
+			const childPath = findFirstDiffPath(base[key], actual[key], currentPath + "." + key);
+			if (childPath) {
+				return childPath;
+			}
+		}
+		return null;
+	}
+
+	if (Object.is(base, actual)) {
+		return null;
+	}
+	return currentPath;
+}
+
+export function compareNormalizedJson(base, actual) {
+	const baseNormalized = toStableValue(base);
+	const actualNormalized = toStableValue(actual);
+	const same = toStableJsonString(baseNormalized) === toStableJsonString(actualNormalized);
+	if (same) {
+		return { same: true, firstDiffPath: null };
+	}
+	return {
+		same: false,
+		firstDiffPath: findFirstDiffPath(baseNormalized, actualNormalized),
+	};
+}

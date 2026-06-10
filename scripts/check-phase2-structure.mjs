@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 import {
-    getPhase2FixturePaths,
-    readHvdJson,
-    readHvzJson,
-    readPngEmbeddedHvdJson,
-    toStableJsonString,
+	compareNormalizedJson,
+	getPhase2FixturePaths,
+	readHvdJson,
+	readHvzJson,
+	readPngEmbeddedHvdJson,
 } from "./phase2-fixture-lib.mjs";
 
 function fail(message) {
@@ -13,11 +13,9 @@ function fail(message) {
 }
 
 function assertSame(baseJson, actualJson, label) {
-	const baseStable = toStableJsonString(baseJson);
-	const actualStable = toStableJsonString(actualJson);
-
-	if (baseStable !== actualStable) {
-		fail(label + ": structure mismatch");
+	const result = compareNormalizedJson(baseJson, actualJson);
+	if (!result.same) {
+		fail(label + ": structure mismatch at " + (result.firstDiffPath || "unknown"));
 	}
 }
 
