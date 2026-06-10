@@ -1,10 +1,11 @@
 import "@fortawesome/fontawesome-free/css/all.css";
 import $ from "jquery";
 import "jquery-ui-dist/jquery-ui";
+import { createElement } from "react";
+import { flushSync } from "react-dom";
+import { createRoot } from "react-dom/client";
 import { Viewer, ViewerStartUpMode } from "./Viewer";
-import { mountLegacyCanvasMenu } from "./react/mountLegacyCanvasMenu";
-import { mountLegacyMenu } from "./react/mountLegacyMenu";
-import { mountLegacyPanels } from "./react/mountLegacyPanels";
+import { AppShell } from "./react/LegacyAppShell";
 import { mountRuntimeShell } from "./react/mountRuntimeShell";
 import { applyFeatureGate } from "./runtime/applyFeatureGate";
 import { getFeatureGate } from "./runtime/featureGate";
@@ -18,9 +19,13 @@ $(function () {
 	const runtimeMode = resolveRuntimeMode();
 	const gate = getFeatureGate(runtimeMode);
 
-	mountLegacyPanels();
-	mountLegacyMenu();
-	mountLegacyCanvasMenu();
+	const wrapper = document.getElementById("wrapper");
+	if (wrapper) {
+		const root = createRoot(wrapper);
+		flushSync(() => {
+			root.render(createElement(AppShell));
+		});
+	}
 	document.body.setAttribute("data-runtime-mode", runtimeMode);
 	mountRuntimeShell({ mode: runtimeMode, gate });
 	applyFeatureGate(gate);

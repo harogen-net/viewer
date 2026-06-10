@@ -1,4 +1,4 @@
-export function LegacyPrefPanel() {
+export function PrefPanel() {
 	return (
 		<>
 			<button>
@@ -42,7 +42,7 @@ export function LegacyPrefPanel() {
 	);
 }
 
-export function LegacyImagesPanel() {
+export function ImagesPanel() {
 	return (
 		<>
 			<button>
@@ -52,3 +52,6 @@ export function LegacyImagesPanel() {
 		</>
 	);
 }
+
+export const LegacyPrefPanel = PrefPanel;
+export const LegacyImagesPanel = ImagesPanel;

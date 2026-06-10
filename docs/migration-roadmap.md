@@ -80,13 +80,27 @@
   - `#menu` 領域を index.html 直書きから TSX (`LegacyMenu`) へ移管し、jQuery 既存セレクタ互換を維持して置換開始
   - `#pref` / `#images` 領域を index.html 直書きから TSX (`LegacyPanels`) へ移管し、既存セレクタ互換のまま置換範囲を拡大
   - `#main .canvas .menu` 領域を index.html 直書きから TSX (`LegacyCanvasMenu`) へ移管し、編集系コマンドDOMのReact化を開始
+  - `#main .sideMenu .copypaste` / `.swap` を TSX (`LegacySideControls`) へ移管し、編集補助コントロールのReact化を開始
+  - `#main .sideMenu .imageRef` / `.textEdit` を TSX (`LegacySideControls`) へ移管し、編集入力導線のReact化を開始
+  - `#main .sideMenu .property` 本体（position/scale/rotation/opacity/clip）を TSX (`LegacySideControls`) へ移管し、主要編集パラメータのReact化を完了
+  - `#main .sideMenu .layer` の `ul` 領域を TSX (`LegacySideControls`) へ移管し、レイヤー一覧DOMのReact化を開始
+  - `.list` 配下の `#slideContextMenu` / `#listContextMenu` を TSX (`LegacyListContextMenus`) へ移管し、一覧コンテキストメニューDOMのReact化を開始
+  - `#main` の骨格DOM（canvas/sideMenu/list と各 React ホスト）を TSX (`LegacyMainShell`) へ移管し、index.html の直書き領域をさらに縮小
+  - `#wrapper` 配下の骨格DOM（`#pref`/`#images`/`#menu`/`#main`）を TSX (`LegacyAppShell`) へ移管し、index.html をホスト構造へ簡素化
+  - `#main` 配下の分割マウント（canvas menu / side controls / list context menus）を `LegacyMainShell` 内の直接合成へ統合し、createRootの分散を削減
+  - `LegacyAppShell` が `LegacyMainShell` を内包する構成へ整理し、`#main` 個別マウントを廃止して起動経路を一本化
+  - 未使用となった分割マウントファイル（`mountLegacyCanvasMenu`/`mountLegacySideControls`/`mountLegacyListContextMenus`/`mountLegacyMainShell`）を削除し、移行後構成へ整理
+  - `LegacyAppShell` 内で `#pref`/`#images`/`#menu` を直接合成する構成へ統合し、`mountLegacyPanels`/`mountLegacyMenu` を廃止
+  - `index.ts` から `LegacyAppShell` を直接マウントする構成へ変更し、`mountLegacyAppShell` を廃止
+  - `LegacyAppShell` / `LegacyMainShell` / `LegacyMenu` / `LegacyPanels` に新命名エクスポート（`AppShell`/`MainShell`/`Menu`/`PrefPanel`/`ImagesPanel`）を追加し、段階的な命名移行を開始
   - 反映コード:
+    - `src/react/LegacyAppShell.tsx`
+    - `src/react/LegacyMainShell.tsx`
+    - `src/react/LegacyListContextMenus.tsx`
+    - `src/react/LegacySideControls.tsx`
     - `src/react/LegacyCanvasMenu.tsx`
-    - `src/react/mountLegacyCanvasMenu.tsx`
     - `src/react/LegacyPanels.tsx`
-    - `src/react/mountLegacyPanels.tsx`
     - `src/react/LegacyMenu.tsx`
-    - `src/react/mountLegacyMenu.tsx`
     - `.github/workflows/phase2-check.yml`
     - `src/react/RuntimeShell.tsx`
     - `src/index.ts`

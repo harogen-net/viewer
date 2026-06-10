@@ -1,4 +1,4 @@
-export function LegacyMenu() {
+export function Menu() {
 	return (
 		<>
 			<div>
@@ -119,3 +119,5 @@ export function LegacyMenu() {
 		</>
 	);
 }
+
+export const LegacyMenu = Menu;
