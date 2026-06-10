@@ -3,11 +3,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-	ensureCompatShape,
-	getPhase2FixturePaths,
-	readHvzJson,
-	readPngEmbeddedHvdJson,
-	writeJsonFile,
+    ensureCompatShape,
+    getPhase2FixturePaths,
+    readHvzJson,
+    readPngEmbeddedHvdJson,
+    writeJsonFile,
 } from "./phase2-fixture-lib.mjs";
 
 const reportPath = path.resolve(

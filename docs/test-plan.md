@@ -144,6 +144,10 @@ CI実行時のレポート収集:
 - `.github/workflows/phase2-check.yml` で `artifacts/phase2/` を artifact として保存
 - 期待値: 失敗時も差分レポートをダウンロードして原因を特定できる
 
+レポート整合チェック:
+- `npm run check:phase2-reports`
+- 期待値: structure/error-case/error-fixture の3レポートが存在し、スキーマと `ok === true` を満たす
+
 センシティブ fixture 最小妥当性:
 - `npm run check:phase2-sensitive`
 - 期待値: `isSensitive === true` かつ version/slideData が妥当

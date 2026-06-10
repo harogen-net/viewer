@@ -2,13 +2,13 @@
 
 import path from "node:path";
 import {
-	collectNormalizedDiffs,
-	compareNormalizedJson,
-	getPhase2FixturePaths,
-	readHvdJson,
-	readHvzJson,
-	readPngEmbeddedHvdJson,
-	writeJsonFile,
+    collectNormalizedDiffs,
+    compareNormalizedJson,
+    getPhase2FixturePaths,
+    readHvdJson,
+    readHvzJson,
+    readPngEmbeddedHvdJson,
+    writeJsonFile,
 } from "./phase2-fixture-lib.mjs";
 
 const reportPath = path.resolve(process.cwd(), process.env.PHASE2_STRUCTURE_REPORT || "artifacts/phase2/structure-check-report.json");

@@ -47,6 +47,9 @@ jobs:
           PHASE2_ERROR_FIXTURE_REPORT: artifacts/phase2/error-fixture-report.json
         run: npm run check:phase2-error-fixtures
 
+      - name: Check report files
+        run: npm run check:phase2-reports
+
       - name: Check sensitive fixture
         run: npm run check:phase2-sensitive
 
