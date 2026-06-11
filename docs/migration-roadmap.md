@@ -97,6 +97,21 @@
   - 新しい再エクスポートファイル（`AppShell`/`MainShell`/`Menu`/`Panels`/`CanvasMenu`/`ListContextMenus`/`SideControls`）を追加し、import 参照の段階移行を開始
   - 本体実装を新ファイル側（`AppShell.tsx` など）へ移し、`Legacy*.tsx` は互換再エクスポート層へ反転
   - `StorageActionResult` の失敗通知処理を共通ヘルパー化し、`Viewer` / `FileSelector` の save/export/import/load/delete で通知導線を統一
+  - ストレージ `error` event の通知文言をエラーコード基準で統一し、UI への生メッセージ露出を削減
+  - `Viewer` の feature gate 拒否操作（新規作成/保存/書き出し/画像出力/読み込み）で明示通知を追加し、無反応に見える挙動を解消
+  - `Viewer` の確認ダイアログ分岐（新規作成/読み込み/上書き保存）をヘルパー化し、変更あり判定ロジックの重複を削減
+  - `Viewer` の権限チェック早期returnを `ensureAllowed` に共通化し、操作ハンドラの分岐重複を削減
+  - `Viewer` の constructor から storage 初期化/I-Oバインド処理をメソッド分割し、起動時責務を整理
+  - `Viewer` のスライドショー起動処理を I/O バインドから分離し、表示処理の責務を明確化
+  - `Viewer` の共通I/Oバインドを保存系・取込系・表示系へ分割し、ハンドラの責務を明確化
+  - `Viewer` の mode 依存初期化（edit/view-only）を専用メソッドへ分離し、分岐責務を整理
+  - `Viewer` の権限判定を permission policy ヘルパーへ集約し、`can*` 分岐重複を削減
+  - `Viewer` の起動シーケンスを runtime/controller/bindings の3段へ整理し、constructor の可読性を改善
+  - `Viewer` の beforeunload 登録条件と登録処理を分離し、起動バインド層の責務を明確化
+  - `Viewer` の `setMode` 分岐を `applySelectMode` / `applyEditMode` へ分離し、モード遷移責務を整理
+  - `DocumentStorageUseCase` の未使用な汎用 event passthrough API を削除し、公開境界を意味論APIに限定
+  - `Viewer` の jQuery セレクタ文字列を `SEL` 定数へ集約し、散在する文字列リテラルを削減
+  - `Viewer` の `progressBar` をフィールドへ昇格し、`obj` 型を `JQuery` に絞り込んで `any` を排除
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`

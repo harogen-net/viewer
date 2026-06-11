@@ -1,13 +1,13 @@
 import { ViewerDocument } from "../model/ViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
 import {
-    createStorageOperationError,
-    StorageAdapter,
-    StorageErrorCode,
-    StorageEventCallback,
-    StorageEventType,
-    StorageExportOptions,
-    StorageRecordId,
+	createStorageOperationError,
+	StorageAdapter,
+	StorageErrorCode,
+	StorageEventCallback,
+	StorageEventType,
+	StorageExportOptions,
+	StorageRecordId,
 } from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../storage/storageTypes";
 
@@ -85,14 +85,6 @@ export class DocumentStorageUseCase {
 		);
 	}
 
-	addEventListener(type: StorageEventType | string, callback: StorageEventCallback): void {
-		this.storage.addEventListener(type, callback);
-	}
-
-	removeEventListener(type: StorageEventType | string, callback: StorageEventCallback): void {
-		this.storage.removeEventListener(type, callback);
-	}
-
 	onLoading(callback: (percentage: number) => void): () => void {
 		const handler: StorageEventCallback = (event) => {
 			const detail = (event as CustomEvent).detail;
@@ -145,6 +137,24 @@ export class DocumentStorageUseCase {
 
 	canDeleteSavedData(): boolean {
 		return this.gate ? this.gate.canDeleteSavedData : true;
+	}
+
+	getErrorNoticeMessage(error: unknown): string {
+		switch (this.mapStorageErrorCode(error)) {
+			case StorageErrorCode.PERMISSION_DENIED:
+				return "この操作は現在のモードでは許可されていません。";
+			case StorageErrorCode.INVALID_ARGUMENT:
+				return "選択項目を確認してください。";
+			case StorageErrorCode.UNSUPPORTED_VERSION:
+				return "このファイル形式のバージョンはサポートされていません。";
+			case StorageErrorCode.PARSE_ERROR:
+				return "ファイルデータの解析に失敗しました。";
+			case StorageErrorCode.MISSING_ASSET:
+				return "必要な画像データが不足しています。";
+			case StorageErrorCode.STORAGE_IO_ERROR:
+			default:
+				return "ストレージアクセスでエラーが発生しました。";
+		}
 	}
 
 	private normalizeId(id: StorageInputId): StorageRecordId | undefined {

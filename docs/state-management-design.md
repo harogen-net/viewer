@@ -217,6 +217,81 @@
 - `FileSelector` の load/delete も同ヘルパー経由に統一
 - これにより UI 層の通知ロジック重複を削減し、Result モデル拡張時の追従箇所を最小化
 
+### 6.15 ストレージエラー通知文言の統一（2026-06-11 追記）
+- `DocumentStorageUseCase.getErrorNoticeMessage` を追加し、`unknown` エラーから通知文言を解決
+- `Viewer` の `onError` は event detail の生メッセージではなく、エラーコード基準の文言を表示
+- これにより parse/version/missing asset などの通知品質を一定化し、文言揺れを抑制
+
+### 6.16 feature gate 拒否時の明示通知（2026-06-11 追記）
+- `Viewer` に拒否通知ヘルパーを追加し、保存系の gated 操作で即時通知を表示
+- 対象: `new/save/export/zip/import`
+- これにより mobile pwa 等での拒否操作が「無反応」に見える問題を軽減
+
+### 6.17 確認ダイアログ分岐の共通化（2026-06-11 追記）
+- `Viewer` に変更破棄確認ヘルパーを追加し、`new/import` の分岐条件を統一
+- `save` の上書き確認もヘルパー化し、UI フローの追跡性を向上
+- これにより strict mode と変更有無判定の重複実装を削減
+
+### 6.18 権限チェック分岐の共通化（2026-06-11 追記）
+- `Viewer` に `ensureAllowed` を追加し、操作ごとの gate 判定と通知を統一
+- 対象: `new/export/save/zip/import`
+- これにより保存系UIハンドラの早期return分岐を簡潔化
+
+### 6.19 Viewer 起動処理の分割（2026-06-11 追記）
+- `Viewer` の constructor から storage 初期化処理を `initializeDocumentStorage` へ抽出
+- I/Oイベント登録を `setupIOBindings` と複数の小メソッドへ分割
+- これにより起動シーケンスの責務境界を明確化し、将来の差し替え点を把握しやすくした
+
+### 6.20 スライドショー起動処理の分離（2026-06-11 追記）
+- `Viewer` の `bindCommonIOHandlers` からスライドショー組み立て処理を抽出
+- `buildSlideShowSlides` / `startSlideShowFromSelection` を追加し、表示系ロジックを独立化
+- これにより I/O バインド層と表示実行層の責務を分離
+
+### 6.21 共通I/Oバインドの責務分割（2026-06-11 追記）
+- `bindCommonIOHandlers` を保存系・取込系・表示系・背景色更新の小メソッドへ分割
+- `bindSaveAndExportHandlers` / `bindImportHandlers` / `bindSlideShowHandlers` / `bindBackgroundColorHandler` を追加
+- これにより操作種別ごとの変更影響範囲を局所化
+
+### 6.22 mode 依存初期化の分離（2026-06-11 追記）
+- `Viewer` の edit mode 初期化を `initializeEditModeFeatures` へ抽出
+- I/O 側の mode 分岐を `setupModeSpecificIOBindings` / `setupViewOnlyIOBindings` へ分離
+- これにより `VIEW_AND_EDIT` と `VIEW_ONLY` の責務境界を明確化
+
+### 6.23 権限ポリシー判定の集約（2026-06-11 追記）
+- `Viewer` に `getPermissionPolicy` を追加し、mode/feture gate 起点の権限値を一元化
+- `canEdit/canSave/canExport/canImport` は policy 参照のみとし、個別分岐を削減
+- これにより権限制御仕様の変更時に修正箇所を1か所へ集約
+
+### 6.24 起動シーケンス3段化（2026-06-11 追記）
+- `Viewer` の constructor を `initializeRuntime` / `initializeControllers` / `initializeBindings` へ分割
+- 起動順序を維持しつつ、初期化責務を段階ごとに可視化
+- これにより起動時の副作用追跡と将来の差し替え（runtime/bindings）を容易化
+
+### 6.25 beforeunload 登録処理の分離（2026-06-11 追記）
+- `Viewer` の beforeunload 警告登録を `registerBeforeUnloadWarning` へ抽出
+- 登録可否判定を `shouldRegisterBeforeUnloadWarning` へ分離
+- これにより bindings 初期化フローの条件分岐を縮小し、起動時副作用の把握を容易化
+
+### 6.26 モード遷移処理の分離（2026-06-11 追記）
+- `Viewer.setMode` の `SELECT/EDIT` 遷移処理を `applySelectMode` / `applyEditMode` へ抽出
+- UIクラス切替と edit view active 制御の責務を mode 別に整理
+- これにより mode 拡張時の分岐追加を局所化
+
+### 6.27 UseCase 公開イベントAPIの縮小（2026-06-11 追記）
+- `DocumentStorageUseCase` から未使用の汎用 `addEventListener/removeEventListener` を削除
+- UI 層は `onLoading/onLoaded/onUpdated/onError` の意味論APIのみを利用
+- これにより UseCase 境界の意図しない event 名依存を防止
+
+### 6.28 DOMセレクタ定数の集約（2026-06-11 追記）
+- `Viewer` に `private static readonly SEL` を追加し、jQuery セレクタ文字列を1か所で管理
+- `bindEditModeIOHandlers/bindSlideShowHandlers/bindSaveAndExportHandlers/bindImportHandlers/bindBackgroundColorHandler/setupViewOnlyIOBindings` が `SEL` を参照
+- これにより HTML 側のクラス/ID 変更時の修正箇所を `SEL` 定数のみに限定
+
+### 6.29 `progressBar` フィールド昇格・`obj` 型絞り込み（2026-06-11 追記）
+- `Viewer.progressBar` をフィールドへ昇格し、メソッド間の引数渡しを排除
+- `initializeRuntime` の戻り値を `void` に変更し、`initializeControllers` の `progressBar` 引数を削除
+- `obj` 型を `any` → `JQuery` に絞り追加し、型安全性を向上
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch
