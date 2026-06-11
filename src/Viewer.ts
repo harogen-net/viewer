@@ -5,6 +5,7 @@ import { Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
+import { getImagesContainerElement } from "./runtime/reactDomRegistry";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
@@ -14,7 +15,7 @@ import { ImageManager } from "./utils/ImageManager";
 import { ProgressBar } from "./view/ProgressBar";
 import { EditViewController } from "./viewController/EditViewController";
 import { ListViewController } from "./viewController/ListViewController";
-import { SlideShowViewController } from "./viewController/SlideShowViewController";
+import { SlideShowPlaybackSettings, SlideShowViewController } from "./viewController/SlideShowViewController";
 
 export const ViewerMode = {
 	SELECT: 0,
@@ -40,15 +41,6 @@ export class Viewer {
 	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
 	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
-	private static readonly SEL = {
-		PREF_BUTTON: "#pref > button",
-		IMAGES_BUTTON: "#images > button",
-		MIRROR_H: "#cb_mirrorH",
-		MIRROR_V: "#cb_mirrorV",
-		BG_COLOR: "#bgColor",
-		FULLSCREEN_LABEL: "label[for='cb_fullscreen']",
-	} as const;
-
 	private editVC: EditViewController;
 	private listVC: ListViewController;
 	private slideShowVC: SlideShowViewController;
@@ -58,6 +50,12 @@ export class Viewer {
 	private _mode: ViewerMode;
 	private selectedSavedFileId: string | null = null;
 	private importInput: HTMLInputElement | null = null;
+	private slideShowDuration = 2000;
+	private slideShowInterval = 6000;
+	private slideShowBgColor = "#999999";
+	private slideShowFullscreen = false;
+	private slideShowMirrorH = false;
+	private slideShowMirrorV = false;
 
 	private viewerDocument: ViewerDocument;
 	private _isDocumentModified = false;
@@ -136,37 +134,22 @@ export class Viewer {
 		});
 	}
 
-	private bindPanelToggleHandlers(): void {
-		$(Viewer.SEL.PREF_BUTTON).click(() => {
-			$("#pref > .menu").toggle();
-		});
-		$(Viewer.SEL.IMAGES_BUTTON).click(() => {
-			$("#images > .container").toggle();
-		});
-	}
-
-	private bindCommonIOHandlers(): void {
-		this.bindSlideShowHandlers();
-		this.bindBackgroundColorHandler();
-	}
-
-	private bindSlideShowHandlers(): void {
-		$(Viewer.SEL.MIRROR_H).click(() => {
-			this.slideShowVC.mirrorH = $(Viewer.SEL.MIRROR_H).prop("checked");
-		});
-		$(Viewer.SEL.MIRROR_V).click(() => {
-			this.slideShowVC.mirrorV = $(Viewer.SEL.MIRROR_V).prop("checked");
+	private emitSlideShowSettings(): void {
+		ViewerBridge.emit("slideshowSettingsChanged", {
+			duration: this.slideShowDuration,
+			interval: this.slideShowInterval,
+			bgColor: this.slideShowBgColor,
+			fullscreen: this.slideShowFullscreen,
+			mirrorH: this.slideShowMirrorH,
+			mirrorV: this.slideShowMirrorV,
 		});
 	}
 
-	private bindBackgroundColorHandler(): void {
-		$(Viewer.SEL.BG_COLOR).change((e) => {
-			if (!this.canEdit()) {
-				$(Viewer.SEL.BG_COLOR).val(this.viewerDocument.bgColor);
-				return;
-			}
-			this.viewerDocument.bgColor = $(Viewer.SEL.BG_COLOR).val().toString();
-		});
+	private getSlideShowPlaybackSettings(): SlideShowPlaybackSettings {
+		return {
+			duration: this.slideShowDuration,
+			interval: this.slideShowInterval,
+		};
 	}
 
 	private buildSlideShowSlides(): { slides: Slide[]; startIndex: number } {
@@ -187,27 +170,8 @@ export class Viewer {
 		const { slides, startIndex } = this.buildSlideShowSlides();
 		if (slides.length == 0) return;
 
-		this.slideShowVC.setUp(slides);
+		this.slideShowVC.setUp(slides, this.getSlideShowPlaybackSettings());
 		this.slideShowVC.run(startIndex);
-	}
-
-	private setupIOBindings(startUpMode: ViewerStartUpMode): void {
-		this.setupModeSpecificIOBindings(startUpMode);
-
-		this.bindCommonIOHandlers();
-	}
-
-	private setupModeSpecificIOBindings(startUpMode: ViewerStartUpMode): void {
-		if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			this.bindPanelToggleHandlers();
-			return;
-		}
-
-		this.setupViewOnlyIOBindings();
-	}
-
-	private setupViewOnlyIOBindings(): void {
-		$(Viewer.SEL.FULLSCREEN_LABEL).hide();
 	}
 
 	private setSavedFileSelection(fileId: string | null): void {
@@ -220,6 +184,20 @@ export class Viewer {
 		if (!selectedId) return -1;
 		const titles = this.documentStorage.getTitles();
 		return titles.findIndex((t) => String(t.id) === selectedId);
+	}
+
+	private ensureSelectedSavedFileId(): string | null {
+		if (this.selectedSavedFileId && this.findSavedFileIndex(this.selectedSavedFileId) !== -1) {
+			return this.selectedSavedFileId;
+		}
+		const titles = this.documentStorage.getTitles();
+		if (titles.length === 0) {
+			this.setSavedFileSelection(null);
+			return null;
+		}
+		const firstId = String(titles[0].id);
+		this.setSavedFileSelection(firstId);
+		return firstId;
 	}
 
 	private initializeEditModeFeatures(startUpMode: ViewerStartUpMode): void {
@@ -275,7 +253,16 @@ export class Viewer {
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
-		ImageManager.init($("#images > .container"));
+		const imageContainer = getImagesContainerElement();
+		if (imageContainer) {
+			ImageManager.init(imageContainer);
+		} else {
+			const fallbackContainer = document.createElement("div");
+			fallbackContainer.id = "images-panel-container";
+			fallbackContainer.style.display = "none";
+			document.body.appendChild(fallbackContainer);
+			ImageManager.init(fallbackContainer);
+		}
 
 		if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 			$(document).on("drop dragover", (e: any) => {
@@ -290,12 +277,23 @@ export class Viewer {
 	private initializeControllers(startUpMode: ViewerStartUpMode): void {
 		this.listVC = new ListViewController(this.obj.find(".list"), this.canEdit());
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(this.obj));
+		this.slideShowVC.addEventListener("settingsChanged", (e: CustomEvent) => {
+			const detail = e.detail || {};
+			if (typeof detail.fullscreen === "boolean") {
+				this.commandSetFullscreen(detail.fullscreen);
+			}
+			if (typeof detail.mirrorH === "boolean") {
+				this.commandSetMirrorH(detail.mirrorH);
+			}
+			if (typeof detail.mirrorV === "boolean") {
+				this.commandSetMirrorV(detail.mirrorV);
+			}
+		});
 		this.initializeDocumentStorage();
 		this.initializeEditModeFeatures(startUpMode);
 	}
 
-	private initializeBindings(startUpMode: ViewerStartUpMode): void {
-		this.setupIOBindings(startUpMode);
+	private initializeBindings(): void {
 		this.registerBeforeUnloadWarning();
 	}
 
@@ -348,7 +346,7 @@ export class Viewer {
 
 		this.initializeRuntime(startUpMode);
 		this.initializeControllers(startUpMode);
-		this.initializeBindings(startUpMode);
+		this.initializeBindings();
 
 		this.newDocument();
 	}
@@ -373,8 +371,13 @@ export class Viewer {
 			nextDocument = new ViewerDocument();
 		}
 		this.viewerDocument = nextDocument;
+		this.slideShowBgColor = this.viewerDocument.bgColor;
+		this.slideShowVC.fullscreen = this.slideShowFullscreen;
+		this.slideShowVC.mirrorH = this.slideShowMirrorH;
+		this.slideShowVC.mirrorV = this.slideShowMirrorV;
 		this.listVC.slides = this.viewerDocument.slides;
 		this.IsDocumentModified = false;
+		this.emitSlideShowSettings();
 		ViewerBridge.emit("slidesChanged", {
 			slides: this.viewerDocument.slides,
 			selectedIndex: this.listVC.selectedSlideIndex,
@@ -489,8 +492,9 @@ export class Viewer {
 	}
 
 	public commandLoadSelectedSavedFile(): void {
-		if (!this.selectedSavedFileId) return;
-		this.handleStorageResult(this.documentStorage.loadResult(this.selectedSavedFileId));
+		const targetId = this.ensureSelectedSavedFileId();
+		if (!targetId) return;
+		this.handleStorageResult(this.documentStorage.loadResult(targetId));
 	}
 
 	public commandDeleteSelectedSavedFile(): void {
@@ -501,7 +505,8 @@ export class Viewer {
 	public commandSelectNextSavedFile(): void {
 		const titles = this.documentStorage.getTitles();
 		if (titles.length === 0) return;
-		const selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
+		let selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
+		if (selectedIndex === -1) selectedIndex = 0;
 		const nextIndex = Math.min(selectedIndex + 1, titles.length - 1);
 		this.setSavedFileSelection(String(titles[nextIndex].id));
 	}
@@ -509,7 +514,8 @@ export class Viewer {
 	public commandSelectPreviousSavedFile(): void {
 		const titles = this.documentStorage.getTitles();
 		if (titles.length === 0) return;
-		const selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
+		let selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
+		if (selectedIndex === -1) selectedIndex = 0;
 		const nextIndex = Math.max(selectedIndex - 1, 0);
 		this.setSavedFileSelection(String(titles[nextIndex].id));
 	}
@@ -540,6 +546,43 @@ export class Viewer {
 	public commandExportImages(): void {
 		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
 		this.viewerDocument.downloadImage();
+	}
+
+	public commandSetSlideShowDuration(duration: number): void {
+		this.slideShowDuration = duration;
+		this.emitSlideShowSettings();
+	}
+
+	public commandSetSlideShowInterval(interval: number): void {
+		this.slideShowInterval = interval;
+		this.emitSlideShowSettings();
+	}
+
+	public commandSetBackgroundColor(color: string): void {
+		if (!this.ensureAllowed(this.canEdit(), "背景色変更")) return;
+		this.slideShowBgColor = color;
+		if (this.viewerDocument) {
+			this.viewerDocument.bgColor = color;
+		}
+		this.emitSlideShowSettings();
+	}
+
+	public commandSetFullscreen(enabled: boolean): void {
+		this.slideShowFullscreen = enabled;
+		this.slideShowVC.fullscreen = enabled;
+		this.emitSlideShowSettings();
+	}
+
+	public commandSetMirrorH(enabled: boolean): void {
+		this.slideShowMirrorH = enabled;
+		this.slideShowVC.mirrorH = enabled;
+		this.emitSlideShowSettings();
+	}
+
+	public commandSetMirrorV(enabled: boolean): void {
+		this.slideShowMirrorV = enabled;
+		this.slideShowVC.mirrorV = enabled;
+		this.emitSlideShowSettings();
 	}
 
 	public commandStartSlideshow(): void {

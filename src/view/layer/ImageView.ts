@@ -1,7 +1,7 @@
-import { LayerView } from "../LayerView";
 import { ImageLayer } from "../../model/layer/ImageLayer";
-import { ImageManager } from "../../utils/ImageManager";
 import { PropFlags } from "../../model/PropFlags";
+import { ImageManager } from "../../utils/ImageManager";
+import { LayerView } from "../LayerView";
 
 export class ImageView extends LayerView {
 	private imgObj: any;
@@ -30,7 +30,7 @@ export class ImageView extends LayerView {
 			this.imgObj.remove();
 			this.imgObj = null;
 		}
-		var imageData: { width: number; height: number; imgObj: any } =
+		var imageData: { width: number; height: number; imgObj: JQuery<HTMLImageElement> } =
 			ImageManager.instance.getImageById(this._data.imageId);
 		this.imgObj = imageData.imgObj;
 		this.obj.append(this.imgObj);

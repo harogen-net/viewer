@@ -16,6 +16,27 @@
 - 単体テスト + 結合テスト + E2E の三層で実施する。
 - データ互換テストは毎フェーズで自動実行する。
 
+### 1.1 マイグレーション変更ごとの必須確認
+各マイグレーションPR/変更セットで、次を必ず実施する。
+
+1. 変更対象機能の確認
+  - 変更が触る機能（例: file I/O, slideshow, slide select）を明記する。
+2. 機能保持スモーク確認
+  - 変更対象機能の最低1正常系を確認する。
+  - 例: file I/O 変更なら save/load/import/export のうち該当操作を実行確認。
+3. 結果記録
+  - 成功/失敗、確認手順、既知の制約を記録する。
+
+直近の適用例:
+- プルダウンUI移行（native `select` -> Mantine `NativeSelect`）
+  - 対象: slideshow duration / interval
+  - 保持条件: 値変更イベントと `id` ベース参照が維持されること
+  - 確認: 型診断成功
+- legacy Menu 撤去
+  - 対象: slideshow duration / interval / bgColor / fullscreen / mirror
+  - 保持条件: RuntimeShell と slideshow overlay の両方から状態変更でき、hidden checkbox/id 参照に依存しないこと
+  - 確認: 対象ファイルの型診断成功
+
 ## 2. テスト対象マトリクス
 ### 2.1 実行環境
 - PC ブラウザ（Chrome 最新）

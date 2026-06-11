@@ -4,6 +4,19 @@
 本ドキュメントは、現行 jQuery アプリを React へ段階的に移行する際の実行順序、完了条件、ロールバック方針を定義する。
 機能の棚卸しは [docs/function-list.md](docs/function-list.md) を参照する。
 
+## 機能保持ゲート（必須）
+マイグレーション時は、以下を満たさない変更を完了扱いにしない。
+
+1. 変更対象機能の事前特定
+  - 影響する機能を `docs/function-list.md` で明示する。
+2. 実装後の機能保持確認
+  - 最低限、該当機能の正常系を手動または自動で確認する。
+  - 失敗時は次の移行へ進まず、先に修正する。
+3. 結果の記録
+  - 何を確認し、何が通ったかを `docs/migration-roadmap.md` または `docs/test-plan.md` に追記する。
+4. 回帰の扱い
+  - 既存機能を落とした場合は「移行進捗」ではなく「不具合修正」を優先する。
+
 ## 関連仕様
 - docs/mode-spec.md
 - docs/state-management-design.md
@@ -137,6 +150,13 @@
   - `Viewer` から `.new/.export/.zip/.startSlideShow/button.import/input.import` の legacy バインドを削除し、`command*` 実行中心へ整理
   - `commandOpenImportDialog` を動的 file input 生成方式へ変更し、legacy DOM input 依存を解消
   - `RuntimeShell` に `Export Img` を追加して legacy `zip` 操作の機能を維持
+  - `duration/interval/bgColor/mirrorH/mirrorV` を `Viewer` 状態 + `ViewerBridge.slideshowSettingsChanged` に移し、RuntimeShell から操作可能にした
+  - `SlideShowViewController.setUp` は DOM (`#interval/#duration`) 参照をやめ、`Viewer` から再生設定を受け取る構成へ変更
+  - 機能保持確認: 型診断で対象ファイルのエラーがないことを確認。実挙動確認は次回変更時も継続必須
+  - `Menu` と `RuntimeShell` のプルダウン (`duration/interval`) をネイティブ `select` から Mantine `NativeSelect` へ置換
+  - 機能保持確認: `id=value` 互換を維持したまま型診断でエラーなしを確認
+  - legacy `Menu` の描画を AppShell から除去し、スライドショー設定の保持先を完全に `Viewer` + `RuntimeShell` + `SlideShowViewController` に移管
+  - `SlideShowViewController` の fullscreen/mirror 操作は hidden checkbox 依存をやめ、内部状態変更 + `settingsChanged` 通知で `ViewerBridge` と同期
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`

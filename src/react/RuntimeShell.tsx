@@ -1,9 +1,38 @@
-import { Badge, Button, Group, Paper, ScrollArea, Stack, Text } from "@mantine/core";
+import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Text } from "@mantine/core";
 import { useMemo } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
-import { useViewerSavedFileSelection, useViewerSlides, useViewerStorage } from "../bridge/useViewerBridge";
+import { useViewerSavedFileSelection, useViewerSlides, useViewerSlideshowSettings, useViewerStorage } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
+
+const durationOptions = [
+	{ value: "1", label: "0" },
+	{ value: "500", label: "500" },
+	{ value: "1000", label: "1000" },
+	{ value: "2000", label: "2000" },
+	{ value: "3000", label: "3000" },
+	{ value: "4000", label: "4000" },
+	{ value: "5000", label: "5000" },
+];
+
+const intervalOptions = [
+	{ value: "500", label: "500" },
+	{ value: "1000", label: "1000" },
+	{ value: "2000", label: "2000" },
+	{ value: "3000", label: "3000" },
+	{ value: "4000", label: "4000" },
+	{ value: "5000", label: "5000" },
+	{ value: "6000", label: "6000" },
+	{ value: "7000", label: "7000" },
+	{ value: "8000", label: "8000" },
+	{ value: "9000", label: "9000" },
+	{ value: "10000", label: "10000" },
+	{ value: "11000", label: "11000" },
+	{ value: "12000", label: "12000" },
+	{ value: "13000", label: "13000" },
+	{ value: "14000", label: "14000" },
+	{ value: "15000", label: "15000" },
+];
 
 type RuntimeShellProps = {
 	mode: AppRuntimeMode;
@@ -25,6 +54,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { slides: rawSlides, selectedIndex } = useViewerSlides();
 	const { titles } = useViewerStorage();
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
+	const slideShowSettings = useViewerSlideshowSettings();
 
 	const slides = useMemo<SlideSnapshot[]>(
 		() =>
@@ -172,6 +202,49 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				<Group grow>
 					<Button size="xs" variant="light" onClick={() => ViewerCommands.exportImages()} disabled={!gate.canExport}>
 						Export Img
+					</Button>
+				</Group>
+				<Text size="xs" c="dimmed">
+					SlideShow Settings
+				</Text>
+				<Group grow>
+					<NativeSelect
+						data={durationOptions}
+						value={String(slideShowSettings.duration)}
+						onChange={(e) => ViewerCommands.setSlideShowDuration(Number(e.currentTarget.value))}
+						size="xs"
+					/>
+					<NativeSelect
+						data={intervalOptions}
+						value={String(slideShowSettings.interval)}
+						onChange={(e) => ViewerCommands.setSlideShowInterval(Number(e.currentTarget.value))}
+						size="xs"
+					/>
+				</Group>
+				<Group grow>
+					<input
+						type="color"
+						value={slideShowSettings.bgColor}
+						onChange={(e) => ViewerCommands.setBackgroundColor(e.target.value)}
+						disabled={!gate.canEdit}
+					/>
+					<Button
+						size="xs"
+						variant={slideShowSettings.fullscreen ? "filled" : "default"}
+						onClick={() => ViewerCommands.setFullscreen(!slideShowSettings.fullscreen)}>
+						Fullscreen
+					</Button>
+					<Button
+						size="xs"
+						variant={slideShowSettings.mirrorH ? "filled" : "default"}
+						onClick={() => ViewerCommands.setMirrorH(!slideShowSettings.mirrorH)}>
+						Mirror H
+					</Button>
+					<Button
+						size="xs"
+						variant={slideShowSettings.mirrorV ? "filled" : "default"}
+						onClick={() => ViewerCommands.setMirrorV(!slideShowSettings.mirrorV)}>
+						Mirror V
 					</Button>
 				</Group>
 				<Group grow>

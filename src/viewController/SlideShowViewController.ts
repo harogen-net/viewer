@@ -1,16 +1,22 @@
+import $ from "jquery";
 import { EventDispatcher } from "../events/EventDispatcher";
-import { SlideView } from "../view/SlideView";
-import { ImageLayer } from "../model/layer/ImageLayer";
 import { Layer, LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
-import { DOMSlideView } from "../view/slide/DOMSlideView";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-import $ from "jquery";
+import { DOMSlideView } from "../view/slide/DOMSlideView";
+import { SlideView } from "../view/SlideView";
+
+export type SlideShowPlaybackSettings = {
+	interval: number;
+	duration: number;
+};
 
 export class SlideShowViewController extends EventDispatcher {
 	private _isRun: boolean;
 	private _isPause: boolean;
+	private _fullscreen: boolean;
 	private _mirrorH: boolean;
 	private _mirrorV: boolean;
 
@@ -71,35 +77,22 @@ export class SlideShowViewController extends EventDispatcher {
 			'<button class="fullScreen"><i class="fas fa-expand"></i></button>'
 		).appendTo(obj);
 		fullScreenBtn.click(() => {
-			let isFullscreen = $("#cb_fullscreen").prop("checked");
-			$("#cb_fullscreen").prop("checked", !isFullscreen);
-
-			if (!isFullscreen) {
-				this.obj[0].webkitRequestFullScreen();
-			} else {
-				try {
-					document.exitFullscreen(); //HTML5 Fullscreen API仕様
-				} catch (e) {}
-				try {
-					document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
-				} catch (e) {}
-			}
+			this.fullscreen = !this._fullscreen;
+			this.dispatchSettingsChanged({ fullscreen: this._fullscreen });
 		});
 		var mirrorHBtn = $(
 			'<button class="mirrorH"><i class="fas fa-arrows-alt-h"></i></button>'
 		).appendTo(obj);
 		mirrorHBtn.click(() => {
-			let isMirrorH = $("#cb_mirrorH").prop("checked");
-			$("#cb_mirrorH").prop("checked", !isMirrorH);
-			this.mirrorH = !isMirrorH;
+			this.mirrorH = !this._mirrorH;
+			this.dispatchSettingsChanged({ mirrorH: this._mirrorH });
 		});
 		var mirrorVBtn = $(
 			'<button class="mirrorV"><i class="fas fa-arrows-alt-v"></i></button>'
 		).appendTo(obj);
 		mirrorVBtn.click(() => {
-			let isMirrorV = $("#cb_mirrorV").prop("checked");
-			$("#cb_mirrorV").prop("checked", !isMirrorV);
-			this.mirrorV = !isMirrorV;
+			this.mirrorV = !this._mirrorV;
+			this.dispatchSettingsChanged({ mirrorV: this._mirrorV });
 		});
 		var prevBtn = $('<button class="prev"><i class="fas fa-arrow-left"></i></button>').appendTo(
 			obj
@@ -118,12 +111,12 @@ export class SlideShowViewController extends EventDispatcher {
 		});
 	}
 
-	setUp(targetSlides: Slide[]): void {
+	setUp(targetSlides: Slide[], settings: SlideShowPlaybackSettings): void {
 		console.log("setup at slideshow", targetSlides.length);
 		this.intialize();
 
-		this.interval = parseInt($("#interval").val());
-		this.duration = parseInt($("#duration").val());
+		this.interval = settings.interval;
+		this.duration = settings.duration;
 		//		this.bgColor = $("#bgColor").val();
 
 		targetSlides = targetSlides.filter((value: Slide) => {
@@ -209,7 +202,7 @@ export class SlideShowViewController extends EventDispatcher {
 		this.isInit = false;
 
 		$("body").removeClass("slideShow");
-		if ($("#cb_fullscreen").prop("checked")) {
+		if (this._fullscreen) {
 			try {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
 			} catch (e) {}
@@ -238,8 +231,8 @@ export class SlideShowViewController extends EventDispatcher {
 		this.isInit = true;
 
 		$("body").addClass("slideShow");
-		if ($("#cb_fullscreen").prop("checked")) {
-			this.obj[0].webkitRequestFullScreen();
+		if (this._fullscreen) {
+			this.requestFullscreen();
 		}
 		this.updateSlideSize();
 
@@ -287,10 +280,8 @@ export class SlideShowViewController extends EventDispatcher {
 		this._isRun = false;
 		this._isPause = false;
 
-		if (!$("#cb_fullscreen").prop("checked")) {
-			//if(this.RUN_IN_WINDOW) {
-			$("body").removeClass("slideShow");
-		} else {
+		$("body").removeClass("slideShow");
+		if (this._fullscreen) {
 			try {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
 			} catch (e) {}
@@ -454,6 +445,40 @@ export class SlideShowViewController extends EventDispatcher {
 		}, 1000);
 	}
 
+	private dispatchSettingsChanged(
+		detail: Partial<{ fullscreen: boolean; mirrorH: boolean; mirrorV: boolean }>
+	) {
+		this.dispatchEvent(new CustomEvent("settingsChanged", { detail }));
+	}
+
+	private requestFullscreen() {
+		try {
+			if (this.obj[0].requestFullscreen) {
+				this.obj[0].requestFullscreen();
+				return;
+			}
+		} catch (e) {}
+		try {
+			if (this.obj[0].webkitRequestFullScreen) {
+				this.obj[0].webkitRequestFullScreen();
+			}
+		} catch (e) {}
+	}
+
+	private exitFullscreen() {
+		try {
+			if (document.fullscreenElement && document.exitFullscreen) {
+				document.exitFullscreen();
+				return;
+			}
+		} catch (e) {}
+		try {
+			if (document["webkitCancelFullScreen"]) {
+				document["webkitCancelFullScreen"]();
+			}
+		} catch (e) {}
+	}
+
 	private updateMirror() {
 		var cssTxts: string[] = [];
 		if (this._mirrorH) cssTxts.push("scaleX(-1)");
@@ -550,6 +575,16 @@ export class SlideShowViewController extends EventDispatcher {
 
 	get isRun(): boolean {
 		return this._isRun;
+	}
+
+	public set fullscreen(value: boolean) {
+		this._fullscreen = value;
+		if (!this._isRun) return;
+		if (value) {
+			this.requestFullscreen();
+			return;
+		}
+		this.exitFullscreen();
 	}
 
 	public set mirrorH(value: boolean) {

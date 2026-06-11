@@ -36,6 +36,24 @@ export const ViewerCommands = {
 	exportImages(): void {
 		getViewer()?.commandExportImages();
 	},
+	setSlideShowDuration(duration: number): void {
+		getViewer()?.commandSetSlideShowDuration(duration);
+	},
+	setSlideShowInterval(interval: number): void {
+		getViewer()?.commandSetSlideShowInterval(interval);
+	},
+	setBackgroundColor(color: string): void {
+		getViewer()?.commandSetBackgroundColor(color);
+	},
+	setFullscreen(enabled: boolean): void {
+		getViewer()?.commandSetFullscreen(enabled);
+	},
+	setMirrorH(enabled: boolean): void {
+		getViewer()?.commandSetMirrorH(enabled);
+	},
+	setMirrorV(enabled: boolean): void {
+		getViewer()?.commandSetMirrorV(enabled);
+	},
 	openImportDialog(): void {
 		getViewer()?.commandOpenImportDialog();
 	},

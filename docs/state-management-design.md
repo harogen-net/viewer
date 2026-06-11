@@ -368,6 +368,19 @@
 - `commandOpenImportDialog` は動的 file input 生成で import を実行し、DOM常駐input依存を解消
 - `RuntimeShell` に `Export Img` を追加し、`commandExportImages` 経由で画像書き出し機能を継続
 
+### 6.43 スライドショー設定のBridge化（2026-06-11 追記）
+- `Viewer` に `slideShowDuration/slideShowInterval/slideShowBgColor/slideShowMirrorH/slideShowMirrorV` を保持
+- `ViewerBridge` に `slideshowSettingsChanged` を追加し、React から設定値を購読可能にした
+- `RuntimeShell` は duration/interval/bgColor/mirror の操作UIを持ち、`ViewerCommands` 経由で設定を更新する
+- `SlideShowViewController.setUp` は DOM値ではなく `Viewer` から渡された設定値を使用する
+- これによりスライドショー設定の制御責務を legacy DOM から `Viewer` 状態へ移管した
+
+### 6.44 legacy Menu 撤去（2026-06-11 追記）
+- `AppShell` から `Menu` の描画を削除し、上部 legacy Menu コンテナを廃止
+- `slideshowSettingsChanged` に `fullscreen` を追加し、開始前の fullscreen 設定も React から管理可能にした
+- `SlideShowViewController` は fullscreen/mirror の overlay ボタン変更を `settingsChanged` として通知し、`Viewer` が bridge 状態へ反映する
+- `ViewerDocument.bgColor` は DOM更新をやめ、CSS変数更新のみに責務を縮小した
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch

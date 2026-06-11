@@ -1,10 +1,24 @@
-import { ImageLayer } from "../model/layer/ImageLayer";
 import CryptoJS from "crypto-js";
-import { ViewerDocument } from "../model/ViewerDocument";
-import { HistoryManager, Transaction, Command } from "./HistoryManager";
-import { Layer, LayerType } from "../model/Layer";
-import { Slide } from "../model/Slide";
 import $ from "jquery";
+import { Layer, LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { Slide } from "../model/Slide";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { HistoryManager } from "./HistoryManager";
+
+type ImageRecord = {
+	width: number;
+	height: number;
+	name: string;
+	imgObj: JQuery<HTMLImageElement>;
+};
+
+type ImageSnapshot = {
+	width: number;
+	height: number;
+	name: string;
+	imgObj: JQuery<HTMLImageElement>;
+};
 
 export class ImageManager {
 	private static _instance: ImageManager;
@@ -15,17 +29,18 @@ export class ImageManager {
 		return this._instance;
 	}
 
-	public static init(container: any) {
+	public static init(container: HTMLElement) {
 		this._instance = new ImageManager(container);
 	}
 
 	//
 
-	private _imageById: {
-		[key: string]: { width: number; height: number; name: string; imgObj: any };
-	};
+	private _imageById: Record<string, ImageRecord | undefined>;
 
-	private constructor(private container: any) {
+	private container: HTMLElement;
+
+	private constructor(container: HTMLElement) {
+		this.container = container;
 		console.log("ImageManager constructor");
 		this._imageById = {};
 	}
@@ -62,7 +77,7 @@ export class ImageManager {
 					resolve();
 				};
 				imgDom.addEventListener("load", onImageLoad);
-				this.container.append(imgObj);
+				this.container.appendChild(imgDom);
 				this._imageById[id] = {
 					width: imgDom.naturalWidth,
 					height: imgDom.naturalHeight,
@@ -140,7 +155,7 @@ export class ImageManager {
 		}
 	}
 
-	public getImageById(id: string): { width: number; height: number; name: string; imgObj: any } {
+	public getImageById(id: string): ImageSnapshot {
 		var imgObjData = this._imageById[id];
 		if (imgObjData == undefined) return null;
 

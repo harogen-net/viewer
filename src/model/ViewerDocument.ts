@@ -1,11 +1,11 @@
-import { DateUtil } from "../utils/DateUtil";
-import { Viewer } from "../Viewer";
-import { Slide } from "./Slide";
-import { Layer } from "./Layer";
-import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
-import { DataUtil } from "../utils/DataUtil";
-import JSZip from "jszip";
 import $ from "jquery";
+import JSZip from "jszip";
+import { DataUtil } from "../utils/DataUtil";
+import { DateUtil } from "../utils/DateUtil";
+import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
+import { Viewer } from "../Viewer";
+import { Layer } from "./Layer";
+import { Slide } from "./Slide";
 
 export class ViewerDocument {
 	public static shared: ViewerDocument = null;
@@ -129,7 +129,6 @@ export class ViewerDocument {
 			"--slideBackgroundColor",
 			this._bgColor || this.BG_COLOR_INIT
 		);
-		$("#bgColor").val(this._bgColor || this.BG_COLOR_INIT);
 	}
 	public get bgColor(): string {
 		return this._bgColor;

@@ -55,6 +55,24 @@ export function useViewerSavedFileSelection(): { selectedId: string | null } {
 	return useBridgeEvent("savedFileSelectionChanged", { selectedId: null });
 }
 
+export function useViewerSlideshowSettings(): {
+	duration: number;
+	interval: number;
+	bgColor: string;
+	fullscreen: boolean;
+	mirrorH: boolean;
+	mirrorV: boolean;
+} {
+	return useBridgeEvent("slideshowSettingsChanged", {
+		duration: 2000,
+		interval: 6000,
+		bgColor: "#999999",
+		fullscreen: false,
+		mirrorH: false,
+		mirrorV: false,
+	});
+}
+
 // ─── Modified flag ────────────────────────────────────────────────────────────
 
 export function useViewerModified(): { modified: boolean } {

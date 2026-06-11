@@ -19,6 +19,15 @@ export type ViewerBridgeEventMap = {
 	savedFilesChanged: { titles: readonly SlideTitle[] };
 	/** Selected saved file changed */
 	savedFileSelectionChanged: { selectedId: string | null };
+	/** Slideshow-related settings changed */
+	slideshowSettingsChanged: {
+		duration: number;
+		interval: number;
+		bgColor: string;
+		fullscreen: boolean;
+		mirrorH: boolean;
+		mirrorV: boolean;
+	};
 	/** Document modified status changed */
 	modifiedChanged: { modified: boolean };
 	/** Viewer mode changed */

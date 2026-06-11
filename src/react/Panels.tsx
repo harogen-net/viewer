@@ -1,10 +1,15 @@
+import { useState } from "react";
+import { setImagesContainerElement } from "../runtime/reactDomRegistry";
+
 export function PrefPanel() {
+	const [open, setOpen] = useState(false);
+
 	return (
 		<>
-			<button>
+			<button onClick={() => setOpen((v) => !v)}>
 				<i className="fas fa-ellipsis-h"></i>
 			</button>
-			<div className="menu">
+			<div className="menu" style={{ display: open ? "block" : "none" }}>
 				<dl>
 					<dt>size</dt>
 					<dd>
@@ -43,12 +48,18 @@ export function PrefPanel() {
 }
 
 export function ImagesPanel() {
+	const [open, setOpen] = useState(false);
+
 	return (
 		<>
-			<button>
+			<button onClick={() => setOpen((v) => !v)}>
 				<i className="fas fa-images"></i>
 			</button>
-			<div className="container"></div>
+			<div
+				id="images-panel-container"
+				className="container"
+				ref={(element) => setImagesContainerElement(element)}
+				style={{ display: open ? "block" : "none" }}></div>
 		</>
 	);
 }
