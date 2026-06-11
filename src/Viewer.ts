@@ -1,4 +1,5 @@
 import $ from "jquery";
+import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
 import { Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
@@ -63,9 +64,18 @@ export class Viewer {
 	private progressBar: ProgressBar;
 
 	private _mode: ViewerMode;
+	private selectedSavedFileId: string | null = null;
 
 	private viewerDocument: ViewerDocument;
-	IsDocumentModified: boolean;
+	private _isDocumentModified = false;
+
+	get IsDocumentModified(): boolean {
+		return this._isDocumentModified;
+	}
+	set IsDocumentModified(value: boolean) {
+		this._isDocumentModified = value;
+		ViewerBridge.emit("modifiedChanged", { modified: value });
+	}
 
 	private handleStorageResult(resultPromise: Promise<StorageActionResult>) {
 		handleStorageActionResult(resultPromise, (message) => {
@@ -118,6 +128,15 @@ export class Viewer {
 		});
 		this.documentStorage.onLoaded((doc) => {
 			this.newDocument(doc);
+		});
+		this.documentStorage.onUpdated(() => {
+			const titles = this.documentStorage.getTitles();
+			ViewerBridge.emit("savedFilesChanged", {
+				titles,
+			});
+			if (this.findSavedFileIndex(this.selectedSavedFileId) === -1) {
+				this.setSavedFileSelection(titles.length > 0 ? String(titles[0].id) : null);
+			}
 		});
 		this.documentStorage.onError((error) => {
 			showNotice(this.documentStorage.getErrorNoticeMessage(error));
@@ -275,7 +294,7 @@ export class Viewer {
 	}
 
 	private setupIOBindings(startUpMode: ViewerStartUpMode): void {
-		new FileSelector(this.documentStorage);
+		new FileSelector();
 		this.setupModeSpecificIOBindings(startUpMode);
 
 		this.bindCommonIOHandlers();
@@ -295,6 +314,18 @@ export class Viewer {
 		$(Viewer.SEL.FULLSCREEN_LABEL).hide();
 	}
 
+	private setSavedFileSelection(fileId: string | null): void {
+		const nextId = fileId == null || fileId === "-1" ? null : String(fileId);
+		this.selectedSavedFileId = nextId;
+		ViewerBridge.emit("savedFileSelectionChanged", { selectedId: nextId });
+	}
+
+	private findSavedFileIndex(selectedId: string | null): number {
+		if (!selectedId) return -1;
+		const titles = this.documentStorage.getTitles();
+		return titles.findIndex((t) => String(t.id) === selectedId);
+	}
+
 	private initializeEditModeFeatures(startUpMode: ViewerStartUpMode): void {
 		if (startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) {
 			return;
@@ -308,6 +339,11 @@ export class Viewer {
 		this.editVC = new EditViewController(this.obj.find(".canvas"));
 
 		this.listVC.addEventListener("select", () => {
+			ViewerBridge.emit("selectionChanged", { selectedIndex: this.listVC.selectedSlideIndex });
+			ViewerBridge.emit("slidesChanged", {
+				slides: this.viewerDocument?.slides ?? [],
+				selectedIndex: this.listVC.selectedSlideIndex,
+			});
 			if (this._mode == ViewerMode.SELECT) {
 			} else if (this._mode == ViewerMode.EDIT) {
 				if (this.listVC.selectedSlide) {
@@ -443,6 +479,15 @@ export class Viewer {
 		this.viewerDocument = nextDocument;
 		this.listVC.slides = this.viewerDocument.slides;
 		this.IsDocumentModified = false;
+		ViewerBridge.emit("slidesChanged", {
+			slides: this.viewerDocument.slides,
+			selectedIndex: this.listVC.selectedSlideIndex,
+		});
+		ViewerBridge.emit("savedFilesChanged", {
+			titles: this.documentStorage.getTitles(),
+		});
+		const titles = this.documentStorage.getTitles();
+		this.setSavedFileSelection(titles.length > 0 ? String(titles[0].id) : null);
 	}
 
 	public setMode(mode: ViewerMode) {
@@ -463,6 +508,124 @@ export class Viewer {
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 			this.editVC.setMode(this._mode);
 		}
+
+		const bridgeMode = this._mode === ViewerMode.EDIT ? "edit"
+			: this._mode === ViewerMode.SLIDESHOW ? "slideshow" : "select";
+		ViewerBridge.emit("modeChanged", { mode: bridgeMode });
+	}
+
+	public commandNewSlide(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド追加")) return;
+		this.listVC.addNewSlideAndSelect();
+	}
+
+	public commandCloneSelectedSlide(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド複製")) return;
+		this.listVC.cloneSelectedSlide();
+	}
+
+	public commandDeleteSelectedSlide(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
+		this.listVC.deleteSelectedSlide();
+	}
+
+	public commandSelectPreviousSlide(): void {
+		this.listVC.selectPreviousSlide();
+	}
+
+	public commandSelectNextSlide(): void {
+		this.listVC.selectNextSlide();
+	}
+
+	public commandSelectSlideByIndex(index: number): void {
+		this.listVC.selectSlideByIndex(index);
+	}
+
+	public commandNewDocument(): void {
+		if (!this.ensureAllowed(this.canEdit(), "新規作成")) return;
+		if (this.viewerDocument.slides.length == 0) return;
+		if (this.canProceedWithDiscard("clear slides and new document. Are you sure?")) {
+			this.newDocument();
+		}
+	}
+
+	public commandSaveDocument(): void {
+		if (!this.ensureAllowed(this.canSave(), "保存")) return;
+		if (this.listVC.slides.length == 0) return;
+		const isOverride = this.shouldOverrideSave();
+		this.handleStorageResult(this.documentStorage.saveResult(this.viewerDocument, isOverride));
+	}
+
+	public commandExportDocument(): void {
+		if (!this.ensureAllowed(this.canExport(), "書き出し")) return;
+		if (this.listVC.slides.length == 0) return;
+		let type: HVDataType;
+		if ($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
+		if ($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
+		if ($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
+
+		const result = this.documentStorage.exportResult(this.viewerDocument, type, {
+			pages: this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,
+		});
+		this.handleStorageResult(result);
+	}
+
+	public commandDeleteSavedFile(fileId: string): void {
+		if (!this.ensureAllowed(this.getPermissionPolicy().canDeleteSavedData, "保存データ削除")) return;
+		if (fileId == null || fileId === "-1") return;
+		this.setSavedFileSelection(fileId);
+		this.handleStorageResult(this.documentStorage.deleteResult(fileId));
+	}
+
+	public commandLoadSavedFile(fileId: string): void {
+		if (fileId == null || fileId === "-1") return;
+		this.setSavedFileSelection(fileId);
+		this.handleStorageResult(this.documentStorage.loadResult(fileId));
+	}
+
+	public commandSelectSavedFile(fileId: string | null): void {
+		this.setSavedFileSelection(fileId);
+	}
+
+	public commandLoadSelectedSavedFile(): void {
+		if (!this.selectedSavedFileId) return;
+		this.handleStorageResult(this.documentStorage.loadResult(this.selectedSavedFileId));
+	}
+
+	public commandDeleteSelectedSavedFile(): void {
+		if (!this.selectedSavedFileId) return;
+		this.commandDeleteSavedFile(this.selectedSavedFileId);
+	}
+
+	public commandSelectNextSavedFile(): void {
+		const titles = this.documentStorage.getTitles();
+		if (titles.length === 0) return;
+		const selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
+		const nextIndex = Math.min(selectedIndex + 1, titles.length - 1);
+		this.setSavedFileSelection(String(titles[nextIndex].id));
+	}
+
+	public commandSelectPreviousSavedFile(): void {
+		const titles = this.documentStorage.getTitles();
+		if (titles.length === 0) return;
+		const selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
+		const nextIndex = Math.max(selectedIndex - 1, 0);
+		this.setSavedFileSelection(String(titles[nextIndex].id));
+	}
+
+	public commandOpenImportDialog(): void {
+		if (!this.ensureAllowed(this.canImport(), "読み込み")) return;
+		if (this.canProceedWithDiscard("load slides. Are you sure?")) {
+			$(Viewer.SEL.IMPORT_INPUT)[0].click();
+		}
+	}
+
+	public commandStartSlideshow(): void {
+		this.startSlideShowFromSelection();
+	}
+
+	public getSavedFileTitles() {
+		return this.documentStorage.getTitles();
 	}
 
 	private canEdit(): boolean {

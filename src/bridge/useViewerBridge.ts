@@ -1,0 +1,68 @@
+/**
+ * React hooks for consuming ViewerBridge events.
+ *
+ * Usage:
+ *   const { slides, selectedIndex } = useViewerSlides();
+ *   const { titles } = useViewerStorage();
+ *   const { modified } = useViewerModified();
+ *   const { mode } = useViewerMode();
+ */
+
+import { useEffect, useState } from "react";
+import { Slide } from "../model/Slide";
+import { SlideTitle } from "../storage/storageTypes";
+import { ViewerBridge, ViewerBridgeEventMap } from "./ViewerBridge";
+
+// ─── Generic helper ──────────────────────────────────────────────────────────
+
+function useBridgeEvent<K extends keyof ViewerBridgeEventMap>(
+	type: K,
+	initialValue: ViewerBridgeEventMap[K]
+): ViewerBridgeEventMap[K] {
+	const [value, setValue] = useState<ViewerBridgeEventMap[K]>(initialValue);
+
+	useEffect(() => {
+		return ViewerBridge.subscribe(type, (payload) => {
+			setValue(payload);
+		});
+	}, [type]);
+
+	return value;
+}
+
+// ─── Slide list ───────────────────────────────────────────────────────────────
+
+type SlidesState = {
+	slides: readonly Slide[];
+	selectedIndex: number;
+};
+
+export function useViewerSlides(): SlidesState {
+	return useBridgeEvent("slidesChanged", { slides: [], selectedIndex: -1 });
+}
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+
+type StorageState = {
+	titles: readonly SlideTitle[];
+};
+
+export function useViewerStorage(): StorageState {
+	return useBridgeEvent("savedFilesChanged", { titles: [] });
+}
+
+export function useViewerSavedFileSelection(): { selectedId: string | null } {
+	return useBridgeEvent("savedFileSelectionChanged", { selectedId: null });
+}
+
+// ─── Modified flag ────────────────────────────────────────────────────────────
+
+export function useViewerModified(): { modified: boolean } {
+	return useBridgeEvent("modifiedChanged", { modified: false });
+}
+
+// ─── Viewer mode ──────────────────────────────────────────────────────────────
+
+export function useViewerMode(): { mode: "select" | "edit" | "slideshow" } {
+	return useBridgeEvent("modeChanged", { mode: "select" });
+}

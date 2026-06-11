@@ -1,4 +1,5 @@
 import $ from "jquery";
+import { ViewerBridge } from "../bridge/ViewerBridge";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { IDroppable } from "../interface/IDroppable";
 import { ImageLayer } from "../model/layer/ImageLayer";
@@ -86,12 +87,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.containerObj
 			);
 			this.newSlideBtn.click(() => {
-				if (this._slideViews.length > 0) {
-					this._slideViews[this._slideViews.length - 1].slide.joining = false;
-				}
-				var slide = new Slide(ViewerDocument.shared.width, ViewerDocument.shared.height);
-				this.addSlide(slide);
-				this.selectSlide(slide);
+				this.addNewSlideAndSelect();
 			});
 
 			this.listContextMenu = $("#listContextMenu");
@@ -157,14 +153,14 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			);
 			this.obj.append(prevSlideBtn);
 			prevSlideBtn.click(() => {
-				this.selectSlideOffset(-1);
+				this.selectPreviousSlide();
 			});
 			var nextSlideBtn = $(
 				'<button class="selectSlideBtn next"><i class="fas fa-chevron-right"></i></button>'
 			);
 			this.obj.append(nextSlideBtn);
 			nextSlideBtn.click(() => {
-				this.selectSlideOffset(1);
+				this.selectNextSlide();
 			});
 		}
 	}
@@ -209,7 +205,41 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.setSlideUp(slide, index);
 		this.sortSlideViewByIndex();
 
+		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
 		return slide;
+	}
+
+	public addNewSlideAndSelect(): void {
+		if (!this.canEdit) return;
+		if (this._slideViews.length > 0) {
+			this._slideViews[this._slideViews.length - 1].slide.joining = false;
+		}
+		const slide = new Slide(ViewerDocument.shared.width, ViewerDocument.shared.height);
+		this.addSlide(slide);
+		this.selectSlide(slide);
+	}
+
+	public cloneSelectedSlide(): void {
+		if (!this.canEdit || !this._selectedSlide) return;
+		this.clonseSlide(this._selectedSlide);
+	}
+
+	public deleteSelectedSlide(): void {
+		if (!this.canEdit || !this._selectedSlide) return;
+		this.removeSlide(this._selectedSlide, true);
+	}
+
+	public selectSlideByIndex(index: number): void {
+		if (index < 0 || index >= this._slides.length) return;
+		this.selectSlide(this._slides[index]);
+	}
+
+	public selectPreviousSlide(): void {
+		this.selectSlideOffset(-1);
+	}
+
+	public selectNextSlide(): void {
+		this.selectSlideOffset(1);
 	}
 
 	private getSlideViewBySlide(slide: Slide): ThumbSlideView {
@@ -325,10 +355,9 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				} else {
 					this.dispatchEvent(new Event("close"));
 				}
-				//実際に削除するのは、editableに表示されなくなってから
-				//そうしないと、slide削除時に共有レイヤダイアログが出てうざったい
 				removeMain();
 				this.sortSlideViewByIndex();
+				ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
 			});
 		} else {
 			removeMain();
@@ -338,6 +367,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			} else {
 				this.dispatchEvent(new Event("close"));
 			}
+			ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
 		}
 
 		return slide;
@@ -354,6 +384,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 		this.dispatchEvent(new Event("select"));
 		this.scrollToSelected();
+		ViewerBridge.emit("selectionChanged", { selectedIndex: this.selectedSlideIndex });
 	}
 
 	private selectSlideOffset(offset: number = 0) {
@@ -416,6 +447,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				: 1;
 		});
 		this.sortSlideViewByIndex();
+		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
 	}
 
 	//
@@ -444,6 +476,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			this.setSlideUp(this._slides[i]);
 		}
 		this.sortSlideViewByIndex();
+		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
 	}
 	public get slides(): Slide[] {
 		return this._slides;

@@ -1,5 +1,7 @@
 import { Badge, Button, Group, Paper, ScrollArea, Stack, Text } from "@mantine/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { ViewerCommands } from "../bridge/ViewerCommands";
+import { useViewerSavedFileSelection, useViewerSlides, useViewerStorage } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
 
@@ -17,125 +19,57 @@ type SlideSnapshot = {
 type SavedFileSnapshot = {
 	value: string;
 	label: string;
-	selected: boolean;
 };
 
 export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
-	const [slides, setSlides] = useState<SlideSnapshot[]>([]);
-	const [savedFiles, setSavedFiles] = useState<SavedFileSnapshot[]>([]);
+	const { slides: rawSlides, selectedIndex } = useViewerSlides();
+	const { titles } = useViewerStorage();
+	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 
-	const collectSlides = useCallback(() => {
-		const nodes = Array.from(document.querySelectorAll(".list .slide"));
-		const nextSlides = nodes.map((node, index) => {
-			const selected = node.classList.contains("selected");
-			return {
-				index,
-				label: `Slide ${index + 1}`,
-				selected,
-			};
-		});
-		setSlides(nextSlides);
-	}, []);
+	const slides = useMemo<SlideSnapshot[]>(
+		() =>
+			rawSlides.map((_, i) => ({
+				index: i,
+				label: `Slide ${i + 1}`,
+				selected: i === selectedIndex,
+			})),
+		[rawSlides, selectedIndex]
+	);
 
-	const collectSavedFiles = useCallback(() => {
-		const select = document.querySelector("#menu select.filename") as HTMLSelectElement | null;
-		if (!select) {
-			setSavedFiles([]);
-			return;
+	const savedFiles = useMemo<SavedFileSnapshot[]>(
+		() =>
+			titles.map((t) => ({
+				value: String(t.id),
+				label: t.title,
+			})),
+		[titles]
+	);
+
+	const selectedFileId = useMemo(() => {
+		if (!bridgedSelectedFileId) {
+			return savedFiles[0]?.value ?? null;
 		}
-		const options = Array.from(select.options);
-		const files = options.map((option) => {
-			return {
-				value: option.value,
-				label: option.textContent || option.value,
-				selected: option.selected,
-			};
-		});
-		setSavedFiles(files);
-	}, []);
-
-	useEffect(() => {
-		collectSlides();
-		collectSavedFiles();
-
-		const observer = new MutationObserver(() => {
-			collectSlides();
-			collectSavedFiles();
-		});
-
-		observer.observe(document.body, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-			attributeFilter: ["class"],
-		});
-
-		return () => {
-			observer.disconnect();
-		};
-	}, [collectSavedFiles, collectSlides]);
-
-	const selectedSlide = useMemo(() => {
-		return slides.find((slide) => slide.selected) || null;
-	}, [slides]);
-
-	const clickNode = useCallback((selector: string) => {
-		const node = document.querySelector(selector) as HTMLElement | null;
-		if (!node) {
-			return false;
+		if (savedFiles.some((f) => f.value === bridgedSelectedFileId)) {
+			return bridgedSelectedFileId;
 		}
-		node.click();
-		collectSlides();
-		collectSavedFiles();
-		return true;
-	}, [collectSavedFiles, collectSlides]);
+		return savedFiles[0]?.value ?? null;
+	}, [bridgedSelectedFileId, savedFiles]);
 
-	const selectSavedFile = useCallback((value: string) => {
-		const select = document.querySelector("#menu select.filename") as HTMLSelectElement | null;
-		if (!select) {
-			return;
-		}
-		select.value = value;
-		select.dispatchEvent(new Event("change", { bubbles: true }));
-		collectSavedFiles();
-	}, [collectSavedFiles]);
+	const selectedSlide = useMemo(
+		() => slides.find((s) => s.selected) ?? null,
+		[slides]
+	);
 
-	const selectSlide = useCallback((index: number) => {
-		const nodes = Array.from(document.querySelectorAll(".list .slide"));
-		const target = nodes[index] as HTMLElement | undefined;
-		if (!target) {
-			return;
-		}
-		target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-		target.click();
-		collectSlides();
-	}, [collectSlides]);
+	const selectSlide = (index: number) => {
+		ViewerCommands.selectSlideByIndex(index);
+	};
 
-	const cloneSelected = useCallback(() => {
-		const node = document.querySelector(".list .slide.selected .clone") as HTMLElement | null;
-		if (!node) {
-			return;
-		}
-		node.click();
-		collectSlides();
-	}, [collectSlides]);
+	const selectSavedFile = (value: string) => {
+		ViewerCommands.selectSavedFile(value);
+		ViewerCommands.loadSelectedSavedFile();
+	};
 
-	const deleteSelected = useCallback(() => {
-		const node = document.querySelector(".list .slide.selected .delete") as HTMLElement | null;
-		if (!node) {
-			return;
-		}
-		node.click();
-		collectSlides();
-	}, [collectSlides]);
-
-	const modeText = useMemo(() => {
-		return mode === "mobile-pwa" ? "mobile-pwa" : "browser";
-	}, [mode]);
-
-	const selectedFile = useMemo(() => {
-		return savedFiles.find((file) => file.selected) || null;
-	}, [savedFiles]);
+	const modeText = mode === "mobile-pwa" ? "mobile-pwa" : "browser";
 
 	return (
 		<Paper
@@ -175,19 +109,19 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 					Slide List (React control)
 				</Text>
 				<Group grow>
-					<Button size="xs" variant="light" onClick={() => clickNode(".list .newSlideBtn")} disabled={!gate.canEdit}>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.newSlide()} disabled={!gate.canEdit}>
 						New
 					</Button>
-					<Button size="xs" variant="light" onClick={cloneSelected} disabled={!gate.canEdit || !selectedSlide}>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.cloneSelectedSlide()} disabled={!gate.canEdit || !selectedSlide}>
 						Clone
 					</Button>
-					<Button size="xs" color="red" variant="light" onClick={deleteSelected} disabled={!gate.canEdit || !selectedSlide}>
+					<Button size="xs" color="red" variant="light" onClick={() => ViewerCommands.deleteSelectedSlide()} disabled={!gate.canEdit || !selectedSlide}>
 						Delete
 					</Button>
 				</Group>
 				<Group grow>
-					<Button size="xs" variant="default" onClick={() => clickNode(".selectSlideBtn.prev")}>Prev</Button>
-					<Button size="xs" variant="default" onClick={() => clickNode(".selectSlideBtn.next")}>Next</Button>
+					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectPreviousSlide()}>Prev</Button>
+					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectNextSlide()}>Next</Button>
 				</Group>
 				<ScrollArea h={120} type="auto">
 					<Stack gap={4}>
@@ -215,28 +149,41 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 					File Ops (React control)
 				</Text>
 				<Group grow>
-					<Button size="xs" variant="light" onClick={() => clickNode("#menu #fileIo .new")} disabled={!gate.canEdit}>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.newDocument()} disabled={!gate.canEdit}>
 						New Doc
 					</Button>
-					<Button size="xs" variant="light" onClick={() => clickNode("#menu #fileIo .import")} disabled={!gate.canImport}>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.openImportDialog()} disabled={!gate.canImport}>
 						Import
 					</Button>
-					<Button size="xs" variant="light" onClick={() => clickNode("#menu #fileIo .export")} disabled={!gate.canExport}>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.exportDocument()} disabled={!gate.canExport}>
 						Export
 					</Button>
 				</Group>
 				<Group grow>
-					<Button size="xs" variant="light" onClick={() => clickNode("#menu .save")} disabled={!gate.canSave}>
+					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectPreviousSavedFile()} disabled={savedFiles.length === 0}>
+						Slot Prev
+					</Button>
+					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectNextSavedFile()} disabled={savedFiles.length === 0}>
+						Slot Next
+					</Button>
+				</Group>
+				<Group grow>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.saveDocument()} disabled={!gate.canSave}>
 						Save
 					</Button>
-					<Button size="xs" variant="light" onClick={() => clickNode("#menu .load")}>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.loadSelectedSavedFile()} disabled={!selectedFileId}>
 						Load
 					</Button>
-					<Button size="xs" color="red" variant="light" onClick={() => clickNode("#menu .dispose")} disabled={!gate.canDeleteSavedData || !selectedFile || selectedFile.value === "-1"}>
+					<Button
+						size="xs"
+						color="red"
+						variant="light"
+						onClick={() => ViewerCommands.deleteSelectedSavedFile()}
+						disabled={!gate.canDeleteSavedData || !selectedFileId || selectedFileId === "-1"}>
 						Delete
 					</Button>
 				</Group>
-				<Button size="xs" variant="default" onClick={() => clickNode("#menu .startSlideShow")}>
+				<Button size="xs" variant="default" onClick={() => ViewerCommands.startSlideshow()}>
 					Start SlideShow
 				</Button>
 				<ScrollArea h={84} type="auto">
@@ -250,10 +197,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Text
 									key={file.value + file.label}
 									size="xs"
-									fw={file.selected ? 700 : 400}
+									fw={selectedFileId === file.value ? 700 : 400}
 									style={{ cursor: "pointer" }}
 									onClick={() => selectSavedFile(file.value)}>
-									{file.selected ? "● " : "○ "}
+									{selectedFileId === file.value ? "● " : "○ "}
 									{file.label}
 								</Text>
 							))

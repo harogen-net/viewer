@@ -292,6 +292,56 @@
 - `initializeRuntime` の戻り値を `void` に変更し、`initializeControllers` の `progressBar` 引数を削除
 - `obj` 型を `any` → `JQuery` に絞り追加し、型安全性を向上
 
+### 6.30 ViewerBridge 導入（2026-06-11 追記）
+- `src/bridge/ViewerBridge.ts` を追加し、Viewer(jQuery)↔React の型付きイベントバスを実装
+- Viewer から `slidesChanged/selectionChanged/savedFilesChanged/modifiedChanged/modeChanged` を emit
+- `RuntimeShell` の MutationObserver ポーリングを廃止し、Bridge 購読ベースへ全面切り替え
+- これにより React が DOM を直接監視する必要がなくなり、React 状態の信頼性が向上
+
+### 6.31 ListViewController Bridge 統合（2026-06-11 追記）
+- `addSlide/removeSlide/onSlideSort/selectSlide/set slides` から `slidesChanged/selectionChanged` を emit
+- スライド追加・削除・並び替え・選択変化がリアルタイムで React に通知される
+
+### 6.32 useViewerBridge hooks 追加（2026-06-11 追記）
+- `src/bridge/useViewerBridge.ts` を追加し、4つのカスタム hooks を提供
+  - `useViewerSlides` — スライド一覧 + 選択インデックス
+  - `useViewerStorage` — 保存済みファイルタイトル一覧
+  - `useViewerModified` — 変更フラグ
+  - `useViewerMode` — 現在の Viewer mode
+- 任意の React コンポーネントから Viewer 状態を 1行で購読可能になり、Phase 3 移行を加速
+
+### 6.33 ViewerCommands 導入と RuntimeShell 操作の分離（2026-06-11 追記）
+- `src/bridge/ViewerCommands.ts` を追加し、React から `Viewer.shared` の公開コマンドを呼び出す境界を追加
+- `Viewer` に公開コマンドメソッド（slide/file/slideshow）を実装し、UI操作をメソッド呼び出しへ統一
+- `ListViewController` に公開操作APIを追加し、スライド操作を DOM イベント経由ではなく Controller API で実行
+- `RuntimeShell` は主要ボタン処理の `querySelector(...).click()` を撤去し、`ViewerCommands` + `useViewerBridge` ベースへ移行
+- これにより React 側のコマンド実行経路から DOM セレクタ依存を大幅に削減
+
+### 6.34 保存ファイル選択状態のBridge同期（2026-06-11 追記）
+- `ViewerBridge` に `savedFileSelectionChanged` を追加
+- `FileSelector` は dropdown更新・手動選択・up/down移動時に選択IDを bridge emit
+- `Viewer.commandLoadSavedFile` でも選択IDを bridge emit し、React操作経路でも同期
+- `RuntimeShell` は `useViewerSavedFileSelection` で選択状態を購読し、ローカル state 依存を削減
+- これにより legacy UI と React Shell 間の保存ファイル選択ズレを抑制
+
+### 6.35 保存ファイル操作の選択ベース化（2026-06-11 追記）
+- `Viewer` に `selectedSavedFileId` を導入し、保存ファイル選択を controller 内部状態として保持
+- `ViewerCommands` に `selectSavedFile/loadSelectedSavedFile/deleteSelectedSavedFile/selectNextSavedFile/selectPreviousSavedFile` を追加
+- `RuntimeShell` は file id を毎回渡す方式から、選択状態 + 実行コマンド方式へ移行
+- これにより React 側の file operation 導線が「選択」と「実行」に分離され、次段の FileSelector 置換が容易化
+
+### 6.36 legacy FileSelector のコマンド経路統一（2026-06-11 追記）
+- `FileSelector` は `DocumentStorageUseCase.load/delete` の直接呼び出しをやめ、`Viewer.shared.command*` を利用
+- 対象操作: select change, `.load`, `.dispose`, `.fileSelect up/down`
+- `savedFileSelectionChanged` 購読で legacy dropdown 表示を同期し、選択状態の責務を Viewer に集約
+- これにより legacy UI と React UI が同一コマンド経路を使うようになり、保存系移行の分岐を削減
+
+### 6.37 FileSelector の Bridge同期専用化（2026-06-11 追記）
+- `FileSelector` から `DocumentStorageUseCase` 依存を削除
+- `savedFilesChanged` 受信時に legacy select options を再構築し、`savedFileSelectionChanged` で選択表示を同期
+- `Viewer.setupIOBindings` は `new FileSelector()` のみを行い、保存データ取得責務を `Viewer` の storage event 処理へ集約
+- これにより legacy 層のデータ責務が縮小し、Phase3 での FileSelector 撤去準備が進展
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch

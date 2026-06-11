@@ -112,6 +112,20 @@
   - `DocumentStorageUseCase` の未使用な汎用 event passthrough API を削除し、公開境界を意味論APIに限定
   - `Viewer` の jQuery セレクタ文字列を `SEL` 定数へ集約し、散在する文字列リテラルを削減
   - `Viewer` の `progressBar` をフィールドへ昇格し、`obj` 型を `JQuery` に絞り込んで `any` を排除
+  - `src/bridge/ViewerBridge.ts` を追加し、Viewer と React の間に型付きイベントバスを導入
+  - `Viewer` が `slidesChanged/selectionChanged/savedFilesChanged/modifiedChanged/modeChanged` を Bridge 経由で emit するよう実装
+  - `RuntimeShell` の MutationObserver ポーリングを廃止し、ViewerBridge 購読ベースの状態管理へ切り替え
+  - `ListViewController` の `addSlide/removeSlide/onSlideSort/selectSlide/set slides` から `slidesChanged/selectionChanged` を emit し、スライド操作をリアルタイムで React に通知
+  - `src/bridge/useViewerBridge.ts` を追加し、`useViewerSlides/useViewerStorage/useViewerModified/useViewerMode` hooks を提供
+  - `src/bridge/ViewerCommands.ts` を追加し、RuntimeShell の主要操作（slide/file/slideshow）を DOM click ではなく Viewer コマンド呼び出しへ移行
+  - `ListViewController` に公開操作API（new/clone/delete/select prev/next/index）を追加し、React 側の操作導線を jQuery DOM 依存から分離
+  - `savedFileSelectionChanged` bridge event を追加し、FileSelector / Viewer command の双方から保存ファイル選択状態を React へ同期
+  - `Viewer` に保存ファイル選択状態 (`selectedSavedFileId`) と選択ベースコマンド（select/load/delete/next/prev）を追加し、React 側の ID 直渡し依存を縮小
+  - `RuntimeShell` の File Ops を `loadSelectedSavedFile` / `deleteSelectedSavedFile` / `selectNextSavedFile` / `selectPreviousSavedFile` へ切り替え
+  - `FileSelector` の load/delete/up/down 操作を `Viewer.shared.command*` 経路へ統一し、legacy UI と React UI の実行パスを共通化
+  - `FileSelector` は `savedFileSelectionChanged` を購読して legacy select 表示を同期し、選択状態の単一ソースを Viewer 側へ集約
+  - `FileSelector` の `DocumentStorageUseCase` 依存を削除し、`savedFilesChanged` / `savedFileSelectionChanged` 購読ベースの表示同期コンポーネントへ縮退
+  - `Viewer.setupIOBindings` は `new FileSelector()` へ変更し、保存データの取得責務を `Viewer` 側へ一本化
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`
@@ -128,7 +142,12 @@
     - `src/storage/createStorageAdapter.ts`
     - `src/useCase/DocumentStorageUseCase.ts`
     - `src/useCase/storageActionResult.ts`
+    - `src/bridge/ViewerCommands.ts`
+    - `src/bridge/ViewerBridge.ts`
+    - `src/bridge/useViewerBridge.ts`
     - `src/Viewer.ts`
+    - `src/react/RuntimeShell.tsx`
+    - `src/viewController/ListViewController.ts`
     - `src/viewController/file/FileSelector.ts`
     - `src/utils/SlideStorage.ts`
 

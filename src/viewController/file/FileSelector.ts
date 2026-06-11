@@ -1,64 +1,69 @@
 import $ from "jquery";
-import { showNotice } from "../../runtime/notice";
-import { DocumentStorageUseCase } from "../../useCase/DocumentStorageUseCase";
-import { handleStorageActionResult } from "../../useCase/storageActionResult";
+import { ViewerBridge } from "../../bridge/ViewerBridge";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
 type SelectValue = string | number | string[] | null;
 
 export class FileSelector {
-	constructor(private readonly documentStorage: DocumentStorageUseCase) {
+	constructor() {
 		let selectObj = $("select.filename");
 
-		const handleResult = (resultPromise: ReturnType<DocumentStorageUseCase["loadResult"]>) => {
-			handleStorageActionResult(resultPromise, (message) => {
-				showNotice(message);
-			});
+		const selectSavedFile = (val: SelectValue) => {
+			const selectedId = val == null || val == -1 ? null : String(val);
+			Viewer.shared.commandSelectSavedFile(selectedId);
 		};
 
-		this.documentStorage.onUpdated(() => {
-			let index = selectObj.prop("selectedIndex");
-			let selectedValue =
-				parseInt(($("select.filename option")[index] as HTMLOptionElement).value) || 0;
-			let initOption = $("select.filename option")[0];
+		const rebuildOptions = (titles: readonly { id: number; title: string }[]) => {
+			const selectedValue = selectObj.val();
+			const initOption = $("select.filename option")[0];
 			selectObj.empty();
 			selectObj.append($(initOption));
 
-			let nextIndex = index;
-			this.documentStorage.getTitles().forEach((datum, index2) => {
-				if (datum.id == selectedValue) {
-					nextIndex = index2 + 1;
-				}
+			titles.forEach((datum) => {
 				selectObj.append(`<option value="${datum.id}">${datum.title}</option>`);
 			});
 
-			if (nextIndex < 0) nextIndex = 0;
-			if (nextIndex > this.documentStorage.getTitles().length)
-				nextIndex = this.documentStorage.getTitles().length;
-			selectObj.prop("selectedIndex", nextIndex);
-
-			let nextValue = ($("select.filename option")[nextIndex] as HTMLOptionElement).value;
-			if (nextValue) {
-				handleResult(this.documentStorage.loadResult(nextValue));
+			const selectedStillExists =
+				selectedValue != null &&
+				selectedValue != -1 &&
+				titles.some((t) => String(t.id) === String(selectedValue));
+			if (selectedStillExists) {
+				selectObj.val(String(selectedValue));
+				return;
 			}
+			if (titles.length > 0) {
+				selectObj.val(String(titles[0].id));
+			} else {
+				selectObj.val("-1");
+			}
+		};
+
+		ViewerBridge.subscribe("savedFilesChanged", ({ titles }) => {
+			rebuildOptions(titles);
+			selectSavedFile(selectObj.val());
 		});
 
 		const handleSelectChange = (val: SelectValue) => {
+			selectSavedFile(val);
 			if (val == -1 || val == null) return;
-			handleResult(this.documentStorage.loadResult(val));
+			Viewer.shared.commandLoadSelectedSavedFile();
 		};
 
 		selectObj.change((e) => {
 			handleSelectChange(selectObj.val());
 		});
 
+		ViewerBridge.subscribe("savedFileSelectionChanged", ({ selectedId }) => {
+			selectObj.val(selectedId ?? "-1");
+		});
+
 		const handleFileSelectClick = (direction: boolean) => {
-			const val = selectObj.val();
-			const targetOp = selectObj.find(`option[value="${val}"]`)[direction ? "next" : "prev"]();
-			if (targetOp.length == 0) return;
-			const nextVal = targetOp.attr("value");
-			selectObj.val(nextVal);
-			handleResult(this.documentStorage.loadResult(nextVal));
+			if (direction) {
+				Viewer.shared.commandSelectNextSavedFile();
+			} else {
+				Viewer.shared.commandSelectPreviousSavedFile();
+			}
+			Viewer.shared.commandLoadSelectedSavedFile();
 		};
 
 		$(".fileSelect.up").click(() => handleFileSelectClick(false));
@@ -69,18 +74,18 @@ export class FileSelector {
 		});
 
 		const handleDispose = () => {
-			let val = selectObj.val();
-			if (val == -1 || val == null) return;
+			selectSavedFile(selectObj.val());
 			if (
 				Viewer.startUpMode != ViewerStartUpMode.VIEW_ONLY ||
 				window.confirm("delete selected save data. Are you sure?")
 			) {
-				handleResult(this.documentStorage.deleteResult(val));
+				Viewer.shared.commandDeleteSelectedSavedFile();
 			}
 		};
 
 		const disposeEvent =
 			Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT ? "dblclick" : "click";
 		$(".dispose").on(disposeEvent, handleDispose);
+		selectSavedFile(selectObj.val());
 	}
 }
