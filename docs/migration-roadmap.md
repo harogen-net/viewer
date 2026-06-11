@@ -126,6 +126,17 @@
   - `FileSelector` は `savedFileSelectionChanged` を購読して legacy select 表示を同期し、選択状態の単一ソースを Viewer 側へ集約
   - `FileSelector` の `DocumentStorageUseCase` 依存を削除し、`savedFilesChanged` / `savedFileSelectionChanged` 購読ベースの表示同期コンポーネントへ縮退
   - `Viewer.setupIOBindings` は `new FileSelector()` へ変更し、保存データの取得責務を `Viewer` 側へ一本化
+  - legacy の `select.filename` / `.fileSelect` / `.load` / `.dispose` を `FileSelector` 内で無効化し、保存系操作導線を RuntimeShell 側へ集約
+  - `Menu` から legacy 保存UI（`select.filename` / `.fileSelect` / `.save` / `.load` / `.dispose`）を除去し、保存系操作の正規導線を RuntimeShell に一本化
+  - `Viewer` の `FileSelector` 初期化を停止し、保存UIミラー層を起動経路から外した
+  - 未参照となった `src/viewController/file/FileSelector.ts` を削除し、legacy保存UIミラー層をコードベースから撤去
+  - `css/index.css` の `#menu button.fileSelect` スタイルと `applyFeatureGate` の `.dispose` ガードを削除し、保存UI撤去後の死んだコードを整理
+  - `Menu` の空プレースホルダ `<div>` を削除し、保存UI撤去後のDOMを簡素化
+  - `Viewer` の legacy 保存ボタンセレクタ（`.save`）バインドと `applyFeatureGate` の `.save` 制御を削除し、保存導線の正規化を反映
+  - `Menu` から legacy ファイル操作DOM（`startSlideShow` / `files...` pulldown / `input.import`）を除去し、RuntimeShell 導線へ集約
+  - `Viewer` から `.new/.export/.zip/.startSlideShow/button.import/input.import` の legacy バインドを削除し、`command*` 実行中心へ整理
+  - `commandOpenImportDialog` を動的 file input 生成方式へ変更し、legacy DOM input 依存を解消
+  - `RuntimeShell` に `Export Img` を追加して legacy `zip` 操作の機能を維持
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`
@@ -148,7 +159,6 @@
     - `src/Viewer.ts`
     - `src/react/RuntimeShell.tsx`
     - `src/viewController/ListViewController.ts`
-    - `src/viewController/file/FileSelector.ts`
     - `src/utils/SlideStorage.ts`
 
   ## Phase 1 完了判定（チェック）

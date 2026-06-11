@@ -342,6 +342,32 @@
 - `Viewer.setupIOBindings` は `new FileSelector()` のみを行い、保存データ取得責務を `Viewer` の storage event 処理へ集約
 - これにより legacy 層のデータ責務が縮小し、Phase3 での FileSelector 撤去準備が進展
 
+### 6.38 legacy 保存操作UIのミラー専用化（2026-06-11 追記）
+- `FileSelector` から `.load/.dispose/.fileSelect up/down/select change` の操作ハンドラを除去
+- `select.filename` と関連ボタンを disable + pointer-events none に設定
+- これにより保存操作の実行導線は RuntimeShell (`ViewerCommands`) に一本化され、legacy 側は表示ミラー責務のみを保持
+
+### 6.39 legacy 保存UIの撤去開始（2026-06-11 追記）
+- `Menu` から `select.filename` / `.fileSelect` / `.save` / `.load` / `.dispose` を除去
+- `Viewer.setupIOBindings` から `new FileSelector()` を削除し、legacy保存UIの起動経路を停止
+- これにより保存系の実行導線は `RuntimeShell + ViewerCommands` のみとなり、legacy保存UI撤去フェーズへ移行
+
+### 6.40 FileSelector 撤去完了（2026-06-11 追記）
+- 未参照となった `src/viewController/file/FileSelector.ts` を削除
+- `css/index.css` の `#menu button.fileSelect` と `applyFeatureGate` の `.dispose` 制御を削除し、撤去後の死んだコードを整理
+- これにより保存系 legacy UI は表示・実行ともにコードベースから除去され、保存導線は RuntimeShell 側へ完全移行
+
+### 6.41 保存UI撤去後のDOM/セレクタ整理（2026-06-11 追記）
+- `Menu` の空プレースホルダ `<div>` を削除し、撤去後のUI構造を簡素化
+- `Viewer` の `.save` click バインドを削除し、保存操作を `ViewerCommands` 経由に一本化
+- `applyFeatureGate` から `.save` 制御を削除し、存在しない legacy ボタンへの制御を解消
+
+### 6.42 ファイル操作DOM依存の削減（2026-06-11 追記）
+- `Menu` の `startSlideShow` / `files` pulldown / `input.import` を除去
+- `Viewer` の legacy セレクタバインド（`.new/.export/.zip/.startSlideShow/button.import/input.import`）を削除
+- `commandOpenImportDialog` は動的 file input 生成で import を実行し、DOM常駐input依存を解消
+- `RuntimeShell` に `Export Img` を追加し、`commandExportImages` 経由で画像書き出し機能を継続
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch

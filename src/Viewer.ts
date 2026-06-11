@@ -13,7 +13,6 @@ import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { ProgressBar } from "./view/ProgressBar";
 import { EditViewController } from "./viewController/EditViewController";
-import { FileSelector } from "./viewController/file/FileSelector";
 import { ListViewController } from "./viewController/ListViewController";
 import { SlideShowViewController } from "./viewController/SlideShowViewController";
 
@@ -44,13 +43,6 @@ export class Viewer {
 	private static readonly SEL = {
 		PREF_BUTTON: "#pref > button",
 		IMAGES_BUTTON: "#images > button",
-		NEW: ".new",
-		EXPORT: ".export",
-		SAVE: ".save",
-		ZIP: "button.zip",
-		IMPORT_BUTTON: "button.import",
-		IMPORT_INPUT: "input.import",
-		START_SLIDESHOW: ".startSlideShow",
 		MIRROR_H: "#cb_mirrorH",
 		MIRROR_V: "#cb_mirrorV",
 		BG_COLOR: "#bgColor",
@@ -65,6 +57,7 @@ export class Viewer {
 
 	private _mode: ViewerMode;
 	private selectedSavedFileId: string | null = null;
+	private importInput: HTMLInputElement | null = null;
 
 	private viewerDocument: ViewerDocument;
 	private _isDocumentModified = false;
@@ -143,121 +136,26 @@ export class Viewer {
 		});
 	}
 
-	private setupPulldownMenus(): void {
-		$(".pulldown").each(function (index, element) {
-			var self = $(element);
-			var opener = self.find(".pulldownOpener");
-			var targetId = opener.attr("data-target");
-			var target = $("#" + targetId);
-
-			var key = "mouseup." + targetId;
-			var isOpen = false;
-			opener.click(function (e) {
-				if (isOpen) {
-					hide();
-				} else {
-					show();
-				}
-			});
-			function show() {
-				isOpen = true;
-				target.slideDown(100);
-				$(document).on(key, function (e) {
-					if ((e.target as Node) == opener[0]) return;
-					hide();
-				});
-			}
-			function hide() {
-				isOpen = false;
-				target.slideUp(100);
-				$(document).off(key);
-			}
-		});
-	}
-
-	private bindEditModeIOHandlers(): void {
+	private bindPanelToggleHandlers(): void {
 		$(Viewer.SEL.PREF_BUTTON).click(() => {
 			$("#pref > .menu").toggle();
 		});
 		$(Viewer.SEL.IMAGES_BUTTON).click(() => {
 			$("#images > .container").toggle();
 		});
-		$(Viewer.SEL.NEW).click(() => {
-			if (!this.ensureAllowed(this.canEdit(), "新規作成")) return;
-			if (this.viewerDocument.slides.length == 0) return;
-			if (this.canProceedWithDiscard("clear slides and new document. Are you sure?")) {
-				this.newDocument();
-			}
-		});
-
-		$(Viewer.SEL.EXPORT).click(() => {
-			if (!this.ensureAllowed(this.canExport(), "書き出し")) return;
-			if (this.listVC.slides.length > 0) {
-				var type: HVDataType;
-				if ($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
-				if ($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
-				if ($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
-
-				const result = this.documentStorage.exportResult(this.viewerDocument, type, {
-					pages:
-						this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,
-				});
-				this.handleStorageResult(result);
-			}
-		});
 	}
 
 	private bindCommonIOHandlers(): void {
 		this.bindSlideShowHandlers();
-		this.bindSaveAndExportHandlers();
-		this.bindImportHandlers();
 		this.bindBackgroundColorHandler();
 	}
 
 	private bindSlideShowHandlers(): void {
-		$(Viewer.SEL.START_SLIDESHOW).click(() => {
-			this.startSlideShowFromSelection();
-		});
 		$(Viewer.SEL.MIRROR_H).click(() => {
 			this.slideShowVC.mirrorH = $(Viewer.SEL.MIRROR_H).prop("checked");
 		});
 		$(Viewer.SEL.MIRROR_V).click(() => {
 			this.slideShowVC.mirrorV = $(Viewer.SEL.MIRROR_V).prop("checked");
-		});
-	}
-
-	private bindSaveAndExportHandlers(): void {
-		$(Viewer.SEL.SAVE).click(() => {
-			if (!this.ensureAllowed(this.canSave(), "保存")) return;
-			if (this.listVC.slides.length == 0) return;
-			let isOverride = this.shouldOverrideSave();
-			const result = this.documentStorage.saveResult(this.viewerDocument, isOverride);
-			this.handleStorageResult(result);
-		});
-
-		$(Viewer.SEL.ZIP).click(() => {
-			if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
-			this.viewerDocument.downloadImage();
-		});
-	}
-
-	private bindImportHandlers(): void {
-		$(Viewer.SEL.IMPORT_BUTTON).click(() => {
-			if (!this.ensureAllowed(this.canImport(), "読み込み")) return;
-			if (this.canProceedWithDiscard("load slides. Are you sure?")) {
-				$(Viewer.SEL.IMPORT_INPUT)[0].click();
-			}
-		});
-		$(Viewer.SEL.IMPORT_INPUT).change((e) => {
-			if (!this.ensureAllowed(this.canImport(), "読み込み")) {
-				$(Viewer.SEL.IMPORT_INPUT).val("");
-				return;
-			}
-			const target = e.target as HTMLInputElement;
-			if (target.files && target.files[0]) {
-				this.handleStorageResult(this.documentStorage.importResult(target.files[0]));
-				$(Viewer.SEL.IMPORT_INPUT).val("");
-			}
 		});
 	}
 
@@ -294,7 +192,6 @@ export class Viewer {
 	}
 
 	private setupIOBindings(startUpMode: ViewerStartUpMode): void {
-		new FileSelector();
 		this.setupModeSpecificIOBindings(startUpMode);
 
 		this.bindCommonIOHandlers();
@@ -302,8 +199,7 @@ export class Viewer {
 
 	private setupModeSpecificIOBindings(startUpMode: ViewerStartUpMode): void {
 		if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			this.setupPulldownMenus();
-			this.bindEditModeIOHandlers();
+			this.bindPanelToggleHandlers();
 			return;
 		}
 
@@ -487,7 +383,12 @@ export class Viewer {
 			titles: this.documentStorage.getTitles(),
 		});
 		const titles = this.documentStorage.getTitles();
-		this.setSavedFileSelection(titles.length > 0 ? String(titles[0].id) : null);
+		const currentSelectionExists = this.findSavedFileIndex(this.selectedSavedFileId) !== -1;
+		if (currentSelectionExists) {
+			this.setSavedFileSelection(this.selectedSavedFileId);
+		} else {
+			this.setSavedFileSelection(titles.length > 0 ? String(titles[0].id) : null);
+		}
 	}
 
 	public setMode(mode: ViewerMode) {
@@ -559,7 +460,7 @@ export class Viewer {
 	public commandExportDocument(): void {
 		if (!this.ensureAllowed(this.canExport(), "書き出し")) return;
 		if (this.listVC.slides.length == 0) return;
-		let type: HVDataType;
+		let type: HVDataType = HVDataType.PNG;
 		if ($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
 		if ($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
 		if ($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
@@ -615,9 +516,30 @@ export class Viewer {
 
 	public commandOpenImportDialog(): void {
 		if (!this.ensureAllowed(this.canImport(), "読み込み")) return;
-		if (this.canProceedWithDiscard("load slides. Are you sure?")) {
-			$(Viewer.SEL.IMPORT_INPUT)[0].click();
+		if (!this.canProceedWithDiscard("load slides. Are you sure?")) return;
+
+		if (!this.importInput) {
+			const input = document.createElement("input");
+			input.type = "file";
+			input.accept = ".png,.hvd,.hvz";
+			input.style.display = "none";
+			input.onchange = () => {
+				const file = input.files?.[0];
+				if (!file) return;
+				this.handleStorageResult(this.documentStorage.importResult(file));
+				input.value = "";
+			};
+			document.body.appendChild(input);
+			this.importInput = input;
 		}
+
+		this.importInput.value = "";
+		this.importInput.click();
+	}
+
+	public commandExportImages(): void {
+		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
+		this.viewerDocument.downloadImage();
 	}
 
 	public commandStartSlideshow(): void {

@@ -7,13 +7,6 @@ export function applyFeatureGate(gate: FeatureGate): void {
 
 		// Hide edit-heavy tool areas and keep slideshow/list viewing focused.
 		$("#pref, #images").hide();
-
-		// Prevent destructive operations in readonly mode.
-		$(".save, .new, .export, .zip").prop("disabled", true);
-	}
-
-	if (!gate.canDeleteSavedData) {
-		$(".dispose").prop("disabled", true);
 	}
 
 	if (!gate.canImport) {

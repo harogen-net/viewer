@@ -69,6 +69,16 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.loadSelectedSavedFile();
 	};
 
+	const selectPreviousSavedFileAndLoad = () => {
+		ViewerCommands.selectPreviousSavedFile();
+		ViewerCommands.loadSelectedSavedFile();
+	};
+
+	const selectNextSavedFileAndLoad = () => {
+		ViewerCommands.selectNextSavedFile();
+		ViewerCommands.loadSelectedSavedFile();
+	};
+
 	const modeText = mode === "mobile-pwa" ? "mobile-pwa" : "browser";
 
 	return (
@@ -160,10 +170,15 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 					</Button>
 				</Group>
 				<Group grow>
-					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectPreviousSavedFile()} disabled={savedFiles.length === 0}>
+					<Button size="xs" variant="light" onClick={() => ViewerCommands.exportImages()} disabled={!gate.canExport}>
+						Export Img
+					</Button>
+				</Group>
+				<Group grow>
+					<Button size="xs" variant="default" onClick={selectPreviousSavedFileAndLoad} disabled={savedFiles.length === 0}>
 						Slot Prev
 					</Button>
-					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectNextSavedFile()} disabled={savedFiles.length === 0}>
+					<Button size="xs" variant="default" onClick={selectNextSavedFileAndLoad} disabled={savedFiles.length === 0}>
 						Slot Next
 					</Button>
 				</Group>

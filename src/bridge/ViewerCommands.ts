@@ -33,6 +33,9 @@ export const ViewerCommands = {
 	exportDocument(): void {
 		getViewer()?.commandExportDocument();
 	},
+	exportImages(): void {
+		getViewer()?.commandExportImages();
+	},
 	openImportDialog(): void {
 		getViewer()?.commandOpenImportDialog();
 	},
