@@ -1,7 +1,7 @@
 import $ from "jquery";
 import { showNotice } from "../../runtime/notice";
-import { DocumentStorageUseCase, type StorageActionResult } from "../../useCase/DocumentStorageUseCase";
-import { isStorageActionFailure } from "../../useCase/storageActionResult";
+import { DocumentStorageUseCase } from "../../useCase/DocumentStorageUseCase";
+import { handleStorageActionResult } from "../../useCase/storageActionResult";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 
 type SelectValue = string | number | string[] | null;
@@ -10,11 +10,9 @@ export class FileSelector {
 	constructor(private readonly documentStorage: DocumentStorageUseCase) {
 		let selectObj = $("select.filename");
 
-		const handleResult = (resultPromise: Promise<StorageActionResult>) => {
-			resultPromise.then((result) => {
-				if (isStorageActionFailure(result)) {
-					showNotice(result.message);
-				}
+		const handleResult = (resultPromise: ReturnType<DocumentStorageUseCase["loadResult"]>) => {
+			handleStorageActionResult(resultPromise, (message) => {
+				showNotice(message);
 			});
 		};
 

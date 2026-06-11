@@ -211,6 +211,12 @@
 - `Viewer` / `FileSelector` は `StorageEventType` 直接依存を減らし、UseCase の意味論 API を利用
 - UI 層から storage event 名の知識を剥離し、境界責務を明確化
 
+### 6.14 Result通知処理の共通化（2026-06-11 追記）
+- `src/useCase/storageActionResult.ts` に `handleStorageActionResult` を追加
+- `Viewer` の save/export/import は共通ヘルパー経由で失敗通知を処理
+- `FileSelector` の load/delete も同ヘルパー経由に統一
+- これにより UI 層の通知ロジック重複を削減し、Result モデル拡張時の追従箇所を最小化
+
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
 - 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch

@@ -1,13 +1,13 @@
 import { ViewerDocument } from "../model/ViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
 import {
-	createStorageOperationError,
-	StorageAdapter,
-	StorageErrorCode,
-	StorageEventCallback,
-	StorageEventType,
-	StorageExportOptions,
-	StorageRecordId,
+    createStorageOperationError,
+    StorageAdapter,
+    StorageErrorCode,
+    StorageEventCallback,
+    StorageEventType,
+    StorageExportOptions,
+    StorageRecordId,
 } from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../storage/storageTypes";
 
@@ -151,7 +151,7 @@ export class DocumentStorageUseCase {
 		if (id == null) return undefined;
 
 		if (Array.isArray(id)) {
-			return id.length > 0 ? id[0] : undefined;
+			return id.length > 0 ? this.normalizeId(id[0]) : undefined;
 		}
 
 		if (typeof id == "number") {

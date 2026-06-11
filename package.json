@@ -20,7 +20,8 @@
     "check:phase2-sensitive": "node scripts/check-phase2-sensitive.mjs",
     "dev": "vite",
     "gen:phase2-png-fixture": "node scripts/generate-phase2-png-fixture.mjs",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "test:usecase": "node --import tsx --test tests/useCase/**/*.test.ts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -51,6 +52,7 @@
     "prettier": "^3.8.4",
     "sass": "^1.77.2",
     "ts-loader": "^9.4.2",
+    "tsx": "^4.22.4",
     "typescript": "^4.9.5",
     "vite": "^5.2.11",
     "vite-plugin-pwa": "^0.20.0"

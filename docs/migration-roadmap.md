@@ -96,6 +96,7 @@
   - `LegacyCanvasMenu` / `LegacyListContextMenus` / `LegacySideControls` に新命名エクスポート（`CanvasMenu`/`ListContextMenus`/`CopyPasteControls` ほか）を追加し、`MainShell` 側参照を新命名へ切り替え
   - 新しい再エクスポートファイル（`AppShell`/`MainShell`/`Menu`/`Panels`/`CanvasMenu`/`ListContextMenus`/`SideControls`）を追加し、import 参照の段階移行を開始
   - 本体実装を新ファイル側（`AppShell.tsx` など）へ移し、`Legacy*.tsx` は互換再エクスポート層へ反転
+  - `StorageActionResult` の失敗通知処理を共通ヘルパー化し、`Viewer` / `FileSelector` の save/export/import/load/delete で通知導線を統一
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`

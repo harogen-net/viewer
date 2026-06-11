@@ -6,8 +6,8 @@ import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
-import { DocumentStorageUseCase } from "./useCase/DocumentStorageUseCase";
-import { isStorageActionFailure } from "./useCase/storageActionResult";
+import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
+import { handleStorageActionResult } from "./useCase/storageActionResult";
 import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { ProgressBar } from "./view/ProgressBar";
@@ -50,6 +50,12 @@ export class Viewer {
 
 	private viewerDocument: ViewerDocument;
 	IsDocumentModified: boolean;
+
+	private handleStorageResult(resultPromise: Promise<StorageActionResult>) {
+		handleStorageActionResult(resultPromise, (message) => {
+			showNotice(message);
+		});
+	}
 
 	constructor(
 		public obj: any,
@@ -211,11 +217,7 @@ export class Viewer {
 							pages:
 								this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,
 						});
-						result.then((res) => {
-							if (isStorageActionFailure(res)) {
-								showNotice(res.message);
-							}
-						});
+						this.handleStorageResult(result);
 					}
 				});
 			} else {
@@ -247,11 +249,7 @@ export class Viewer {
 				if (this.listVC.slides.length == 0) return;
 				let isOverride = window.confirm("override?");
 				const result = this.documentStorage.saveResult(this.viewerDocument, isOverride);
-				result.then((res) => {
-					if (isStorageActionFailure(res)) {
-						showNotice(res.message);
-					}
-				});
+				this.handleStorageResult(result);
 			});
 
 			$("button.zip").click(() => {
@@ -272,11 +270,7 @@ export class Viewer {
 				if (!this.canImport()) return;
 				const target = e.target as HTMLInputElement;
 				if (target.files && target.files[0]) {
-					this.documentStorage.importResult(target.files[0]).then((result) => {
-						if (isStorageActionFailure(result)) {
-							showNotice(result.message);
-						}
-					});
+					this.handleStorageResult(this.documentStorage.importResult(target.files[0]));
 					$("input.import").val("");
 				}
 			});
