@@ -57,6 +57,7 @@ export type ViewerBridgeEventMap = {
 		name: string | null;
 		visible: boolean | null;
 		locked: boolean | null;
+		shared: boolean | null;
 		x: number | null;
 		y: number | null;
 		scale: number | null;

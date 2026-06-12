@@ -444,8 +444,11 @@ export class EditViewController extends EventDispatcher {
 		}
 	}
 
-	private onObservedLayerUpdate = () => {
+	private onObservedLayerUpdate = (pe: PropertyEvent) => {
 		this.emitSelectedLayerState();
+		if (pe.propFlags & (PropFlags.NAME | PropFlags.LOCKED | PropFlags.VISIBLE | PropFlags.SHARED)) {
+			this.emitLayerListState();
+		}
 	};
 
 	private emitSelectedLayerState(): void {
@@ -458,6 +461,7 @@ export class EditViewController extends EventDispatcher {
 						name: null,
 						visible: null,
 						locked: null,
+						shared: null,
 						clipTop: null,
 						clipRight: null,
 						clipBottom: null,
@@ -475,6 +479,7 @@ export class EditViewController extends EventDispatcher {
 					name: layer.name,
 					visible: layer.visible,
 					locked: layer.locked,
+					shared: layer.shared,
 					layerType: layer.type,
 					x: layer.x,
 					y: layer.y,

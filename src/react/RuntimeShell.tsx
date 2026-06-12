@@ -2,23 +2,23 @@ import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Text } fr
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
-	useViewerEditCanvasState,
-	useViewerEditLayerState,
-	useViewerEditLayers,
-	useViewerEditSelection,
-	useViewerHistory,
-	useViewerMode,
-	useViewerSavedFileSelection,
-	useViewerSlides,
-	useViewerSlideshowSettings,
-	useViewerStorage,
+    useViewerEditCanvasState,
+    useViewerEditLayerState,
+    useViewerEditLayers,
+    useViewerEditSelection,
+    useViewerHistory,
+    useViewerMode,
+    useViewerSavedFileSelection,
+    useViewerSlides,
+    useViewerSlideshowSettings,
+    useViewerStorage,
 } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
 import {
-	getImagesContainerElement,
-	getSaveFormat,
-	setSaveFormat,
+    getImagesContainerElement,
+    getSaveFormat,
+    setSaveFormat,
 } from "../runtime/reactDomRegistry";
 
 const durationOptions = [
@@ -774,6 +774,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									disabled={!canEditSelectedLayer}>
 									{editLayerState.locked ? "Locked" : "Unlocked"}
 								</Button>
+								<Button
+									size="xs"
+									variant={editLayerState.shared ? "filled" : "default"}
+									onClick={() => ViewerCommands.toggleSelectedLayerShared()}
+									disabled={!canEditSelectedLayer}>
+									{editLayerState.shared ? "Shared" : "Local"}
+								</Button>
 							</Group>
 							<Text size="xs" c="dimmed">
 								x:{fmt(editLayerState.x, 0)} y:{fmt(editLayerState.y, 0)} scale:
@@ -929,7 +936,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 												style={{ cursor: "pointer" }}
 												onClick={() => ViewerCommands.selectEditLayerByIndex(layer.index)}>
 												{layer.selected ? "● " : "○ "}L{layer.index + 1} {layer.type}{" "}
-												{layer.visible ? "" : "(hidden)"} {layer.locked ? "(locked)" : ""}
+												{layer.visible ? "" : "(hidden)"} {layer.locked ? "(locked)" : ""}{" "}
+												{layer.shared ? "(shared)" : ""}
 											</Text>
 										))
 									)}

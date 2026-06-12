@@ -490,6 +490,11 @@ export function LayerControls() {
         setRenamingId(null);
     };
 
+    const getLayerLabel = (layer: (typeof layers)[number]) => {
+        if (layer.name) return layer.name;
+        return layer.type === "image" ? "イメージ" : layer.type;
+    };
+
     return (
         <ul className="layerList" data-react-controlled="true">
             {layers.map((layer) => (
@@ -500,7 +505,7 @@ export function LayerControls() {
                     data-react-controlled="true"
                 >
                     <button
-                        className="visible"
+                        className={`eye${layer.visible ? " on" : ""}`}
                         data-react-controlled="true"
                         onClick={(e) => handleToggleVisible(layer.index, e)}
                         disabled={!canEditLayers}
@@ -509,7 +514,7 @@ export function LayerControls() {
                         <i className={layer.visible ? "fas fa-eye" : "fas fa-eye-slash"}></i>
                     </button>
                     <button
-                        className="locked"
+                        className={`lock${layer.locked ? " on" : ""}`}
                         data-react-controlled="true"
                         onClick={(e) => handleToggleLocked(layer.index, e)}
                         disabled={!canEditLayers}
@@ -518,7 +523,7 @@ export function LayerControls() {
                         <i className={layer.locked ? "fas fa-lock" : "fas fa-unlock"}></i>
                     </button>
                     <button
-                        className="share"
+                        className={`share${layer.shared ? " on" : ""}`}
                         data-react-controlled="true"
                         onClick={(e) => handleToggleShared(layer.index, e)}
                         disabled={!canEditLayers}
@@ -549,7 +554,7 @@ export function LayerControls() {
                             onDoubleClick={(e) => startRename(layer.id, layer.name, e)}
                             title="double-click to rename"
                         >
-                            {layer.name} ({layer.type})
+                            {getLayerLabel(layer)} ({layer.type})
                         </span>
                     )}
                     <button

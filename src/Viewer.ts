@@ -300,6 +300,7 @@ export class Viewer {
 				name: typeof e.detail?.name == "string" ? e.detail.name : null,
 				visible: typeof e.detail?.visible == "boolean" ? e.detail.visible : null,
 				locked: typeof e.detail?.locked == "boolean" ? e.detail.locked : null,
+				shared: typeof e.detail?.shared == "boolean" ? e.detail.shared : null,
 				x: typeof e.detail?.x == "number" ? e.detail.x : null,
 				y: typeof e.detail?.y == "number" ? e.detail.y : null,
 				scale: typeof e.detail?.scale == "number" ? e.detail.scale : null,

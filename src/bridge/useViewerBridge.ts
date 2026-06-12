@@ -120,6 +120,7 @@ export function useViewerEditLayerState(): {
 	name: string | null;
 	visible: boolean | null;
 	locked: boolean | null;
+	shared: boolean | null;
 	x: number | null;
 	y: number | null;
 	scale: number | null;
@@ -140,6 +141,7 @@ export function useViewerEditLayerState(): {
 		name: null,
 		visible: null,
 		locked: null,
+		shared: null,
 		x: null,
 		y: null,
 		scale: null,
