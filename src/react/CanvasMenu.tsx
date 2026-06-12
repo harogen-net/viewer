@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerEditCanvasState, useViewerHistory, useViewerMode } from "../bridge/useViewerBridge";
 
@@ -5,6 +6,7 @@ export function CanvasMenu() {
 	const { canUndo, canRedo } = useViewerHistory();
 	const { mode } = useViewerMode();
 	const editCanvasState = useViewerEditCanvasState();
+	const [directionOpen, setDirectionOpen] = useState(false);
 	const isEditMode = mode === "edit";
 
 	return (
@@ -54,48 +56,105 @@ export function CanvasMenu() {
 				</button>
 			</div>
 			<div>
-				<button className="cut" data-desc="cut selected image">
+				<button
+					className="cut"
+					data-desc="cut selected image"
+					data-react-controlled="true"
+					onClick={() => ViewerCommands.cutSelectedLayer()}>
 					<i className="fas fa-cut"></i>
 				</button>
-				<button className="copy" data-desc="copy selected image">
+				<button
+					className="copy"
+					data-desc="copy selected image"
+					data-react-controlled="true"
+					onClick={() => ViewerCommands.copySelectedLayer()}>
 					<i className="fas fa-copy"></i>
 				</button>
-				<button className="paste" data-desc="paste copyed image">
+				<button
+					className="paste"
+					data-desc="paste copyed image"
+					data-react-controlled="true"
+					onClick={() => ViewerCommands.pasteLayer()}>
 					<i className="fas fa-paste"></i>
 				</button>
 			</div>
 			<div className="buttonGroup">
-				<button className="fit" data-desc="fit selected image to canvas">
+				<button
+					className="fit"
+					data-desc="fit selected image to canvas"
+					data-react-controlled="true"
+					onClick={() => ViewerCommands.fitSelectedLayer()}>
 					<i className="fas fa-expand"></i>
 				</button>
-				<button className="rotateL" data-desc="rotate selected image counterclockwise">
+				<button
+					className="rotateL"
+					data-desc="rotate selected image counterclockwise"
+					data-react-controlled="true"
+					onClick={() => ViewerCommands.rotateSelectedLayerLeft()}>
 					<i className="fas fa-undo" data-desc="rotate selected image clockwise"></i>
 				</button>
-				<button className="rotateR" data-desc="rotate selected image clockwise">
+				<button
+					className="rotateR"
+					data-desc="rotate selected image clockwise"
+					data-react-controlled="true"
+					onClick={() => ViewerCommands.rotateSelectedLayerRight()}>
 					<i className="fas fa-redo"></i>
 				</button>
 				<div className="pulldown">
-					<button className="pulldownOpener toAnyWhere" data-target="direction" data-desc="move selected layer to...">
+					<button
+						className="pulldownOpener toAnyWhere"
+						data-target="direction"
+						data-desc="move selected layer to..."
+						data-react-controlled="true"
+						onClick={() => setDirectionOpen((v) => !v)}>
 						<i className="fas fa-arrows-alt"></i>
 					</button>
-					<ul id="direction">
+					<ul id="direction" style={{ display: directionOpen ? "block" : "none" }}>
 						<li>
-							<button className="toTop at t" data-desc="move selected layer to top">
+							<button
+								className="toTop at t"
+								data-desc="move selected layer to top"
+								data-react-controlled="true"
+								onClick={() => {
+									setDirectionOpen(false);
+									ViewerCommands.arrangeSelectedLayerTop();
+								}}>
 								<i className="fas fa-arrow-up"></i>
 							</button>
 						</li>
 						<li>
-							<button className="toBottom at b" data-desc="move selected layer to bottom">
+							<button
+								className="toBottom at b"
+								data-desc="move selected layer to bottom"
+								data-react-controlled="true"
+								onClick={() => {
+									setDirectionOpen(false);
+									ViewerCommands.arrangeSelectedLayerBottom();
+								}}>
 								<i className="fas fa-arrow-down"></i>
 							</button>
 						</li>
 						<li>
-							<button className="toLeft at l" data-desc="move selected layer to left">
+							<button
+								className="toLeft at l"
+								data-desc="move selected layer to left"
+								data-react-controlled="true"
+								onClick={() => {
+									setDirectionOpen(false);
+									ViewerCommands.arrangeSelectedLayerLeft();
+								}}>
 								<i className="fas fa-arrow-left"></i>
 							</button>
 						</li>
 						<li>
-							<button className="toRight at r" data-desc="move selected layer to right">
+							<button
+								className="toRight at r"
+								data-desc="move selected layer to right"
+								data-react-controlled="true"
+								onClick={() => {
+									setDirectionOpen(false);
+									ViewerCommands.arrangeSelectedLayerRight();
+								}}>
 								<i className="fas fa-arrow-right"></i>
 							</button>
 						</li>
@@ -133,7 +192,11 @@ export function CanvasMenu() {
 					onClick={() => ViewerCommands.toggleRectEdit()}>
 					<i className="fas fa-th-large"></i>
 				</button>
-				<button className="spread" data-desc="spread selected image">
+				<button
+					className="spread"
+					data-desc="spread selected image"
+					data-react-controlled="true"
+					onClick={() => ViewerCommands.spreadSelectedLayer()}>
 					<i className="far fa-clone"></i>
 					<i className="fas fa-exchange-alt" style={{ fontSize: "70%" }}></i>
 				</button>
@@ -141,7 +204,10 @@ export function CanvasMenu() {
 			<div>
 				<span className="name">[スライド名]</span>
 			</div>
-			<button className="close">
+			<button
+				className="close"
+				data-react-controlled="true"
+				onClick={() => ViewerCommands.enterSelectMode()}>
 				<i className="fas fa-times"></i>
 			</button>
 		</>

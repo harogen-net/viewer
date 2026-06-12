@@ -333,10 +333,12 @@ export class EditViewController extends EventDispatcher {
 		});
 
 		$("label[for='cb_imageRef']").click((e) => {
+			if ((e.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			$("input#cb_imageRef").prop("checked", !$("input#cb_imageRef").prop("checked"));
 			return false;
 		});
 		$("input.imageRef").on("change", async (e) => {
+			if ((e.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			const file = (e.target as HTMLInputElement)?.files?.[0];
 			if (!file) return;
 			await this.replaceSelectedImage(file, $("input#cb_imageRef").prop("checked"));
@@ -344,7 +346,8 @@ export class EditViewController extends EventDispatcher {
 			$("input.imageRef").val(null);
 		});
 
-		$("#main .close").click(() => {
+		$("#main .close").click((e) => {
+			if ((e.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			this.dispatchEvent(new Event("close"));
 		});
 	}
