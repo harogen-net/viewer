@@ -1,7 +1,13 @@
 import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Text } from "@mantine/core";
 import { useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
-import { useViewerSavedFileSelection, useViewerSlides, useViewerSlideshowSettings, useViewerStorage } from "../bridge/useViewerBridge";
+import {
+    useViewerHistory,
+    useViewerSavedFileSelection,
+    useViewerSlides,
+    useViewerSlideshowSettings,
+    useViewerStorage,
+} from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
 
@@ -55,6 +61,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { titles } = useViewerStorage();
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();
+	const history = useViewerHistory();
 
 	const [collapsed, setCollapsed] = useState(false);
 	const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -214,6 +221,22 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				<Group grow>
 					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectPreviousSlide()}>Prev</Button>
 					<Button size="xs" variant="default" onClick={() => ViewerCommands.selectNextSlide()}>Next</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.undo()}
+						disabled={!gate.canEdit || !history.canUndo}>
+						Undo
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.redo()}
+						disabled={!gate.canEdit || !history.canRedo}>
+						Redo
+					</Button>
 				</Group>
 				<ScrollArea h={120} type="auto">
 					<Stack gap={4}>

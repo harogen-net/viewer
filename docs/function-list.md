@@ -30,7 +30,7 @@
 - 判定軸
   - Display Mode: `window.matchMedia('(display-mode: standalone)')`
   - User Agent / 画面幅: スマホ判定の補助として利用
-- 判定結果
+- 判定ルール
   - standalone かつスマホ端末: mobile pwa mode
   - それ以外: browser mode
 - フォールバック

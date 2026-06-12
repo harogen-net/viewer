@@ -27,16 +27,6 @@
 3. 結果記録
   - 成功/失敗、確認手順、既知の制約を記録する。
 
-直近の適用例:
-- プルダウンUI移行（native `select` -> Mantine `NativeSelect`）
-  - 対象: slideshow duration / interval
-  - 保持条件: 値変更イベントと `id` ベース参照が維持されること
-  - 確認: 型診断成功
-- legacy Menu 撤去
-  - 対象: slideshow duration / interval / bgColor / fullscreen / mirror
-  - 保持条件: RuntimeShell と slideshow overlay の両方から状態変更でき、hidden checkbox/id 参照に依存しないこと
-  - 確認: 対象ファイルの型診断成功
-
 ## 2. テスト対象マトリクス
 ### 2.1 実行環境
 - PC ブラウザ（Chrome 最新）

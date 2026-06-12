@@ -32,6 +32,8 @@ export type ViewerBridgeEventMap = {
 	modifiedChanged: { modified: boolean };
 	/** Viewer mode changed */
 	modeChanged: { mode: "select" | "edit" | "slideshow" };
+	/** Undo/Redo availability changed */
+	historyChanged: { canUndo: boolean; canRedo: boolean };
 };
 
 export type ViewerBridgeEventType = keyof ViewerBridgeEventMap;

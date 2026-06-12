@@ -152,6 +152,17 @@ export class Viewer {
 		};
 	}
 
+	private emitHistoryState(): void {
+		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) {
+			ViewerBridge.emit("historyChanged", { canUndo: false, canRedo: false });
+			return;
+		}
+		ViewerBridge.emit("historyChanged", {
+			canUndo: HistoryManager.shared.canUndo,
+			canRedo: HistoryManager.shared.canRedo,
+		});
+	}
+
 	private buildSlideShowSlides(): { slides: Slide[]; startIndex: number } {
 		var slides: Slide[] = [];
 		var startIndex: number = 0;
@@ -208,7 +219,9 @@ export class Viewer {
 		HistoryManager.init();
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			this.IsDocumentModified = HistoryManager.shared.canUndo;
+			this.emitHistoryState();
 		});
+		this.emitHistoryState();
 
 		this.editVC = new EditViewController(this.obj.find(".canvas"));
 
@@ -379,6 +392,7 @@ export class Viewer {
 		this.slideShowVC.mirrorV = this.slideShowMirrorV;
 		this.listVC.slides = this.viewerDocument.slides;
 		this.IsDocumentModified = false;
+		this.emitHistoryState();
 		this.emitSlideShowSettings();
 		ViewerBridge.emit("slidesChanged", {
 			slides: this.viewerDocument.slides,
@@ -587,6 +601,18 @@ export class Viewer {
 
 	public commandStartSlideshow(): void {
 		this.startSlideShowFromSelection();
+	}
+
+	public commandUndo(): void {
+		if (!this.ensureAllowed(this.canEdit(), "Undo")) return;
+		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) return;
+		HistoryManager.shared.undo();
+	}
+
+	public commandRedo(): void {
+		if (!this.ensureAllowed(this.canEdit(), "Redo")) return;
+		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) return;
+		HistoryManager.shared.redo();
 	}
 
 	public getSavedFileTitles() {

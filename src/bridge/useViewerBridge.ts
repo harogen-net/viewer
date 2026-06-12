@@ -84,3 +84,7 @@ export function useViewerModified(): { modified: boolean } {
 export function useViewerMode(): { mode: "select" | "edit" | "slideshow" } {
 	return useBridgeEvent("modeChanged", { mode: "select" });
 }
+
+export function useViewerHistory(): { canUndo: boolean; canRedo: boolean } {
+	return useBridgeEvent("historyChanged", { canUndo: false, canRedo: false });
+}

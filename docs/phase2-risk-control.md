@@ -4,7 +4,7 @@
 保存/読込経路の分離中に発生するデータ破損・回帰リスクを抑止する。
 
 ## 1. データ破損時のロールバック手順
-1. 直近コミットを特定する（StorageAdapter/UseCase 変更単位）。
+1. 変更単位を特定する（StorageAdapter/UseCase 変更単位）。
 2. 影響範囲を切り分ける（save, load, import, export, delete）。
 3. 旧経路フォールバックを有効化する。
 : `createStorageAdapter()` で `LegacySlideStorageAdapter` を返す構成を維持して即時切戻し。
@@ -20,7 +20,7 @@
   - save/load/import/export のいずれかで P0/P1 回帰が出た場合、
     新経路機能追加を停止して旧経路に戻す。
 
-## 3. 影響範囲レビュー（実施済み）
+## 3. 影響範囲レビュー観点
 - 保存UI:
   - save button (`.save`) -> `DocumentStorageUseCase.save`
 - 読込UI:

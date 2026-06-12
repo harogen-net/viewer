@@ -81,6 +81,12 @@ export const ViewerCommands = {
 	startSlideshow(): void {
 		getViewer()?.commandStartSlideshow();
 	},
+	undo(): void {
+		getViewer()?.commandUndo();
+	},
+	redo(): void {
+		getViewer()?.commandRedo();
+	},
 	getSavedFileTitles(): readonly SlideTitle[] {
 		return getViewer()?.getSavedFileTitles() ?? [];
 	},
