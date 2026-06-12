@@ -1,5 +1,5 @@
 import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Text } from "@mantine/core";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerSavedFileSelection, useViewerSlides, useViewerSlideshowSettings, useViewerStorage } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
@@ -56,6 +56,35 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();
 
+	const [collapsed, setCollapsed] = useState(false);
+	const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+	const dragState = useRef<{ startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
+
+	const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+		const currentX = pos?.x ?? (window.innerWidth - 292);
+		const currentY = pos?.y ?? 12;
+		dragState.current = {
+			startMouseX: e.clientX,
+			startMouseY: e.clientY,
+			startX: currentX,
+			startY: currentY,
+		};
+		const onMouseMove = (ev: MouseEvent) => {
+			if (!dragState.current) return;
+			setPos({
+				x: dragState.current.startX + (ev.clientX - dragState.current.startMouseX),
+				y: dragState.current.startY + (ev.clientY - dragState.current.startMouseY),
+			});
+		};
+		const onMouseUp = () => {
+			dragState.current = null;
+			window.removeEventListener("mousemove", onMouseMove);
+			window.removeEventListener("mouseup", onMouseUp);
+		};
+		window.addEventListener("mousemove", onMouseMove);
+		window.addEventListener("mouseup", onMouseUp);
+	};
+
 	const slides = useMemo<SlideSnapshot[]>(
 		() =>
 			rawSlides.map((_, i) => ({
@@ -111,43 +140,66 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const modeText = mode === "mobile-pwa" ? "mobile-pwa" : "browser";
 
+	const posStyle: React.CSSProperties = pos
+		? { left: pos.x, top: pos.y, right: "auto" }
+		: { right: 12, top: 12 };
+
 	return (
 		<Paper
 			shadow="md"
-			p="sm"
+			p={0}
 			radius="md"
 			withBorder
 			style={{
 				position: "fixed",
-				right: 12,
-				top: 12,
 				width: 280,
 				zIndex: 2147483646,
 				background: "rgba(255, 255, 255, 0.92)",
 				backdropFilter: "blur(2px)",
+				...posStyle,
 			}}>
-			<Stack gap={8}>
-				<Group justify="space-between" align="center">
-					<Text fw={700} size="sm">
-						React Shell
-					</Text>
+		{/* タイトルバー（ドラッグ + 開閉） */}
+		<div
+			onMouseDown={handleDragStart}
+			style={{
+				padding: "6px 8px",
+				cursor: "grab",
+				userSelect: "none",
+				borderBottom: collapsed ? "none" : "1px solid #dee2e6",
+			}}>
+			<Group justify="space-between" align="center" wrap="nowrap">
+				<Group gap={6} align="center" wrap="nowrap">
+					<Text fw={700} size="sm">React Shell</Text>
 					<Badge size="xs" color={mode === "mobile-pwa" ? "orange" : "blue"}>
 						{modeText}
 					</Badge>
 				</Group>
+				<Button
+					size="xs"
+					variant="subtle"
+					p={2}
+					style={{ minWidth: 24, lineHeight: 1 }}
+					onMouseDown={(e) => e.stopPropagation()}
+					onClick={() => setCollapsed((c) => !c)}>
+					{collapsed ? "▼" : "▲"}
+				</Button>
+			</Group>
+		</div>
 
-				<Group gap={6}>
-					<Badge size="xs" color={gate.canEdit ? "teal" : "gray"}>
-						{gate.canEdit ? "editable" : "readonly"}
-					</Badge>
-					<Badge size="xs" color={gate.canImport ? "cyan" : "gray"}>
-						import:{gate.canImport ? "on" : "off"}
-					</Badge>
-				</Group>
+		{!collapsed && (
+		<Stack gap={8} p="sm">
+			<Group gap={6}>
+				<Badge size="xs" color={gate.canEdit ? "teal" : "gray"}>
+					{gate.canEdit ? "editable" : "readonly"}
+				</Badge>
+				<Badge size="xs" color={gate.canImport ? "cyan" : "gray"}>
+					import:{gate.canImport ? "on" : "off"}
+				</Badge>
+			</Group>
 
-				<Text size="xs" c="dimmed">
-					Slide List (React control)
-				</Text>
+			<Text size="xs" c="dimmed">
+				Slide List (React control)
+			</Text>
 				<Group grow>
 					<Button size="xs" variant="light" onClick={() => ViewerCommands.newSlide()} disabled={!gate.canEdit}>
 						New
@@ -295,7 +347,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 						)}
 					</Stack>
 				</ScrollArea>
-			</Stack>
+		</Stack>
+		)}
 		</Paper>
 	);
 }

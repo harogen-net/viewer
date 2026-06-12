@@ -157,6 +157,22 @@
   - 機能保持確認: `id=value` 互換を維持したまま型診断でエラーなしを確認
   - legacy `Menu` の描画を AppShell から除去し、スライドショー設定の保持先を完全に `Viewer` + `RuntimeShell` + `SlideShowViewController` に移管
   - `SlideShowViewController` の fullscreen/mirror 操作は hidden checkbox 依存をやめ、内部状態変更 + `settingsChanged` 通知で `ViewerBridge` と同期
+  - `PrefPanel` の保存フォーマット選択を React state + `reactDomRegistry.setSaveFormat` 経由へ移行し、`#saveFormat_*` id ベース参照を削除
+  - `applyFeatureGate.ts` から jQuery を除去し、`#pref`/`#images` の非表示制御を native DOM へ変更
+  - `reactDomRegistry.ts` に `getSaveFormat`/`setSaveFormat` を追加し、保存形式の正規参照点を確立
+  - `ImageManager.ts` から jQuery を除去し、`imgObj: JQuery<HTMLImageElement>` を `element: HTMLImageElement` に変更
+  - `ImageLayer.ts` の `getImageById` 参照を `getImagePropsById` に変更し、deprecated API 使用を削除
+  - `ImageView.ts` の `imgObj: any` を `imgElement: HTMLImageElement | null` に変更し、jQuery 依存を除去
+  - `LayerView.ts` の `opacityObj` を `HTMLElement | null` へ型変更し、opacity 操作を native DOM に変更
+  - `Viewer.ts` の drop/dragover ハンドラを jQuery から native DOM イベントリスナーへ変更
+  - `index.ts` の `$(function() {})` を `DOMContentLoaded` イベントに変更
+  - `ViewerDocument.ts` から jQuery を除去し、`isTransparent` を `false` に固定（`#saveImageAsTransparent` 参照削除）
+  - `LayerViewFactory.ts` の DOM 生成を `makeLayerWrapper()` ヘルパーに整理
+  - `CanvasSlideView.ts` のサムネイル管理を jQuery ラッパーから native `HTMLCanvasElement` 直接操作へ変更（型を `any` から `HTMLCanvasElement` へ厳格化）
+  - `LayerView.ts` の `updateMatrix`/`updateView` を native DOM（`style.transform`/`classList`）へ変更し、jQuery import を除去
+  - `TextView.ts` から jQuery を除去し、テキスト DOM を native API で構築・操作するよう変更
+  - `ImageView.ts` の `width`/`height` getter を native `offsetWidth`/`offsetHeight` へ変更し、残存 jQuery 呼び出しを除去
+  - 機能保持確認: 型診断で対象ファイルのエラーがないことを確認。実挙動確認は次回変更時も継続必須
   - 反映コード:
     - `src/react/LegacyAppShell.tsx`
     - `src/react/LegacyMainShell.tsx`
@@ -180,6 +196,17 @@
     - `src/react/RuntimeShell.tsx`
     - `src/viewController/ListViewController.ts`
     - `src/utils/SlideStorage.ts`
+    - `src/react/Panels.tsx`
+    - `src/runtime/applyFeatureGate.ts`
+    - `src/runtime/reactDomRegistry.ts`
+    - `src/utils/ImageManager.ts`
+    - `src/model/layer/ImageLayer.ts`
+    - `src/view/layer/ImageView.ts`
+    - `src/view/layer/TextView.ts`
+    - `src/view/LayerView.ts`
+    - `src/utils/LayerViewFactory.ts`
+    - `src/view/slide/CanvasSlideView.ts`
+    - `src/model/ViewerDocument.ts`
 
   ## Phase 1 完了判定（チェック）
   - React エントリ追加: 完了

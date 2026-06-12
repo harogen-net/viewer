@@ -71,17 +71,19 @@ export class ImageView extends LayerView {
 	// get set
 	//
 	public get width() {
-		if (this.obj.width() == 0) {
+		const el = this.obj[0] as HTMLElement;
+		if (el.offsetWidth === 0) {
 			return this._data.scaleX * this._data.originWidth;
 		} else {
-			return this.obj.width();
+			return el.offsetWidth;
 		}
 	}
 	public get height() {
-		if (this.obj.height() == 0) {
+		const el = this.obj[0] as HTMLElement;
+		if (el.offsetHeight === 0) {
 			return this._data.scaleY * this._data.originHeight;
 		} else {
-			return this.obj.height();
+			return el.offsetHeight;
 		}
 	}
 

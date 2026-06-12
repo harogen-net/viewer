@@ -34,22 +34,23 @@ export class LayerView extends EventDispatcher {
 	protected updateMatrix() {
 		var matrix: number[] = this._data.matrix;
 		var cssMat: string = "matrix(" + matrix.join(",") + ")";
-		this.obj.css("transform", cssMat);
+		(this.obj[0] as HTMLElement).style.transform = cssMat;
 	}
 
 	protected updateView(flag: number = PropFlags.ALL) {
+		const el = this.obj[0] as HTMLElement;
 		if (flag & PropFlags.VISIBLE) {
 			if (!this._data.visible) {
-				this.obj.addClass("invisible");
+				el.classList.add("invisible");
 			} else {
-				this.obj.removeClass("invisible");
+				el.classList.remove("invisible");
 			}
 		}
 		if (flag & PropFlags.LOCKED) {
 			if (this._data.locked) {
-				this.obj.addClass("locked");
+				el.classList.add("locked");
 			} else {
-				this.obj.removeClass("locked");
+				el.classList.remove("locked");
 			}
 		}
 		if (this.opacityObj && flag & PropFlags.OPACITY) {

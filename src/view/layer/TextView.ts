@@ -1,10 +1,10 @@
-import $ from "jquery";
 import { TextLayer } from "../../model/layer/TextLayer";
 import { PropFlags } from "../../model/PropFlags";
 import { LayerView } from "../LayerView";
 
 export class TextView extends LayerView {
-	public textObj: any;
+	public textObj: HTMLDivElement | null = null;
+	private textSpan: HTMLSpanElement | null = null;
 
 	constructor(
 		protected _data: TextLayer,
@@ -15,40 +15,42 @@ export class TextView extends LayerView {
 	protected constructMain() {
 		super.constructMain();
 
-		this.textObj = $(
-			'<div class="text" style="display:inline-block;" contenteditable="false" spellcheck="false"><span></span></div>'
-		);
-		this.obj.append(this.textObj);
+		const div = document.createElement("div");
+		div.className = "text";
+		div.style.display = "inline-block";
+		div.contentEditable = "false";
+		div.spellcheck = false;
+		const span = document.createElement("span");
+		div.appendChild(span);
+		(this.obj[0] as HTMLElement).appendChild(div);
 
-		this.opacityObj = this.textObj[0] as HTMLElement;
-		this.opacityObj.style.opacity = String(this._data.opacity);
+		this.textObj = div;
+		this.textSpan = span;
+		this.opacityObj = div;
+		div.style.opacity = String(this._data.opacity);
 	}
 
 	public destroy() {
-		this.textObj.remove();
+		this.textObj?.remove();
 		this.textObj = null;
+		this.textSpan = null;
 
 		super.destroy();
 	}
 
 	protected updateView(flag: number = PropFlags.ALL): void {
 		if (flag & PropFlags.TXT_TEXT) {
-			this.textObj.find("span").html(this._data.text);
+			if (this.textSpan) {
+				this.textSpan.innerHTML = this._data.text;
 
-			setTimeout(() => {
-				this._data.originWidth = this.textObj.find("span").width();
-				this._data.originHeight = this.textObj.find("span").height();
-			}, 0);
+				setTimeout(() => {
+					this._data.originWidth = this.textSpan?.offsetWidth ?? 0;
+					this._data.originHeight = this.textSpan?.offsetHeight ?? 0;
+				}, 0);
+			}
 		}
 
 		//textを先に更新してほしいからsuperは後で
 		super.updateView(flag);
 	}
-
-	//
-	// set get
-	//
-	// private get textData():TextLayer {
-	// 	return this._data as TextLayer;
-	// }
 }
