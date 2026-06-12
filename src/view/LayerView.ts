@@ -1,11 +1,11 @@
-import { Layer, LayerType } from "../model/Layer";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
+import { Layer, LayerType } from "../model/Layer";
 import { PropFlags } from "../model/PropFlags";
 
 export class LayerView extends EventDispatcher {
 	protected _selected: boolean = false;
-	protected opacityObj: any;
+	protected opacityObj: HTMLElement | null = null;
 
 	constructor(
 		protected _data: Layer,
@@ -54,9 +54,9 @@ export class LayerView extends EventDispatcher {
 		}
 		if (this.opacityObj && flag & PropFlags.OPACITY) {
 			if (this._data.opacity == 1) {
-				this.opacityObj.css("opacity", "");
+				this.opacityObj.style.opacity = "";
 			} else {
-				this.opacityObj.css("opacity", this._data.opacity);
+				this.opacityObj.style.opacity = String(this._data.opacity);
 			}
 		}
 

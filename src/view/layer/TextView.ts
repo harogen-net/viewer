@@ -1,8 +1,7 @@
-import { LayerView } from "../LayerView";
-import { TextLayer } from "../../model/layer/TextLayer";
-import { Layer } from "../../model/Layer";
-import { PropFlags } from "../../model/PropFlags";
 import $ from "jquery";
+import { TextLayer } from "../../model/layer/TextLayer";
+import { PropFlags } from "../../model/PropFlags";
+import { LayerView } from "../LayerView";
 
 export class TextView extends LayerView {
 	public textObj: any;
@@ -21,8 +20,8 @@ export class TextView extends LayerView {
 		);
 		this.obj.append(this.textObj);
 
-		this.opacityObj = this.textObj;
-		this.opacityObj.css("opacity", this._data.opacity);
+		this.opacityObj = this.textObj[0] as HTMLElement;
+		this.opacityObj.style.opacity = String(this._data.opacity);
 	}
 
 	public destroy() {

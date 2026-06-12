@@ -1,6 +1,6 @@
-import { Layer, LayerType } from "../Layer";
-import { ImageManager } from "../../utils/ImageManager";
 import { PropertyEvent } from "../../events/PropertyEvent";
+import { ImageManager } from "../../utils/ImageManager";
+import { Layer, LayerType } from "../Layer";
 import { PropFlags } from "../PropFlags";
 
 export class ImageLayer extends Layer {
@@ -51,10 +51,10 @@ export class ImageLayer extends Layer {
 	}
 	public set imageId(value: string) {
 		this._imageId = value;
-		var data = ImageManager.shared.getImageById(this._imageId);
-		this._originWidth = data.width;
-		this._originHeight = data.height;
-		this._name = data.name;
+		var props = ImageManager.shared.getImagePropsById(this._imageId);
+		this._originWidth = props.width;
+		this._originHeight = props.height;
+		this._name = props.name;
 
 		//変形も変えてもらいたいためSCALE_Xも同時に投げているがはたして
 		this.dispatchEvent(

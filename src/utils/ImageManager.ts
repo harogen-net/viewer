@@ -1,5 +1,4 @@
 import CryptoJS from "crypto-js";
-import $ from "jquery";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { Slide } from "../model/Slide";
@@ -10,14 +9,7 @@ type ImageRecord = {
 	width: number;
 	height: number;
 	name: string;
-	imgObj: JQuery<HTMLImageElement>;
-};
-
-type ImageSnapshot = {
-	width: number;
-	height: number;
-	name: string;
-	imgObj: JQuery<HTMLImageElement>;
+	element: HTMLImageElement;
 };
 
 export class ImageManager {
@@ -50,7 +42,7 @@ export class ImageManager {
 			var imgObjData = this._imageById[id];
 			if (imgObjData == undefined) continue;
 
-			imgObjData.imgObj.remove();
+			imgObjData.element.remove();
 			delete this._imageById[id];
 		}
 	}
@@ -61,12 +53,11 @@ export class ImageManager {
 				resolve();
 			} else {
 				var imgDom = new Image();
-				var imgObj = $(imgDom);
 
 				//set data for drop to slide or list.
-				imgObj.prop("draggable", true);
-				imgObj.on("dragstart.imageManager", (e) => {
-					e.originalEvent.dataTransfer.setData("imageId", id);
+				imgDom.draggable = true;
+				imgDom.addEventListener("dragstart", (e: DragEvent) => {
+					e.dataTransfer?.setData("imageId", id);
 				});
 
 				var onImageLoad = (e: Event) => {
@@ -81,12 +72,12 @@ export class ImageManager {
 				this._imageById[id] = {
 					width: imgDom.naturalWidth,
 					height: imgDom.naturalHeight,
-					imgObj: imgObj,
+					element: imgDom,
 					name: name,
 				};
 				imgDom.src = src;
 
-				imgObj.on("dblclick", () => {
+				imgDom.addEventListener("dblclick", () => {
 					if (window.confirm("delete image. are you sure?")) {
 						this.deleteImageById(id);
 					}
@@ -136,8 +127,7 @@ export class ImageManager {
 			targets.forEach((target: { slide: Slide; layer: Layer; index: number }) => {
 				target.slide.removeLayer(target.layer);
 			});
-			// imgObjData.imgObj.detach();
-			imgObjData.imgObj.remove();
+			imgObjData.element.remove();
 			delete this._imageById[id];
 			// 	},
 			// 	()=>{
@@ -150,22 +140,11 @@ export class ImageManager {
 			// )).do();
 			HistoryManager.shared.initialize();
 		} else {
-			imgObjData.imgObj.remove();
+			imgObjData.element.remove();
 			delete this._imageById[id];
 		}
 	}
 
-	public getImageById(id: string): ImageSnapshot {
-		var imgObjData = this._imageById[id];
-		if (imgObjData == undefined) return null;
-
-		return {
-			width: imgObjData.width,
-			height: imgObjData.height,
-			name: imgObjData.name,
-			imgObj: imgObjData.imgObj.clone(),
-		};
-	}
 	public getImagePropsById(id: string): { width: number; height: number; name: string } {
 		var imgObjData = this._imageById[id];
 		if (imgObjData == undefined) return null;
@@ -180,12 +159,18 @@ export class ImageManager {
 	public getSrcById(id: string): string {
 		var imgObjData = this._imageById[id];
 		if (imgObjData == undefined) return null;
-		return (imgObjData.imgObj[0] as HTMLImageElement).src;
+		return imgObjData.element.src;
 	}
 
 	public getImageElementById(id: string): HTMLImageElement {
 		var imgObjData = this._imageById[id];
 		if (imgObjData == undefined) return null;
-		return imgObjData.imgObj[0] as HTMLImageElement;
+		return imgObjData.element;
+	}
+
+	public getImageCloneElementById(id: string): HTMLImageElement {
+		var imgObjData = this._imageById[id];
+		if (imgObjData == undefined) return null;
+		return imgObjData.element.cloneNode(true) as HTMLImageElement;
 	}
 }

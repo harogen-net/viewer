@@ -1,8 +1,16 @@
 import { useState } from "react";
-import { setImagesContainerElement } from "../runtime/reactDomRegistry";
+import { setImagesContainerElement, setSaveFormat } from "../runtime/reactDomRegistry";
+
+type SaveFormat = "png" | "hvz" | "hvd";
 
 export function PrefPanel() {
 	const [open, setOpen] = useState(false);
+	const [saveFormat, setSaveFormatState] = useState<SaveFormat>("png");
+
+	const handleSaveFormatChange = (format: SaveFormat) => {
+		setSaveFormatState(format);
+		setSaveFormat(format);
+	};
 
 	return (
 		<>
@@ -19,8 +27,8 @@ export function PrefPanel() {
 				<dl>
 					<dt>contents</dt>
 					<dd>
-						<label htmlFor="doc_sensitive">
-							<input type="checkbox" id="doc_sensitive" name="doc_sensitive" />
+						<label>
+							<input type="checkbox" name="doc_sensitive" />
 							<span>sensitive file</span>
 						</label>
 					</dd>
@@ -28,16 +36,31 @@ export function PrefPanel() {
 				<dl>
 					<dt>SAVE FORMAT TYPE</dt>
 					<dd>
-						<label htmlFor="saveFormat_png">
-							<input type="radio" id="saveFormat_png" name="saveFormat" defaultChecked />
+						<label>
+							<input
+								type="radio"
+								name="saveFormat"
+								checked={saveFormat === "png"}
+								onChange={() => handleSaveFormatChange("png")}
+							/>
 							<span>.png</span>
 						</label>
-						<label htmlFor="saveFormat_hvz">
-							<input type="radio" id="saveFormat_hvz" name="saveFormat" />
+						<label>
+							<input
+								type="radio"
+								name="saveFormat"
+								checked={saveFormat === "hvz"}
+								onChange={() => handleSaveFormatChange("hvz")}
+							/>
 							<span>.hvz(zipped)</span>
 						</label>
-						<label htmlFor="saveFormat_hvd">
-							<input type="radio" id="saveFormat_hvd" name="saveFormat" />
+						<label>
+							<input
+								type="radio"
+								name="saveFormat"
+								checked={saveFormat === "hvd"}
+								onChange={() => handleSaveFormatChange("hvd")}
+							/>
 							<span>.hvd(text)</span>
 						</label>
 					</dd>

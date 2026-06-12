@@ -5,7 +5,7 @@ import { Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
-import { getImagesContainerElement } from "./runtime/reactDomRegistry";
+import { getImagesContainerElement, getSaveFormat } from "./runtime/reactDomRegistry";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
@@ -265,10 +265,12 @@ export class Viewer {
 		}
 
 		if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			$(document).on("drop dragover", (e: any) => {
+			const preventDefault = (e: Event) => {
 				e.preventDefault();
 				e.stopImmediatePropagation();
-			});
+			};
+			document.addEventListener("drop", preventDefault);
+			document.addEventListener("dragover", preventDefault);
 		}
 
 		this.progressBar = new ProgressBar($("<div />").appendTo(this.obj));
@@ -463,10 +465,8 @@ export class Viewer {
 	public commandExportDocument(): void {
 		if (!this.ensureAllowed(this.canExport(), "書き出し")) return;
 		if (this.listVC.slides.length == 0) return;
-		let type: HVDataType = HVDataType.PNG;
-		if ($("#saveFormat_png").prop("checked")) type = HVDataType.PNG;
-		if ($("#saveFormat_hvz").prop("checked")) type = HVDataType.HVZ;
-		if ($("#saveFormat_hvd").prop("checked")) type = HVDataType.HVD;
+		const fmt = getSaveFormat();
+		const type = fmt === "hvz" ? HVDataType.HVZ : fmt === "hvd" ? HVDataType.HVD : HVDataType.PNG;
 
 		const result = this.documentStorage.exportResult(this.viewerDocument, type, {
 			pages: this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,

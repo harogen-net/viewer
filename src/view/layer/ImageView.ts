@@ -4,7 +4,7 @@ import { ImageManager } from "../../utils/ImageManager";
 import { LayerView } from "../LayerView";
 
 export class ImageView extends LayerView {
-	private imgObj: any;
+	private imgElement: HTMLImageElement | null = null;
 
 	constructor(
 		protected _data: ImageLayer,
@@ -20,23 +20,22 @@ export class ImageView extends LayerView {
 	//
 
 	public destroy() {
-		this.imgObj.remove();
-		this.imgObj = null;
+		this.imgElement?.remove();
+		this.imgElement = null;
 		super.destroy();
 	}
 
 	private updateImage() {
-		if (this.imgObj) {
-			this.imgObj.remove();
-			this.imgObj = null;
+		if (this.imgElement) {
+			this.imgElement.remove();
+			this.imgElement = null;
 		}
-		var imageData: { width: number; height: number; imgObj: JQuery<HTMLImageElement> } =
-			ImageManager.instance.getImageById(this._data.imageId);
-		this.imgObj = imageData.imgObj;
-		this.obj.append(this.imgObj);
+		var imageElement = ImageManager.instance.getImageCloneElementById(this._data.imageId);
+		this.imgElement = imageElement;
+		this.obj[0].appendChild(this.imgElement);
 
-		this.opacityObj = this.imgObj;
-		this.opacityObj.css("opacity", this._data.opacity);
+		this.opacityObj = this.imgElement;
+		this.opacityObj.style.opacity = String(this._data.opacity);
 	}
 
 	protected updateView(flag: number = PropFlags.ALL): void {
@@ -44,6 +43,10 @@ export class ImageView extends LayerView {
 			this.updateImage();
 		}
 		if (flag & PropFlags.IMG_CLIP) {
+			if (!this.imgElement) {
+				super.updateView(flag);
+				return;
+			}
 			if (this.imageData.isClipped) {
 				var clipStr: string =
 					"inset(" +
@@ -53,17 +56,11 @@ export class ImageView extends LayerView {
 						})
 						.join(" ") +
 					")";
-				this.imgObj.css({
-					"-webkit-clip-path": clipStr,
-					"clip-path": clipStr,
-				});
+				this.imgElement.style.setProperty("-webkit-clip-path", clipStr);
+				this.imgElement.style.clipPath = clipStr;
 			} else {
-				if (this.imgObj.css("clip-path")) {
-					this.imgObj.css({
-						"-webkit-clip-path": "inset(0)",
-						"clip-path": "inset(0)",
-					});
-				}
+				this.imgElement.style.setProperty("-webkit-clip-path", "inset(0)");
+				this.imgElement.style.clipPath = "inset(0)";
 			}
 		}
 		//先にimageObj設定してほしいからsuperは後で
