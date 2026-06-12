@@ -432,6 +432,7 @@ export function LayerControls() {
     const canEditLayers = mode === "edit";
     const [renamingId, setRenamingId] = useState<number | null>(null);
     const [renameInput, setRenameInput] = useState("");
+    const renameCanceledRef = useRef(false);
 
     const handleSelectLayer = (index: number) => {
         if (!canEditLayers) return;
@@ -452,6 +453,13 @@ export function LayerControls() {
         ViewerCommands.toggleSelectedLayerLocked();
     };
 
+    const handleToggleShared = (index: number, event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (!canEditLayers) return;
+        ViewerCommands.selectEditLayerByIndex(index);
+        ViewerCommands.toggleSelectedLayerShared();
+    };
+
     const handleDeleteLayer = (index: number, event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
         if (!canEditLayers) return;
@@ -462,11 +470,17 @@ export function LayerControls() {
     const startRename = (id: number, currentName: string, event: React.MouseEvent) => {
         event.stopPropagation();
         if (!canEditLayers) return;
+        renameCanceledRef.current = false;
         setRenamingId(id);
         setRenameInput(currentName);
     };
 
     const commitRename = () => {
+        if (renameCanceledRef.current) {
+            renameCanceledRef.current = false;
+            setRenamingId(null);
+            return;
+        }
         if (renamingId === null) return;
         const layer = layers.find((l) => l.id === renamingId);
         if (layer) {
@@ -503,6 +517,15 @@ export function LayerControls() {
                     >
                         <i className={layer.locked ? "fas fa-lock" : "fas fa-unlock"}></i>
                     </button>
+                    <button
+                        className="share"
+                        data-react-controlled="true"
+                        onClick={(e) => handleToggleShared(layer.index, e)}
+                        disabled={!canEditLayers}
+                        title={layer.shared ? "unshare layer" : "share layer"}
+                    >
+                        <i className="fas fa-exchange-alt"></i>
+                    </button>
                     {renamingId === layer.id ? (
                         <input
                             type="text"
@@ -513,6 +536,7 @@ export function LayerControls() {
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") e.currentTarget.blur();
                                 if (e.key === "Escape") {
+                                    renameCanceledRef.current = true;
                                     setRenamingId(null);
                                 }
                             }}

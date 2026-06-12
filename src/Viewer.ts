@@ -1020,6 +1020,12 @@ export class Viewer {
 		);
 	}
 
+	public commandToggleSelectedLayerShared(): void {
+		this.runEditSelectionOperationSilently("共有切替", () =>
+			this.editVC.toggleSelectedLayerShared()
+		);
+	}
+
 	public commandSetSelectedLayerName(name: string): void {
 		this.runEditSelectionOperationSilently("レイヤー名変更", () =>
 			this.editVC.setSelectedLayerName(name)

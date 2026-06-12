@@ -237,6 +237,9 @@ export const ViewerCommands = {
 	toggleSelectedLayerLocked(): void {
 		getViewer()?.commandToggleSelectedLayerLocked();
 	},
+	toggleSelectedLayerShared(): void {
+		getViewer()?.commandToggleSelectedLayerShared();
+	},
 	setSelectedLayerName(name: string): void {
 		getViewer()?.commandSetSelectedLayerName(name);
 	},

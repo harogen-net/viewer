@@ -108,6 +108,7 @@ export function useViewerEditLayers(): {
 		type: string;
 		locked: boolean;
 		visible: boolean;
+		shared: boolean;
 		selected: boolean;
 	}[];
 } {

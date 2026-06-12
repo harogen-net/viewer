@@ -418,6 +418,7 @@ export class EditViewController extends EventDispatcher {
 			type: String(layer.type),
 			locked: Boolean(layer.locked),
 			visible: Boolean(layer.visible),
+			shared: Boolean(layer.shared),
 			selected: selected === layer,
 		}));
 		this.dispatchEvent(
@@ -573,6 +574,28 @@ export class EditViewController extends EventDispatcher {
 					},
 					() => {
 						layer.locked = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		this.emitLayerListState();
+		return true;
+	}
+
+	public toggleSelectedLayerShared(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.shared;
+		const to = !from;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.shared = to;
+					},
+					() => {
+						layer.shared = from;
 					}
 				)
 			)

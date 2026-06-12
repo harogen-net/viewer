@@ -12,6 +12,12 @@ import {
 	TextEditControls,
 } from "./SideControls";
 
+function isTypingTarget(): boolean {
+	const activeElement = document.activeElement as HTMLElement | null;
+	const tag = activeElement?.tagName;
+	return tag === "INPUT" || tag === "TEXTAREA" || Boolean(activeElement?.isContentEditable);
+}
+
 export function MainShell() {
 	const { mode } = useViewerMode();
 	const { hasSelection } = useViewerEditSelection();
@@ -20,17 +26,20 @@ export function MainShell() {
 	// Keyboard shortcuts: Ctrl/Cmd + X/C/V for cut/copy/paste
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (mode !== "edit" || !hasSelection) return;
+			if (mode !== "edit") return;
+			if (isTypingTarget()) return;
 
 			const isMeta = e.metaKey || e.ctrlKey;
 			if (!isMeta) return;
 
 			switch (e.code) {
 				case "KeyC":
+					if (!hasSelection) return;
 					e.preventDefault();
 					ViewerCommands.copySelectedLayer();
 					break;
 				case "KeyX":
+					if (!hasSelection) return;
 					e.preventDefault();
 					ViewerCommands.cutSelectedLayer();
 					break;
@@ -48,6 +57,9 @@ export function MainShell() {
 	// Keyboard shortcuts: Ctrl/Cmd + Z for undo, Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y for redo
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
+			if (mode !== "edit") return;
+			if (isTypingTarget()) return;
+
 			const isMeta = e.metaKey || e.ctrlKey;
 			if (!isMeta) return;
 
@@ -74,11 +86,13 @@ export function MainShell() {
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [canUndo, canRedo]);
+	}, [mode, canUndo, canRedo]);
 
 	// Keyboard shortcuts: Escape to exit edit mode (enter select mode)
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
+			if (isTypingTarget()) return;
+
 			if (e.code === "Escape" && mode === "edit") {
 				e.preventDefault();
 				ViewerCommands.enterSelectMode();
@@ -93,8 +107,7 @@ export function MainShell() {
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (mode !== "edit" || !hasSelection) return;
-			const tag = (document.activeElement as HTMLElement)?.tagName;
-			if (tag === "INPUT" || tag === "TEXTAREA") return;
+			if (isTypingTarget()) return;
 
 			if (e.code === "Delete" || e.code === "Backspace") {
 				e.preventDefault();
@@ -106,13 +119,11 @@ export function MainShell() {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [mode, hasSelection]);
 
-	// Keyboard shortcuts: Arrow keys to nudge selected layer (1px; +Shift = 10px)
+	// Keyboard shortcuts: Arrow keys to nudge selected layer
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (mode !== "edit" || !hasSelection) return;
-			// Skip if focus is inside a text input / textarea to avoid hijacking typing
-			const tag = (document.activeElement as HTMLElement)?.tagName;
-			if (tag === "INPUT" || tag === "TEXTAREA") return;
+			if (isTypingTarget()) return;
 
 			switch (e.code) {
 				case "ArrowLeft":

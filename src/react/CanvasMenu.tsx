@@ -1,13 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
-import { useViewerEditCanvasState, useViewerHistory, useViewerMode } from "../bridge/useViewerBridge";
+import {
+    useViewerEditCanvasState,
+    useViewerEditSelection,
+    useViewerHistory,
+    useViewerMode,
+} from "../bridge/useViewerBridge";
 
 export function CanvasMenu() {
 	const { canUndo, canRedo } = useViewerHistory();
 	const { mode } = useViewerMode();
+	const { hasSelection } = useViewerEditSelection();
 	const editCanvasState = useViewerEditCanvasState();
 	const [directionOpen, setDirectionOpen] = useState(false);
 	const isEditMode = mode === "edit";
+	const canEditSelection = isEditMode && hasSelection;
+
+	useEffect(() => {
+		if (!canEditSelection) setDirectionOpen(false);
+	}, [canEditSelection]);
 
 	return (
 		<>
@@ -16,7 +27,7 @@ export function CanvasMenu() {
 					className="undo"
 					data-desc="undo operation"
 					data-react-controlled="true"
-					disabled={!canUndo}
+					disabled={!isEditMode || !canUndo}
 					onClick={() => ViewerCommands.undo()}>
 					<i className="fas fa-arrow-circle-left"></i>
 				</button>
@@ -24,7 +35,7 @@ export function CanvasMenu() {
 					className="redo"
 					data-desc="redo operation"
 					data-react-controlled="true"
-					disabled={!canRedo}
+					disabled={!isEditMode || !canRedo}
 					onClick={() => ViewerCommands.redo()}>
 					<i className="fas fa-arrow-circle-right"></i>
 				</button>
@@ -60,6 +71,7 @@ export function CanvasMenu() {
 					className="cut"
 					data-desc="cut selected image"
 					data-react-controlled="true"
+					disabled={!canEditSelection}
 					onClick={() => ViewerCommands.cutSelectedLayer()}>
 					<i className="fas fa-cut"></i>
 				</button>
@@ -67,6 +79,7 @@ export function CanvasMenu() {
 					className="copy"
 					data-desc="copy selected image"
 					data-react-controlled="true"
+					disabled={!canEditSelection}
 					onClick={() => ViewerCommands.copySelectedLayer()}>
 					<i className="fas fa-copy"></i>
 				</button>
@@ -74,6 +87,7 @@ export function CanvasMenu() {
 					className="paste"
 					data-desc="paste copyed image"
 					data-react-controlled="true"
+					disabled={!isEditMode}
 					onClick={() => ViewerCommands.pasteLayer()}>
 					<i className="fas fa-paste"></i>
 				</button>
@@ -83,6 +97,7 @@ export function CanvasMenu() {
 					className="fit"
 					data-desc="fit selected image to canvas"
 					data-react-controlled="true"
+					disabled={!canEditSelection}
 					onClick={() => ViewerCommands.fitSelectedLayer()}>
 					<i className="fas fa-expand"></i>
 				</button>
@@ -90,6 +105,7 @@ export function CanvasMenu() {
 					className="rotateL"
 					data-desc="rotate selected image counterclockwise"
 					data-react-controlled="true"
+					disabled={!canEditSelection}
 					onClick={() => ViewerCommands.rotateSelectedLayerLeft()}>
 					<i className="fas fa-undo" data-desc="rotate selected image clockwise"></i>
 				</button>
@@ -97,6 +113,7 @@ export function CanvasMenu() {
 					className="rotateR"
 					data-desc="rotate selected image clockwise"
 					data-react-controlled="true"
+					disabled={!canEditSelection}
 					onClick={() => ViewerCommands.rotateSelectedLayerRight()}>
 					<i className="fas fa-redo"></i>
 				</button>
@@ -106,6 +123,7 @@ export function CanvasMenu() {
 						data-target="direction"
 						data-desc="move selected layer to..."
 						data-react-controlled="true"
+						disabled={!canEditSelection}
 						onClick={() => setDirectionOpen((v) => !v)}>
 						<i className="fas fa-arrows-alt"></i>
 					</button>
@@ -115,6 +133,7 @@ export function CanvasMenu() {
 								className="toTop at t"
 								data-desc="move selected layer to top"
 								data-react-controlled="true"
+								disabled={!canEditSelection}
 								onClick={() => {
 									setDirectionOpen(false);
 									ViewerCommands.arrangeSelectedLayerTop();
@@ -127,6 +146,7 @@ export function CanvasMenu() {
 								className="toBottom at b"
 								data-desc="move selected layer to bottom"
 								data-react-controlled="true"
+								disabled={!canEditSelection}
 								onClick={() => {
 									setDirectionOpen(false);
 									ViewerCommands.arrangeSelectedLayerBottom();
@@ -139,6 +159,7 @@ export function CanvasMenu() {
 								className="toLeft at l"
 								data-desc="move selected layer to left"
 								data-react-controlled="true"
+								disabled={!canEditSelection}
 								onClick={() => {
 									setDirectionOpen(false);
 									ViewerCommands.arrangeSelectedLayerLeft();
@@ -151,6 +172,7 @@ export function CanvasMenu() {
 								className="toRight at r"
 								data-desc="move selected layer to right"
 								data-react-controlled="true"
+								disabled={!canEditSelection}
 								onClick={() => {
 									setDirectionOpen(false);
 									ViewerCommands.arrangeSelectedLayerRight();
@@ -196,6 +218,7 @@ export function CanvasMenu() {
 					className="spread"
 					data-desc="spread selected image"
 					data-react-controlled="true"
+					disabled={!canEditSelection}
 					onClick={() => ViewerCommands.spreadSelectedLayer()}>
 					<i className="far fa-clone"></i>
 					<i className="fas fa-exchange-alt" style={{ fontSize: "70%" }}></i>
