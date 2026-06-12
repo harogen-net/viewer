@@ -1,8 +1,7 @@
-import { EditLayerListItem } from "./EditLayerListItem";
-import { EditableSlideView } from "../../view/slide/EditableSlideView";
+import $ from "jquery";
 import { Slide } from "../../model/Slide";
 import { LayerView } from "../../view/LayerView";
-import $ from "jquery";
+import { EditLayerListItem } from "./EditLayerListItem";
 
 export class EditLayerViewController {
 	private ulObj: any;

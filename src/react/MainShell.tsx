@@ -4,12 +4,12 @@ import { useViewerEditSelection, useViewerHistory, useViewerMode } from "../brid
 import { CanvasMenu } from "./CanvasMenu";
 import { ListContextMenus } from "./ListContextMenus";
 import {
-    CopyPasteControls,
-    ImageRefControls,
-    LayerControls,
-    PropertyControls,
-    SwapControls,
-    TextEditControls,
+	CopyPasteControls,
+	ImageRefControls,
+	LayerControls,
+	PropertyControls,
+	SwapControls,
+	TextEditControls,
 } from "./SideControls";
 
 export function MainShell() {
