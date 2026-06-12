@@ -10,7 +10,7 @@ import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
 import { handleStorageActionResult } from "./useCase/storageActionResult";
-import { HistoryManager } from "./utils/HistoryManager";
+import { Command, HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { ProgressBar } from "./view/ProgressBar";
 import { EditViewController } from "./viewController/EditViewController";
@@ -163,6 +163,30 @@ export class Viewer {
 			canUndo: HistoryManager.shared.canUndo,
 			canRedo: HistoryManager.shared.canRedo,
 		});
+	}
+
+	private emitSlideHistoryMutation(rebindSlides: boolean = false): void {
+		if (rebindSlides) {
+			this.rebindSlideMetaListeners();
+		}
+		this.emitCurrentSlides();
+	}
+
+	private recordSlideHistoryCommand(fwd: () => void, rev: () => void, rebindSlides: boolean = false): void {
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						fwd();
+						this.emitSlideHistoryMutation(rebindSlides);
+					},
+					() => {
+						rev();
+						this.emitSlideHistoryMutation(rebindSlides);
+					}
+				)
+			)
+			.do();
 	}
 
 	private emitEditSelectionState(): void {
@@ -340,6 +364,36 @@ export class Viewer {
 					this.editVC.setSlide(this.listVC.selectedSlide);
 				}, 301);
 			}
+		});
+		this.listVC.addEventListener("requestNewSlide", () => {
+			this.commandNewSlide();
+		});
+		this.listVC.addEventListener("requestCloneSlide", (e: CustomEvent) => {
+			this.listVC.selectSlideInstance(e.detail as Slide);
+			this.commandCloneSelectedSlide();
+		});
+		this.listVC.addEventListener("requestDeleteSlide", (e: CustomEvent) => {
+			this.listVC.selectSlideInstance(e.detail as Slide);
+			this.commandDeleteSelectedSlide();
+		});
+		this.listVC.addEventListener("requestToggleAllSlidesJoining", () => {
+			this.commandToggleAllSlidesJoining();
+		});
+		this.listVC.addEventListener("requestUnjoinAllSlides", () => {
+			this.commandUnjoinAllSlides();
+		});
+		this.listVC.addEventListener("requestDeleteDisabledSlides", () => {
+			this.commandDeleteDisabledSlides();
+		});
+		this.listVC.addEventListener("requestEnableAllSlides", () => {
+			this.commandEnableAllSlides();
+		});
+		this.listVC.addEventListener("requestDisableAllSlides", () => {
+			this.commandDisableAllSlides();
+		});
+		this.listVC.addEventListener("requestEnableOnlySlide", (e: CustomEvent) => {
+			this.listVC.selectSlideInstance(e.detail as Slide);
+			this.commandEnableOnlySelectedSlide();
 		});
 
 		this.editVC.addEventListener("close", () => {
@@ -534,88 +588,264 @@ export class Viewer {
 
 	public commandNewSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド追加")) return;
-		this.listVC.addNewSlideAndSelect();
-		this.rebindSlideMetaListeners();
-		this.emitCurrentSlides();
+		const slide = new Slide(ViewerDocument.shared.width, ViewerDocument.shared.height);
+		const index = this.listVC.slides.length;
+		const previousLastSlide = this.listVC.slides[index - 1] ?? null;
+		const previousLastJoining = previousLastSlide?.joining ?? false;
+		this.recordSlideHistoryCommand(
+			() => {
+				if (previousLastSlide) {
+					previousLastSlide.joining = false;
+				}
+				this.listVC.addSlide(slide, index);
+				this.listVC.selectSlideInstance(slide);
+			},
+			() => {
+				this.listVC.removeSlide(slide, false, false);
+				if (previousLastSlide) {
+					previousLastSlide.joining = previousLastJoining;
+					this.listVC.selectSlideInstance(previousLastSlide);
+				}
+			},
+			true
+		);
 	}
 
 	public commandCloneSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド複製")) return;
-		this.listVC.cloneSelectedSlide();
-		this.rebindSlideMetaListeners();
-		this.emitCurrentSlides();
+		const sourceSlide = this.listVC.selectedSlide;
+		if (!sourceSlide) return;
+		const clonedSlide = sourceSlide.clone();
+		const sourceJoining = sourceSlide.joining;
+		this.recordSlideHistoryCommand(
+			() => {
+				const sourceIndex = this.listVC.slides.indexOf(sourceSlide);
+				if (sourceIndex === -1) return;
+				sourceSlide.joining = true;
+				this.listVC.addSlide(clonedSlide, sourceIndex + 1);
+				this.listVC.selectSlideInstance(clonedSlide);
+			},
+			() => {
+				this.listVC.removeSlide(clonedSlide, false, false);
+				sourceSlide.joining = sourceJoining;
+				this.listVC.selectSlideInstance(sourceSlide);
+			},
+			true
+		);
 	}
 
 	public commandDeleteSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
-		this.listVC.deleteSelectedSlide();
-		this.rebindSlideMetaListeners();
-		this.emitCurrentSlides();
+		const slide = this.listVC.selectedSlide;
+		if (!slide) return;
+		const index = this.listVC.slides.indexOf(slide);
+		this.recordSlideHistoryCommand(
+			() => {
+				this.listVC.selectSlideInstance(slide);
+				this.listVC.removeSlide(slide, false, false);
+			},
+			() => {
+				this.listVC.addSlide(slide, index);
+				this.listVC.selectSlideInstance(slide);
+			},
+			true
+		);
+	}
+
+	public commandMoveSelectedSlideBackward(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
+		const slide = this.listVC.selectedSlide;
+		if (!slide || this.listVC.slides.indexOf(slide) <= 0) return;
+		this.recordSlideHistoryCommand(
+			() => {
+				this.listVC.selectSlideInstance(slide);
+				this.listVC.moveSelectedSlideByOffset(-1);
+			},
+			() => {
+				this.listVC.selectSlideInstance(slide);
+				this.listVC.moveSelectedSlideByOffset(1);
+			}
+		);
+	}
+
+	public commandMoveSelectedSlideForward(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
+		const slide = this.listVC.selectedSlide;
+		const index = slide ? this.listVC.slides.indexOf(slide) : -1;
+		if (!slide || index === -1 || index >= this.listVC.slides.length - 1) return;
+		this.recordSlideHistoryCommand(
+			() => {
+				this.listVC.selectSlideInstance(slide);
+				this.listVC.moveSelectedSlideByOffset(1);
+			},
+			() => {
+				this.listVC.selectSlideInstance(slide);
+				this.listVC.moveSelectedSlideByOffset(-1);
+			}
+		);
 	}
 
 	public commandToggleSelectedSlideJoining(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド結合切替")) return;
 		const slide = this.listVC.selectedSlide;
 		if (!slide) return;
-		slide.joining = !slide.joining;
-		this.emitCurrentSlides();
+		const oldJoining = slide.joining;
+		this.recordSlideHistoryCommand(
+			() => {
+				slide.joining = !oldJoining;
+			},
+			() => {
+				slide.joining = oldJoining;
+			}
+		);
 	}
 
 	public commandToggleAllSlidesJoining(): void {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド結合切替")) return;
 		const slides = this.listVC.slides;
 		if (slides.length === 0) return;
+		const previousStates = slides.map((slide) => ({
+			slide,
+			joining: slide.joining,
+			durationRatio: slide.durationRatio,
+		}));
 		const nextJoining = !slides.every((slide) => slide.joining);
-		slides.forEach((slide) => {
-			slide.joining = nextJoining;
-			slide.durationRatio = 1;
-		});
-		this.emitCurrentSlides();
+		this.recordSlideHistoryCommand(
+			() => {
+				previousStates.forEach(({ slide }) => {
+					slide.joining = nextJoining;
+					slide.durationRatio = 1;
+				});
+			},
+			() => {
+				previousStates.forEach(({ slide, joining, durationRatio }) => {
+					slide.joining = joining;
+					slide.durationRatio = durationRatio;
+				});
+			}
+		);
+	}
+
+	public commandUnjoinAllSlides(): void {
+		if (!this.ensureAllowed(this.canEdit(), "全スライド結合解除")) return;
+		const slides = this.listVC.slides;
+		if (!slides.some((slide) => slide.joining || slide.durationRatio !== 1)) return;
+		const previousStates = slides.map((slide) => ({
+			slide,
+			joining: slide.joining,
+			durationRatio: slide.durationRatio,
+		}));
+		this.recordSlideHistoryCommand(
+			() => {
+				previousStates.forEach(({ slide }) => {
+					slide.joining = false;
+					slide.durationRatio = 1;
+				});
+			},
+			() => {
+				previousStates.forEach(({ slide, joining, durationRatio }) => {
+					slide.joining = joining;
+					slide.durationRatio = durationRatio;
+				});
+			}
+		);
 	}
 
 	public commandToggleSelectedSlideDisabled(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド有効切替")) return;
 		const slide = this.listVC.selectedSlide;
 		if (!slide) return;
-		slide.disabled = !slide.disabled;
-		this.emitCurrentSlides();
+		const oldDisabled = slide.disabled;
+		this.recordSlideHistoryCommand(
+			() => {
+				slide.disabled = !oldDisabled;
+			},
+			() => {
+				slide.disabled = oldDisabled;
+			}
+		);
 	}
 
 	public commandEnableAllSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド有効化")) return;
-		this.listVC.slides.forEach((slide) => {
-			slide.disabled = false;
-		});
-		this.emitCurrentSlides();
+		if (!this.listVC.slides.some((slide) => slide.disabled)) return;
+		const previousStates = this.listVC.slides.map((slide) => ({ slide, disabled: slide.disabled }));
+		this.recordSlideHistoryCommand(
+			() => {
+				previousStates.forEach(({ slide }) => {
+					slide.disabled = false;
+				});
+			},
+			() => {
+				previousStates.forEach(({ slide, disabled }) => {
+					slide.disabled = disabled;
+				});
+			}
+		);
 	}
 
 	public commandDisableAllSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド無効化")) return;
-		this.listVC.slides.forEach((slide) => {
-			slide.disabled = true;
-		});
-		this.emitCurrentSlides();
+		if (!this.listVC.slides.some((slide) => !slide.disabled)) return;
+		const previousStates = this.listVC.slides.map((slide) => ({ slide, disabled: slide.disabled }));
+		this.recordSlideHistoryCommand(
+			() => {
+				previousStates.forEach(({ slide }) => {
+					slide.disabled = true;
+				});
+			},
+			() => {
+				previousStates.forEach(({ slide, disabled }) => {
+					slide.disabled = disabled;
+				});
+			}
+		);
 	}
 
 	public commandEnableOnlySelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "選択スライドのみ有効化")) return;
 		const selectedSlide = this.listVC.selectedSlide;
 		if (!selectedSlide) return;
-		this.listVC.slides.forEach((slide) => {
-			slide.disabled = slide !== selectedSlide;
-		});
-		this.emitCurrentSlides();
+		const hasChange = this.listVC.slides.some((slide) => slide.disabled !== (slide !== selectedSlide));
+		if (!hasChange) return;
+		const previousStates = this.listVC.slides.map((slide) => ({ slide, disabled: slide.disabled }));
+		this.recordSlideHistoryCommand(
+			() => {
+				previousStates.forEach(({ slide }) => {
+					slide.disabled = slide !== selectedSlide;
+				});
+			},
+			() => {
+				previousStates.forEach(({ slide, disabled }) => {
+					slide.disabled = disabled;
+				});
+			}
+		);
 	}
 
 	public commandDeleteDisabledSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "無効スライド削除")) return;
-		const disabledSlides = this.listVC.slides.filter((slide) => slide.disabled);
+		const disabledSlides = this.listVC.slides
+			.map((slide, index) => ({ slide, index }))
+			.filter(({ slide }) => slide.disabled);
 		if (disabledSlides.length === 0) return;
-		disabledSlides.forEach((slide) => {
-			this.listVC.removeSlide(slide, false);
-		});
-		this.rebindSlideMetaListeners();
-		this.emitCurrentSlides();
+		const selectedSlide = this.listVC.selectedSlide;
+		this.recordSlideHistoryCommand(
+			() => {
+				disabledSlides.forEach(({ slide }) => {
+					this.listVC.removeSlide(slide, false, false);
+				});
+			},
+			() => {
+				disabledSlides.forEach(({ slide, index }) => {
+					this.listVC.addSlide(slide, index);
+				});
+				if (selectedSlide) {
+					this.listVC.selectSlideInstance(selectedSlide);
+				}
+			},
+			true
+		);
 	}
 
 	public commandSetSelectedSlideDurationRatio(ratio: number): void {
@@ -623,8 +853,17 @@ export class Viewer {
 		if (!isFinite(ratio) || ratio <= 0) return;
 		const slide = this.listVC.selectedSlide;
 		if (!slide) return;
-		slide.durationRatio = ratio;
-		this.emitCurrentSlides();
+		const oldRatio = slide.durationRatio;
+		const nextRatio = Math.max(ratio, 0.2);
+		if (oldRatio === nextRatio) return;
+		this.recordSlideHistoryCommand(
+			() => {
+				slide.durationRatio = nextRatio;
+			},
+			() => {
+				slide.durationRatio = oldRatio;
+			}
+		);
 	}
 
 	private emitCurrentSlides(): void {

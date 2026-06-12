@@ -58,8 +58,12 @@
 - 主要編集操作（移動/拡縮/回転/反転）成功
 - Undo/Redo の整合
 - React プロパティ入力欄で Enter / ↑↓ / ホイールによる値反映が成功
-- React 補助操作パネルでスライド duration、キャンバス zoom、選択レイヤー position/scale/rotation/opacity の値反映が成功
-- React Slide IO から全 join 切替、全 enable/disable、選択スライドのみ enable、disabled スライド削除が成功
+- React 補助操作パネルでスライド durationRatio（表示時間比）、キャンバス zoom、選択レイヤー position/scale/rotation/opacity の値反映が成功
+- React Slide IO から全 join 切替、unjoin all、activate all、disable all、選択スライドのみ enable、remove disabled slides が成功
+- React Slide IO から選択スライドの前後移動が成功し、選択状態が維持される
+- React/legacy Slide IO からスライド追加/複製/削除/並び替え/join/unjoin/activate all/disable all/remove disabled slides/durationRatio（表示時間比）変更後に Undo/Redo と document modified が反映される
+- React スライドリストで Enter/Space 選択、↑↓/←→ 選択移動、Home/End 先頭末尾選択、Cmd/Ctrl+矢印 並び替え、Delete/Backspace 削除が成功
+- React スライドリストでキーボード連続操作時にフォーカスが対象行へ追従する
 - React レイヤーリストで ↑↓ 選択移動、Enter/Space 選択、F2 rename、Delete/Backspace 削除が成功
 
 ### Phase 4 ゲート

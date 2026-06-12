@@ -21,6 +21,7 @@ import {
 	setSaveFormat,
 } from "../runtime/reactDomRegistry";
 import { getAdjustedNumericValue, getInputStep } from "./numericInput";
+import { getSlideListKeyboardAction } from "./slideListKeyboard";
 
 const durationOptions = [
 	{ value: "1", label: "0" },
@@ -57,6 +58,7 @@ type RuntimeShellProps = {
 };
 
 type SlideSnapshot = {
+	key: string;
 	index: number;
 	label: string;
 	selected: boolean;
@@ -99,6 +101,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [saveFormat, setSaveFormatState] = useState<"png" | "hvz" | "hvd">("png");
 	const [durationRatioInput, setDurationRatioInput] = useState("");
 	const imageReplaceInputRef = useRef<HTMLInputElement | null>(null);
+	const pendingSlideFocusKey = useRef<string | null>(null);
+	const slideRowRefs = useRef(new Map<string, HTMLElement>());
 	const dragState = useRef<{
 		startMouseX: number;
 		startMouseY: number;
@@ -182,13 +186,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const slides = useMemo<SlideSnapshot[]>(
 		() =>
-			rawSlides.map((_, i) => ({
+			rawSlides.map((slide, i) => ({
+				key: slide.uuid || String(slide.id),
 				index: i,
 				label: `Slide ${i + 1}`,
 				selected: i === selectedIndex,
-				joining: Boolean(rawSlides[i]?.joining),
-				disabled: Boolean(rawSlides[i]?.disabled),
-				durationRatio: typeof rawSlides[i]?.durationRatio === "number" ? rawSlides[i].durationRatio : 1,
+				joining: Boolean(slide.joining),
+				disabled: Boolean(slide.disabled),
+				durationRatio: typeof slide.durationRatio === "number" ? slide.durationRatio : 1,
 			})),
 		[rawSlides, selectedIndex]
 	);
@@ -231,6 +236,53 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const selectSlide = (index: number) => {
 		ViewerCommands.selectSlideByIndex(index);
+	};
+
+	useEffect(() => {
+		const focusKey = pendingSlideFocusKey.current;
+		if (!focusKey) return;
+		pendingSlideFocusKey.current = null;
+		slideRowRefs.current.get(focusKey)?.focus();
+	}, [slides]);
+
+	const focusSlideAfterRender = (key: string | undefined) => {
+		if (!key) return;
+		pendingSlideFocusKey.current = key;
+	};
+
+	const handleSlideKeyDown = (slide: SlideSnapshot, event: React.KeyboardEvent<HTMLDivElement>) => {
+		const action = getSlideListKeyboardAction({
+			key: event.key,
+			metaKey: event.metaKey,
+			ctrlKey: event.ctrlKey,
+			canEdit: gate.canEdit,
+			slideIndex: slide.index,
+			slideCount: slides.length,
+		});
+		if (action.preventDefault) {
+			event.preventDefault();
+		}
+
+		switch (action.type) {
+			case "select":
+				focusSlideAfterRender(slides[action.index]?.key);
+				ViewerCommands.selectSlideByIndex(action.index);
+				break;
+			case "move":
+				focusSlideAfterRender(slide.key);
+				ViewerCommands.selectSlideByIndex(action.index);
+				if (action.direction < 0) {
+					ViewerCommands.moveSelectedSlideBackward();
+				} else {
+					ViewerCommands.moveSelectedSlideForward();
+				}
+				break;
+			case "delete":
+				focusSlideAfterRender(slides[action.index + 1]?.key ?? slides[action.index - 1]?.key);
+				ViewerCommands.selectSlideByIndex(action.index);
+				ViewerCommands.deleteSelectedSlide();
+				break;
+		}
 	};
 
 	const applyPosition = () => {
@@ -415,6 +467,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const canEditSelectedLayer = gate.canEdit && isEditMode && hasSelection;
 	const disabledSlideCount = slides.filter((slide) => slide.disabled).length;
 	const allSlidesJoined = slides.length > 0 && slides.every((slide) => slide.joining);
+	const canUnjoinSlides = slides.some((slide) => slide.joining || slide.durationRatio !== 1);
+	const canMoveSelectedSlideBackward = gate.canEdit && selectedIndex > 0;
+	const canMoveSelectedSlideForward = gate.canEdit && selectedIndex >= 0 && selectedIndex < slides.length - 1;
 	const fmt = (value: number | null, digits = 2): string =>
 		value == null ? "-" : value.toFixed(digits);
 
@@ -534,6 +589,24 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									Next
 								</Button>
 							</Group>
+							{gate.canEdit && slides.length > 1 && (
+								<Group grow>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => ViewerCommands.moveSelectedSlideBackward()}
+										disabled={!canMoveSelectedSlideBackward}>
+										Move Prev
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => ViewerCommands.moveSelectedSlideForward()}
+										disabled={!canMoveSelectedSlideForward}>
+										Move Next
+									</Button>
+								</Group>
+							)}
 							{selectedRawSlide && gate.canEdit && (
 								<Group grow>
 									<Button
@@ -558,6 +631,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 										variant={allSlidesJoined ? "filled" : "default"}
 										onClick={() => ViewerCommands.toggleAllSlidesJoining()}>
 										All Join {allSlidesJoined ? "ON" : "OFF"}
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => ViewerCommands.unjoinAllSlides()}
+										disabled={!canUnjoinSlides}>
+										Unjoin All
 									</Button>
 									<Button
 										size="xs"
@@ -595,7 +675,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 							{selectedRawSlide && gate.canEdit && (
 								<Group grow>
 									<Text size="xs" c="dimmed" style={{ display: "flex", alignItems: "center" }}>
-										dur×{selectedRawSlide.durationRatio}
+										Time×{selectedRawSlide.durationRatio}
 									</Text>
 									<input
 										type="number"
@@ -619,33 +699,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 											const r = Number(durationRatioInput);
 											if (isFinite(r) && r > 0) ViewerCommands.setSelectedSlideDurationRatio(r);
 										}}>
-										Set Dur
+										Set Time×
 									</Button>
 								</Group>
 							)}
-							<Group grow>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.zoomOutCanvas()}
-									disabled={!gate.canEdit || !isEditMode}>
-									Zoom-
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.resetCanvasZoom()}
-									disabled={!gate.canEdit || !isEditMode}>
-									Zoom 1x
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.zoomInCanvas()}
-									disabled={!gate.canEdit || !isEditMode}>
-									Zoom+
-								</Button>
-							</Group>
 							<Group grow>
 								<Button
 									size="xs"
@@ -744,28 +801,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									variant="default"
 									onClick={() => ViewerCommands.arrangeSelectedLayerTop()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Top
+									Align T
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.arrangeSelectedLayerRight()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Right
+									Align R
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.arrangeSelectedLayerBottom()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Bottom
+									Align B
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.arrangeSelectedLayerLeft()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Left
+									Align L
 								</Button>
 							</Group>
 							<Group grow>
@@ -774,28 +831,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									variant="default"
 									onClick={() => ViewerCommands.moveSelectedLayerDown()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Back
+									Back 1
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.moveSelectedLayerUp()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Front
+									Front 1
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.moveSelectedLayerToBottom()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Bottom
+									Back All
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.moveSelectedLayerToTop()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Top
+									Front All
 								</Button>
 							</Group>
 							<Group grow>
@@ -1262,75 +1319,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									Op 1
 								</Button>
 							</Group>
-							<Group grow>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("top", 10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip T+
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("top", -10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip T-
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("right", 10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip R+
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("right", -10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip R-
-								</Button>
-							</Group>
-							<Group grow>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("bottom", 10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip B+
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("bottom", -10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip B-
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("left", 10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip L+
-								</Button>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("left", -10)}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip L-
-								</Button>
-							</Group>
-							<Group grow>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.resetSelectedImageClip()}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
-									Clip Reset
-								</Button>
-							</Group>
 							<ScrollArea h={120} type="auto">
 								<Stack gap={4}>
 									{slides.length === 0 ? (
@@ -1340,10 +1328,22 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									) : (
 										slides.map((slide) => (
 											<Text
-												key={slide.label}
+												key={slide.key}
 												size="xs"
 												fw={slide.selected ? 700 : 400}
 												style={{ cursor: "pointer", opacity: slide.disabled ? 0.45 : 1 }}
+												role="button"
+												aria-current={slide.selected ? "true" : undefined}
+												aria-disabled={slide.disabled ? "true" : undefined}
+												tabIndex={0}
+												ref={(node) => {
+													if (node) {
+														slideRowRefs.current.set(slide.key, node);
+													} else {
+														slideRowRefs.current.delete(slide.key);
+													}
+												}}
+												onKeyDown={(e) => handleSlideKeyDown(slide, e)}
 												onClick={() => selectSlide(slide.index)}>
 												{slide.selected ? "● " : "○ "}
 												{slide.label}{slide.joining ? " [J]" : ""}{slide.disabled ? " ✕" : ""}{slide.durationRatio !== 1 ? ` ×${slide.durationRatio}` : ""}

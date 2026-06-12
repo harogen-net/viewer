@@ -15,11 +15,20 @@ export const ViewerCommands = {
 	deleteSelectedSlide(): void {
 		getViewer()?.commandDeleteSelectedSlide();
 	},
+	moveSelectedSlideBackward(): void {
+		getViewer()?.commandMoveSelectedSlideBackward();
+	},
+	moveSelectedSlideForward(): void {
+		getViewer()?.commandMoveSelectedSlideForward();
+	},
 	toggleSelectedSlideJoining(): void {
 		getViewer()?.commandToggleSelectedSlideJoining();
 	},
 	toggleAllSlidesJoining(): void {
 		getViewer()?.commandToggleAllSlidesJoining();
+	},
+	unjoinAllSlides(): void {
+		getViewer()?.commandUnjoinAllSlides();
 	},
 	toggleSelectedSlideDisabled(): void {
 		getViewer()?.commandToggleSelectedSlideDisabled();

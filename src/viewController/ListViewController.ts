@@ -87,7 +87,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.containerObj
 			);
 			this.newSlideBtn.click(() => {
-				this.addNewSlideAndSelect();
+				this.dispatchEvent(new Event("requestNewSlide"));
 			});
 
 			this.listContextMenu = $("#listContextMenu");
@@ -95,35 +95,19 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 			this.listContextMenu.find(".unjoin").click((event) => {
 				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
-				var isAllJoined = this.slides.every((slide) => {
-					return slide.joining;
-				});
-				this.slides.forEach((slide) => {
-					slide.joining = !isAllJoined;
-					slide.durationRatio = 1;
-				});
+				this.dispatchEvent(new Event("requestUnjoinAllSlides"));
 			});
 			this.listContextMenu.find(".delete").click((event) => {
 				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
-				this.slides
-					.filter((slide) => {
-						return slide.disabled;
-					})
-					.forEach((slide) => {
-						this.removeSlide(slide, false);
-					});
+				this.dispatchEvent(new Event("requestDeleteDisabledSlides"));
 			});
 			this.listContextMenu.find(".enable").click((event) => {
 				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
-				this.slides.forEach((slide) => {
-					slide.disabled = false;
-				});
+				this.dispatchEvent(new Event("requestEnableAllSlides"));
 			});
 			this.listContextMenu.find(".disable").click((event) => {
 				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
-				this.slides.forEach((slide) => {
-					slide.disabled = true;
-				});
+				this.dispatchEvent(new Event("requestDisableAllSlides"));
 			});
 			this.obj.on("contextmenu.slide", (e) => {
 				if (this._slides.length > 0) {
@@ -140,17 +124,13 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			this.slideContextMenu.find(".delete").click((event) => {
 				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				if (this.contextTargetSlide == null) return;
-				this.removeSlide(this.contextTargetSlide, false);
+				this.dispatchEvent(new CustomEvent("requestDeleteSlide", { detail: this.contextTargetSlide }));
 				this.contextTargetSlide = null;
 			});
 			this.slideContextMenu.find(".enable").click((event) => {
 				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				if (this.contextTargetSlide == null) return;
-				this.slides.forEach((slide) => {
-					slide.disabled = true;
-				});
-				this.contextTargetSlide.disabled = false;
-				this.selectSlide(this.contextTargetSlide);
+				this.dispatchEvent(new CustomEvent("requestEnableOnlySlide", { detail: this.contextTargetSlide }));
 				this.contextTargetSlide = null;
 			});
 
@@ -235,9 +215,33 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.removeSlide(this._selectedSlide, true);
 	}
 
+	public moveSelectedSlideByOffset(offset: number): boolean {
+		if (!this.canEdit || !this._selectedSlide) return false;
+		if (!Number.isInteger(offset) || offset === 0) return false;
+		const fromIndex = this._slides.indexOf(this._selectedSlide);
+		if (fromIndex === -1) return false;
+		const toIndex = Math.max(0, Math.min(this._slides.length - 1, fromIndex + offset));
+		if (toIndex === fromIndex) return false;
+
+		const [slide] = this._slides.splice(fromIndex, 1);
+		this._slides.splice(toIndex, 0, slide);
+		const [slideView] = this._slideViews.splice(fromIndex, 1);
+		this._slideViews.splice(toIndex, 0, slideView);
+
+		this.sortSlideViewByIndex();
+		this.selectSlide(slide);
+		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
+		return true;
+	}
+
 	public selectSlideByIndex(index: number): void {
 		if (index < 0 || index >= this._slides.length) return;
 		this.selectSlide(this._slides[index]);
+	}
+
+	public selectSlideInstance(slide: Slide): void {
+		if (!slide || this._slides.indexOf(slide) === -1) return;
+		this.selectSlide(slide);
 	}
 
 	public selectPreviousSlide(): void {
@@ -297,10 +301,10 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.dispatchEvent(new Event("edit"));
 	};
 	private onSlideClone = (ce: CustomEvent) => {
-		this.clonseSlide(ce.detail as Slide);
+		this.dispatchEvent(new CustomEvent("requestCloneSlide", { detail: ce.detail as Slide }));
 	};
 	private onSlideDelete = (ce: CustomEvent) => {
-		this.removeSlide(ce.detail as Slide, true);
+		this.dispatchEvent(new CustomEvent("requestDeleteSlide", { detail: ce.detail as Slide }));
 	};
 	private onContextMenu = (ce: CustomEvent) => {
 		var offset = this.obj.offset();
@@ -319,7 +323,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		});
 	};
 
-	removeSlide(slide: Slide, isAnimation: boolean = false): Slide {
+	removeSlide(slide: Slide, isAnimation: boolean = false, destroySlide: boolean = true): Slide {
 		if (!this.canEdit) return slide;
 		var index: number = this._slides.indexOf(slide);
 		if (index == -1) return;
@@ -347,8 +351,10 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			slideView = null;
 
 			this._slides.splice(index, 1);
-			slide.removeAllLayers();
-			slide.clearEventListener();
+			if (destroySlide) {
+				slide.removeAllLayers();
+				slide.clearEventListener();
+			}
 			slide = null;
 		};
 
