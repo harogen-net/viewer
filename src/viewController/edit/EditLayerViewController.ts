@@ -17,6 +17,11 @@ export class EditLayerViewController {
 			this.items.push(item);
 		}
 
+		this.ulObj = this.obj.find("ul");
+
+		// React controls this layer list: skip legacy DOM manipulation
+		if (this.ulObj.attr("data-react-controlled") === "true") return;
+
 		var bg: any = $('<div class="bg" />');
 		this.obj.append(bg);
 		bg.on("click", (any) => {
@@ -25,11 +30,12 @@ export class EditLayerViewController {
 				if (item.layerView.selected) item.layerView.selected = false;
 			});
 		});
-
-		this.ulObj = this.obj.find("ul");
 	}
 
 	private updateLayers(): void {
+		// React controls this layer list: skip legacy DOM manipulation
+		if (this.ulObj?.attr("data-react-controlled") === "true") return;
+
 		this.items.forEach((item) => {
 			item.obj.detach();
 			item.layerView = null;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
-import { useViewerEditLayerState, useViewerMode } from "../bridge/useViewerBridge";
+import { useViewerEditLayerState, useViewerEditLayers, useViewerMode } from "../bridge/useViewerBridge";
 
 export function CopyPasteControls() {
 	const { hasSelection } = useViewerEditLayerState();
@@ -430,6 +430,8 @@ export function LayerControls() {
     const { layers } = useViewerEditLayers();
     const { mode } = useViewerMode();
     const canEditLayers = mode === "edit";
+    const [renamingId, setRenamingId] = useState<number | null>(null);
+    const [renameInput, setRenameInput] = useState("");
 
     const handleSelectLayer = (index: number) => {
         if (!canEditLayers) return;
@@ -439,7 +441,6 @@ export function LayerControls() {
     const handleToggleVisible = (index: number, event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
         if (!canEditLayers) return;
-        // First select the layer, then toggle visibility
         ViewerCommands.selectEditLayerByIndex(index);
         ViewerCommands.toggleSelectedLayerVisible();
     };
@@ -447,13 +448,36 @@ export function LayerControls() {
     const handleToggleLocked = (index: number, event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
         if (!canEditLayers) return;
-        // First select the layer, then toggle lock
         ViewerCommands.selectEditLayerByIndex(index);
         ViewerCommands.toggleSelectedLayerLocked();
     };
 
+    const handleDeleteLayer = (index: number, event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (!canEditLayers) return;
+        ViewerCommands.selectEditLayerByIndex(index);
+        ViewerCommands.removeSelectedLayer();
+    };
+
+    const startRename = (id: number, currentName: string, event: React.MouseEvent) => {
+        event.stopPropagation();
+        if (!canEditLayers) return;
+        setRenamingId(id);
+        setRenameInput(currentName);
+    };
+
+    const commitRename = () => {
+        if (renamingId === null) return;
+        const layer = layers.find((l) => l.id === renamingId);
+        if (layer) {
+            ViewerCommands.selectEditLayerByIndex(layer.index);
+            ViewerCommands.setSelectedLayerName(renameInput);
+        }
+        setRenamingId(null);
+    };
+
     return (
-        <ul className="layerList">
+        <ul className="layerList" data-react-controlled="true">
             {layers.map((layer) => (
                 <li
                     key={layer.id}
@@ -479,9 +503,40 @@ export function LayerControls() {
                     >
                         <i className={layer.locked ? "fas fa-lock" : "fas fa-unlock"}></i>
                     </button>
-                    <span className="layerName">
-                        {layer.name} ({layer.type})
-                    </span>
+                    {renamingId === layer.id ? (
+                        <input
+                            type="text"
+                            value={renameInput}
+                            autoFocus
+                            onChange={(e) => setRenameInput(e.currentTarget.value)}
+                            onBlur={commitRename}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") e.currentTarget.blur();
+                                if (e.key === "Escape") {
+                                    setRenamingId(null);
+                                }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ fontSize: "11px", width: "80px" }}
+                        />
+                    ) : (
+                        <span
+                            className="layerName"
+                            onDoubleClick={(e) => startRename(layer.id, layer.name, e)}
+                            title="double-click to rename"
+                        >
+                            {layer.name} ({layer.type})
+                        </span>
+                    )}
+                    <button
+                        className="delete"
+                        data-react-controlled="true"
+                        onClick={(e) => handleDeleteLayer(layer.index, e)}
+                        disabled={!canEditLayers}
+                        title="delete layer"
+                    >
+                        <i className="fas fa-times"></i>
+                    </button>
                 </li>
             ))}
         </ul>

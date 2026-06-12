@@ -13,8 +13,8 @@ import { ImageManager } from "../utils/ImageManager";
 import { EditableSlideView } from "../view/slide/EditableSlideView";
 import { ViewerMode } from "../Viewer";
 import {
-    VMButton,
-    VMToggleButton,
+	VMButton,
+	VMToggleButton,
 } from "../viewModel/VMUI";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
 

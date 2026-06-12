@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { ViewerCommands } from "../bridge/ViewerCommands";
+import { useViewerEditSelection, useViewerHistory, useViewerMode } from "../bridge/useViewerBridge";
 import { CanvasMenu } from "./CanvasMenu";
 import { ListContextMenus } from "./ListContextMenus";
 import {
@@ -9,10 +11,6 @@ import {
     SwapControls,
     TextEditControls,
 } from "./SideControls";
-import { ViewerCommands } from "../bridge/ViewerCommands";
-import { useViewerMode } from "../bridge/useViewerBridge";
-import { useViewerEditSelection } from "../bridge/useViewerBridge";
-import { useViewerHistory } from "../bridge/useViewerBridge";
 
 export function MainShell() {
 	const { mode } = useViewerMode();
@@ -90,6 +88,55 @@ export function MainShell() {
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [mode]);
+
+	// Keyboard shortcuts: Delete / Backspace to remove selected layer
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (mode !== "edit" || !hasSelection) return;
+			const tag = (document.activeElement as HTMLElement)?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+			if (e.code === "Delete" || e.code === "Backspace") {
+				e.preventDefault();
+				ViewerCommands.removeSelectedLayer();
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [mode, hasSelection]);
+
+	// Keyboard shortcuts: Arrow keys to nudge selected layer (1px; +Shift = 10px)
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (mode !== "edit" || !hasSelection) return;
+			// Skip if focus is inside a text input / textarea to avoid hijacking typing
+			const tag = (document.activeElement as HTMLElement)?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+			switch (e.code) {
+				case "ArrowLeft":
+					e.preventDefault();
+					ViewerCommands.nudgeSelectedLayerLeft();
+					break;
+				case "ArrowRight":
+					e.preventDefault();
+					ViewerCommands.nudgeSelectedLayerRight();
+					break;
+				case "ArrowUp":
+					e.preventDefault();
+					ViewerCommands.nudgeSelectedLayerUp();
+					break;
+				case "ArrowDown":
+					e.preventDefault();
+					ViewerCommands.nudgeSelectedLayerDown();
+					break;
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [mode, hasSelection]);
 	return (
 		<>
 			<div className="canvas">
