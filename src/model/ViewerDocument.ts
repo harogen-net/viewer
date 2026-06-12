@@ -1,4 +1,3 @@
-import $ from "jquery";
 import JSZip from "jszip";
 import { DataUtil } from "../utils/DataUtil";
 import { DateUtil } from "../utils/DateUtil";
@@ -74,7 +73,7 @@ export class ViewerDocument {
 	}
 	//FileIO
 	public downloadImage(targetIndex: number = -1) {
-		var isTransparent = $("#saveImageAsTransparent").prop("checked");
+		const isTransparent = false;
 		if (targetIndex != -1) {
 			if (this.slides[targetIndex] != undefined) {
 				var slide = this.slides[targetIndex];

@@ -15,7 +15,7 @@ import { resolveRuntimeMode } from "./runtime/mode";
 import "../css/slideShow.scss";
 import "../css/ui.scss";
 
-$(function () {
+document.addEventListener("DOMContentLoaded", () => {
 	const runtimeMode = resolveRuntimeMode();
 	const gate = getFeatureGate(runtimeMode);
 

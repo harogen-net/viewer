@@ -1,12 +1,10 @@
-import { SlideView } from "../SlideView";
-import { SlideToPNGConverter } from "../../utils/SlideToPNGConverter";
-import { Slide } from "../../model/Slide";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
-import $ from "jquery";
-
+import { Slide } from "../../model/Slide";
+import { SlideToPNGConverter } from "../../utils/SlideToPNGConverter";
+import { SlideView } from "../SlideView";
 export class CanvasSlideView extends SlideView {
-	protected thumbnail: any;
+	protected thumbnail: HTMLCanvasElement;
 	protected converter: SlideToPNGConverter;
 	protected canvas: HTMLCanvasElement;
 
@@ -28,11 +26,11 @@ export class CanvasSlideView extends SlideView {
 		this.height = Math.round(this._slide.height * this.scale);
 
 		this.canvas = this.converter.slide2canvas(this._slide, this.width, this.height, this.scale);
-		this.thumbnail = $(this.canvas);
-		this.obj.append(this.thumbnail);
-		this.obj.height(this.height);
-		this.thumbnail.css({
-			witdh: "100%",
+		this.thumbnail = this.canvas;
+		this.obj[0].appendChild(this.thumbnail);
+		this.obj[0].style.height = this.height + "px";
+		Object.assign(this.thumbnail.style, {
+			width: "100%",
 			height: "100%",
 			display: "block",
 			margin: "0 auto",
@@ -46,7 +44,7 @@ export class CanvasSlideView extends SlideView {
 			clearInterval(this.intervalId);
 		}
 		this.converter = null;
-		this.thumbnail.remove();
+		this.thumbnail?.remove();
 		this.thumbnail = null;
 		this.canvas = null;
 
