@@ -51,6 +51,9 @@ export const ViewerCommands = {
 	exportImages(): void {
 		getViewer()?.commandExportImages();
 	},
+	downloadSelectedSlide(): void {
+		getViewer()?.commandDownloadSelectedSlide();
+	},
 	setSlideShowDuration(duration: number): void {
 		getViewer()?.commandSetSlideShowDuration(duration);
 	},

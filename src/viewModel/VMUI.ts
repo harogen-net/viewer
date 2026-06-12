@@ -1,8 +1,8 @@
-import { TypeChecker } from "../utils/TypeChecker";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { HistoryManager, Command } from "../utils/HistoryManager";
-import { IVMUI } from "../interface/IVMUI";
 import $ from "jquery";
+import { PropertyEvent } from "../events/PropertyEvent";
+import { IVMUI } from "../interface/IVMUI";
+import { Command, HistoryManager } from "../utils/HistoryManager";
+import { TypeChecker } from "../utils/TypeChecker";
 
 export class VMUI implements IVMUI {
 	protected _target: any;
@@ -19,13 +19,21 @@ export class VMUI implements IVMUI {
 		) {
 			throw new Error("invalid jquery object.");
 		}
-		this._obj.prop("disabled", true);
+		if (!this.isReactControlled()) {
+			this._obj.prop("disabled", true);
+		}
+	}
+
+	protected isReactControlled(): boolean {
+		return this._obj.attr("data-react-controlled") === "true";
 	}
 
 	protected setTarget() {
+		if (this.isReactControlled()) return;
 		this._obj.prop("disabled", false);
 	}
 	protected destroyTarget() {
+		if (this.isReactControlled()) return;
 		this._obj.prop("disabled", true);
 	}
 
@@ -66,6 +74,7 @@ export class VMButton extends VMUI {
 		if (_obj.prop("tagName") != "BUTTON") {
 			throw new Error("invalid jquery object. use button tag.");
 		}
+		if (this.isReactControlled()) return;
 
 		_obj.on("click", () => {
 			clickHandler(this._target);
@@ -84,6 +93,7 @@ export class VMToggleButton extends VMUI {
 		if (_obj.prop("tagName") != "BUTTON") {
 			throw new Error("invalid jquery object. use <button /> tag.");
 		}
+		if (this.isReactControlled()) return;
 
 		var target;
 		var propKey;
@@ -112,6 +122,7 @@ export class VMToggleButton extends VMUI {
 	}
 
 	protected setTarget() {
+		if (this.isReactControlled()) return;
 		if (
 			this._target[this.targetPropKey] == undefined ||
 			!TypeChecker.isBoolean(this._target[this.targetPropKey])
@@ -126,6 +137,7 @@ export class VMToggleButton extends VMUI {
 		this._target.addEventListener(PropertyEvent.UPDATE, this.onPropertyUpdate);
 	}
 	protected destroyTarget() {
+		if (this.isReactControlled()) return;
 		super.destroyTarget();
 		if (this._target[this.targetPropKey]) {
 			this._obj.removeClass("on");
@@ -135,7 +147,6 @@ export class VMToggleButton extends VMUI {
 
 	//
 	// event handler
-	//
 	private onPropertyUpdate = (pe: PropertyEvent) => {
 		if (pe.targe != this._target) return;
 		if (this.targetPropFlag & pe.propFlags) {
@@ -160,6 +171,7 @@ export class VMCheckBox extends VMUI {
 		if (_obj.prop("tagName") != "INPUT" || _obj.attr("type") != "checkbox") {
 			throw new Error('invalid jquery object. use <input type=\checkbox" /> tag.');
 		}
+		if (this.isReactControlled()) return;
 
 		_obj.prop("checked", this.isInverse);
 		_obj.on("click", () => {

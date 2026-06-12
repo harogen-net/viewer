@@ -722,6 +722,10 @@ export class Viewer {
 		this.viewerDocument.downloadImage();
 	}
 
+	public commandDownloadSelectedSlide(): void {
+		this.viewerDocument.downloadImage(this.listVC.selectedSlideIndex);
+	}
+
 	public commandSetSlideShowDuration(duration: number): void {
 		this.slideShowDuration = duration;
 		this.emitSlideShowSettings();

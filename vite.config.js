@@ -1,6 +1,6 @@
 // vite.config.js
-import { defineConfig } from "vite";
 import inject from "@rollup/plugin-inject";
+import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
@@ -36,7 +36,7 @@ export default defineConfig({
 		{
 			name: "remove-crossorigin",
 			transformIndexHtml(html) {
-				return html.replaceAll("crossorigin ", "").replace(`type="module" `, "");
+				return html.replaceAll("crossorigin ", "");
 			},
 		},
 	],

@@ -288,10 +288,12 @@ export class EditViewController extends EventDispatcher {
 
 		//
 
-		$(".undo").click(() => {
+		$(".undo").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			HistoryManager.shared.undo();
 		});
-		$(".redo").click(() => {
+		$(".redo").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			HistoryManager.shared.redo();
 		});
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, () => {
@@ -301,24 +303,30 @@ export class EditViewController extends EventDispatcher {
 
 		//
 
-		$(".paste").click(() => {
+		$(".paste").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			this.slideView.paste();
 		});
-		$(".zoomIn").click(() => {
+		$(".zoomIn").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			this.zoomInCanvas();
 		});
-		$(".showAll").click(() => {
+		$(".showAll").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			this.resetCanvasZoom();
 		});
-		$(".zoomOut").click(() => {
+		$(".zoomOut").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			this.zoomOutCanvas();
 		});
-		$(".slideDownload").click(() => {
+		$(".slideDownload").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			this.dispatchEvent(new Event("download"));
 		});
 		// Legacy .text button: React-side addTextLayer is now the primary path.
 		// Fallback prompt is kept for standalone (non-React) usage only.
-		$(".text").click(() => {
+		$(".text").click((event) => {
+			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 			const text = prompt("insert text layer:");
 			if (text == null) return;
 			this.addTextLayer(text);
