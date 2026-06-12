@@ -427,7 +427,65 @@ export function PropertyControls() {
 }
 
 export function LayerControls() {
-    return <ul></ul>;
+    const { layers } = useViewerEditLayers();
+    const { mode } = useViewerMode();
+    const canEditLayers = mode === "edit";
+
+    const handleSelectLayer = (index: number) => {
+        if (!canEditLayers) return;
+        ViewerCommands.selectEditLayerByIndex(index);
+    };
+
+    const handleToggleVisible = (index: number, event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (!canEditLayers) return;
+        // First select the layer, then toggle visibility
+        ViewerCommands.selectEditLayerByIndex(index);
+        ViewerCommands.toggleSelectedLayerVisible();
+    };
+
+    const handleToggleLocked = (index: number, event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (!canEditLayers) return;
+        // First select the layer, then toggle lock
+        ViewerCommands.selectEditLayerByIndex(index);
+        ViewerCommands.toggleSelectedLayerLocked();
+    };
+
+    return (
+        <ul className="layerList">
+            {layers.map((layer) => (
+                <li
+                    key={layer.id}
+                    className={layer.selected ? "selected" : ""}
+                    onClick={() => handleSelectLayer(layer.index)}
+                    data-react-controlled="true"
+                >
+                    <button
+                        className="visible"
+                        data-react-controlled="true"
+                        onClick={(e) => handleToggleVisible(layer.index, e)}
+                        disabled={!canEditLayers}
+                        title={layer.visible ? "hide layer" : "show layer"}
+                    >
+                        <i className={layer.visible ? "fas fa-eye" : "fas fa-eye-slash"}></i>
+                    </button>
+                    <button
+                        className="locked"
+                        data-react-controlled="true"
+                        onClick={(e) => handleToggleLocked(layer.index, e)}
+                        disabled={!canEditLayers}
+                        title={layer.locked ? "unlock layer" : "lock layer"}
+                    >
+                        <i className={layer.locked ? "fas fa-lock" : "fas fa-unlock"}></i>
+                    </button>
+                    <span className="layerName">
+                        {layer.name} ({layer.type})
+                    </span>
+                </li>
+            ))}
+        </ul>
+    );
 }
 
 export const LegacyCopyPasteControls = CopyPasteControls;

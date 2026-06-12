@@ -93,7 +93,8 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			this.listContextMenu = $("#listContextMenu");
 			this.listContextMenu.hide();
 
-			this.listContextMenu.find(".unjoin").click(() => {
+			this.listContextMenu.find(".unjoin").click((event) => {
+				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				var isAllJoined = this.slides.every((slide) => {
 					return slide.joining;
 				});
@@ -102,7 +103,8 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 					slide.durationRatio = 1;
 				});
 			});
-			this.listContextMenu.find(".delete").click(() => {
+			this.listContextMenu.find(".delete").click((event) => {
+				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				this.slides
 					.filter((slide) => {
 						return slide.disabled;
@@ -111,12 +113,14 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 						this.removeSlide(slide, false);
 					});
 			});
-			this.listContextMenu.find(".enable").click(() => {
+			this.listContextMenu.find(".enable").click((event) => {
+				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				this.slides.forEach((slide) => {
 					slide.disabled = false;
 				});
 			});
-			this.listContextMenu.find(".disable").click(() => {
+			this.listContextMenu.find(".disable").click((event) => {
+				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				this.slides.forEach((slide) => {
 					slide.disabled = true;
 				});
@@ -133,12 +137,14 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 			this.slideContextMenu = $("#slideContextMenu");
 			this.slideContextMenu.hide();
-			this.slideContextMenu.find(".delete").click(() => {
+			this.slideContextMenu.find(".delete").click((event) => {
+				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				if (this.contextTargetSlide == null) return;
 				this.removeSlide(this.contextTargetSlide, false);
 				this.contextTargetSlide = null;
 			});
-			this.slideContextMenu.find(".enable").click(() => {
+			this.slideContextMenu.find(".enable").click((event) => {
+				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
 				if (this.contextTargetSlide == null) return;
 				this.slides.forEach((slide) => {
 					slide.disabled = true;
