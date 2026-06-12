@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
     useViewerEditLayerState,
+    useViewerEditLayers,
     useViewerEditSelection,
     useViewerHistory,
     useViewerMode,
@@ -13,6 +14,7 @@ import {
 } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
+import { getImagesContainerElement, getSaveFormat, setSaveFormat } from "../runtime/reactDomRegistry";
 
 const durationOptions = [
 	{ value: "1", label: "0" },
@@ -67,6 +69,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const history = useViewerHistory();
 	const { mode: viewerMode } = useViewerMode();
 	const { hasSelection } = useViewerEditSelection();
+	const { layers: editLayers } = useViewerEditLayers();
 	const editLayerState = useViewerEditLayerState();
 
 	const [slideCollapsed, setSlideCollapsed] = useState(false);
@@ -78,7 +81,33 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [rotationInput, setRotationInput] = useState("");
 	const [opacityInput, setOpacityInput] = useState("");
 	const [textLayerInput, setTextLayerInput] = useState("");
+	const [layerNameInput, setLayerNameInput] = useState("");
+	const [imagesPanelOpen, setImagesPanelOpen] = useState(false);
+	const [saveFormat, setSaveFormatState] = useState<"png" | "hvz" | "hvd">("png");
 	const dragState = useRef<{ startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
+
+	useEffect(() => {
+		setSaveFormatState(getSaveFormat());
+	}, []);
+
+	useEffect(() => {
+		const container = getImagesContainerElement();
+		if (!container) return;
+		container.style.display = imagesPanelOpen ? "block" : "none";
+		if (imagesPanelOpen) {
+			container.style.position = "fixed";
+			container.style.right = "12px";
+			container.style.bottom = "320px";
+			container.style.zIndex = "2147483645";
+			container.style.width = "320px";
+			container.style.height = "220px";
+			container.style.overflowY = "auto";
+			container.style.padding = "4px";
+			container.style.background = "rgba(248, 249, 250, 0.9)";
+			container.style.border = "1px solid #dee2e6";
+			container.style.borderRadius = "6px";
+		}
+	}, [imagesPanelOpen]);
 
 	useEffect(() => {
 		setPosXInput(editLayerState.x == null ? "" : String(Math.round(editLayerState.x)));
@@ -86,7 +115,15 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		setScaleInput(editLayerState.scale == null ? "" : editLayerState.scale.toFixed(3));
 		setRotationInput(editLayerState.rotation == null ? "" : String(Math.round(editLayerState.rotation)));
 		setOpacityInput(editLayerState.opacity == null ? "" : editLayerState.opacity.toFixed(2));
-	}, [editLayerState.x, editLayerState.y, editLayerState.scale, editLayerState.rotation, editLayerState.opacity]);
+		setLayerNameInput(editLayerState.name ?? "");
+	}, [
+		editLayerState.x,
+		editLayerState.y,
+		editLayerState.scale,
+		editLayerState.rotation,
+		editLayerState.opacity,
+		editLayerState.name,
+	]);
 
 	const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
 		const currentX = pos?.x ?? (window.innerWidth - 292);
@@ -147,6 +184,11 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		[slides]
 	);
 
+	const sortedEditLayers = useMemo(
+		() => [...editLayers].sort((a, b) => b.index - a.index),
+		[editLayers]
+	);
+
 	const selectSlide = (index: number) => {
 		ViewerCommands.selectSlideByIndex(index);
 	};
@@ -188,9 +230,21 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		setTextLayerInput("");
 	};
 
+	const applyLayerName = () => {
+		if (!canEditSelectedLayer) return;
+		const name = layerNameInput.trim();
+		if (!name) return;
+		ViewerCommands.setSelectedLayerName(name);
+	};
+
 	const selectSavedFile = (value: string) => {
 		ViewerCommands.selectSavedFile(value);
 		ViewerCommands.loadSelectedSavedFile();
+	};
+
+	const changeSaveFormat = (format: "png" | "hvz" | "hvd") => {
+		setSaveFormatState(format);
+		setSaveFormat(format);
 	};
 
 	const selectPreviousSavedFileAndLoad = () => {
@@ -482,6 +536,33 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				<Text size="xs" c="dimmed">
 					Selected Layer: {editLayerState.layerType ?? "none"}
 				</Text>
+				<Group grow>
+					<input
+						type="text"
+						value={layerNameInput}
+						onChange={(e) => setLayerNameInput(e.target.value)}
+						disabled={!canEditSelectedLayer}
+						placeholder="Layer name"
+						style={{ width: "100%" }}
+					/>
+					<Button size="xs" variant="default" onClick={applyLayerName} disabled={!canEditSelectedLayer}>
+						Set Name
+					</Button>
+					<Button
+						size="xs"
+						variant={editLayerState.visible === false ? "filled" : "default"}
+						onClick={() => ViewerCommands.toggleSelectedLayerVisible()}
+						disabled={!canEditSelectedLayer}>
+						{editLayerState.visible === false ? "Hidden" : "Visible"}
+					</Button>
+					<Button
+						size="xs"
+						variant={editLayerState.locked ? "filled" : "default"}
+						onClick={() => ViewerCommands.toggleSelectedLayerLocked()}
+						disabled={!canEditSelectedLayer}>
+						{editLayerState.locked ? "Locked" : "Unlocked"}
+					</Button>
+				</Group>
 				<Text size="xs" c="dimmed">
 					x:{fmt(editLayerState.x, 0)} y:{fmt(editLayerState.y, 0)} scale:{fmt(editLayerState.scale)}
 				</Text>
@@ -494,6 +575,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				<Text size="xs" c="dimmed">
 					clip t:{fmt(editLayerState.clipTop, 0)} r:{fmt(editLayerState.clipRight, 0)} b:{fmt(editLayerState.clipBottom, 0)} l:{fmt(editLayerState.clipLeft, 0)}
 				</Text>
+				<Text size="xs" c="dimmed">
+					Layer List (Edit)
+				</Text>
+				<ScrollArea h={120} type="auto">
+					<Stack gap={4}>
+						{sortedEditLayers.length === 0 ? (
+							<Text size="xs" c="dimmed">No layers</Text>
+						) : (
+							sortedEditLayers.map((layer) => (
+								<Text
+									key={String(layer.id) + "-" + String(layer.index)}
+									size="xs"
+									fw={layer.selected ? 700 : 400}
+									style={{ cursor: "pointer" }}
+									onClick={() => ViewerCommands.selectEditLayerByIndex(layer.index)}>
+									{layer.selected ? "● " : "○ "}
+									L{layer.index + 1} {layer.type} {layer.visible ? "" : "(hidden)"} {layer.locked ? "(locked)" : ""}
+								</Text>
+							))
+						)}
+					</Stack>
+				</ScrollArea>
 				<Group grow>
 					<input
 						type="number"
@@ -781,6 +884,25 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				<Text size="xs" c="dimmed">
 					File Ops (React control)
 				</Text>
+				<Group grow>
+					<NativeSelect
+						size="xs"
+						value={saveFormat}
+						onChange={(e) => changeSaveFormat(e.currentTarget.value as "png" | "hvz" | "hvd")}
+						data={[
+							{ value: "png", label: "Save: .png" },
+							{ value: "hvz", label: "Save: .hvz" },
+							{ value: "hvd", label: "Save: .hvd" },
+						]}
+					/>
+					<Button
+						size="xs"
+						variant={imagesPanelOpen ? "filled" : "default"}
+						onClick={() => setImagesPanelOpen((v) => !v)}>
+						{imagesPanelOpen ? "Hide Images" : "Show Images"}
+					</Button>
+				</Group>
+				{imagesPanelOpen && <Text size="xs" c="dimmed">Images panel opened near File IO.</Text>}
 				<Group grow>
 					<Button size="xs" variant="light" onClick={() => ViewerCommands.newDocument()} disabled={!gate.canEdit}>
 						New Doc

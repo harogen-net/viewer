@@ -210,6 +210,18 @@ export const ViewerCommands = {
 	resetSelectedImageClip(): void {
 		getViewer()?.commandResetSelectedImageClip();
 	},
+	selectEditLayerByIndex(index: number): void {
+		getViewer()?.commandSelectEditLayerByIndex(index);
+	},
+	toggleSelectedLayerVisible(): void {
+		getViewer()?.commandToggleSelectedLayerVisible();
+	},
+	toggleSelectedLayerLocked(): void {
+		getViewer()?.commandToggleSelectedLayerLocked();
+	},
+	setSelectedLayerName(name: string): void {
+		getViewer()?.commandSetSelectedLayerName(name);
+	},
 	getSavedFileTitles(): readonly SlideTitle[] {
 		return getViewer()?.getSavedFileTitles() ?? [];
 	},

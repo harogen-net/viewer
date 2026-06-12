@@ -36,9 +36,24 @@ export type ViewerBridgeEventMap = {
 	historyChanged: { canUndo: boolean; canRedo: boolean };
 	/** Edit layer selection state changed */
 	editSelectionChanged: { hasSelection: boolean };
+	/** Edit layer list changed */
+	editLayersChanged: {
+		layers: readonly {
+			index: number;
+			id: number;
+			name: string;
+			type: string;
+			locked: boolean;
+			visible: boolean;
+			selected: boolean;
+		}[];
+	};
 	/** Selected edit layer properties changed */
 	editLayerStateChanged: {
 		hasSelection: boolean;
+		name: string | null;
+		visible: boolean | null;
+		locked: boolean | null;
 		x: number | null;
 		y: number | null;
 		scale: number | null;

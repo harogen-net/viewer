@@ -93,8 +93,25 @@ export function useViewerEditSelection(): { hasSelection: boolean } {
 	return useBridgeEvent("editSelectionChanged", { hasSelection: false });
 }
 
+export function useViewerEditLayers(): {
+	layers: readonly {
+		index: number;
+		id: number;
+		name: string;
+		type: string;
+		locked: boolean;
+		visible: boolean;
+		selected: boolean;
+	}[];
+} {
+	return useBridgeEvent("editLayersChanged", { layers: [] });
+}
+
 export function useViewerEditLayerState(): {
 	hasSelection: boolean;
+	name: string | null;
+	visible: boolean | null;
+	locked: boolean | null;
 	x: number | null;
 	y: number | null;
 	scale: number | null;
@@ -110,6 +127,9 @@ export function useViewerEditLayerState(): {
 } {
 	return useBridgeEvent("editLayerStateChanged", {
 		hasSelection: false,
+		name: null,
+		visible: null,
+		locked: null,
 		x: null,
 		y: null,
 		scale: null,

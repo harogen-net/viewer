@@ -281,9 +281,17 @@ export class Viewer {
 		this.editVC.addEventListener("selectionChanged", () => {
 			this.emitEditSelectionState();
 		});
+		this.editVC.addEventListener("layerListChanged", (e: CustomEvent) => {
+			ViewerBridge.emit("editLayersChanged", {
+				layers: Array.isArray(e.detail?.layers) ? e.detail.layers : [],
+			});
+		});
 		this.editVC.addEventListener("selectedLayerStateChanged", (e: CustomEvent) => {
 			ViewerBridge.emit("editLayerStateChanged", {
 				hasSelection: Boolean(e.detail?.hasSelection),
+				name: typeof e.detail?.name == "string" ? e.detail.name : null,
+				visible: typeof e.detail?.visible == "boolean" ? e.detail.visible : null,
+				locked: typeof e.detail?.locked == "boolean" ? e.detail.locked : null,
 				x: typeof e.detail?.x == "number" ? e.detail.x : null,
 				y: typeof e.detail?.y == "number" ? e.detail.y : null,
 				scale: typeof e.detail?.scale == "number" ? e.detail.scale : null,
@@ -911,6 +919,34 @@ export class Viewer {
 	public commandResetSelectedImageClip(): void {
 		this.runEditSelectionOperationSilently("クリップ変更", () =>
 			this.editVC.resetSelectedImageClip()
+		);
+	}
+
+	public commandSelectEditLayerByIndex(index: number): void {
+		if (!this.canRunEditOperations("レイヤー選択")) {
+			return;
+		}
+		if (!this.editVC.selectEditLayerByIndex(index)) {
+			showNotice("対象レイヤーが見つかりません。");
+		}
+		this.emitEditSelectionState();
+	}
+
+	public commandToggleSelectedLayerVisible(): void {
+		this.runEditSelectionOperationSilently("表示切替", () =>
+			this.editVC.toggleSelectedLayerVisible()
+		);
+	}
+
+	public commandToggleSelectedLayerLocked(): void {
+		this.runEditSelectionOperationSilently("ロック切替", () =>
+			this.editVC.toggleSelectedLayerLocked()
+		);
+	}
+
+	public commandSetSelectedLayerName(name: string): void {
+		this.runEditSelectionOperationSilently("レイヤー名変更", () =>
+			this.editVC.setSelectedLayerName(name)
 		);
 	}
 

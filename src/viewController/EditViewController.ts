@@ -394,6 +394,7 @@ export class EditViewController extends EventDispatcher {
 				);
 				this.watchSelectedLayer();
 				this.emitSelectedLayerState();
+				this.emitLayerListState();
 			}
 		});
 
@@ -558,6 +559,27 @@ export class EditViewController extends EventDispatcher {
 			})
 		);
 		this.emitSelectedLayerState();
+		this.emitLayerListState();
+	}
+
+	private emitLayerListState(): void {
+		const selected = this.slideView.selectedLayer;
+		const layers = this.slide.layers.map((layer, index) => ({
+			index,
+			id: layer.id,
+			name: layer.name ?? "",
+			type: String(layer.type),
+			locked: Boolean(layer.locked),
+			visible: Boolean(layer.visible),
+			selected: selected === layer,
+		}));
+		this.dispatchEvent(
+			new CustomEvent("layerListChanged", {
+				detail: {
+					layers,
+				},
+			})
+		);
 	}
 
 	private watchSelectedLayer(): void {
@@ -585,6 +607,9 @@ export class EditViewController extends EventDispatcher {
 				new CustomEvent("selectedLayerStateChanged", {
 					detail: {
 						hasSelection: false,
+						name: null,
+						visible: null,
+						locked: null,
 						clipTop: null,
 						clipRight: null,
 						clipBottom: null,
@@ -599,6 +624,9 @@ export class EditViewController extends EventDispatcher {
 			new CustomEvent("selectedLayerStateChanged", {
 				detail: {
 					hasSelection: true,
+					name: layer.name,
+					visible: layer.visible,
+					locked: layer.locked,
 					layerType: layer.type,
 					x: layer.x,
 					y: layer.y,
@@ -618,6 +646,87 @@ export class EditViewController extends EventDispatcher {
 
 	public hasSelectedLayer(): boolean {
 		return this.slideView.editingLayer != null;
+	}
+
+	public selectEditLayerByIndex(index: number): boolean {
+		if (!Number.isInteger(index)) return false;
+		const layer = this.slide.layers[index];
+		if (!layer) return false;
+		const layerView = this.slideView.layerViews.find((view) => view.data === layer);
+		if (!layerView) return false;
+		this.slideView.selectLayerView(layerView);
+		this.watchSelectedLayer();
+		this.emitSelectedLayerState();
+		this.emitLayerListState();
+		return true;
+	}
+
+	public toggleSelectedLayerVisible(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.visible;
+		const to = !from;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.visible = to;
+					},
+					() => {
+						layer.visible = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		this.emitLayerListState();
+		return true;
+	}
+
+	public toggleSelectedLayerLocked(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.locked;
+		const to = !from;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.locked = to;
+					},
+					() => {
+						layer.locked = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		this.emitLayerListState();
+		return true;
+	}
+
+	public setSelectedLayerName(name: string): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const next = (name ?? "").trim();
+		if (!next) return false;
+		const from = layer.name;
+		if (from === next) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.name = next;
+					},
+					() => {
+						layer.name = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		this.emitLayerListState();
+		return true;
 	}
 
 	public rotateSelectedLayer(degree: number): boolean {
@@ -1134,6 +1243,7 @@ export class EditViewController extends EventDispatcher {
 		var flag = pe.propFlags;
 		if (flag & (PropFlags.S_LAYER_ADD | PropFlags.S_LAYER_REMOVE | PropFlags.S_LAYER_ORDER)) {
 			this.layerDiv.layerViews = this.slideView.layerViews;
+			this.emitLayerListState();
 		}
 	};
 
