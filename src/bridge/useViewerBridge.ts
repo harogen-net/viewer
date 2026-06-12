@@ -88,3 +88,39 @@ export function useViewerMode(): { mode: "select" | "edit" | "slideshow" } {
 export function useViewerHistory(): { canUndo: boolean; canRedo: boolean } {
 	return useBridgeEvent("historyChanged", { canUndo: false, canRedo: false });
 }
+
+export function useViewerEditSelection(): { hasSelection: boolean } {
+	return useBridgeEvent("editSelectionChanged", { hasSelection: false });
+}
+
+export function useViewerEditLayerState(): {
+	hasSelection: boolean;
+	x: number | null;
+	y: number | null;
+	scale: number | null;
+	rotation: number | null;
+	opacity: number | null;
+	layerType: string | null;
+	mirrorH: boolean | null;
+	mirrorV: boolean | null;
+	clipTop: number | null;
+	clipRight: number | null;
+	clipBottom: number | null;
+	clipLeft: number | null;
+} {
+	return useBridgeEvent("editLayerStateChanged", {
+		hasSelection: false,
+		x: null,
+		y: null,
+		scale: null,
+		rotation: null,
+		opacity: null,
+		layerType: null,
+		mirrorH: null,
+		mirrorV: null,
+		clipTop: null,
+		clipRight: null,
+		clipBottom: null,
+		clipLeft: null,
+	});
+}

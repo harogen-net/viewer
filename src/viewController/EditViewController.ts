@@ -1,29 +1,30 @@
-import { EventDispatcher } from "../events/EventDispatcher";
-import { EditableSlideView } from "../view/slide/EditableSlideView";
-import { ImageLayer } from "../model/layer/ImageLayer";
-import { ImageManager } from "../utils/ImageManager";
-import { Viewer, ViewerMode } from "../Viewer";
-import { LayerType, Layer } from "../model/Layer";
-import { TextLayer } from "../model/layer/TextLayer";
-import { Slide, Direction } from "../model/Slide";
-import { EditLayerViewController } from "./edit/EditLayerViewController";
-import { ViewerDocument } from "../model/ViewerDocument";
-import { IVMUI } from "../interface/IVMUI";
-import {
-	VMButton,
-	VMToggleButton,
-	VMShowHideUI,
-	VMHistoricalTextInput,
-	VMHistoricalVariableInput,
-} from "../viewModel/VMUI";
-import { PropFlags } from "../model/PropFlags";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { HistoryManager, Command, Transaction } from "../utils/HistoryManager";
 import $ from "jquery";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { PropertyEvent } from "../events/PropertyEvent";
+import { IVMUI } from "../interface/IVMUI";
+import { Layer, LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { TextLayer } from "../model/layer/TextLayer";
+import { PropFlags } from "../model/PropFlags";
+import { Direction, Slide } from "../model/Slide";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
+import { ImageManager } from "../utils/ImageManager";
+import { EditableSlideView } from "../view/slide/EditableSlideView";
+import { ViewerMode } from "../Viewer";
+import {
+    VMButton,
+    VMHistoricalTextInput,
+    VMHistoricalVariableInput,
+    VMShowHideUI,
+    VMToggleButton,
+} from "../viewModel/VMUI";
+import { EditLayerViewController } from "./edit/EditLayerViewController";
 
 export class EditViewController extends EventDispatcher {
 	public slideView: EditableSlideView;
 	private layerDiv: EditLayerViewController;
+	private observedLayer: Layer | null = null;
 
 	constructor(public obj: any) {
 		super();
@@ -372,7 +373,7 @@ export class EditViewController extends EventDispatcher {
 		];
 
 		this.slideView.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
-			if (pe.propFlags | PropFlags.LV_SELECT) {
+			if (pe.propFlags & PropFlags.LV_SELECT) {
 				try {
 					vms.forEach((vmi) => {
 						vmi.target = this.selectedLayer;
@@ -383,6 +384,16 @@ export class EditViewController extends EventDispatcher {
 						vmi.target = null;
 					});
 				}
+				this.dispatchEvent(
+					new CustomEvent("selectionChanged", {
+						detail: {
+							hasSelection: this.hasSelectedLayer(),
+							layerType: this.selectedLayer?.type ?? null,
+						},
+					})
+				);
+				this.watchSelectedLayer();
+				this.emitSelectedLayerState();
 			}
 		});
 
@@ -537,6 +548,583 @@ export class EditViewController extends EventDispatcher {
 		if (this.slide) {
 			this.slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
 		}
+		this.watchSelectedLayer();
+		this.dispatchEvent(
+			new CustomEvent("selectionChanged", {
+				detail: {
+					hasSelection: this.hasSelectedLayer(),
+					layerType: this.selectedLayer?.type ?? null,
+				},
+			})
+		);
+		this.emitSelectedLayerState();
+	}
+
+	private watchSelectedLayer(): void {
+		const currentLayer = this.slideView.editingLayer;
+		if (this.observedLayer === currentLayer) {
+			return;
+		}
+		if (this.observedLayer) {
+			this.observedLayer.removeEventListener(PropertyEvent.UPDATE, this.onObservedLayerUpdate);
+		}
+		this.observedLayer = currentLayer;
+		if (this.observedLayer) {
+			this.observedLayer.addEventListener(PropertyEvent.UPDATE, this.onObservedLayerUpdate);
+		}
+	}
+
+	private onObservedLayerUpdate = () => {
+		this.emitSelectedLayerState();
+	};
+
+	private emitSelectedLayerState(): void {
+		const layer = this.slideView.editingLayer;
+		if (!layer) {
+			this.dispatchEvent(
+				new CustomEvent("selectedLayerStateChanged", {
+					detail: {
+						hasSelection: false,
+						clipTop: null,
+						clipRight: null,
+						clipBottom: null,
+						clipLeft: null,
+					},
+				})
+			);
+			return;
+		}
+		const imageLayer = layer.type == LayerType.IMAGE ? (layer as ImageLayer) : null;
+		this.dispatchEvent(
+			new CustomEvent("selectedLayerStateChanged", {
+				detail: {
+					hasSelection: true,
+					layerType: layer.type,
+					x: layer.x,
+					y: layer.y,
+					scale: layer.scale,
+					rotation: layer.rotation,
+					opacity: layer.opacity,
+					mirrorH: layer.mirrorH,
+					mirrorV: layer.mirrorV,
+					clipTop: imageLayer ? imageLayer.clipT : null,
+					clipRight: imageLayer ? imageLayer.clipR : null,
+					clipBottom: imageLayer ? imageLayer.clipB : null,
+					clipLeft: imageLayer ? imageLayer.clipL : null,
+				},
+			})
+		);
+	}
+
+	public hasSelectedLayer(): boolean {
+		return this.slideView.editingLayer != null;
+	}
+
+	public rotateSelectedLayer(degree: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.rotateBy(degree);
+					},
+					() => {
+						layer.rotateBy(-degree);
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public toggleSelectedLayerMirrorH(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.mirrorH;
+		const to = !from;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.mirrorH = to;
+					},
+					() => {
+						layer.mirrorH = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public toggleSelectedLayerMirrorV(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.mirrorV;
+		const to = !from;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.mirrorV = to;
+					},
+					() => {
+						layer.mirrorV = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public fitSelectedLayer(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.transform;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.fitLayer(layer);
+					},
+					() => {
+						layer.transform = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public arrangeSelectedLayer(direction: Direction): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const x = layer.x;
+		const y = layer.y;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.arrangeLayer(layer, direction);
+					},
+					() => {
+						layer.x = x;
+						layer.y = y;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public swapSelectedLayer(offset: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.swapLayer(layer, offset);
+					},
+					() => {
+						this.slide.swapLayer(layer, -offset);
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public moveSelectedLayerToTop(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const index = this.slide.indexOf(layer);
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.swapLayer(layer, Slide.LAYER_NUM_MAX);
+					},
+					() => {
+						this.slide.addLayer(layer, index);
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public moveSelectedLayerToBottom(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const index = this.slide.indexOf(layer);
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.swapLayer(layer, -Slide.LAYER_NUM_MAX);
+					},
+					() => {
+						this.slide.addLayer(layer, index);
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public copySelectedLayer(): boolean {
+		if (!this.slideView.editingLayer) return false;
+		this.slideView.copy();
+		return true;
+	}
+
+	public cutSelectedLayer(): boolean {
+		if (!this.slideView.editingLayer) return false;
+		this.slideView.cut();
+		return true;
+	}
+
+	public pasteLayer(): boolean {
+		this.slideView.paste();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public copySelectedLayerTransform(): boolean {
+		if (!this.slideView.editingLayer) return false;
+		this.slideView.copyTrans();
+		return true;
+	}
+
+	public pasteLayerTransform(): boolean {
+		if (!this.slideView.editingLayer) return false;
+		this.slideView.pasteTrans();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public removeSelectedLayer(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const index = this.slide.indexOf(layer);
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.removeLayer(layer);
+					},
+					() => {
+						this.slide.addLayer(layer, index);
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public addTextLayer(text: string): boolean {
+		const normalizedText = (text ?? "").trim();
+		if (!normalizedText) return false;
+		const textLayer = new TextLayer(normalizedText);
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.addLayer(textLayer);
+						textLayer.moveTo(this.slide.centerX, this.slide.centerY);
+					},
+					() => {
+						this.slide.removeLayer(textLayer);
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public nudgeSelectedLayer(dx: number, dy: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const fromX = layer.x;
+		const fromY = layer.y;
+		const toX = fromX + dx;
+		const toY = fromY + dy;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.x = toX;
+						layer.y = toY;
+					},
+					() => {
+						layer.x = fromX;
+						layer.y = fromY;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public setSelectedLayerPosition(x: number, y: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		if (!isFinite(x) || !isFinite(y)) return false;
+		const fromX = layer.x;
+		const fromY = layer.y;
+		if (fromX === x && fromY === y) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.x = x;
+						layer.y = y;
+					},
+					() => {
+						layer.x = fromX;
+						layer.y = fromY;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public scaleSelectedLayer(factor: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		if (!isFinite(factor) || factor <= 0) return false;
+		const from = layer.scale;
+		const to = from * factor;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.scale = to;
+					},
+					() => {
+						layer.scale = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public setSelectedLayerScale(scale: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		if (!isFinite(scale) || scale <= 0) return false;
+		const from = layer.scale;
+		if (from === scale) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.scale = scale;
+					},
+					() => {
+						layer.scale = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public adjustSelectedLayerRotation(delta: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.rotation;
+		const to = from + delta;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.rotation = to;
+					},
+					() => {
+						layer.rotation = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public setSelectedLayerRotation(rotation: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		if (!isFinite(rotation)) return false;
+		const from = layer.rotation;
+		if (from === rotation) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.rotation = rotation;
+					},
+					() => {
+						layer.rotation = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public resetSelectedLayerRotation(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		if (layer.rotation == 0) return true;
+		const from = layer.rotation;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.rotation = 0;
+					},
+					() => {
+						layer.rotation = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public adjustSelectedLayerOpacity(delta: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const from = layer.opacity;
+		const to = Math.max(0, Math.min(1, from + delta));
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.opacity = to;
+					},
+					() => {
+						layer.opacity = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public setSelectedLayerOpacity(opacity: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		if (!isFinite(opacity)) return false;
+		const clamped = Math.max(0, Math.min(1, opacity));
+		const from = layer.opacity;
+		if (from === clamped) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.opacity = clamped;
+					},
+					() => {
+						layer.opacity = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public resetSelectedLayerOpacity(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		if (layer.opacity == 1) return true;
+		const from = layer.opacity;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						layer.opacity = 1;
+					},
+					() => {
+						layer.opacity = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public adjustSelectedImageClip(
+		side: "top" | "right" | "bottom" | "left",
+		delta: number
+	): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer || layer.type != LayerType.IMAGE) return false;
+		const imageLayer = layer as ImageLayer;
+		const from = imageLayer.clipRect.concat();
+		const next = from.concat();
+		const index = side == "top" ? 0 : side == "right" ? 1 : side == "bottom" ? 2 : 3;
+		next[index] = Math.max(0, next[index] + delta);
+		if (next[index] === from[index]) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						imageLayer.clipRect = next;
+					},
+					() => {
+						imageLayer.clipRect = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public resetSelectedImageClip(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer || layer.type != LayerType.IMAGE) return false;
+		const imageLayer = layer as ImageLayer;
+		if (!imageLayer.isClipped) return true;
+		const from = imageLayer.clipRect.concat();
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						imageLayer.clipRect = [0, 0, 0, 0];
+					},
+					() => {
+						imageLayer.clipRect = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
 	}
 
 	//
@@ -544,7 +1132,7 @@ export class EditViewController extends EventDispatcher {
 	//
 	private onSlideUpdate = (pe: PropertyEvent) => {
 		var flag = pe.propFlags;
-		if ((flag & PropFlags.S_LAYER_ADD) | PropFlags.S_LAYER_REMOVE | PropFlags.S_LAYER_ORDER) {
+		if (flag & (PropFlags.S_LAYER_ADD | PropFlags.S_LAYER_REMOVE | PropFlags.S_LAYER_ORDER)) {
 			this.layerDiv.layerViews = this.slideView.layerViews;
 		}
 	};

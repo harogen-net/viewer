@@ -34,6 +34,24 @@ export type ViewerBridgeEventMap = {
 	modeChanged: { mode: "select" | "edit" | "slideshow" };
 	/** Undo/Redo availability changed */
 	historyChanged: { canUndo: boolean; canRedo: boolean };
+	/** Edit layer selection state changed */
+	editSelectionChanged: { hasSelection: boolean };
+	/** Selected edit layer properties changed */
+	editLayerStateChanged: {
+		hasSelection: boolean;
+		x: number | null;
+		y: number | null;
+		scale: number | null;
+		rotation: number | null;
+		opacity: number | null;
+		layerType: string | null;
+		mirrorH: boolean | null;
+		mirrorV: boolean | null;
+		clipTop: number | null;
+		clipRight: number | null;
+		clipBottom: number | null;
+		clipLeft: number | null;
+	};
 };
 
 export type ViewerBridgeEventType = keyof ViewerBridgeEventMap;

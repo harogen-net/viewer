@@ -1,7 +1,7 @@
 import $ from "jquery";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
-import { Slide } from "./model/Slide";
+import { Direction, Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
@@ -163,6 +163,60 @@ export class Viewer {
 		});
 	}
 
+	private emitEditSelectionState(): void {
+		if (
+			Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT ||
+			this._mode != ViewerMode.EDIT ||
+			!this.editVC
+		) {
+			ViewerBridge.emit("editSelectionChanged", { hasSelection: false });
+			return;
+		}
+		ViewerBridge.emit("editSelectionChanged", {
+			hasSelection: this.editVC.hasSelectedLayer(),
+		});
+	}
+
+	private canRunEditOperations(actionLabel: string): boolean {
+		if (!this.ensureAllowed(this.canEdit(), actionLabel)) {
+			return false;
+		}
+		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) {
+			return false;
+		}
+		if (this._mode != ViewerMode.EDIT) {
+			showNotice("編集モードで操作してください。");
+			return false;
+		}
+		return true;
+	}
+
+	private runEditSelectionOperation(actionLabel: string, operation: () => boolean): void {
+		if (!this.canRunEditOperations(actionLabel)) {
+			return;
+		}
+		if (!operation()) {
+			showNotice("レイヤーを選択してください。");
+		}
+		this.emitEditSelectionState();
+	}
+
+	private runEditOperation(actionLabel: string, operation: () => void): void {
+		if (!this.canRunEditOperations(actionLabel)) {
+			return;
+		}
+		operation();
+		this.emitEditSelectionState();
+	}
+
+	private runEditSelectionOperationSilently(actionLabel: string, operation: () => boolean): void {
+		if (!this.canRunEditOperations(actionLabel)) {
+			return;
+		}
+		operation();
+		this.emitEditSelectionState();
+	}
+
 	private buildSlideShowSlides(): { slides: Slide[]; startIndex: number } {
 		var slides: Slide[] = [];
 		var startIndex: number = 0;
@@ -224,6 +278,26 @@ export class Viewer {
 		this.emitHistoryState();
 
 		this.editVC = new EditViewController(this.obj.find(".canvas"));
+		this.editVC.addEventListener("selectionChanged", () => {
+			this.emitEditSelectionState();
+		});
+		this.editVC.addEventListener("selectedLayerStateChanged", (e: CustomEvent) => {
+			ViewerBridge.emit("editLayerStateChanged", {
+				hasSelection: Boolean(e.detail?.hasSelection),
+				x: typeof e.detail?.x == "number" ? e.detail.x : null,
+				y: typeof e.detail?.y == "number" ? e.detail.y : null,
+				scale: typeof e.detail?.scale == "number" ? e.detail.scale : null,
+				rotation: typeof e.detail?.rotation == "number" ? e.detail.rotation : null,
+				opacity: typeof e.detail?.opacity == "number" ? e.detail.opacity : null,
+				layerType: typeof e.detail?.layerType == "string" ? e.detail.layerType : null,
+				mirrorH: typeof e.detail?.mirrorH == "boolean" ? e.detail.mirrorH : null,
+				mirrorV: typeof e.detail?.mirrorV == "boolean" ? e.detail.mirrorV : null,
+				clipTop: typeof e.detail?.clipTop == "number" ? e.detail.clipTop : null,
+				clipRight: typeof e.detail?.clipRight == "number" ? e.detail.clipRight : null,
+				clipBottom: typeof e.detail?.clipBottom == "number" ? e.detail.clipBottom : null,
+				clipLeft: typeof e.detail?.clipLeft == "number" ? e.detail.clipLeft : null,
+			});
+		});
 
 		this.listVC.addEventListener("select", () => {
 			ViewerBridge.emit("selectionChanged", { selectedIndex: this.listVC.selectedSlideIndex });
@@ -253,11 +327,13 @@ export class Viewer {
 			this.setMode(ViewerMode.SELECT);
 			setTimeout(() => {
 				this.editVC.initialize();
+				this.emitEditSelectionState();
 			}, 301);
 		});
 		this.listVC.addEventListener("close", () => {
 			this.editVC.initialize();
 			this.setMode(ViewerMode.SELECT);
+			this.emitEditSelectionState();
 		});
 
 		this.editVC.addEventListener("download", () => {
@@ -393,6 +469,7 @@ export class Viewer {
 		this.listVC.slides = this.viewerDocument.slides;
 		this.IsDocumentModified = false;
 		this.emitHistoryState();
+		this.emitEditSelectionState();
 		this.emitSlideShowSettings();
 		ViewerBridge.emit("slidesChanged", {
 			slides: this.viewerDocument.slides,
@@ -432,6 +509,7 @@ export class Viewer {
 		const bridgeMode = this._mode === ViewerMode.EDIT ? "edit"
 			: this._mode === ViewerMode.SLIDESHOW ? "slideshow" : "select";
 		ViewerBridge.emit("modeChanged", { mode: bridgeMode });
+		this.emitEditSelectionState();
 	}
 
 	public commandNewSlide(): void {
@@ -459,6 +537,22 @@ export class Viewer {
 
 	public commandSelectSlideByIndex(index: number): void {
 		this.listVC.selectSlideByIndex(index);
+	}
+
+	public commandEnterSelectMode(): void {
+		this.setMode(ViewerMode.SELECT);
+	}
+
+	public commandEnterEditMode(): void {
+		if (!this.canRunEditOperations("編集モード切替")) {
+			return;
+		}
+		if (!this.listVC.selectedSlide) {
+			showNotice("編集対象のスライドを選択してください。");
+			return;
+		}
+		this.setMode(ViewerMode.EDIT);
+		this.editVC.setSlide(this.listVC.selectedSlide);
 	}
 
 	public commandNewDocument(): void {
@@ -613,6 +707,211 @@ export class Viewer {
 		if (!this.ensureAllowed(this.canEdit(), "Redo")) return;
 		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) return;
 		HistoryManager.shared.redo();
+	}
+
+	public commandRotateSelectedLayerLeft(): void {
+		this.runEditSelectionOperation("レイヤー回転", () => this.editVC.rotateSelectedLayer(-90));
+	}
+
+	public commandRotateSelectedLayerRight(): void {
+		this.runEditSelectionOperation("レイヤー回転", () => this.editVC.rotateSelectedLayer(90));
+	}
+
+	public commandToggleSelectedLayerMirrorH(): void {
+		this.runEditSelectionOperation("水平反転", () => this.editVC.toggleSelectedLayerMirrorH());
+	}
+
+	public commandToggleSelectedLayerMirrorV(): void {
+		this.runEditSelectionOperation("垂直反転", () => this.editVC.toggleSelectedLayerMirrorV());
+	}
+
+	public commandFitSelectedLayer(): void {
+		this.runEditSelectionOperation("フィット", () => this.editVC.fitSelectedLayer());
+	}
+
+	public commandArrangeSelectedLayerTop(): void {
+		this.runEditSelectionOperation("上揃え", () =>
+			this.editVC.arrangeSelectedLayer(Direction.TOP)
+		);
+	}
+
+	public commandArrangeSelectedLayerRight(): void {
+		this.runEditSelectionOperation("右揃え", () =>
+			this.editVC.arrangeSelectedLayer(Direction.RIGHT)
+		);
+	}
+
+	public commandArrangeSelectedLayerBottom(): void {
+		this.runEditSelectionOperation("下揃え", () =>
+			this.editVC.arrangeSelectedLayer(Direction.BOTTOM)
+		);
+	}
+
+	public commandArrangeSelectedLayerLeft(): void {
+		this.runEditSelectionOperation("左揃え", () =>
+			this.editVC.arrangeSelectedLayer(Direction.LEFT)
+		);
+	}
+
+	public commandMoveSelectedLayerUp(): void {
+		this.runEditSelectionOperation("レイヤー順序変更", () => this.editVC.swapSelectedLayer(1));
+	}
+
+	public commandMoveSelectedLayerDown(): void {
+		this.runEditSelectionOperation("レイヤー順序変更", () => this.editVC.swapSelectedLayer(-1));
+	}
+
+	public commandMoveSelectedLayerToTop(): void {
+		this.runEditSelectionOperation("最前面へ移動", () => this.editVC.moveSelectedLayerToTop());
+	}
+
+	public commandMoveSelectedLayerToBottom(): void {
+		this.runEditSelectionOperation("最背面へ移動", () =>
+			this.editVC.moveSelectedLayerToBottom()
+		);
+	}
+
+	public commandCopySelectedLayer(): void {
+		this.runEditSelectionOperation("レイヤーコピー", () => this.editVC.copySelectedLayer());
+	}
+
+	public commandCutSelectedLayer(): void {
+		this.runEditSelectionOperation("レイヤーカット", () => this.editVC.cutSelectedLayer());
+	}
+
+	public commandPasteLayer(): void {
+		this.runEditOperation("レイヤー貼り付け", () => {
+			this.editVC.pasteLayer();
+		});
+	}
+
+	public commandAddTextLayer(text: string): void {
+		this.runEditOperation("テキストレイヤー追加", () => {
+			this.editVC.addTextLayer(text);
+		});
+	}
+
+	public commandCopySelectedLayerTransform(): void {
+		this.runEditSelectionOperation("変形コピー", () => this.editVC.copySelectedLayerTransform());
+	}
+
+	public commandPasteLayerTransform(): void {
+		this.runEditSelectionOperation("変形貼り付け", () => this.editVC.pasteLayerTransform());
+	}
+
+	public commandRemoveSelectedLayer(): void {
+		this.runEditSelectionOperation("レイヤー削除", () => this.editVC.removeSelectedLayer());
+	}
+
+	public commandNudgeSelectedLayerLeft(): void {
+		this.runEditSelectionOperationSilently("レイヤー移動", () =>
+			this.editVC.nudgeSelectedLayer(-10, 0)
+		);
+	}
+
+	public commandNudgeSelectedLayerRight(): void {
+		this.runEditSelectionOperationSilently("レイヤー移動", () =>
+			this.editVC.nudgeSelectedLayer(10, 0)
+		);
+	}
+
+	public commandNudgeSelectedLayerUp(): void {
+		this.runEditSelectionOperationSilently("レイヤー移動", () =>
+			this.editVC.nudgeSelectedLayer(0, -10)
+		);
+	}
+
+	public commandNudgeSelectedLayerDown(): void {
+		this.runEditSelectionOperationSilently("レイヤー移動", () =>
+			this.editVC.nudgeSelectedLayer(0, 10)
+		);
+	}
+
+	public commandScaleSelectedLayerUp(): void {
+		this.runEditSelectionOperationSilently("レイヤー拡大縮小", () =>
+			this.editVC.scaleSelectedLayer(1.1)
+		);
+	}
+
+	public commandScaleSelectedLayerDown(): void {
+		this.runEditSelectionOperationSilently("レイヤー拡大縮小", () =>
+			this.editVC.scaleSelectedLayer(1 / 1.1)
+		);
+	}
+
+	public commandAdjustSelectedLayerRotationLeft(): void {
+		this.runEditSelectionOperationSilently("レイヤー回転", () =>
+			this.editVC.adjustSelectedLayerRotation(-5)
+		);
+	}
+
+	public commandAdjustSelectedLayerRotationRight(): void {
+		this.runEditSelectionOperationSilently("レイヤー回転", () =>
+			this.editVC.adjustSelectedLayerRotation(5)
+		);
+	}
+
+	public commandResetSelectedLayerRotation(): void {
+		this.runEditSelectionOperationSilently("レイヤー回転", () =>
+			this.editVC.resetSelectedLayerRotation()
+		);
+	}
+
+	public commandDecreaseSelectedLayerOpacity(): void {
+		this.runEditSelectionOperationSilently("透明度変更", () =>
+			this.editVC.adjustSelectedLayerOpacity(-0.05)
+		);
+	}
+
+	public commandIncreaseSelectedLayerOpacity(): void {
+		this.runEditSelectionOperationSilently("透明度変更", () =>
+			this.editVC.adjustSelectedLayerOpacity(0.05)
+		);
+	}
+
+	public commandResetSelectedLayerOpacity(): void {
+		this.runEditSelectionOperationSilently("透明度変更", () =>
+			this.editVC.resetSelectedLayerOpacity()
+		);
+	}
+
+	public commandSetSelectedLayerPosition(x: number, y: number): void {
+		this.runEditSelectionOperationSilently("位置変更", () =>
+			this.editVC.setSelectedLayerPosition(x, y)
+		);
+	}
+
+	public commandSetSelectedLayerScale(scale: number): void {
+		this.runEditSelectionOperationSilently("拡大縮小", () =>
+			this.editVC.setSelectedLayerScale(scale)
+		);
+	}
+
+	public commandSetSelectedLayerRotation(rotation: number): void {
+		this.runEditSelectionOperationSilently("回転変更", () =>
+			this.editVC.setSelectedLayerRotation(rotation)
+		);
+	}
+
+	public commandSetSelectedLayerOpacity(opacity: number): void {
+		this.runEditSelectionOperationSilently("透明度変更", () =>
+			this.editVC.setSelectedLayerOpacity(opacity)
+		);
+	}
+
+	public commandAdjustSelectedImageClip(
+		side: "top" | "right" | "bottom" | "left",
+		delta: number
+	): void {
+		this.runEditSelectionOperationSilently("クリップ変更", () =>
+			this.editVC.adjustSelectedImageClip(side, delta)
+		);
+	}
+
+	public commandResetSelectedImageClip(): void {
+		this.runEditSelectionOperationSilently("クリップ変更", () =>
+			this.editVC.resetSelectedImageClip()
+		);
 	}
 
 	public getSavedFileTitles() {

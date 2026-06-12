@@ -24,6 +24,12 @@ export const ViewerCommands = {
 	selectSlideByIndex(index: number): void {
 		getViewer()?.commandSelectSlideByIndex(index);
 	},
+	enterSelectMode(): void {
+		getViewer()?.commandEnterSelectMode();
+	},
+	enterEditMode(): void {
+		getViewer()?.commandEnterEditMode();
+	},
 	newDocument(): void {
 		getViewer()?.commandNewDocument();
 	},
@@ -86,6 +92,123 @@ export const ViewerCommands = {
 	},
 	redo(): void {
 		getViewer()?.commandRedo();
+	},
+	rotateSelectedLayerLeft(): void {
+		getViewer()?.commandRotateSelectedLayerLeft();
+	},
+	rotateSelectedLayerRight(): void {
+		getViewer()?.commandRotateSelectedLayerRight();
+	},
+	toggleSelectedLayerMirrorH(): void {
+		getViewer()?.commandToggleSelectedLayerMirrorH();
+	},
+	toggleSelectedLayerMirrorV(): void {
+		getViewer()?.commandToggleSelectedLayerMirrorV();
+	},
+	fitSelectedLayer(): void {
+		getViewer()?.commandFitSelectedLayer();
+	},
+	arrangeSelectedLayerTop(): void {
+		getViewer()?.commandArrangeSelectedLayerTop();
+	},
+	arrangeSelectedLayerRight(): void {
+		getViewer()?.commandArrangeSelectedLayerRight();
+	},
+	arrangeSelectedLayerBottom(): void {
+		getViewer()?.commandArrangeSelectedLayerBottom();
+	},
+	arrangeSelectedLayerLeft(): void {
+		getViewer()?.commandArrangeSelectedLayerLeft();
+	},
+	moveSelectedLayerUp(): void {
+		getViewer()?.commandMoveSelectedLayerUp();
+	},
+	moveSelectedLayerDown(): void {
+		getViewer()?.commandMoveSelectedLayerDown();
+	},
+	moveSelectedLayerToTop(): void {
+		getViewer()?.commandMoveSelectedLayerToTop();
+	},
+	moveSelectedLayerToBottom(): void {
+		getViewer()?.commandMoveSelectedLayerToBottom();
+	},
+	copySelectedLayer(): void {
+		getViewer()?.commandCopySelectedLayer();
+	},
+	cutSelectedLayer(): void {
+		getViewer()?.commandCutSelectedLayer();
+	},
+	pasteLayer(): void {
+		getViewer()?.commandPasteLayer();
+	},
+	addTextLayer(text: string): void {
+		getViewer()?.commandAddTextLayer(text);
+	},
+	copySelectedLayerTransform(): void {
+		getViewer()?.commandCopySelectedLayerTransform();
+	},
+	pasteLayerTransform(): void {
+		getViewer()?.commandPasteLayerTransform();
+	},
+	removeSelectedLayer(): void {
+		getViewer()?.commandRemoveSelectedLayer();
+	},
+	nudgeSelectedLayerLeft(): void {
+		getViewer()?.commandNudgeSelectedLayerLeft();
+	},
+	nudgeSelectedLayerRight(): void {
+		getViewer()?.commandNudgeSelectedLayerRight();
+	},
+	nudgeSelectedLayerUp(): void {
+		getViewer()?.commandNudgeSelectedLayerUp();
+	},
+	nudgeSelectedLayerDown(): void {
+		getViewer()?.commandNudgeSelectedLayerDown();
+	},
+	scaleSelectedLayerUp(): void {
+		getViewer()?.commandScaleSelectedLayerUp();
+	},
+	scaleSelectedLayerDown(): void {
+		getViewer()?.commandScaleSelectedLayerDown();
+	},
+	adjustSelectedLayerRotationLeft(): void {
+		getViewer()?.commandAdjustSelectedLayerRotationLeft();
+	},
+	adjustSelectedLayerRotationRight(): void {
+		getViewer()?.commandAdjustSelectedLayerRotationRight();
+	},
+	resetSelectedLayerRotation(): void {
+		getViewer()?.commandResetSelectedLayerRotation();
+	},
+	increaseSelectedLayerOpacity(): void {
+		getViewer()?.commandIncreaseSelectedLayerOpacity();
+	},
+	decreaseSelectedLayerOpacity(): void {
+		getViewer()?.commandDecreaseSelectedLayerOpacity();
+	},
+	resetSelectedLayerOpacity(): void {
+		getViewer()?.commandResetSelectedLayerOpacity();
+	},
+	setSelectedLayerPosition(x: number, y: number): void {
+		getViewer()?.commandSetSelectedLayerPosition(x, y);
+	},
+	setSelectedLayerScale(scale: number): void {
+		getViewer()?.commandSetSelectedLayerScale(scale);
+	},
+	setSelectedLayerRotation(rotation: number): void {
+		getViewer()?.commandSetSelectedLayerRotation(rotation);
+	},
+	setSelectedLayerOpacity(opacity: number): void {
+		getViewer()?.commandSetSelectedLayerOpacity(opacity);
+	},
+	adjustSelectedImageClip(
+		side: "top" | "right" | "bottom" | "left",
+		delta: number
+	): void {
+		getViewer()?.commandAdjustSelectedImageClip(side, delta);
+	},
+	resetSelectedImageClip(): void {
+		getViewer()?.commandResetSelectedImageClip();
 	},
 	getSavedFileTitles(): readonly SlideTitle[] {
 		return getViewer()?.getSavedFileTitles() ?? [];

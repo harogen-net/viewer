@@ -1,8 +1,11 @@
 import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Text } from "@mantine/core";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
+    useViewerEditLayerState,
+    useViewerEditSelection,
     useViewerHistory,
+    useViewerMode,
     useViewerSavedFileSelection,
     useViewerSlides,
     useViewerSlideshowSettings,
@@ -62,10 +65,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();
 	const history = useViewerHistory();
+	const { mode: viewerMode } = useViewerMode();
+	const { hasSelection } = useViewerEditSelection();
+	const editLayerState = useViewerEditLayerState();
 
-	const [collapsed, setCollapsed] = useState(false);
+	const [slideCollapsed, setSlideCollapsed] = useState(false);
+	const [fileCollapsed, setFileCollapsed] = useState(false);
 	const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+	const [posXInput, setPosXInput] = useState("");
+	const [posYInput, setPosYInput] = useState("");
+	const [scaleInput, setScaleInput] = useState("");
+	const [rotationInput, setRotationInput] = useState("");
+	const [opacityInput, setOpacityInput] = useState("");
+	const [textLayerInput, setTextLayerInput] = useState("");
 	const dragState = useRef<{ startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
+
+	useEffect(() => {
+		setPosXInput(editLayerState.x == null ? "" : String(Math.round(editLayerState.x)));
+		setPosYInput(editLayerState.y == null ? "" : String(Math.round(editLayerState.y)));
+		setScaleInput(editLayerState.scale == null ? "" : editLayerState.scale.toFixed(3));
+		setRotationInput(editLayerState.rotation == null ? "" : String(Math.round(editLayerState.rotation)));
+		setOpacityInput(editLayerState.opacity == null ? "" : editLayerState.opacity.toFixed(2));
+	}, [editLayerState.x, editLayerState.y, editLayerState.scale, editLayerState.rotation, editLayerState.opacity]);
 
 	const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
 		const currentX = pos?.x ?? (window.innerWidth - 292);
@@ -130,6 +151,43 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.selectSlideByIndex(index);
 	};
 
+	const applyPosition = () => {
+		if (!canEditSelectedLayer) return;
+		const x = Number(posXInput);
+		const y = Number(posYInput);
+		if (!isFinite(x) || !isFinite(y)) return;
+		ViewerCommands.setSelectedLayerPosition(x, y);
+	};
+
+	const applyScale = () => {
+		if (!canEditSelectedLayer) return;
+		const scale = Number(scaleInput);
+		if (!isFinite(scale) || scale <= 0) return;
+		ViewerCommands.setSelectedLayerScale(scale);
+	};
+
+	const applyRotation = () => {
+		if (!canEditSelectedLayer) return;
+		const rotation = Number(rotationInput);
+		if (!isFinite(rotation)) return;
+		ViewerCommands.setSelectedLayerRotation(rotation);
+	};
+
+	const applyOpacity = () => {
+		if (!canEditSelectedLayer) return;
+		const opacity = Number(opacityInput);
+		if (!isFinite(opacity)) return;
+		ViewerCommands.setSelectedLayerOpacity(opacity);
+	};
+
+	const addTextLayer = () => {
+		if (!gate.canEdit || !isEditMode) return;
+		const text = textLayerInput.trim();
+		if (!text) return;
+		ViewerCommands.addTextLayer(text);
+		setTextLayerInput("");
+	};
+
 	const selectSavedFile = (value: string) => {
 		ViewerCommands.selectSavedFile(value);
 		ViewerCommands.loadSelectedSavedFile();
@@ -146,12 +204,18 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	};
 
 	const modeText = mode === "mobile-pwa" ? "mobile-pwa" : "browser";
+	const isEditMode = viewerMode === "edit";
+	const isImageLayer = editLayerState.layerType === "image";
+	const canEditSelectedLayer = gate.canEdit && isEditMode && hasSelection;
+	const fmt = (value: number | null, digits = 2): string =>
+		value == null ? "-" : value.toFixed(digits);
 
 	const posStyle: React.CSSProperties = pos
 		? { left: pos.x, top: pos.y, right: "auto" }
 		: { right: 12, top: 12 };
 
 	return (
+		<>
 		<Paper
 			shadow="md"
 			p={0}
@@ -159,42 +223,42 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			withBorder
 			style={{
 				position: "fixed",
-				width: 280,
+				width: 320,
 				zIndex: 2147483646,
 				background: "rgba(255, 255, 255, 0.92)",
 				backdropFilter: "blur(2px)",
 				...posStyle,
 			}}>
-		{/* タイトルバー（ドラッグ + 開閉） */}
-		<div
-			onMouseDown={handleDragStart}
-			style={{
-				padding: "6px 8px",
-				cursor: "grab",
-				userSelect: "none",
-				borderBottom: collapsed ? "none" : "1px solid #dee2e6",
-			}}>
-			<Group justify="space-between" align="center" wrap="nowrap">
-				<Group gap={6} align="center" wrap="nowrap">
-					<Text fw={700} size="sm">React Shell</Text>
-					<Badge size="xs" color={mode === "mobile-pwa" ? "orange" : "blue"}>
-						{modeText}
-					</Badge>
+			<div
+				onMouseDown={handleDragStart}
+				style={{
+					padding: "6px 8px",
+					cursor: "grab",
+					userSelect: "none",
+					borderBottom: slideCollapsed ? "none" : "1px solid #dee2e6",
+				}}>
+				<Group justify="space-between" align="center" wrap="nowrap">
+					<Group gap={6} align="center" wrap="nowrap">
+						<Text fw={700} size="sm">Slide IO</Text>
+						<Badge size="xs" color={mode === "mobile-pwa" ? "orange" : "blue"}>
+							{modeText}
+						</Badge>
+					</Group>
+					<Button
+						size="xs"
+						variant="subtle"
+						p={2}
+						style={{ minWidth: 24, lineHeight: 1 }}
+						onMouseDown={(e) => e.stopPropagation()}
+						onClick={() => setSlideCollapsed((c) => !c)}>
+						{slideCollapsed ? "▼" : "▲"}
+					</Button>
 				</Group>
-				<Button
-					size="xs"
-					variant="subtle"
-					p={2}
-					style={{ minWidth: 24, lineHeight: 1 }}
-					onMouseDown={(e) => e.stopPropagation()}
-					onClick={() => setCollapsed((c) => !c)}>
-					{collapsed ? "▼" : "▲"}
-				</Button>
-			</Group>
-		</div>
+			</div>
 
-		{!collapsed && (
-		<Stack gap={8} p="sm">
+			{!slideCollapsed && (
+			<ScrollArea h="44vh" type="auto">
+			<Stack gap={8} p="sm">
 			<Group gap={6}>
 				<Badge size="xs" color={gate.canEdit ? "teal" : "gray"}>
 					{gate.canEdit ? "editable" : "readonly"}
@@ -207,6 +271,21 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			<Text size="xs" c="dimmed">
 				Slide List (React control)
 			</Text>
+				<Group grow>
+					<Button
+						size="xs"
+						variant={viewerMode === "select" ? "filled" : "default"}
+						onClick={() => ViewerCommands.enterSelectMode()}>
+						Select
+					</Button>
+					<Button
+						size="xs"
+						variant={viewerMode === "edit" ? "filled" : "default"}
+						onClick={() => ViewerCommands.enterEditMode()}
+						disabled={!gate.canEdit || !selectedSlide}>
+						Edit
+					</Button>
+				</Group>
 				<Group grow>
 					<Button size="xs" variant="light" onClick={() => ViewerCommands.newSlide()} disabled={!gate.canEdit}>
 						New
@@ -238,6 +317,400 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 						Redo
 					</Button>
 				</Group>
+				<Text size="xs" c="dimmed">
+					Edit Ops (Phase3)
+				</Text>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.rotateSelectedLayerLeft()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Rot L
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.rotateSelectedLayerRight()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Rot R
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.fitSelectedLayer()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Fit
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.toggleSelectedLayerMirrorH()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Mirror H
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.toggleSelectedLayerMirrorV()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Mirror V
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.arrangeSelectedLayerTop()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Top
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.arrangeSelectedLayerRight()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Right
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.arrangeSelectedLayerBottom()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Bottom
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.arrangeSelectedLayerLeft()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Left
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.moveSelectedLayerDown()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Back
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.moveSelectedLayerUp()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Front
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.moveSelectedLayerToBottom()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Bottom
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.moveSelectedLayerToTop()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Top
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.cutSelectedLayer()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Cut
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.copySelectedLayer()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Copy
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.pasteLayer()}
+						disabled={!gate.canEdit || !isEditMode}>
+						Paste
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.copySelectedLayerTransform()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Copy T
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.pasteLayerTransform()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Paste T
+					</Button>
+					<Button
+						size="xs"
+						color="red"
+						variant="light"
+						onClick={() => ViewerCommands.removeSelectedLayer()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Remove
+					</Button>
+				</Group>
+				<Group grow>
+					<input
+						type="text"
+						value={textLayerInput}
+						onChange={(e) => setTextLayerInput(e.target.value)}
+						disabled={!gate.canEdit || !isEditMode}
+						placeholder="New text layer"
+						style={{ width: "100%" }}
+					/>
+					<Button size="xs" variant="default" onClick={addTextLayer} disabled={!gate.canEdit || !isEditMode}>
+						Add Text
+					</Button>
+				</Group>
+				<Text size="xs" c="dimmed">
+					Selected Layer: {editLayerState.layerType ?? "none"}
+				</Text>
+				<Text size="xs" c="dimmed">
+					x:{fmt(editLayerState.x, 0)} y:{fmt(editLayerState.y, 0)} scale:{fmt(editLayerState.scale)}
+				</Text>
+				<Text size="xs" c="dimmed">
+					rotation:{fmt(editLayerState.rotation, 0)} opacity:{fmt(editLayerState.opacity)}
+				</Text>
+				<Text size="xs" c="dimmed">
+					mirrorH:{editLayerState.mirrorH == null ? "-" : editLayerState.mirrorH ? "on" : "off"} mirrorV:{editLayerState.mirrorV == null ? "-" : editLayerState.mirrorV ? "on" : "off"}
+				</Text>
+				<Text size="xs" c="dimmed">
+					clip t:{fmt(editLayerState.clipTop, 0)} r:{fmt(editLayerState.clipRight, 0)} b:{fmt(editLayerState.clipBottom, 0)} l:{fmt(editLayerState.clipLeft, 0)}
+				</Text>
+				<Group grow>
+					<input
+						type="number"
+						value={posXInput}
+						onChange={(e) => setPosXInput(e.target.value)}
+						disabled={!canEditSelectedLayer}
+						style={{ width: "100%" }}
+					/>
+					<input
+						type="number"
+						value={posYInput}
+						onChange={(e) => setPosYInput(e.target.value)}
+						disabled={!canEditSelectedLayer}
+						style={{ width: "100%" }}
+					/>
+					<Button size="xs" variant="default" onClick={applyPosition} disabled={!canEditSelectedLayer}>
+						Set XY
+					</Button>
+				</Group>
+				<Group grow>
+					<input
+						type="number"
+						step="0.01"
+						value={scaleInput}
+						onChange={(e) => setScaleInput(e.target.value)}
+						disabled={!canEditSelectedLayer}
+						style={{ width: "100%" }}
+					/>
+					<Button size="xs" variant="default" onClick={applyScale} disabled={!canEditSelectedLayer}>
+						Set Scale
+					</Button>
+					<input
+						type="number"
+						step="1"
+						value={rotationInput}
+						onChange={(e) => setRotationInput(e.target.value)}
+						disabled={!canEditSelectedLayer}
+						style={{ width: "100%" }}
+					/>
+					<Button size="xs" variant="default" onClick={applyRotation} disabled={!canEditSelectedLayer}>
+						Set Rot
+					</Button>
+				</Group>
+				<Group grow>
+					<input
+						type="number"
+						step="0.01"
+						min="0"
+						max="1"
+						value={opacityInput}
+						onChange={(e) => setOpacityInput(e.target.value)}
+						disabled={!canEditSelectedLayer}
+						style={{ width: "100%" }}
+					/>
+					<Button size="xs" variant="default" onClick={applyOpacity} disabled={!canEditSelectedLayer}>
+						Set Op
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.nudgeSelectedLayerLeft()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						X-
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.nudgeSelectedLayerRight()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						X+
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.nudgeSelectedLayerUp()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Y-
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.nudgeSelectedLayerDown()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Y+
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.scaleSelectedLayerDown()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Scale-
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.scaleSelectedLayerUp()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Scale+
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedLayerRotationLeft()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Rot-
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedLayerRotationRight()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Rot+
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.decreaseSelectedLayerOpacity()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Op-
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.increaseSelectedLayerOpacity()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Op+
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.resetSelectedLayerRotation()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Rot 0
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.resetSelectedLayerOpacity()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+						Op 1
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("top", 10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip T+
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("top", -10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip T-
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("right", 10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip R+
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("right", -10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip R-
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("bottom", 10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip B+
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("bottom", -10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip B-
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("left", 10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip L+
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.adjustSelectedImageClip("left", -10)}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip L-
+					</Button>
+				</Group>
+				<Group grow>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={() => ViewerCommands.resetSelectedImageClip()}
+						disabled={!gate.canEdit || !isEditMode || !hasSelection || !isImageLayer}>
+						Clip Reset
+					</Button>
+				</Group>
 				<ScrollArea h={120} type="auto">
 					<Stack gap={4}>
 						{slides.length === 0 ? (
@@ -259,7 +732,52 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 						)}
 					</Stack>
 				</ScrollArea>
+			</Stack>
+			</ScrollArea>
+			)}
+		</Paper>
 
+		<Paper
+			shadow="md"
+			p={0}
+			radius="md"
+			withBorder
+			style={{
+				position: "fixed",
+				width: 320,
+				right: 12,
+				bottom: 12,
+				zIndex: 2147483646,
+				background: "rgba(255, 255, 255, 0.92)",
+				backdropFilter: "blur(2px)",
+			}}>
+			<div
+				style={{
+					padding: "6px 8px",
+					userSelect: "none",
+					borderBottom: fileCollapsed ? "none" : "1px solid #dee2e6",
+				}}>
+				<Group justify="space-between" align="center" wrap="nowrap">
+					<Group gap={6} align="center" wrap="nowrap">
+						<Text fw={700} size="sm">File IO</Text>
+						<Badge size="xs" color={gate.canImport ? "cyan" : "gray"}>
+							import:{gate.canImport ? "on" : "off"}
+						</Badge>
+					</Group>
+					<Button
+						size="xs"
+						variant="subtle"
+						p={2}
+						style={{ minWidth: 24, lineHeight: 1 }}
+						onClick={() => setFileCollapsed((c) => !c)}>
+						{fileCollapsed ? "▼" : "▲"}
+					</Button>
+				</Group>
+			</div>
+
+			{!fileCollapsed && (
+			<ScrollArea h="42vh" type="auto">
+			<Stack gap={8} p="sm">
 				<Text size="xs" c="dimmed">
 					File Ops (React control)
 				</Text>
@@ -370,8 +888,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 						)}
 					</Stack>
 				</ScrollArea>
-		</Stack>
-		)}
+			</Stack>
+			</ScrollArea>
+			)}
 		</Paper>
+		</>
 	);
 }
