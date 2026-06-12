@@ -14,9 +14,6 @@ import { EditableSlideView } from "../view/slide/EditableSlideView";
 import { ViewerMode } from "../Viewer";
 import {
     VMButton,
-    VMHistoricalTextInput,
-    VMHistoricalVariableInput,
-    VMShowHideUI,
     VMToggleButton,
 } from "../viewModel/VMUI";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
@@ -180,15 +177,11 @@ export class EditViewController extends EventDispatcher {
 					.do();
 			}),
 			new VMButton($("#main button.imageRef"), ImageLayer, () => {
-				$("input.imageRef")[0].click();
+				const imageRefInput = $("input.imageRef").get(0) as HTMLInputElement | undefined;
+				imageRefInput?.click();
 			}),
-			new VMButton($("#main button.download"), ImageLayer, (layer: ImageLayer) => {
-				var a = document.createElement("a");
-				a.href = ImageManager.shared.getSrcById(layer.imageId);
-				a.target = "_blank";
-				a.download = this.selectedLayer.name;
-				a.click();
-				window.URL.revokeObjectURL(a.href);
+			new VMButton($("#main button.download"), ImageLayer, () => {
+				this.downloadSelectedImage();
 			}),
 
 			new VMButton($("#main button.up"), Layer, (layer: Layer) => {
@@ -255,121 +248,13 @@ export class EditViewController extends EventDispatcher {
 				}
 			}),
 
-			new VMHistoricalVariableInput($(".property .position input").eq(0), Layer, "x", PropFlags.X, {
-				v: -25,
-			}),
-			new VMHistoricalVariableInput($(".property .position input").eq(1), Layer, "y", PropFlags.X, {
-				v: -25,
-			}),
-			new VMHistoricalVariableInput(
-				$(".property .scale input"),
-				Layer,
-				"scale",
-				PropFlags.SCALE_X | PropFlags.SCALE_Y,
-				{ init: 1, min: 0.1, max: 20, type: "multiply", v: 0.1 }
-			),
-			new VMHistoricalVariableInput(
-				$(".property .rotation input"),
-				Layer,
-				"rotation",
-				PropFlags.ROTATION,
-				{ min: -180, max: 180, v: 5 }
-			),
-			new VMButton($("#main button.resetRotation"), Layer, (layer: ImageLayer) => {
-				if (layer.rotation == 0) return;
-				var rotation = layer.rotation;
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								layer.rotation = 0;
-							},
-							() => {
-								layer.rotation = rotation;
-							}
-						)
-					)
-					.do();
-			}),
-			new VMHistoricalVariableInput(
-				$(".property .opacity input"),
-				Layer,
-				"opacity",
-				PropFlags.OPACITY,
-				{ min: 0, max: 1, v: 0.05 }
-			),
-			new VMButton($("#main button.resetOpacity"), Layer, (layer: ImageLayer) => {
-				if (layer.opacity == 1) return;
-				var opacity = layer.opacity;
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								layer.opacity = 1;
-							},
-							() => {
-								layer.opacity = opacity;
-							}
-						)
-					)
-					.do();
-			}),
+			// VMHistoricalVariableInput entries removed: React (RuntimeShell) owns
+			// position/scale/rotation/opacity/clip editing via bridge commands.
+			// Legacy inputs in .property / .clip remain in DOM but are no longer
+			// managed here, so they will stay disabled.
 
-			new VMHistoricalVariableInput(
-				$(".property .clip input").eq(0),
-				ImageLayer,
-				"clipT",
-				PropFlags.IMG_CLIP,
-				{ v: -25, min: 0 }
-			),
-			new VMHistoricalVariableInput(
-				$(".property .clip input").eq(1),
-				ImageLayer,
-				"clipR",
-				PropFlags.IMG_CLIP,
-				{ v: -25, min: 0 }
-			),
-			new VMHistoricalVariableInput(
-				$(".property .clip input").eq(2),
-				ImageLayer,
-				"clipB",
-				PropFlags.IMG_CLIP,
-				{ v: -25, min: 0 }
-			),
-			new VMHistoricalVariableInput(
-				$(".property .clip input").eq(3),
-				ImageLayer,
-				"clipL",
-				PropFlags.IMG_CLIP,
-				{ v: -25, min: 0 }
-			),
-			new VMButton($("#main button.resetClip"), ImageLayer, (layer: ImageLayer) => {
-				if (!layer.isClipped) return;
-				var clipRect = layer.clipRect.concat();
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								layer.clipRect = [0, 0, 0, 0];
-							},
-							() => {
-								layer.clipRect = clipRect;
-							}
-						)
-					)
-					.do();
-			}),
-
-			new VMHistoricalTextInput(
-				$("#main div.textEdit textarea"),
-				TextLayer,
-				"text",
-				PropFlags.TXT_TEXT
-			),
-
-			new VMShowHideUI($("#main div.textEdit"), TextLayer),
-			new VMShowHideUI($("#main dl.clip"), ImageLayer),
-			new VMShowHideUI($("#main div.imageRef"), ImageLayer),
+			// VMHistoricalTextInput removed: React setSelectedLayerText owns text editing.
+			// VMShowHideUI removed: React controls visibility based on layerType from bridge.
 		];
 
 		this.slideView.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
@@ -396,6 +281,9 @@ export class EditViewController extends EventDispatcher {
 				this.emitSelectedLayerState();
 				this.emitLayerListState();
 			}
+			if (pe.propFlags & (PropFlags.DSV_SCALE | PropFlags.ESV_RECT)) {
+				this.emitCanvasState();
+			}
 		});
 
 		//
@@ -417,33 +305,23 @@ export class EditViewController extends EventDispatcher {
 			this.slideView.paste();
 		});
 		$(".zoomIn").click(() => {
-			this.slideView.scale *= 1.1;
+			this.zoomInCanvas();
 		});
 		$(".showAll").click(() => {
-			this.slideView.scale = EditableSlideView.SCALE_DEFAULT;
+			this.resetCanvasZoom();
 		});
 		$(".zoomOut").click(() => {
-			this.slideView.scale /= 1.1;
+			this.zoomOutCanvas();
 		});
 		$(".slideDownload").click(() => {
 			this.dispatchEvent(new Event("download"));
 		});
+		// Legacy .text button: React-side addTextLayer is now the primary path.
+		// Fallback prompt is kept for standalone (non-React) usage only.
 		$(".text").click(() => {
-			var textLayer: TextLayer = new TextLayer(prompt("insert text layer:"));
-			//textLayer.scale = 2;
-			HistoryManager.shared
-				.record(
-					new Command(
-						() => {
-							this.slide.addLayer(textLayer);
-							textLayer.moveTo(this.slide.centerX, this.slide.centerY);
-						},
-						() => {
-							this.slide.removeLayer(textLayer);
-						}
-					)
-				)
-				.do();
+			const text = prompt("insert text layer:");
+			if (text == null) return;
+			this.addTextLayer(text);
 		});
 
 		$("label[for='cb_imageRef']").click((e) => {
@@ -451,63 +329,9 @@ export class EditViewController extends EventDispatcher {
 			return false;
 		});
 		$("input.imageRef").on("change", async (e) => {
-			if (this.selectedLayer == null || this.selectedLayer.type != LayerType.IMAGE) return;
-			var targetImage: ImageLayer = this.selectedLayer as ImageLayer;
-			var fromImageId: string = targetImage.imageId;
-			var newImageId: string = await ImageManager.shared.registImageFromFile(e.target.files[0]);
-
-			if ($("input#cb_imageRef").prop("checked")) {
-				var transaction = new Transaction();
-
-				ViewerDocument.shared.allLayers.forEach((layer) => {
-					if (layer.type != LayerType.IMAGE) return;
-					var imageLayer: ImageLayer = layer as ImageLayer;
-					if (imageLayer.imageId == fromImageId) {
-						transaction.record(
-							() => {
-								imageLayer.imageId = newImageId;
-							},
-							() => {
-								imageLayer.imageId = fromImageId;
-							}
-						);
-					}
-				});
-
-				// ViewerDocument.shared.slides.forEach(slide=>{
-				// 	slide.layers.forEach(layer=>{
-				// 		if(layer.type != LayerType.IMAGE) return;
-				// 		var imageLayer:ImageLayer = layer as ImageLayer;
-				// 		if(imageLayer.imageId == fromImageId){
-				// 			transaction.record(
-				// 				()=>{
-				// 					imageLayer.imageId = newImageId;
-				// 				},
-				// 				()=>{
-				// 					imageLayer.imageId = fromImageId;
-				// 				}
-				// 			);
-				// 		}
-				// 	});
-				// });
-
-				if (transaction.length > 0) {
-					HistoryManager.shared.record(transaction).do();
-				}
-			} else {
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								targetImage.imageId = newImageId;
-							},
-							() => {
-								targetImage.imageId = fromImageId;
-							}
-						)
-					)
-					.do();
-			}
+			const file = (e.target as HTMLInputElement)?.files?.[0];
+			if (!file) return;
+			await this.replaceSelectedImage(file, $("input#cb_imageRef").prop("checked"));
 			//初期化
 			$("input.imageRef").val(null);
 		});
@@ -560,6 +384,18 @@ export class EditViewController extends EventDispatcher {
 		);
 		this.emitSelectedLayerState();
 		this.emitLayerListState();
+		this.emitCanvasState();
+	}
+
+	private emitCanvasState(): void {
+		this.dispatchEvent(
+			new CustomEvent("canvasStateChanged", {
+				detail: {
+					scale: this.slideView.scale,
+					rectEdit: this.slideView.rectEdit,
+				},
+			})
+		);
 	}
 
 	private emitLayerListState(): void {
@@ -635,6 +471,8 @@ export class EditViewController extends EventDispatcher {
 					opacity: layer.opacity,
 					mirrorH: layer.mirrorH,
 					mirrorV: layer.mirrorV,
+					isText: imageLayer ? imageLayer.isText : null,
+					textContent: layer.type === LayerType.TEXT ? (layer as TextLayer).text : null,
 					clipTop: imageLayer ? imageLayer.clipT : null,
 					clipRight: imageLayer ? imageLayer.clipR : null,
 					clipBottom: imageLayer ? imageLayer.clipB : null,
@@ -642,6 +480,34 @@ export class EditViewController extends EventDispatcher {
 				},
 			})
 		);
+	}
+
+	public toggleSelectedLayerIsText(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer || layer.type != LayerType.IMAGE) return false;
+		const imageLayer = layer as ImageLayer;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						imageLayer.isText = !imageLayer.isText;
+					},
+					() => {
+						imageLayer.isText = !imageLayer.isText;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public spreadSelectedLayer(): boolean {
+		const layer = this.selectedLayer;
+		if (!layer) return false;
+		if (!window.confirm("spread layer to all slides. are you sure?")) return false;
+		this.slideView.spreadLayers(layer);
+		return true;
 	}
 
 	public hasSelectedLayer(): boolean {
@@ -726,6 +592,29 @@ export class EditViewController extends EventDispatcher {
 			.do();
 		this.emitSelectedLayerState();
 		this.emitLayerListState();
+		return true;
+	}
+
+	public setSelectedLayerText(text: string): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer || layer.type !== LayerType.TEXT) return false;
+		const textLayer = layer as TextLayer;
+		const from = textLayer.text;
+		const next = text ?? "";
+		if (from === next) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						textLayer.text = next;
+					},
+					() => {
+						textLayer.text = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
 		return true;
 	}
 
@@ -960,6 +849,66 @@ export class EditViewController extends EventDispatcher {
 			)
 			.do();
 		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public async replaceSelectedImage(file: File, applyAllReferences: boolean): Promise<boolean> {
+		const layer = this.slideView.editingLayer;
+		if (!layer || layer.type != LayerType.IMAGE || !file) return false;
+		const targetImage = layer as ImageLayer;
+		const fromImageId = targetImage.imageId;
+		const newImageId = await ImageManager.shared.registImageFromFile(file);
+		if (!newImageId) return false;
+
+		if (applyAllReferences) {
+			const transaction = new Transaction();
+			ViewerDocument.shared.allLayers.forEach((tmpLayer) => {
+				if (tmpLayer.type != LayerType.IMAGE) return;
+				const imageLayer = tmpLayer as ImageLayer;
+				if (imageLayer.imageId != fromImageId) return;
+				transaction.record(
+					() => {
+						imageLayer.imageId = newImageId;
+					},
+					() => {
+						imageLayer.imageId = fromImageId;
+					}
+				);
+			});
+			if (transaction.length > 0) {
+				HistoryManager.shared.record(transaction).do();
+			}
+		} else {
+			HistoryManager.shared
+				.record(
+					new Command(
+						() => {
+							targetImage.imageId = newImageId;
+						},
+						() => {
+							targetImage.imageId = fromImageId;
+						}
+					)
+				)
+				.do();
+		}
+
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public downloadSelectedImage(): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer || layer.type != LayerType.IMAGE) return false;
+		const imageLayer = layer as ImageLayer;
+		const src = ImageManager.shared.getSrcById(imageLayer.imageId);
+		if (!src) return false;
+		const a = document.createElement("a");
+		a.href = src;
+		a.target = "_blank";
+		a.download = this.selectedLayer?.name || "image";
+		a.click();
+		window.URL.revokeObjectURL(a.href);
 		return true;
 	}
 
@@ -1234,6 +1183,37 @@ export class EditViewController extends EventDispatcher {
 			.do();
 		this.emitSelectedLayerState();
 		return true;
+	}
+
+	public zoomInCanvas(): void {
+		this.setCanvasScale(this.slideView.scale * 1.1);
+	}
+
+	public zoomOutCanvas(): void {
+		this.setCanvasScale(this.slideView.scale / 1.1);
+	}
+
+	public resetCanvasZoom(): void {
+		this.setCanvasScale(EditableSlideView.SCALE_DEFAULT);
+	}
+
+	public setCanvasScale(scale: number): boolean {
+		if (!isFinite(scale) || scale <= 0) return false;
+		const next = Math.max(0.1, Math.min(20, scale));
+		if (next === this.slideView.scale) return true;
+		this.slideView.scale = next;
+		this.emitCanvasState();
+		return true;
+	}
+
+	public toggleRectEdit(): void {
+		this.setRectEdit(!this.slideView.rectEdit);
+	}
+
+	public setRectEdit(enabled: boolean): void {
+		if (this.slideView.rectEdit === enabled) return;
+		this.slideView.rectEdit = enabled;
+		this.emitCanvasState();
 	}
 
 	//

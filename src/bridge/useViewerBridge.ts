@@ -93,6 +93,13 @@ export function useViewerEditSelection(): { hasSelection: boolean } {
 	return useBridgeEvent("editSelectionChanged", { hasSelection: false });
 }
 
+export function useViewerEditCanvasState(): { scale: number; rectEdit: boolean } {
+	return useBridgeEvent("editCanvasStateChanged", {
+		scale: 1,
+		rectEdit: false,
+	});
+}
+
 export function useViewerEditLayers(): {
 	layers: readonly {
 		index: number;
@@ -120,6 +127,8 @@ export function useViewerEditLayerState(): {
 	layerType: string | null;
 	mirrorH: boolean | null;
 	mirrorV: boolean | null;
+	isText: boolean | null;
+	textContent: string | null;
 	clipTop: number | null;
 	clipRight: number | null;
 	clipBottom: number | null;
@@ -138,6 +147,8 @@ export function useViewerEditLayerState(): {
 		layerType: null,
 		mirrorH: null,
 		mirrorV: null,
+		isText: null,
+		textContent: null,
 		clipTop: null,
 		clipRight: null,
 		clipBottom: null,

@@ -36,6 +36,8 @@ export type ViewerBridgeEventMap = {
 	historyChanged: { canUndo: boolean; canRedo: boolean };
 	/** Edit layer selection state changed */
 	editSelectionChanged: { hasSelection: boolean };
+	/** Edit canvas state changed */
+	editCanvasStateChanged: { scale: number; rectEdit: boolean };
 	/** Edit layer list changed */
 	editLayersChanged: {
 		layers: readonly {
@@ -62,6 +64,8 @@ export type ViewerBridgeEventMap = {
 		layerType: string | null;
 		mirrorH: boolean | null;
 		mirrorV: boolean | null;
+		isText: boolean | null;
+		textContent: string | null;
 		clipTop: number | null;
 		clipRight: number | null;
 		clipBottom: number | null;

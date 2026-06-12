@@ -59,6 +59,8 @@ export class Viewer {
 
 	private viewerDocument: ViewerDocument;
 	private _isDocumentModified = false;
+	/** Per-slide cleanup functions for slide meta-property listeners */
+	private _slideMetaUnsubscribers: Array<() => void> = [];
 
 	get IsDocumentModified(): boolean {
 		return this._isDocumentModified;
@@ -281,6 +283,12 @@ export class Viewer {
 		this.editVC.addEventListener("selectionChanged", () => {
 			this.emitEditSelectionState();
 		});
+		this.editVC.addEventListener("canvasStateChanged", (e: CustomEvent) => {
+			ViewerBridge.emit("editCanvasStateChanged", {
+				scale: typeof e.detail?.scale == "number" ? e.detail.scale : 1,
+				rectEdit: Boolean(e.detail?.rectEdit),
+			});
+		});
 		this.editVC.addEventListener("layerListChanged", (e: CustomEvent) => {
 			ViewerBridge.emit("editLayersChanged", {
 				layers: Array.isArray(e.detail?.layers) ? e.detail.layers : [],
@@ -300,6 +308,8 @@ export class Viewer {
 				layerType: typeof e.detail?.layerType == "string" ? e.detail.layerType : null,
 				mirrorH: typeof e.detail?.mirrorH == "boolean" ? e.detail.mirrorH : null,
 				mirrorV: typeof e.detail?.mirrorV == "boolean" ? e.detail.mirrorV : null,
+				isText: typeof e.detail?.isText == "boolean" ? e.detail.isText : null,
+				textContent: typeof e.detail?.textContent == "string" ? e.detail.textContent : null,
 				clipTop: typeof e.detail?.clipTop == "number" ? e.detail.clipTop : null,
 				clipRight: typeof e.detail?.clipRight == "number" ? e.detail.clipRight : null,
 				clipBottom: typeof e.detail?.clipBottom == "number" ? e.detail.clipBottom : null,
@@ -479,6 +489,7 @@ export class Viewer {
 		this.emitHistoryState();
 		this.emitEditSelectionState();
 		this.emitSlideShowSettings();
+		this.rebindSlideMetaListeners();
 		ViewerBridge.emit("slidesChanged", {
 			slides: this.viewerDocument.slides,
 			selectedIndex: this.listVC.selectedSlideIndex,
@@ -533,6 +544,53 @@ export class Viewer {
 	public commandDeleteSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
 		this.listVC.deleteSelectedSlide();
+	}
+
+	public commandToggleSelectedSlideJoining(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド結合切替")) return;
+		const slide = this.listVC.selectedSlide;
+		if (!slide) return;
+		slide.joining = !slide.joining;
+		this.emitCurrentSlides();
+	}
+
+	public commandToggleSelectedSlideDisabled(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド有効切替")) return;
+		const slide = this.listVC.selectedSlide;
+		if (!slide) return;
+		slide.disabled = !slide.disabled;
+		this.emitCurrentSlides();
+	}
+
+	public commandSetSelectedSlideDurationRatio(ratio: number): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド長変更")) return;
+		if (!isFinite(ratio) || ratio <= 0) return;
+		const slide = this.listVC.selectedSlide;
+		if (!slide) return;
+		slide.durationRatio = ratio;
+		this.emitCurrentSlides();
+	}
+
+	private emitCurrentSlides(): void {
+		ViewerBridge.emit("slidesChanged", {
+			slides: this.viewerDocument?.slides ?? [],
+			selectedIndex: this.listVC.selectedSlideIndex,
+		});
+	}
+
+	private rebindSlideMetaListeners(): void {
+		for (const unsub of this._slideMetaUnsubscribers) {
+			unsub();
+		}
+		this._slideMetaUnsubscribers = [];
+		if (!this.viewerDocument) return;
+		const handler = () => this.emitCurrentSlides();
+		for (const slide of this.viewerDocument.slides) {
+			slide.addEventListener(PropertyEvent.UPDATE, handler);
+			this._slideMetaUnsubscribers.push(() =>
+				slide.removeEventListener(PropertyEvent.UPDATE, handler)
+			);
+		}
 	}
 
 	public commandSelectPreviousSlide(): void {
@@ -731,6 +789,20 @@ export class Viewer {
 
 	public commandToggleSelectedLayerMirrorV(): void {
 		this.runEditSelectionOperation("垂直反転", () => this.editVC.toggleSelectedLayerMirrorV());
+	}
+
+	public commandToggleSelectedLayerIsText(): void {
+		this.runEditSelectionOperation("テキスト切替", () =>
+			this.editVC.toggleSelectedLayerIsText()
+		);
+	}
+
+	public commandSpreadSelectedLayer(): void {
+		if (!this.canRunEditOperations("全スライド展開")) return;
+		const ok = this.editVC.spreadSelectedLayer();
+		if (!ok) {
+			showNotice("レイヤーを選択してください。");
+		}
 	}
 
 	public commandFitSelectedLayer(): void {
@@ -947,6 +1019,74 @@ export class Viewer {
 	public commandSetSelectedLayerName(name: string): void {
 		this.runEditSelectionOperationSilently("レイヤー名変更", () =>
 			this.editVC.setSelectedLayerName(name)
+		);
+	}
+
+	public commandSetSelectedLayerText(text: string): void {
+		this.runEditSelectionOperationSilently("テキスト変更", () =>
+			this.editVC.setSelectedLayerText(text)
+		);
+	}
+
+	public commandZoomInCanvas(): void {
+		this.runEditOperation("キャンバス拡大", () => {
+			this.editVC.zoomInCanvas();
+		});
+	}
+
+	public commandZoomOutCanvas(): void {
+		this.runEditOperation("キャンバス縮小", () => {
+			this.editVC.zoomOutCanvas();
+		});
+	}
+
+	public commandResetCanvasZoom(): void {
+		this.runEditOperation("キャンバス倍率初期化", () => {
+			this.editVC.resetCanvasZoom();
+		});
+	}
+
+	public commandSetCanvasScale(scale: number): void {
+		if (!isFinite(scale) || scale <= 0) {
+			return;
+		}
+		this.runEditOperation("キャンバス倍率変更", () => {
+			this.editVC.setCanvasScale(scale);
+		});
+	}
+
+	public commandToggleRectEdit(): void {
+		this.runEditOperation("同時編集切替", () => {
+			this.editVC.toggleRectEdit();
+		});
+	}
+
+	public commandSetRectEdit(enabled: boolean): void {
+		this.runEditOperation("同時編集設定", () => {
+			this.editVC.setRectEdit(Boolean(enabled));
+		});
+	}
+
+	public async commandReplaceSelectedImage(
+		file: File,
+		applyAllReferences: boolean
+	): Promise<void> {
+		if (!this.canRunEditOperations("画像差し替え")) {
+			return;
+		}
+		if (!file) {
+			return;
+		}
+		const ok = await this.editVC.replaceSelectedImage(file, applyAllReferences);
+		if (!ok) {
+			showNotice("画像レイヤーを選択してください。");
+		}
+		this.emitEditSelectionState();
+	}
+
+	public commandDownloadSelectedImage(): void {
+		this.runEditSelectionOperation("画像ダウンロード", () =>
+			this.editVC.downloadSelectedImage()
 		);
 	}
 

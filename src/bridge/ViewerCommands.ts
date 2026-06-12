@@ -15,6 +15,15 @@ export const ViewerCommands = {
 	deleteSelectedSlide(): void {
 		getViewer()?.commandDeleteSelectedSlide();
 	},
+	toggleSelectedSlideJoining(): void {
+		getViewer()?.commandToggleSelectedSlideJoining();
+	},
+	toggleSelectedSlideDisabled(): void {
+		getViewer()?.commandToggleSelectedSlideDisabled();
+	},
+	setSelectedSlideDurationRatio(ratio: number): void {
+		getViewer()?.commandSetSelectedSlideDurationRatio(ratio);
+	},
 	selectPreviousSlide(): void {
 		getViewer()?.commandSelectPreviousSlide();
 	},
@@ -104,6 +113,12 @@ export const ViewerCommands = {
 	},
 	toggleSelectedLayerMirrorV(): void {
 		getViewer()?.commandToggleSelectedLayerMirrorV();
+	},
+	toggleSelectedLayerIsText(): void {
+		getViewer()?.commandToggleSelectedLayerIsText();
+	},
+	spreadSelectedLayer(): void {
+		getViewer()?.commandSpreadSelectedLayer();
 	},
 	fitSelectedLayer(): void {
 		getViewer()?.commandFitSelectedLayer();
@@ -221,6 +236,33 @@ export const ViewerCommands = {
 	},
 	setSelectedLayerName(name: string): void {
 		getViewer()?.commandSetSelectedLayerName(name);
+	},
+	setSelectedLayerText(text: string): void {
+		getViewer()?.commandSetSelectedLayerText(text);
+	},
+	zoomInCanvas(): void {
+		getViewer()?.commandZoomInCanvas();
+	},
+	zoomOutCanvas(): void {
+		getViewer()?.commandZoomOutCanvas();
+	},
+	resetCanvasZoom(): void {
+		getViewer()?.commandResetCanvasZoom();
+	},
+	setCanvasScale(scale: number): void {
+		getViewer()?.commandSetCanvasScale(scale);
+	},
+	toggleRectEdit(): void {
+		getViewer()?.commandToggleRectEdit();
+	},
+	setRectEdit(enabled: boolean): void {
+		getViewer()?.commandSetRectEdit(enabled);
+	},
+	replaceSelectedImage(file: File, applyAllReferences: boolean): void {
+		void getViewer()?.commandReplaceSelectedImage(file, applyAllReferences);
+	},
+	downloadSelectedImage(): void {
+		getViewer()?.commandDownloadSelectedImage();
 	},
 	getSavedFileTitles(): readonly SlideTitle[] {
 		return getViewer()?.getSavedFileTitles() ?? [];
