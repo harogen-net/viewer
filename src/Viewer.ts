@@ -535,16 +535,22 @@ export class Viewer {
 	public commandNewSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド追加")) return;
 		this.listVC.addNewSlideAndSelect();
+		this.rebindSlideMetaListeners();
+		this.emitCurrentSlides();
 	}
 
 	public commandCloneSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド複製")) return;
 		this.listVC.cloneSelectedSlide();
+		this.rebindSlideMetaListeners();
+		this.emitCurrentSlides();
 	}
 
 	public commandDeleteSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
 		this.listVC.deleteSelectedSlide();
+		this.rebindSlideMetaListeners();
+		this.emitCurrentSlides();
 	}
 
 	public commandToggleSelectedSlideJoining(): void {
@@ -555,11 +561,60 @@ export class Viewer {
 		this.emitCurrentSlides();
 	}
 
+	public commandToggleAllSlidesJoining(): void {
+		if (!this.ensureAllowed(this.canEdit(), "全スライド結合切替")) return;
+		const slides = this.listVC.slides;
+		if (slides.length === 0) return;
+		const nextJoining = !slides.every((slide) => slide.joining);
+		slides.forEach((slide) => {
+			slide.joining = nextJoining;
+			slide.durationRatio = 1;
+		});
+		this.emitCurrentSlides();
+	}
+
 	public commandToggleSelectedSlideDisabled(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド有効切替")) return;
 		const slide = this.listVC.selectedSlide;
 		if (!slide) return;
 		slide.disabled = !slide.disabled;
+		this.emitCurrentSlides();
+	}
+
+	public commandEnableAllSlides(): void {
+		if (!this.ensureAllowed(this.canEdit(), "全スライド有効化")) return;
+		this.listVC.slides.forEach((slide) => {
+			slide.disabled = false;
+		});
+		this.emitCurrentSlides();
+	}
+
+	public commandDisableAllSlides(): void {
+		if (!this.ensureAllowed(this.canEdit(), "全スライド無効化")) return;
+		this.listVC.slides.forEach((slide) => {
+			slide.disabled = true;
+		});
+		this.emitCurrentSlides();
+	}
+
+	public commandEnableOnlySelectedSlide(): void {
+		if (!this.ensureAllowed(this.canEdit(), "選択スライドのみ有効化")) return;
+		const selectedSlide = this.listVC.selectedSlide;
+		if (!selectedSlide) return;
+		this.listVC.slides.forEach((slide) => {
+			slide.disabled = slide !== selectedSlide;
+		});
+		this.emitCurrentSlides();
+	}
+
+	public commandDeleteDisabledSlides(): void {
+		if (!this.ensureAllowed(this.canEdit(), "無効スライド削除")) return;
+		const disabledSlides = this.listVC.slides.filter((slide) => slide.disabled);
+		if (disabledSlides.length === 0) return;
+		disabledSlides.forEach((slide) => {
+			this.listVC.removeSlide(slide, false);
+		});
+		this.rebindSlideMetaListeners();
 		this.emitCurrentSlides();
 	}
 

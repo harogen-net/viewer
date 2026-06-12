@@ -18,8 +18,23 @@ export const ViewerCommands = {
 	toggleSelectedSlideJoining(): void {
 		getViewer()?.commandToggleSelectedSlideJoining();
 	},
+	toggleAllSlidesJoining(): void {
+		getViewer()?.commandToggleAllSlidesJoining();
+	},
 	toggleSelectedSlideDisabled(): void {
 		getViewer()?.commandToggleSelectedSlideDisabled();
+	},
+	enableAllSlides(): void {
+		getViewer()?.commandEnableAllSlides();
+	},
+	disableAllSlides(): void {
+		getViewer()?.commandDisableAllSlides();
+	},
+	enableOnlySelectedSlide(): void {
+		getViewer()?.commandEnableOnlySelectedSlide();
+	},
+	deleteDisabledSlides(): void {
+		getViewer()?.commandDeleteDisabledSlides();
 	},
 	setSelectedSlideDurationRatio(ratio: number): void {
 		getViewer()?.commandSetSelectedSlideDurationRatio(ratio);

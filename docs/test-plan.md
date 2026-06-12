@@ -57,6 +57,10 @@
 ### Phase 3 ゲート
 - 主要編集操作（移動/拡縮/回転/反転）成功
 - Undo/Redo の整合
+- React プロパティ入力欄で Enter / ↑↓ / ホイールによる値反映が成功
+- React 補助操作パネルでスライド duration、キャンバス zoom、選択レイヤー position/scale/rotation/opacity の値反映が成功
+- React Slide IO から全 join 切替、全 enable/disable、選択スライドのみ enable、disabled スライド削除が成功
+- React レイヤーリストで ↑↓ 選択移動、Enter/Space 選択、F2 rename、Delete/Backspace 削除が成功
 
 ### Phase 4 ゲート
 - センシティブ文書の認証成功時のみ表示

@@ -2,24 +2,25 @@ import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Text } fr
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
-    useViewerEditCanvasState,
-    useViewerEditLayerState,
-    useViewerEditLayers,
-    useViewerEditSelection,
-    useViewerHistory,
-    useViewerMode,
-    useViewerSavedFileSelection,
-    useViewerSlides,
-    useViewerSlideshowSettings,
-    useViewerStorage,
+	useViewerEditCanvasState,
+	useViewerEditLayerState,
+	useViewerEditLayers,
+	useViewerEditSelection,
+	useViewerHistory,
+	useViewerMode,
+	useViewerSavedFileSelection,
+	useViewerSlides,
+	useViewerSlideshowSettings,
+	useViewerStorage,
 } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
 import {
-    getImagesContainerElement,
-    getSaveFormat,
-    setSaveFormat,
+	getImagesContainerElement,
+	getSaveFormat,
+	setSaveFormat,
 } from "../runtime/reactDomRegistry";
+import { getAdjustedNumericValue, getInputStep } from "./numericInput";
 
 const durationOptions = [
 	{ value: "1", label: "0" },
@@ -240,10 +241,35 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.setSelectedLayerPosition(x, y);
 	};
 
+	const adjustPositionX = (delta: number) => {
+		if (!canEditSelectedLayer) return;
+		const nextX = getAdjustedNumericValue(posXInput, editLayerState.x ?? 0, delta);
+		const y = Number(posYInput);
+		const nextY = Number.isFinite(y) ? y : editLayerState.y ?? 0;
+		setPosXInput(String(nextX));
+		ViewerCommands.setSelectedLayerPosition(nextX, nextY);
+	};
+
+	const adjustPositionY = (delta: number) => {
+		if (!canEditSelectedLayer) return;
+		const nextY = getAdjustedNumericValue(posYInput, editLayerState.y ?? 0, delta);
+		const x = Number(posXInput);
+		const nextX = Number.isFinite(x) ? x : editLayerState.x ?? 0;
+		setPosYInput(String(nextY));
+		ViewerCommands.setSelectedLayerPosition(nextX, nextY);
+	};
+
 	const applyScale = () => {
 		if (!canEditSelectedLayer) return;
 		const scale = Number(scaleInput);
 		if (!isFinite(scale) || scale <= 0) return;
+		ViewerCommands.setSelectedLayerScale(scale);
+	};
+
+	const adjustScale = (delta: number) => {
+		if (!canEditSelectedLayer) return;
+		const scale = getAdjustedNumericValue(scaleInput, editLayerState.scale ?? 1, delta, { min: 0.01 });
+		setScaleInput(String(scale));
 		ViewerCommands.setSelectedLayerScale(scale);
 	};
 
@@ -254,10 +280,24 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.setSelectedLayerRotation(rotation);
 	};
 
+	const adjustRotation = (delta: number) => {
+		if (!canEditSelectedLayer) return;
+		const rotation = getAdjustedNumericValue(rotationInput, editLayerState.rotation ?? 0, delta);
+		setRotationInput(String(rotation));
+		ViewerCommands.setSelectedLayerRotation(rotation);
+	};
+
 	const applyOpacity = () => {
 		if (!canEditSelectedLayer) return;
 		const opacity = Number(opacityInput);
 		if (!isFinite(opacity)) return;
+		ViewerCommands.setSelectedLayerOpacity(opacity);
+	};
+
+	const adjustOpacity = (delta: number) => {
+		if (!canEditSelectedLayer) return;
+		const opacity = getAdjustedNumericValue(opacityInput, editLayerState.opacity ?? 1, delta, { min: 0, max: 1 });
+		setOpacityInput(String(opacity));
 		ViewerCommands.setSelectedLayerOpacity(opacity);
 	};
 
@@ -301,6 +341,54 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.setCanvasScale(zoomPercent / 100);
 	};
 
+	const adjustCanvasZoom = (delta: number) => {
+		if (!gate.canEdit || !isEditMode) return;
+		const nextZoom = getAdjustedNumericValue(zoomInput, (editCanvasState.scale || 1) * 100, delta, {
+			min: 10,
+			max: 2000,
+		});
+		setZoomInput(String(nextZoom));
+		ViewerCommands.setCanvasScale(nextZoom / 100);
+	};
+
+	const adjustDurationRatio = (delta: number) => {
+		if (!gate.canEdit || !selectedRawSlide) return;
+		const nextRatio = getAdjustedNumericValue(durationRatioInput, selectedRawSlide.durationRatio, delta, {
+			min: 0.1,
+			max: 10,
+		});
+		setDurationRatioInput(String(nextRatio));
+		ViewerCommands.setSelectedSlideDurationRatio(nextRatio);
+	};
+
+	const handleNumericKeyDown = (
+		event: React.KeyboardEvent<HTMLInputElement>,
+		adjustValue: (delta: number) => void,
+		baseStep: number,
+		applyValue?: () => void
+	) => {
+		if (event.key === "Enter") {
+			event.currentTarget.blur();
+			applyValue?.();
+			return;
+		}
+		if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+		event.preventDefault();
+		const direction = event.key === "ArrowUp" ? 1 : -1;
+		adjustValue(getInputStep(baseStep, event) * direction);
+	};
+
+	const handleNumericWheel = (
+		event: React.WheelEvent<HTMLInputElement>,
+		adjustValue: (delta: number) => void,
+		baseStep: number
+	) => {
+		if (document.activeElement !== event.currentTarget) return;
+		event.preventDefault();
+		const direction = event.deltaY < 0 ? 1 : -1;
+		adjustValue(getInputStep(baseStep, event) * direction);
+	};
+
 	const selectSavedFile = (value: string) => {
 		ViewerCommands.selectSavedFile(value);
 		ViewerCommands.loadSelectedSavedFile();
@@ -325,6 +413,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const isEditMode = viewerMode === "edit";
 	const isImageLayer = editLayerState.layerType === "image";
 	const canEditSelectedLayer = gate.canEdit && isEditMode && hasSelection;
+	const disabledSlideCount = slides.filter((slide) => slide.disabled).length;
+	const allSlidesJoined = slides.length > 0 && slides.every((slide) => slide.joining);
 	const fmt = (value: number | null, digits = 2): string =>
 		value == null ? "-" : value.toFixed(digits);
 
@@ -461,6 +551,47 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									</Button>
 								</Group>
 							)}
+							{gate.canEdit && slides.length > 0 && (
+								<Group grow>
+									<Button
+										size="xs"
+										variant={allSlidesJoined ? "filled" : "default"}
+										onClick={() => ViewerCommands.toggleAllSlidesJoining()}>
+										All Join {allSlidesJoined ? "ON" : "OFF"}
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => ViewerCommands.enableAllSlides()}>
+										Enable All
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => ViewerCommands.disableAllSlides()}>
+										Disable All
+									</Button>
+								</Group>
+							)}
+							{gate.canEdit && slides.length > 0 && (
+								<Group grow>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => ViewerCommands.enableOnlySelectedSlide()}
+										disabled={!selectedSlide}>
+										Only This
+									</Button>
+									<Button
+										size="xs"
+										color="red"
+										variant="light"
+										onClick={() => ViewerCommands.deleteDisabledSlides()}
+										disabled={disabledSlideCount === 0}>
+										Delete Disabled ({disabledSlideCount})
+									</Button>
+								</Group>
+							)}
 							{selectedRawSlide && gate.canEdit && (
 								<Group grow>
 									<Text size="xs" c="dimmed" style={{ display: "flex", alignItems: "center" }}>
@@ -473,6 +604,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 										step="0.1"
 										value={durationRatioInput}
 										onChange={(e) => setDurationRatioInput(e.target.value)}
+										onBlur={() => {
+											const r = Number(durationRatioInput);
+											if (isFinite(r) && r > 0) ViewerCommands.setSelectedSlideDurationRatio(r);
+										}}
+										onKeyDown={(e) => handleNumericKeyDown(e, adjustDurationRatio, 0.1)}
+										onWheel={(e) => handleNumericWheel(e, adjustDurationRatio, 0.1)}
 										style={{ width: "100%" }}
 									/>
 									<Button
@@ -548,6 +685,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									step="1"
 									value={zoomInput}
 									onChange={(e) => setZoomInput(e.target.value)}
+									onBlur={applyCanvasZoom}
+									onKeyDown={(e) => handleNumericKeyDown(e, adjustCanvasZoom, 10, applyCanvasZoom)}
+									onWheel={(e) => handleNumericWheel(e, adjustCanvasZoom, 10)}
 									disabled={!gate.canEdit || !isEditMode}
 									style={{ width: "100%" }}
 								/>
@@ -948,6 +1088,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									type="number"
 									value={posXInput}
 									onChange={(e) => setPosXInput(e.target.value)}
+									onBlur={applyPosition}
+									onKeyDown={(e) => handleNumericKeyDown(e, adjustPositionX, 1, applyPosition)}
+									onWheel={(e) => handleNumericWheel(e, adjustPositionX, 1)}
 									disabled={!canEditSelectedLayer}
 									style={{ width: "100%" }}
 								/>
@@ -955,6 +1098,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									type="number"
 									value={posYInput}
 									onChange={(e) => setPosYInput(e.target.value)}
+									onBlur={applyPosition}
+									onKeyDown={(e) => handleNumericKeyDown(e, adjustPositionY, 1, applyPosition)}
+									onWheel={(e) => handleNumericWheel(e, adjustPositionY, 1)}
 									disabled={!canEditSelectedLayer}
 									style={{ width: "100%" }}
 								/>
@@ -972,6 +1118,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									step="0.01"
 									value={scaleInput}
 									onChange={(e) => setScaleInput(e.target.value)}
+									onBlur={applyScale}
+									onKeyDown={(e) => handleNumericKeyDown(e, adjustScale, 0.05, applyScale)}
+									onWheel={(e) => handleNumericWheel(e, adjustScale, 0.05)}
 									disabled={!canEditSelectedLayer}
 									style={{ width: "100%" }}
 								/>
@@ -987,6 +1136,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									step="1"
 									value={rotationInput}
 									onChange={(e) => setRotationInput(e.target.value)}
+									onBlur={applyRotation}
+									onKeyDown={(e) => handleNumericKeyDown(e, adjustRotation, 1, applyRotation)}
+									onWheel={(e) => handleNumericWheel(e, adjustRotation, 1)}
 									disabled={!canEditSelectedLayer}
 									style={{ width: "100%" }}
 								/>
@@ -1006,6 +1158,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									max="1"
 									value={opacityInput}
 									onChange={(e) => setOpacityInput(e.target.value)}
+									onBlur={applyOpacity}
+									onKeyDown={(e) => handleNumericKeyDown(e, adjustOpacity, 0.05, applyOpacity)}
+									onWheel={(e) => handleNumericWheel(e, adjustOpacity, 0.05)}
 									disabled={!canEditSelectedLayer}
 									style={{ width: "100%" }}
 								/>

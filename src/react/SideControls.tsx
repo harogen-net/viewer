@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerEditLayerState, useViewerEditLayers, useViewerMode } from "../bridge/useViewerBridge";
+import { clampNumericValue, getAdjustedNumericValue, getInputStep } from "./numericInput";
 
 export function CopyPasteControls() {
 	const { hasSelection } = useViewerEditLayerState();
@@ -195,10 +196,35 @@ export function PropertyControls() {
         ViewerCommands.setSelectedLayerPosition(nextX, nextY);
     };
 
+    const adjustPositionX = (delta: number) => {
+        if (!canEditLayer) return;
+        const nextX = getAdjustedNumericValue(positionXInput, x ?? 0, delta);
+        const nextY = Number(positionYInput);
+        const appliedY = Number.isFinite(nextY) ? nextY : y ?? 0;
+        setPositionXInput(String(nextX));
+        ViewerCommands.setSelectedLayerPosition(nextX, appliedY);
+    };
+
+    const adjustPositionY = (delta: number) => {
+        if (!canEditLayer) return;
+        const nextY = getAdjustedNumericValue(positionYInput, y ?? 0, delta);
+        const nextX = Number(positionXInput);
+        const appliedX = Number.isFinite(nextX) ? nextX : x ?? 0;
+        setPositionYInput(String(nextY));
+        ViewerCommands.setSelectedLayerPosition(appliedX, nextY);
+    };
+
     const applyScale = () => {
         if (!canEditLayer) return;
         const nextScale = Number(scaleInput);
         if (!isFinite(nextScale) || nextScale <= 0) return;
+        ViewerCommands.setSelectedLayerScale(nextScale);
+    };
+
+    const adjustScale = (delta: number) => {
+        if (!canEditLayer) return;
+        const nextScale = getAdjustedNumericValue(scaleInput, scale ?? 1, delta, { min: 0.01 });
+        setScaleInput(String(nextScale));
         ViewerCommands.setSelectedLayerScale(nextScale);
     };
 
@@ -209,10 +235,24 @@ export function PropertyControls() {
         ViewerCommands.setSelectedLayerRotation(nextRotation);
     };
 
+    const adjustRotation = (delta: number) => {
+        if (!canEditLayer) return;
+        const nextRotation = getAdjustedNumericValue(rotationInput, rotation ?? 0, delta);
+        setRotationInput(String(nextRotation));
+        ViewerCommands.setSelectedLayerRotation(nextRotation);
+    };
+
     const applyOpacity = () => {
         if (!canEditLayer) return;
         const nextOpacity = Number(opacityInput);
         if (!isFinite(nextOpacity)) return;
+        ViewerCommands.setSelectedLayerOpacity(nextOpacity);
+    };
+
+    const adjustOpacity = (delta: number) => {
+        if (!canEditLayer) return;
+        const nextOpacity = getAdjustedNumericValue(opacityInput, opacity ?? 1, delta, { min: 0, max: 1 });
+        setOpacityInput(String(nextOpacity));
         ViewerCommands.setSelectedLayerOpacity(nextOpacity);
     };
 
@@ -241,6 +281,69 @@ export function PropertyControls() {
         }
     };
 
+    const adjustClip = (side: "top" | "right" | "bottom" | "left", delta: number) => {
+        if (!canEditLayer || !isImageLayer) return;
+        const currentInputs = {
+            top: clipTopInput,
+            right: clipRightInput,
+            bottom: clipBottomInput,
+            left: clipLeftInput,
+        };
+        const currentValues = {
+            top: clipTop ?? 0,
+            right: clipRight ?? 0,
+            bottom: clipBottom ?? 0,
+            left: clipLeft ?? 0,
+        };
+        const inputValue = Number(currentInputs[side]);
+        const baseValue = Number.isFinite(inputValue) ? inputValue : currentValues[side];
+        const nextValue = clampNumericValue(baseValue + delta);
+        const actualDelta = nextValue - baseValue;
+        if (actualDelta === 0) return;
+
+        switch (side) {
+            case "top":
+                setClipTopInput(String(nextValue));
+                break;
+            case "right":
+                setClipRightInput(String(nextValue));
+                break;
+            case "bottom":
+                setClipBottomInput(String(nextValue));
+                break;
+            case "left":
+                setClipLeftInput(String(nextValue));
+                break;
+        }
+        ViewerCommands.adjustSelectedImageClip(side, actualDelta);
+    };
+
+    const handleNumericKeyDown = (
+        event: React.KeyboardEvent<HTMLInputElement>,
+        adjustValue: (delta: number) => void,
+        baseStep: number
+    ) => {
+        if (event.key === "Enter") {
+            event.currentTarget.blur();
+            return;
+        }
+        if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+        event.preventDefault();
+        const direction = event.key === "ArrowUp" ? 1 : -1;
+        adjustValue(getInputStep(baseStep, event) * direction);
+    };
+
+    const handleNumericWheel = (
+        event: React.WheelEvent<HTMLInputElement>,
+        adjustValue: (delta: number) => void,
+        baseStep: number
+    ) => {
+        if (document.activeElement !== event.currentTarget) return;
+        event.preventDefault();
+        const direction = event.deltaY < 0 ? 1 : -1;
+        adjustValue(getInputStep(baseStep, event) * direction);
+    };
+
     return (
         <>
             <dl className="position">
@@ -251,9 +354,8 @@ export function PropertyControls() {
                         value={positionXInput}
                         onChange={(e) => setPositionXInput(e.currentTarget.value)}
                         onBlur={applyPosition}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, adjustPositionX, 1)}
+                        onWheel={(e) => handleNumericWheel(e, adjustPositionX, 1)}
                         disabled={!canEditLayer}
                     />
                 </dd>
@@ -263,9 +365,8 @@ export function PropertyControls() {
                         value={positionYInput}
                         onChange={(e) => setPositionYInput(e.currentTarget.value)}
                         onBlur={applyPosition}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, adjustPositionY, 1)}
+                        onWheel={(e) => handleNumericWheel(e, adjustPositionY, 1)}
                         disabled={!canEditLayer}
                     />
                 </dd>
@@ -278,9 +379,8 @@ export function PropertyControls() {
                         value={scaleInput}
                         onChange={(e) => setScaleInput(e.currentTarget.value)}
                         onBlur={applyScale}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, adjustScale, 0.05)}
+                        onWheel={(e) => handleNumericWheel(e, adjustScale, 0.05)}
                         disabled={!canEditLayer}
                     />
                 </dd>
@@ -320,9 +420,8 @@ export function PropertyControls() {
                         value={rotationInput}
                         onChange={(e) => setRotationInput(e.currentTarget.value)}
                         onBlur={applyRotation}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, adjustRotation, 1)}
+                        onWheel={(e) => handleNumericWheel(e, adjustRotation, 1)}
                         disabled={!canEditLayer}
                     />
                 </dd>
@@ -344,9 +443,8 @@ export function PropertyControls() {
                         value={opacityInput}
                         onChange={(e) => setOpacityInput(e.currentTarget.value)}
                         onBlur={applyOpacity}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, adjustOpacity, 0.05)}
+                        onWheel={(e) => handleNumericWheel(e, adjustOpacity, 0.05)}
                         disabled={!canEditLayer}
                     />
                 </dd>
@@ -379,9 +477,8 @@ export function PropertyControls() {
                         value={clipTopInput}
                         onChange={(e) => setClipTopInput(e.currentTarget.value)}
                         onBlur={applyClip}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("top", delta), 1)}
+                        onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("top", delta), 1)}
                         disabled={!canEditLayer || !isImageLayer}
                     />
                 </dd>
@@ -391,9 +488,8 @@ export function PropertyControls() {
                         value={clipRightInput}
                         onChange={(e) => setClipRightInput(e.currentTarget.value)}
                         onBlur={applyClip}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("right", delta), 1)}
+                        onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("right", delta), 1)}
                         disabled={!canEditLayer || !isImageLayer}
                     />
                 </dd>
@@ -403,9 +499,8 @@ export function PropertyControls() {
                         value={clipBottomInput}
                         onChange={(e) => setClipBottomInput(e.currentTarget.value)}
                         onBlur={applyClip}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("bottom", delta), 1)}
+                        onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("bottom", delta), 1)}
                         disabled={!canEditLayer || !isImageLayer}
                     />
                 </dd>
@@ -415,9 +510,8 @@ export function PropertyControls() {
                         value={clipLeftInput}
                         onChange={(e) => setClipLeftInput(e.currentTarget.value)}
                         onBlur={applyClip}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                        }}
+                        onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("left", delta), 1)}
+                        onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("left", delta), 1)}
                         disabled={!canEditLayer || !isImageLayer}
                     />
                 </dd>
@@ -467,12 +561,61 @@ export function LayerControls() {
         ViewerCommands.removeSelectedLayer();
     };
 
+    const deleteLayerByIndex = (index: number) => {
+        if (!canEditLayers) return;
+        ViewerCommands.selectEditLayerByIndex(index);
+        ViewerCommands.removeSelectedLayer();
+    };
+
+    const selectAdjacentLayer = (index: number, direction: -1 | 1) => {
+        if (!canEditLayers) return;
+        const currentPosition = layers.findIndex((layer) => layer.index === index);
+        if (currentPosition === -1) return;
+        const nextLayer = layers[currentPosition + direction];
+        if (!nextLayer) return;
+        ViewerCommands.selectEditLayerByIndex(nextLayer.index);
+    };
+
     const startRename = (id: number, currentName: string, event: React.MouseEvent) => {
         event.stopPropagation();
+        if (!canEditLayers) return;
+        startRenameLayer(id, currentName);
+    };
+
+    const startRenameLayer = (id: number, currentName: string) => {
         if (!canEditLayers) return;
         renameCanceledRef.current = false;
         setRenamingId(id);
         setRenameInput(currentName);
+    };
+
+    const handleLayerKeyDown = (layer: (typeof layers)[number], event: React.KeyboardEvent<HTMLLIElement>) => {
+        if (!canEditLayers) return;
+        switch (event.key) {
+            case "Enter":
+            case " ":
+                event.preventDefault();
+                ViewerCommands.selectEditLayerByIndex(layer.index);
+                break;
+            case "ArrowUp":
+                event.preventDefault();
+                selectAdjacentLayer(layer.index, -1);
+                break;
+            case "ArrowDown":
+                event.preventDefault();
+                selectAdjacentLayer(layer.index, 1);
+                break;
+            case "F2":
+                event.preventDefault();
+                ViewerCommands.selectEditLayerByIndex(layer.index);
+                startRenameLayer(layer.id, layer.name);
+                break;
+            case "Delete":
+            case "Backspace":
+                event.preventDefault();
+                deleteLayerByIndex(layer.index);
+                break;
+        }
     };
 
     const commitRename = () => {
@@ -502,6 +645,8 @@ export function LayerControls() {
                     key={layer.id}
                     className={layer.selected ? "selected" : ""}
                     onClick={() => handleSelectLayer(layer.index)}
+                    onKeyDown={(e) => handleLayerKeyDown(layer, e)}
+                    tabIndex={canEditLayers ? 0 : -1}
                     data-react-controlled="true"
                 >
                     <button
@@ -539,6 +684,7 @@ export function LayerControls() {
                             onChange={(e) => setRenameInput(e.currentTarget.value)}
                             onBlur={commitRename}
                             onKeyDown={(e) => {
+                                e.stopPropagation();
                                 if (e.key === "Enter") e.currentTarget.blur();
                                 if (e.key === "Escape") {
                                     renameCanceledRef.current = true;
