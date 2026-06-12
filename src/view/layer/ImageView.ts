@@ -26,16 +26,43 @@ export class ImageView extends LayerView {
 	}
 
 	private updateImage() {
+		const host = this.obj[0] as HTMLElement;
+		for (const staleImage of Array.from(host.querySelectorAll("img"))) {
+			staleImage.remove();
+		}
+
 		if (this.imgElement) {
 			this.imgElement.remove();
 			this.imgElement = null;
 		}
 		var imageElement = ImageManager.instance.getImageCloneElementById(this._data.imageId);
 		this.imgElement = imageElement;
-		this.obj[0].appendChild(this.imgElement);
+		host.appendChild(this.imgElement);
 
 		this.opacityObj = this.imgElement;
 		this.opacityObj.style.opacity = String(this._data.opacity);
+		this.applyClip();
+	}
+
+	private applyClip(): void {
+		if (!this.imgElement) {
+			return;
+		}
+		if (this.imageData.isClipped) {
+			var clipStr: string =
+				"inset(" +
+				this._data.clipRect
+					.map((value) => {
+						return value + "px";
+					})
+					.join(" ") +
+				")";
+			this.imgElement.style.setProperty("-webkit-clip-path", clipStr);
+			this.imgElement.style.clipPath = clipStr;
+		} else {
+			this.imgElement.style.setProperty("-webkit-clip-path", "inset(0)");
+			this.imgElement.style.clipPath = "inset(0)";
+		}
 	}
 
 	protected updateView(flag: number = PropFlags.ALL): void {
@@ -44,24 +71,9 @@ export class ImageView extends LayerView {
 		}
 		if (flag & PropFlags.IMG_CLIP) {
 			if (!this.imgElement) {
-				super.updateView(flag);
-				return;
+				this.updateImage();
 			}
-			if (this.imageData.isClipped) {
-				var clipStr: string =
-					"inset(" +
-					this._data.clipRect
-						.map((value) => {
-							return value + "px";
-						})
-						.join(" ") +
-					")";
-				this.imgElement.style.setProperty("-webkit-clip-path", clipStr);
-				this.imgElement.style.clipPath = clipStr;
-			} else {
-				this.imgElement.style.setProperty("-webkit-clip-path", "inset(0)");
-				this.imgElement.style.clipPath = "inset(0)";
-			}
+			this.applyClip();
 		}
 		//先にimageObj設定してほしいからsuperは後で
 		super.updateView(flag);
