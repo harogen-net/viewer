@@ -22,8 +22,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 	private _mode: ViewerMode;
 
-	private contextTargetSlide: Slide | null = null; //こいつが原因でバグを発生しそうな予感
-
 	constructor(
 		public obj: any,
 		private readonly canEdit: boolean = true
@@ -79,17 +77,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			}, 50);
 		});
 
-		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			this.obj.on("contextmenu.slide", (e) => {
-				if (this._slides.length > 0) {
-					this.contextTargetSlide = null;
-					this.onContextMenu(
-						new CustomEvent("contextmenu", { detail: { x: e.clientX, y: e.clientY } })
-					);
-					return false;
-				}
-			});
-		}
 	}
 
 	setMode(mode: ViewerMode): void {
@@ -195,24 +182,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.selectSlide(slide);
 	}
 
-	public consumeContextTargetSlide(): Slide | null {
-		const slide = this.contextTargetSlide;
-		this.contextTargetSlide = null;
-		return slide;
-	}
-
-	public requestSlideContextMenuByIndex(index: number, top: number, left: number): void {
-		if (!this.canEdit) return;
-		if (index < 0 || index >= this._slides.length) return;
-		this.contextTargetSlide = this._slides[index];
-		const offset = this.obj.offset() ?? { top: 0, left: 0 };
-		ViewerBridge.emit("listContextMenuRequested", {
-			kind: "slide",
-			top: top - offset.top,
-			left: left - offset.left,
-		});
-	}
-
 	public selectPreviousSlide(): void {
 		this.selectSlideOffset(-1);
 	}
@@ -244,7 +213,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 		slideView.addEventListener("select", this.onSlideSelect);
 		slideView.addEventListener("edit", this.onSlideEdit);
-		slideView.addEventListener("contextmenu", this.onContextMenu);
 
 		slideView.show();
 	}
@@ -267,17 +235,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private onSlideEdit = (ce: CustomEvent) => {
 		this.dispatchEvent(new Event("edit"));
 	};
-	private onContextMenu = (ce: CustomEvent) => {
-		if (!this.canEdit) return;
-		var offset = this.obj.offset() ?? { top: 0, left: 0 };
-		this.contextTargetSlide = ce.detail.slide || null;
-		ViewerBridge.emit("listContextMenuRequested", {
-			kind: ce.detail.slide != undefined ? "slide" : "list",
-			top: ce.detail.y - offset.top,
-			left: ce.detail.x - offset.left,
-		});
-	};
-
 	removeSlide(slide: Slide, isAnimation: boolean = false, destroySlide: boolean = true): Slide {
 		if (!this.canEdit) return slide;
 		var index: number = this._slides.indexOf(slide);
@@ -286,7 +243,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		var slideView: ThumbSlideView = this.getSlideViewBySlide(slide);
 		slideView.removeEventListener("select", this.onSlideSelect);
 		slideView.removeEventListener("edit", this.onSlideEdit);
-		slideView.removeEventListener("contextmenu", this.onContextMenu);
 		//slideView.clearEventListener();	//dispatchEventを発端とするスタック中で実行するとエラーになる
 
 		var nextSlide: Slide = null;

@@ -15,8 +15,6 @@ export type ViewerBridgeEventMap = {
 	slidesChanged: { slides: readonly Slide[]; selectedIndex: number };
 	/** Selected slide index changed */
 	selectionChanged: { selectedIndex: number };
-	/** Slide list context menu requested */
-	listContextMenuRequested: { kind: "slide" | "list"; top: number; left: number };
 	/** Image deletion requested from the images panel */
 	imageDeleteRequested: { imageId: string; name: string } | null;
 	/** Shared layer removal requested from an edit command */
@@ -25,6 +23,18 @@ export type ViewerBridgeEventMap = {
 	spreadLayerRequested: { layerName: string } | null;
 	/** Text layer input requested from an edit command */
 	textLayerInputRequested: { open: boolean } | null;
+	/** New document confirmation requested from a command */
+	newDocumentRequested: { open: boolean } | null;
+	/** Import confirmation requested from a command */
+	importDialogRequested: { open: boolean } | null;
+	/** Import file picker requested from a command */
+	importFileDialogRequested: { open: boolean } | null;
+	/** Save destination choice requested from a command */
+	saveChoiceRequested: { open: boolean } | null;
+	/** Storage loading progress changed */
+	storageProgressChanged: { percentage: number };
+	/** Runtime notice requested */
+	noticeChanged: { id: number; message: string; variant: "error" | "info" } | null;
 	/** Saved file titles in storage changed */
 	savedFilesChanged: { titles: readonly SlideTitle[] };
 	/** Selected saved file changed */

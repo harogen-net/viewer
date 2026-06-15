@@ -1,30 +1,26 @@
+import { ViewerBridge } from "../bridge/ViewerBridge";
+
 type NoticeVariant = "error" | "info";
 
-let hideTimer: number | undefined;
 let lastMessage: string | undefined;
 let lastShownAt = 0;
+let noticeId = 0;
 
 export function showNotice(message: string, variant: NoticeVariant = "error"): void {
-	const host = document.getElementById("appNotice");
-	if (!host) return;
+	const normalizedMessage = String(message ?? "").trim();
+	if (!normalizedMessage) return;
 
 	const now = Date.now();
-	if (lastMessage == message && now - lastShownAt < 1200) {
+	if (lastMessage == normalizedMessage && now - lastShownAt < 1200) {
 		return;
 	}
 
-	lastMessage = message;
+	lastMessage = normalizedMessage;
 	lastShownAt = now;
-
-	host.textContent = message;
-	host.setAttribute("data-variant", variant);
-	host.classList.add("visible");
-
-	if (hideTimer) {
-		window.clearTimeout(hideTimer);
-	}
-
-	hideTimer = window.setTimeout(() => {
-		host.classList.remove("visible");
-	}, 2600);
+	noticeId += 1;
+	ViewerBridge.emit("noticeChanged", {
+		id: noticeId,
+		message: normalizedMessage,
+		variant,
+	});
 }

@@ -296,6 +296,27 @@ CI実行時のレポート収集:
 - 2026-06-15: `SlideShowViewController` が生成していた close/fullscreen/mirror/prev/next の旧DOMボタンを削除し、再生状態を `slideshowPlaybackChanged` bridge eventでReactへ公開。スライドショー中は `RuntimeShell` のReact overlayから停止/前後移動/pause/fullscreen/mirrorを `ViewerCommands` 経由で操作する形へ移行。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
+- 2026-06-15: Viewer command 直呼び時の New Doc / Import / Save / Delete Image 確認を bridge request 化し、React RuntimeShell の既存確認UIを開く経路へ移行。画像削除request受信時はReact Imagesパネルも自動で開くようにして、command経由でも確認操作が見える形に更新。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: ストレージ読み込み進捗を旧 `ProgressBar` のjQuery DOM更新から `storageProgressChanged` bridge event + React `RuntimeShell` の進捗バー表示へ移行。未参照の空 `ProgressViewController` と旧ProgressBarクラスを削除。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: `showNotice` を `#appNotice` 直接DOM更新から `noticeChanged` bridge event + React `RuntimeShell` 通知表示へ移行し、HTML/CSSの旧noticeホストを削除。`alert` / `window.confirm` / `prompt` の実行コードと古いコメントも削除し、確認・入力はReact request UIへ集約。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: Import用hidden file inputを Viewer の `document.createElement("input")` 生成から React `RuntimeShell` 管理へ移行。Viewer は `importFileDialogRequested` request と `commandImportFile(file)` の処理だけを持ち、React側でファイル選択とFile受け渡しを担当する形に更新。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: RuntimeShell へ移行済みで空になっていた legacy `PrefPanel` / `#pref` host / preference CSS / readonly時のpref非表示処理を削除。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: React RuntimeShell 管理に移行済みの Images パネルから、存在しない旧toggle button用CSSと旧containerレイアウトCSSを削除。画像サムネイル自体のスタイルのみ残し、パネル表示位置・サイズはReact側管理へ一本化。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: RuntimeShell と重複していた MainShell の旧 `CanvasMenu` / `SideControls` / `ListContextMenus` を削除し、MainShell は legacy controller 用の `.canvas` / `.list` host とキーボード処理だけに縮小。旧context menu bridge/command/controller経路と専用CSSも削除し、RuntimeShell の可視入力を Mantine `TextInput` / `Textarea` / `ColorInput` / `FileButton` へ統一。
+- 確認: `npm run test:usecase`
+- 結果: 55 tests / 55 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

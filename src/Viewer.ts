@@ -12,7 +12,6 @@ import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/Docu
 import { handleStorageActionResult } from "./useCase/storageActionResult";
 import { Command, HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
-import { ProgressBar } from "./view/ProgressBar";
 import { EditViewController } from "./viewController/EditViewController";
 import { ListViewController } from "./viewController/ListViewController";
 import { SlideShowPlaybackSettings, SlideShowViewController } from "./viewController/SlideShowViewController";
@@ -45,11 +44,9 @@ export class Viewer {
 	private listVC: ListViewController;
 	private slideShowVC: SlideShowViewController;
 	private documentStorage: DocumentStorageUseCase;
-	private progressBar: ProgressBar;
 
 	private _mode: ViewerMode;
 	private selectedSavedFileId: string | null = null;
-	private importInput: HTMLInputElement | null = null;
 	private slideShowDuration = 2000;
 	private slideShowInterval = 6000;
 	private slideShowBgColor = "#999999";
@@ -89,11 +86,11 @@ export class Viewer {
 		return false;
 	}
 
-	private canProceedWithDiscard(confirmMessage: string): boolean {
+	private canProceedWithDiscard(): boolean {
 		if (!this.IsDocumentModified || !Viewer.isStrictMode) {
 			return true;
 		}
-		return window.confirm(confirmMessage);
+		return false;
 	}
 
 	private getPermissionPolicy(): FeatureGate {
@@ -112,13 +109,13 @@ export class Viewer {
 	}
 
 	private shouldOverrideSave(): boolean {
-		return window.confirm("override?");
+		return false;
 	}
 
 	private initializeDocumentStorage(): void {
 		this.documentStorage = new DocumentStorageUseCase(createStorageAdapter(), this.featureGate);
 		this.documentStorage.onLoading((percentage) => {
-			this.progressBar.go(percentage);
+			ViewerBridge.emit("storageProgressChanged", { percentage });
 		});
 		this.documentStorage.onLoaded((doc) => {
 			this.newDocument(doc);
@@ -414,15 +411,10 @@ export class Viewer {
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
 		const imageContainer = getImagesContainerElement();
-		if (imageContainer) {
-			ImageManager.init(imageContainer);
-		} else {
-			const fallbackContainer = document.createElement("div");
-			fallbackContainer.id = "images-panel-container";
-			fallbackContainer.style.display = "none";
-			document.body.appendChild(fallbackContainer);
-			ImageManager.init(fallbackContainer);
+		if (!imageContainer) {
+			throw new Error("React images panel was not mounted.");
 		}
+		ImageManager.init(imageContainer);
 
 		if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 			const preventDefault = (e: Event) => {
@@ -433,7 +425,6 @@ export class Viewer {
 			document.addEventListener("dragover", preventDefault);
 		}
 
-		this.progressBar = new ProgressBar($("<div />").appendTo(this.obj));
 	}
 
 	private initializeControllers(startUpMode: ViewerStartUpMode): void {
@@ -663,19 +654,6 @@ export class Viewer {
 		);
 	}
 
-	public commandDeleteContextSlide(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
-		const slide = this.listVC.consumeContextTargetSlide();
-		if (!slide) return;
-		this.listVC.selectSlideInstance(slide);
-		this.commandDeleteSelectedSlide();
-	}
-
-	public commandRequestSlideContextMenu(index: number, top: number, left: number): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライドメニュー")) return;
-		this.listVC.requestSlideContextMenuByIndex(index, top, left);
-	}
-
 	public commandMoveSelectedSlideBackward(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
 		const slide = this.listVC.selectedSlide;
@@ -867,14 +845,6 @@ export class Viewer {
 		);
 	}
 
-	public commandEnableOnlyContextSlide(): void {
-		if (!this.ensureAllowed(this.canEdit(), "選択スライドのみ有効化")) return;
-		const slide = this.listVC.consumeContextTargetSlide();
-		if (!slide) return;
-		this.listVC.selectSlideInstance(slide);
-		this.commandEnableOnlySelectedSlide();
-	}
-
 	public commandDeleteDisabledSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "無効スライド削除")) return;
 		const disabledSlides = this.listVC.slides
@@ -979,7 +949,11 @@ export class Viewer {
 	public commandNewDocument(confirmed = false): void {
 		if (!this.ensureAllowed(this.canEdit(), "新規作成")) return;
 		if (this.viewerDocument.slides.length == 0) return;
-		if (confirmed || this.canProceedWithDiscard("clear slides and new document. Are you sure?")) {
+		if (!confirmed && this.IsDocumentModified && Viewer.isStrictMode && ViewerBridge.hasListeners("newDocumentRequested")) {
+			ViewerBridge.emit("newDocumentRequested", { open: true });
+			return;
+		}
+		if (confirmed || this.canProceedWithDiscard()) {
 			this.newDocument();
 		}
 	}
@@ -987,6 +961,10 @@ export class Viewer {
 	public commandSaveDocument(override?: boolean): void {
 		if (!this.ensureAllowed(this.canSave(), "保存")) return;
 		if (this.listVC.slides.length == 0) return;
+		if (override == null && ViewerBridge.hasListeners("saveChoiceRequested")) {
+			ViewerBridge.emit("saveChoiceRequested", { open: true });
+			return;
+		}
 		const isOverride = override ?? this.shouldOverrideSave();
 		this.handleStorageResult(this.documentStorage.saveResult(this.viewerDocument, isOverride));
 	}
@@ -1051,25 +1029,21 @@ export class Viewer {
 
 	public commandOpenImportDialog(confirmed = false): void {
 		if (!this.ensureAllowed(this.canImport(), "読み込み")) return;
-		if (!confirmed && !this.canProceedWithDiscard("load slides. Are you sure?")) return;
-
-		if (!this.importInput) {
-			const input = document.createElement("input");
-			input.type = "file";
-			input.accept = ".png,.hvd,.hvz";
-			input.style.display = "none";
-			input.onchange = () => {
-				const file = input.files?.[0];
-				if (!file) return;
-				this.handleStorageResult(this.documentStorage.importResult(file));
-				input.value = "";
-			};
-			document.body.appendChild(input);
-			this.importInput = input;
+		if (!confirmed && this.IsDocumentModified && Viewer.isStrictMode && ViewerBridge.hasListeners("importDialogRequested")) {
+			ViewerBridge.emit("importDialogRequested", { open: true });
+			return;
 		}
+		if (!confirmed && !this.canProceedWithDiscard()) return;
 
-		this.importInput.value = "";
-		this.importInput.click();
+		if (ViewerBridge.hasListeners("importFileDialogRequested")) {
+			ViewerBridge.emit("importFileDialogRequested", { open: true });
+		}
+	}
+
+	public commandImportFile(file: File): void {
+		if (!this.ensureAllowed(this.canImport(), "読み込み")) return;
+		if (!file) return;
+		this.handleStorageResult(this.documentStorage.importResult(file));
 	}
 
 	public commandExportImages(): void {
@@ -1083,6 +1057,10 @@ export class Viewer {
 
 	public commandDownloadSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
+		if (this.listVC.selectedSlideIndex === -1 && this.viewerDocument.disabled) {
+			showNotice("有効なスライドがありません。");
+			return;
+		}
 		this.viewerDocument.downloadImage(this.listVC.selectedSlideIndex);
 	}
 
@@ -1189,7 +1167,7 @@ export class Viewer {
 			ViewerBridge.emit("spreadLayerRequested", { layerName: request.layerName });
 			return;
 		}
-		if (!confirmed && !window.confirm("spread layer to all slides. are you sure?")) return;
+		if (!confirmed) return;
 		const ok = this.editVC.spreadSelectedLayer();
 		if (!ok) {
 			showNotice("レイヤーを選択してください。");
@@ -1272,11 +1250,7 @@ export class Viewer {
 		if (!this.canRunEditOperations("テキストレイヤー追加")) return;
 		if (ViewerBridge.hasListeners("textLayerInputRequested")) {
 			ViewerBridge.emit("textLayerInputRequested", { open: true });
-			return;
 		}
-		const text = prompt("insert text layer:");
-		if (text == null) return;
-		this.commandAddTextLayer(text);
 	}
 
 	public commandCopySelectedLayerTransform(): void {
@@ -1528,7 +1502,15 @@ export class Viewer {
 	public commandDeleteImageById(imageId: string, confirmed = false): void {
 		if (!this.ensureAllowed(this.canEdit(), "画像削除")) return;
 		if (!imageId) return;
-		if (!confirmed && !window.confirm("delete image. are you sure?")) return;
+		if (!confirmed && ViewerBridge.hasListeners("imageDeleteRequested")) {
+			const imageProps = ImageManager.shared.getImagePropsById(imageId);
+			ViewerBridge.emit("imageDeleteRequested", {
+				imageId,
+				name: imageProps?.name || imageId,
+			});
+			return;
+		}
+		if (!confirmed) return;
 		ImageManager.shared.deleteImageById(imageId);
 		this.IsDocumentModified = true;
 		this.emitCurrentSlides();

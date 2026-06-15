@@ -6,9 +6,9 @@ import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
 import {
-	createStorageOperationError,
-	StorageErrorCode,
-	type StorageExportOptions,
+    createStorageOperationError,
+    StorageErrorCode,
+    type StorageExportOptions,
 } from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../storage/storageTypes";
 import { Viewer } from "../Viewer";
@@ -95,23 +95,6 @@ export class SlideStorage extends EventDispatcher {
 		let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
 		this.titleStore = transaction.objectStore("slideTitles");
 		this.dataStore = transaction.objectStore("slideData");
-
-		// let verify = async (title) => {
-		// 	let transaction = this.db.transaction(["slideTitles", "slideData"], "readwrite");
-		// 	this.dataStore = transaction.objectStore("slideData");
-		// 	let getReq = this.dataStore.get(title);
-		// 	getReq.onsuccess = async (e: any) => {
-		// 		let jsonStr2: string = e.target.result.data;
-		// 		if (jsonStr == jsonStr2) {
-		// 			alert("[" + title + "] save complete.");
-		// 		} else {
-		// 			alert("save error!");
-		// 		}
-		// 	}
-		// 	getReq.onerror = async (e: any) => {
-		// 		alert("save error!");
-		// 	};
-		// }
 
 		return new Promise<void>((resolve, reject) => {
 			const onRequestError = () => {

@@ -16,14 +16,6 @@ export class ThumbSlideView extends CanvasSlideView {
 				this.dispatchEvent(new CustomEvent("edit", { detail: this._slide }));
 				return false;
 			});
-			obj.on("contextmenu.slide", (e) => {
-				this.dispatchEvent(
-					new CustomEvent("contextmenu", {
-						detail: { slide: this._slide, x: e.clientX, y: e.clientY },
-					})
-				);
-				return false;
-			});
 		}
 
 		//
@@ -69,7 +61,6 @@ export class ThumbSlideView extends CanvasSlideView {
 		this.obj.stop();
 		this.obj.off("click.slide");
 		this.obj.off("dblclick.slide");
-		this.obj.off("contextmenu.slide");
 		this.obj.off("mousedown.slide");
 
 		super.destroy();

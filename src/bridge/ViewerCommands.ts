@@ -15,15 +15,6 @@ export const ViewerCommands = {
 	deleteSelectedSlide(): void {
 		getViewer()?.commandDeleteSelectedSlide();
 	},
-	deleteContextSlide(): void {
-		getViewer()?.commandDeleteContextSlide();
-	},
-	enableOnlyContextSlide(): void {
-		getViewer()?.commandEnableOnlyContextSlide();
-	},
-	requestSlideContextMenu(index: number, top: number, left: number): void {
-		getViewer()?.commandRequestSlideContextMenu(index, top, left);
-	},
 	moveSelectedSlideBackward(): void {
 		getViewer()?.commandMoveSelectedSlideBackward();
 	},
@@ -113,6 +104,9 @@ export const ViewerCommands = {
 	},
 	openImportDialog(confirmed = false): void {
 		getViewer()?.commandOpenImportDialog(confirmed);
+	},
+	importFile(file: File): void {
+		getViewer()?.commandImportFile(file);
 	},
 	loadSavedFile(fileId: string): void {
 		getViewer()?.commandLoadSavedFile(fileId);

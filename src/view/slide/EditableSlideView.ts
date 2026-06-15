@@ -678,12 +678,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			var layer: Layer = pe.options.layer;
 
 			if (flag & PropFlags.SHARED) {
-				if (layer.shared) {
-					/*					if(window.confirm('paste layer to all slides. Are you sure?')){
-						this.sharedLayerSpread(layer);
-					}
-					this.listSharedLayers(layer);*/
-				} else {
+				if (!layer.shared) {
 					delete this.sharedLayersByUUID[layer.uuid];
 				}
 			} else {
@@ -716,10 +711,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			if (flag & PropFlags.S_LAYER_REMOVE) {
 				var layer: Layer = pe.options.layer;
 				if (layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined) {
-					if (
-						this.allowSharedLayerRemovalWithoutConfirm ||
-						window.confirm("remove shared layers. Are you sure?")
-					) {
+					if (this.allowSharedLayerRemovalWithoutConfirm) {
 						var transaction = new Transaction();
 
 						this.sharedLayersByUUID[layer.uuid].forEach((tmpLayer) => {

@@ -41,10 +41,6 @@ export function useViewerSlides(): SlidesState {
 	return useBridgeEvent("slidesChanged", { slides: [], selectedIndex: -1 });
 }
 
-export function useViewerListContextMenu(): { kind: "slide" | "list"; top: number; left: number } | null {
-	return useBridgeEvent("listContextMenuRequested", null);
-}
-
 export function useViewerImageDeleteRequest(): { imageId: string; name: string } | null {
 	return useBridgeEvent("imageDeleteRequested", null);
 }
@@ -59,6 +55,30 @@ export function useViewerSpreadLayerRequest(): { layerName: string } | null {
 
 export function useViewerTextLayerInputRequest(): { open: boolean } | null {
 	return useBridgeEvent("textLayerInputRequested", null);
+}
+
+export function useViewerNewDocumentRequest(): { open: boolean } | null {
+	return useBridgeEvent("newDocumentRequested", null);
+}
+
+export function useViewerImportDialogRequest(): { open: boolean } | null {
+	return useBridgeEvent("importDialogRequested", null);
+}
+
+export function useViewerImportFileDialogRequest(): { open: boolean } | null {
+	return useBridgeEvent("importFileDialogRequested", null);
+}
+
+export function useViewerSaveChoiceRequest(): { open: boolean } | null {
+	return useBridgeEvent("saveChoiceRequested", null);
+}
+
+export function useViewerStorageProgress(): { percentage: number } {
+	return useBridgeEvent("storageProgressChanged", { percentage: 0 });
+}
+
+export function useViewerNotice(): { id: number; message: string; variant: "error" | "info" } | null {
+	return useBridgeEvent("noticeChanged", null);
 }
 
 // ─── Storage ──────────────────────────────────────────────────────────────────

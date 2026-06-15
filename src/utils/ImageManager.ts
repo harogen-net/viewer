@@ -79,12 +79,8 @@ export class ImageManager {
 				imgDom.src = src;
 
 				imgDom.addEventListener("dblclick", () => {
-					if (this.container.getAttribute("data-react-controlled") === "true") {
+					if (ViewerBridge.hasListeners("imageDeleteRequested")) {
 						ViewerBridge.emit("imageDeleteRequested", { imageId: id, name });
-						return;
-					}
-					if (window.confirm("delete image. are you sure?")) {
-						this.deleteImageById(id);
 					}
 				});
 			}

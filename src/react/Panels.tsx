@@ -1,10 +1,5 @@
 import { setImagesContainerElement } from "../runtime/reactDomRegistry";
 
-export function PrefPanel() {
-	// RuntimeShell handles config UI.
-	return null;
-}
-
 export function ImagesPanel() {
 	return (
 		<div

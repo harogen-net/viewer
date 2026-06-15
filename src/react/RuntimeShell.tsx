@@ -1,15 +1,20 @@
-import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Switch, Text } from "@mantine/core";
+import { Badge, Button, ColorInput, FileButton, Group, NativeSelect, Paper, Progress, ScrollArea, Stack, Switch, Text, Textarea, TextInput } from "@mantine/core";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
     useViewerEditCanvasState,
-    useViewerEditLayerState,
     useViewerEditLayers,
+    useViewerEditLayerState,
     useViewerEditSelection,
     useViewerHistory,
     useViewerImageDeleteRequest,
+    useViewerImportDialogRequest,
+    useViewerImportFileDialogRequest,
     useViewerMode,
     useViewerModified,
+    useViewerNewDocumentRequest,
+    useViewerNotice,
+    useViewerSaveChoiceRequest,
     useViewerSavedFileSelection,
     useViewerSharedLayerRemovalRequest,
     useViewerSlides,
@@ -17,6 +22,7 @@ import {
     useViewerSlideshowSettings,
     useViewerSpreadLayerRequest,
     useViewerStorage,
+    useViewerStorageProgress,
     useViewerTextLayerInputRequest,
 } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
@@ -98,6 +104,69 @@ type SavedFileSnapshot = {
 	label: string;
 };
 
+type RuntimeNoticePayload = {
+	id: number;
+	message: string;
+	variant: "error" | "info";
+} | null;
+
+function RuntimeProgress({ percentage }: { percentage: number }) {
+	if (percentage <= 0 || percentage >= 1) return null;
+	return (
+		<Progress
+			aria-label="Storage progress"
+			value={Math.round(percentage * 100)}
+			color="blue"
+			size="xs"
+			style={{
+				position: "fixed",
+				top: 0,
+				left: 0,
+				width: "100vw",
+				zIndex: 2147483647,
+			}}
+		/>
+	);
+}
+
+function RuntimeNotice({ notice }: { notice: RuntimeNoticePayload }) {
+	const [activeNotice, setActiveNotice] = useState<RuntimeNoticePayload>(null);
+
+	useEffect(() => {
+		if (!notice) return;
+		setActiveNotice(notice);
+		const hideTimer = window.setTimeout(() => {
+			setActiveNotice(null);
+		}, 2600);
+		return () => window.clearTimeout(hideTimer);
+	}, [notice?.id]);
+
+	if (!activeNotice) return null;
+
+	return (
+		<Paper
+			role="status"
+			aria-live="polite"
+			shadow="md"
+			p="sm"
+			radius="sm"
+			style={{
+				position: "fixed",
+				left: 16,
+				bottom: 16,
+				zIndex: 2147483647,
+				maxWidth: "min(78vw, 560px)",
+				color: "#fff",
+				background: activeNotice.variant === "error" ? "rgba(163, 35, 45, 0.96)" : "rgba(24, 78, 125, 0.96)",
+				pointerEvents: "none",
+			}}>
+			<Text size="sm" c="inherit" lh={1.4}>
+				{activeNotice.message}
+			</Text>
+		</Paper>
+	);
+}
+
 export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { slides: rawSlides, selectedIndex } = useViewerSlides();
 	const { titles } = useViewerStorage();
@@ -105,9 +174,15 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const slideShowSettings = useViewerSlideshowSettings();
 	const slideShowPlayback = useViewerSlideshowPlayback();
 	const requestedImageDelete = useViewerImageDeleteRequest();
+	const requestedImportDialog = useViewerImportDialogRequest();
+	const requestedImportFileDialog = useViewerImportFileDialogRequest();
+	const requestedNewDocument = useViewerNewDocumentRequest();
+	const requestedSaveChoice = useViewerSaveChoiceRequest();
+	const requestedNotice = useViewerNotice();
 	const requestedSharedLayerRemoval = useViewerSharedLayerRemovalRequest();
 	const requestedSpreadLayer = useViewerSpreadLayerRequest();
 	const requestedTextLayerInput = useViewerTextLayerInputRequest();
+	const storageProgress = useViewerStorageProgress();
 	const history = useViewerHistory();
 	const { modified } = useViewerModified();
 	const { mode: viewerMode } = useViewerMode();
@@ -159,7 +234,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		rawSlides.length
 	);
 	const isEditMode = viewerMode === "edit";
-	const imageReplaceInputRef = useRef<HTMLInputElement | null>(null);
+	const openImportPickerRef = useRef<(() => void) | null>(null);
+	const resetImportPickerRef = useRef<(() => void) | null>(null);
+	const resetImageReplacePickerRef = useRef<(() => void) | null>(null);
 	const textLayerInputRef = useRef<HTMLInputElement | null>(null);
 	const pendingSlideFocusKey = useRef<string | null>(null);
 	const pendingLayerFocusKey = useRef<string | null>(null);
@@ -202,6 +279,11 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	}, [canUseImagesPanel]);
 
 	useEffect(() => {
+		if (!requestedImageDelete?.imageId || !canUseImagesPanel) return;
+		setImagesPanelOpen(true);
+	}, [requestedImageDelete, canUseImagesPanel]);
+
+	useEffect(() => {
 		setImageDeleteRequest(
 			getImageDeleteRequestState(requestedImageDelete, gate.canEdit, effectiveImagesPanelOpen)
 		);
@@ -223,6 +305,27 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		if (!spreadLayerRequest) return;
 		setSpreadConfirmOpen(true);
 	}, [spreadLayerRequest]);
+
+	useEffect(() => {
+		if (!requestedNewDocument?.open || !gate.canEdit || !modified) return;
+		setNewDocumentConfirmOpen(true);
+	}, [requestedNewDocument, gate.canEdit, modified]);
+
+	useEffect(() => {
+		if (!requestedImportDialog?.open || !gate.canImport || !modified) return;
+		setImportConfirmOpen(true);
+	}, [requestedImportDialog, gate.canImport, modified]);
+
+	useEffect(() => {
+		if (!requestedImportFileDialog?.open || !gate.canImport) return;
+		resetImportPickerRef.current?.();
+		openImportPickerRef.current?.();
+	}, [requestedImportFileDialog, gate.canImport]);
+
+	useEffect(() => {
+		if (!requestedSaveChoice?.open || !canUseSaveChoice) return;
+		setSaveChoiceOpen(true);
+	}, [requestedSaveChoice, canUseSaveChoice]);
 
 	useEffect(() => {
 		const request = getTextLayerInputRequestState(requestedTextLayerInput, gate.canEdit, isEditMode);
@@ -470,16 +573,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		setSlideDropIndex(null);
 	};
 
-	const handleSlideContextMenu = (slide: SlideSnapshot, event: React.MouseEvent<HTMLDivElement>) => {
-		event.preventDefault();
-		if (!gate.canEdit) return;
-		ViewerCommands.requestSlideContextMenu(
-			slide.index,
-			event.clientY,
-			event.clientX
-		);
-	};
-
 	const requestNewDocument = () => {
 		if (!gate.canEdit) return;
 		if (modified) {
@@ -506,6 +599,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const confirmImportDialog = () => {
 		setImportConfirmOpen(false);
 		ViewerCommands.openImportDialog(true);
+	};
+
+	const importSelectedFile = (file: File | null) => {
+		if (!file) return;
+		ViewerCommands.importFile(file);
+		resetImportPickerRef.current?.();
 	};
 
 	const requestSaveDocument = () => {
@@ -789,17 +888,11 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.setSelectedLayerText(textContentInput);
 	};
 
-	const openImageReplacePicker = () => {
-		if (!canEditSelectedLayer || !isImageLayer) return;
-		imageReplaceInputRef.current?.click();
-	};
-
-	const onImageReplaceSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.currentTarget.files?.[0];
+	const replaceSelectedImage = (file: File | null) => {
 		if (file) {
 			ViewerCommands.replaceSelectedImage(file, replaceImageForAll);
 		}
-		e.currentTarget.value = "";
+		resetImageReplacePickerRef.current?.();
 	};
 
 	const applyCanvasZoom = () => {
@@ -911,58 +1004,73 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	if (viewerMode === "slideshow") {
 		return (
-			<Paper
-				shadow="md"
-				p="xs"
-				radius="md"
-				withBorder
-				style={{
-					position: "fixed",
-					top: 12,
-					left: "50%",
-					transform: "translateX(-50%)",
-					zIndex: 2147483647,
-					background: "rgba(255, 255, 255, 0.9)",
-					backdropFilter: "blur(2px)",
-				}}>
-				<Group gap={6} wrap="nowrap">
-					<Button size="xs" color="red" variant="light" onClick={() => ViewerCommands.stopSlideshow()}>
-						Exit
-					</Button>
-					<Button size="xs" variant="default" onClick={() => ViewerCommands.showPreviousSlide()}>
-						Back
-					</Button>
-					<Button size="xs" variant="default" onClick={() => ViewerCommands.toggleSlideshowPause()}>
-						{slideShowPlayback.isPause ? "Play" : "Pause"}
-					</Button>
-					<Button size="xs" variant="default" onClick={() => ViewerCommands.showNextSlide()}>
-						Next
-					</Button>
-					<Switch
-						size="xs"
-						label="Full"
-						checked={slideShowSettings.fullscreen}
-						onChange={(e) => ViewerCommands.setFullscreen(e.currentTarget.checked)}
-					/>
-					<Switch
-						size="xs"
-						label="H"
-						checked={slideShowSettings.mirrorH}
-						onChange={(e) => ViewerCommands.setMirrorH(e.currentTarget.checked)}
-					/>
-					<Switch
-						size="xs"
-						label="V"
-						checked={slideShowSettings.mirrorV}
-						onChange={(e) => ViewerCommands.setMirrorV(e.currentTarget.checked)}
-					/>
-				</Group>
-			</Paper>
+			<>
+				<RuntimeProgress percentage={storageProgress.percentage} />
+				<RuntimeNotice notice={requestedNotice} />
+				<Paper
+					shadow="md"
+					p="xs"
+					radius="md"
+					withBorder
+					style={{
+						position: "fixed",
+						top: 12,
+						left: "50%",
+						transform: "translateX(-50%)",
+						zIndex: 2147483647,
+						background: "rgba(255, 255, 255, 0.9)",
+						backdropFilter: "blur(2px)",
+					}}>
+					<Group gap={6} wrap="nowrap">
+						<Button size="xs" color="red" variant="light" onClick={() => ViewerCommands.stopSlideshow()}>
+							Exit
+						</Button>
+						<Button size="xs" variant="default" onClick={() => ViewerCommands.showPreviousSlide()}>
+							Back
+						</Button>
+						<Button size="xs" variant="default" onClick={() => ViewerCommands.toggleSlideshowPause()}>
+							{slideShowPlayback.isPause ? "Play" : "Pause"}
+						</Button>
+						<Button size="xs" variant="default" onClick={() => ViewerCommands.showNextSlide()}>
+							Next
+						</Button>
+						<Switch
+							size="xs"
+							label="Full"
+							checked={slideShowSettings.fullscreen}
+							onChange={(e) => ViewerCommands.setFullscreen(e.currentTarget.checked)}
+						/>
+						<Switch
+							size="xs"
+							label="H"
+							checked={slideShowSettings.mirrorH}
+							onChange={(e) => ViewerCommands.setMirrorH(e.currentTarget.checked)}
+						/>
+						<Switch
+							size="xs"
+							label="V"
+							checked={slideShowSettings.mirrorV}
+							onChange={(e) => ViewerCommands.setMirrorV(e.currentTarget.checked)}
+						/>
+					</Group>
+				</Paper>
+			</>
 		);
 	}
 
 	return (
 		<>
+			<RuntimeProgress percentage={storageProgress.percentage} />
+			<RuntimeNotice notice={requestedNotice} />
+			<FileButton
+				accept=".png,.hvd,.hvz"
+				onChange={importSelectedFile}
+				resetRef={resetImportPickerRef}>
+				{({ onClick }) => {
+					openImportPickerRef.current = onClick;
+					return null;
+				}}
+			</FileButton>
 			<Paper
 				shadow="md"
 				p={0}
@@ -1160,7 +1268,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									<Text size="xs" c="dimmed" style={{ display: "flex", alignItems: "center" }}>
 										Time×{selectedRawSlide.durationRatio}
 									</Text>
-									<input
+									<TextInput
+										size="xs"
 										type="number"
 										min={SLIDE_DURATION_RATIO_MIN}
 										max={SLIDE_DURATION_RATIO_MAX}
@@ -1170,7 +1279,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 										onBlur={applyDurationRatio}
 										onKeyDown={(e) => handleNumericKeyDown(e, adjustDurationRatio, 0.1)}
 										onWheel={(e) => handleNumericWheel(e, adjustDurationRatio, 0.1)}
-										style={{ width: "100%" }}
 									/>
 									<Button
 										size="xs"
@@ -1212,7 +1320,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								/>
 							</Group>
 							<Group grow>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									min="10"
 									max="2000"
@@ -1223,7 +1332,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, adjustCanvasZoom, 10, applyCanvasZoom)}
 									onWheel={(e) => handleNumericWheel(e, adjustCanvasZoom, 10)}
 									disabled={!gate.canEdit || !isEditMode}
-									style={{ width: "100%" }}
 								/>
 								<Button
 									size="xs"
@@ -1398,14 +1506,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								</Stack>
 							)}
 							<Group grow>
-								<input
+								<TextInput
 									ref={textLayerInputRef}
+									size="xs"
 									type="text"
 									value={textLayerInput}
 									onChange={(e) => setTextLayerInput(e.target.value)}
 									disabled={!gate.canEdit || !isEditMode}
 									placeholder="New text layer"
-									style={{ width: "100%" }}
 								/>
 								<Button
 									size="xs"
@@ -1420,12 +1528,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 							</Text>
 							{editLayerState.layerType === "text" && (
 								<Group grow>
-									<textarea
+									<Textarea
+										size="xs"
 										value={textContentInput}
 										onChange={(e) => setTextContentInput(e.target.value)}
 										disabled={!canEditSelectedLayer}
 										rows={3}
-										style={{ width: "100%", fontSize: 11, resize: "vertical" }}
 										placeholder="Text content"
 									/>
 									<Button
@@ -1438,13 +1546,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								</Group>
 							)}
 							<Group grow>
-								<input
+								<TextInput
+									size="xs"
 									type="text"
 									value={layerNameInput}
 									onChange={(e) => setLayerNameInput(e.target.value)}
 									disabled={!canEditSelectedLayer}
 									placeholder="Layer name"
-									style={{ width: "100%" }}
 								/>
 								<Button
 									size="xs"
@@ -1538,7 +1646,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								{fmt(editLayerState.clipBottom, 0)} l:{fmt(editLayerState.clipLeft, 0)}
 							</Text>
 							<Group grow>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									min="0"
 									value={clipTopInput}
@@ -1547,9 +1656,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("top", delta), 1, applyClip)}
 									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("top", delta), 1)}
 									disabled={!canEditSelectedLayer || !isImageLayer}
-									style={{ width: "100%" }}
 								/>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									min="0"
 									value={clipRightInput}
@@ -1558,11 +1667,11 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("right", delta), 1, applyClip)}
 									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("right", delta), 1)}
 									disabled={!canEditSelectedLayer || !isImageLayer}
-									style={{ width: "100%" }}
 								/>
 							</Group>
 							<Group grow>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									min="0"
 									value={clipBottomInput}
@@ -1571,9 +1680,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("bottom", delta), 1, applyClip)}
 									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("bottom", delta), 1)}
 									disabled={!canEditSelectedLayer || !isImageLayer}
-									style={{ width: "100%" }}
 								/>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									min="0"
 									value={clipLeftInput}
@@ -1582,7 +1691,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("left", delta), 1, applyClip)}
 									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("left", delta), 1)}
 									disabled={!canEditSelectedLayer || !isImageLayer}
-									style={{ width: "100%" }}
 								/>
 							</Group>
 							<Group grow>
@@ -1654,21 +1762,22 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									Reset Clip
 								</Button>
 							</Group>
-							<input
-								ref={imageReplaceInputRef}
-								type="file"
-								accept="image/*"
-								onChange={onImageReplaceSelected}
-								style={{ display: "none" }}
-							/>
 							<Group grow>
-								<Button
-									size="xs"
-									variant="default"
-									onClick={openImageReplacePicker}
+								<FileButton
+									accept="image/*"
+									onChange={replaceSelectedImage}
+									resetRef={resetImageReplacePickerRef}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
-									Replace Img
-								</Button>
+									{({ onClick }) => (
+										<Button
+											size="xs"
+											variant="default"
+											onClick={onClick}
+											disabled={!canEditSelectedLayer || !isImageLayer}>
+											Replace Img
+										</Button>
+									)}
+								</FileButton>
 								<Button
 									size="xs"
 									variant="default"
@@ -1723,7 +1832,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 													aria-grabbed={draggingLayerPosition === position ? "true" : undefined}
 													data-react-controlled="true">
 													{renamingLayerId === layer.id ? (
-														<input
+															<TextInput
+																size="xs"
 															type="text"
 															value={renameLayerInput}
 															autoFocus
@@ -1739,7 +1849,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 																}
 															}}
 															onClick={(e) => e.stopPropagation()}
-															style={{ width: "100%", fontSize: 11 }}
 														/>
 													) : (
 														<Text size="xs" fw={layer.selected ? 700 : 400}>
@@ -1755,7 +1864,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								</Stack>
 							</ScrollArea>
 							<Group grow>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									value={posXInput}
 									onChange={(e) => setPosXInput(e.target.value)}
@@ -1763,9 +1873,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, adjustPositionX, 1, applyPosition)}
 									onWheel={(e) => handleNumericWheel(e, adjustPositionX, 1)}
 									disabled={!canEditSelectedLayer}
-									style={{ width: "100%" }}
 								/>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									value={posYInput}
 									onChange={(e) => setPosYInput(e.target.value)}
@@ -1773,7 +1883,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, adjustPositionY, 1, applyPosition)}
 									onWheel={(e) => handleNumericWheel(e, adjustPositionY, 1)}
 									disabled={!canEditSelectedLayer}
-									style={{ width: "100%" }}
 								/>
 								<Button
 									size="xs"
@@ -1784,7 +1893,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								</Button>
 							</Group>
 							<Group grow>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									step="0.01"
 									value={scaleInput}
@@ -1793,7 +1903,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, adjustScale, 0.05, applyScale)}
 									onWheel={(e) => handleNumericWheel(e, adjustScale, 0.05)}
 									disabled={!canEditSelectedLayer}
-									style={{ width: "100%" }}
 								/>
 								<Button
 									size="xs"
@@ -1802,7 +1911,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									disabled={!canEditSelectedLayer}>
 									Set Scale
 								</Button>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									step="1"
 									value={rotationInput}
@@ -1811,7 +1921,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, adjustRotation, 1, applyRotation)}
 									onWheel={(e) => handleNumericWheel(e, adjustRotation, 1)}
 									disabled={!canEditSelectedLayer}
-									style={{ width: "100%" }}
 								/>
 								<Button
 									size="xs"
@@ -1822,7 +1931,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								</Button>
 							</Group>
 							<Group grow>
-								<input
+								<TextInput
+									size="xs"
 									type="number"
 									step="0.01"
 									min="0"
@@ -1833,7 +1943,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onKeyDown={(e) => handleNumericKeyDown(e, adjustOpacity, 0.05, applyOpacity)}
 									onWheel={(e) => handleNumericWheel(e, adjustOpacity, 0.05)}
 									disabled={!canEditSelectedLayer}
-									style={{ width: "100%" }}
 								/>
 								<Button
 									size="xs"
@@ -1970,7 +2079,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 												onDragOver={(e) => handleSlideDragOver(slide, e)}
 												onDrop={(e) => handleSlideDrop(slide, e)}
 												onDragEnd={handleSlideDragEnd}
-												onContextMenu={(e) => handleSlideContextMenu(slide, e)}
 												onClick={() => selectSlide(slide.index)}>
 												{slide.selected ? "● " : "○ "}
 												{slide.label}{slide.joining ? " [J]" : ""}{slide.disabled ? " ✕" : ""}{slide.durationRatio !== 1 ? ` ×${slide.durationRatio}` : ""}
@@ -2157,10 +2265,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								/>
 							</Group>
 							<Group grow>
-								<input
-									type="color"
+								<ColorInput
+									size="xs"
 									value={slideShowSettings.bgColor}
-									onChange={(e) => ViewerCommands.setBackgroundColor(e.target.value)}
+									onChange={(value) => ViewerCommands.setBackgroundColor(value)}
 									disabled={!gate.canEdit}
 								/>
 								<Switch

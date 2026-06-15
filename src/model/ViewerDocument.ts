@@ -93,7 +93,6 @@ export class ViewerDocument {
 			}
 		} else {
 			if (this.disabled) {
-				alert("activate at least 1 slide.");
 				return;
 			}
 
