@@ -8,6 +8,7 @@ import {
     useViewerEditSelection,
     useViewerHistory,
     useViewerMode,
+    useViewerModified,
     useViewerSavedFileSelection,
     useViewerSlides,
     useViewerSlideshowSettings,
@@ -20,6 +21,7 @@ import {
     getSaveFormat,
     setSaveFormat,
 } from "../runtime/reactDomRegistry";
+import { canToggleImagesPanel, getImagesPanelOpenState } from "./imagesPanelGate";
 import { getLayerListDropAction, getLayerListKeyboardAction } from "./layerListKeyboard";
 import {
     type ClipSide,
@@ -89,6 +91,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();
 	const history = useViewerHistory();
+	const { modified } = useViewerModified();
 	const { mode: viewerMode } = useViewerMode();
 	const editCanvasState = useViewerEditCanvasState();
 	const { hasSelection } = useViewerEditSelection();
@@ -113,6 +116,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [textContentInput, setTextContentInput] = useState("");
 	const [replaceImageForAll, setReplaceImageForAll] = useState(false);
 	const [imagesPanelOpen, setImagesPanelOpen] = useState(false);
+	const [newDocumentConfirmOpen, setNewDocumentConfirmOpen] = useState(false);
 	const [spreadConfirmOpen, setSpreadConfirmOpen] = useState(false);
 	const [saveFormat, setSaveFormatState] = useState<"png" | "hvz" | "hvd">("png");
 	const [durationRatioInput, setDurationRatioInput] = useState("");
@@ -122,6 +126,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [layerDropPosition, setLayerDropPosition] = useState<number | null>(null);
 	const [renamingLayerId, setRenamingLayerId] = useState<number | null>(null);
 	const [renameLayerInput, setRenameLayerInput] = useState("");
+	const canUseImagesPanel = canToggleImagesPanel(gate.canEdit);
+	const effectiveImagesPanelOpen = getImagesPanelOpenState(imagesPanelOpen, canUseImagesPanel);
 	const imageReplaceInputRef = useRef<HTMLInputElement | null>(null);
 	const pendingSlideFocusKey = useRef<string | null>(null);
 	const pendingLayerFocusKey = useRef<string | null>(null);
@@ -142,8 +148,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	useEffect(() => {
 		const container = getImagesContainerElement();
 		if (!container) return;
-		container.style.display = imagesPanelOpen ? "block" : "none";
-		if (imagesPanelOpen) {
+		container.style.display = effectiveImagesPanelOpen ? "block" : "none";
+		if (effectiveImagesPanelOpen) {
 			container.style.position = "fixed";
 			container.style.right = "12px";
 			container.style.bottom = "320px";
@@ -156,7 +162,17 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			container.style.border = "1px solid #dee2e6";
 			container.style.borderRadius = "6px";
 		}
-	}, [imagesPanelOpen]);
+	}, [effectiveImagesPanelOpen]);
+
+	useEffect(() => {
+		if (canUseImagesPanel) return;
+		setImagesPanelOpen(false);
+	}, [canUseImagesPanel]);
+
+	useEffect(() => {
+		if (gate.canEdit && modified) return;
+		setNewDocumentConfirmOpen(false);
+	}, [gate.canEdit, modified]);
 
 	useEffect(() => {
 		setPosXInput(editLayerState.x == null ? "" : String(Math.round(editLayerState.x)));
@@ -384,11 +400,26 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const handleSlideContextMenu = (slide: SlideSnapshot, event: React.MouseEvent<HTMLDivElement>) => {
 		event.preventDefault();
+		if (!gate.canEdit) return;
 		ViewerCommands.requestSlideContextMenu(
 			slide.index,
 			event.clientY,
 			event.clientX
 		);
+	};
+
+	const requestNewDocument = () => {
+		if (!gate.canEdit) return;
+		if (modified) {
+			setNewDocumentConfirmOpen(true);
+			return;
+		}
+		ViewerCommands.newDocument();
+	};
+
+	const confirmNewDocument = () => {
+		setNewDocumentConfirmOpen(false);
+		ViewerCommands.newDocument(true);
 	};
 
 	const applyPosition = () => {
@@ -1823,11 +1854,15 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Switch
 									size="xs"
 									label="Images"
-									checked={imagesPanelOpen}
-									onChange={(e) => setImagesPanelOpen(e.currentTarget.checked)}
+									checked={effectiveImagesPanelOpen}
+									disabled={!canUseImagesPanel}
+									onChange={(e) => {
+										if (!canUseImagesPanel) return;
+										setImagesPanelOpen(e.currentTarget.checked);
+									}}
 								/>
 							</Group>
-							{imagesPanelOpen && (
+							{effectiveImagesPanelOpen && (
 								<Text size="xs" c="dimmed">
 									Images panel opened near File IO.
 								</Text>
@@ -1836,7 +1871,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="light"
-									onClick={() => ViewerCommands.newDocument()}
+									onClick={requestNewDocument}
 									disabled={!gate.canEdit}>
 									New Doc
 								</Button>
@@ -1855,6 +1890,19 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									Export
 								</Button>
 							</Group>
+							{newDocumentConfirmOpen && (
+								<Group grow>
+									<Button size="xs" color="red" variant="light" onClick={confirmNewDocument}>
+										Clear Doc
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => setNewDocumentConfirmOpen(false)}>
+										Cancel
+									</Button>
+								</Group>
+							)}
 							<Group grow>
 								<Button
 									size="xs"

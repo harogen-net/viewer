@@ -248,6 +248,12 @@ CI実行時のレポート収集:
 - 2026-06-15: AppShell / MainShell へ `FeatureGate` を渡し、CanvasMenu / SideControls / `getMainShellKeyboardAction` が `canEdit=false` を参照して編集UI・編集ショートカットを無効化するよう更新。
 - 確認: `npm run test:usecase`
 - 結果: 37 tests / 37 pass。
+- 2026-06-15: React スライド/リストコンテキストメニューへ `canEdit` を通し、readonly 時は requested menu を破棄しコマンド実行も抑止するよう更新。RuntimeShell の右クリック経路と ListViewController の bridge 発火経路にも編集ゲートを追加し、`getListContextMenuState` / `canRunListContextMenuCommand` の usecase テストを追加。
+- 確認: `npm run test:usecase`
+- 結果: 40 tests / 40 pass。
+- 2026-06-15: RuntimeShell の Images パネル表示を `getImagesPanelOpenState` / `canToggleImagesPanel` へ切り出し、readonly 時は React 側でも閉じる・操作できないよう更新。CanvasMenu のスライドダウンロードと Viewer の画像ダウンロード入口に `canExport` ゲートを追加し、legacy download event も command 経由へ集約。New Doc は変更済み時に RuntimeShell の React 確認UIから `ViewerCommands.newDocument(true)` へ通し、React 経路の `window.confirm` 依存を削減。
+- 確認: `npm run test:usecase`
+- 結果: 43 tests / 43 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useViewerListContextMenu } from "../bridge/useViewerBridge";
 import { ViewerCommands } from "../bridge/ViewerCommands";
+import type { ListContextMenuState } from "./listContextMenu";
+import { canRunListContextMenuCommand, getListContextMenuState } from "./listContextMenu";
 
-type MenuState = { kind: "slide" | "list"; top: number; left: number } | null;
+type ListContextMenusProps = {
+	canEdit?: boolean;
+};
 
-export function ListContextMenus() {
+export function ListContextMenus({ canEdit = true }: ListContextMenusProps) {
 	const requestedMenu = useViewerListContextMenu();
-	const [menu, setMenu] = useState<MenuState>(null);
+	const [menu, setMenu] = useState<ListContextMenuState>(null);
 
 	useEffect(() => {
-		setMenu(requestedMenu);
-	}, [requestedMenu]);
+		setMenu(getListContextMenuState(requestedMenu, canEdit));
+	}, [requestedMenu, canEdit]);
 
 	useEffect(() => {
 		if (!menu) return;
@@ -21,6 +25,7 @@ export function ListContextMenus() {
 
 	const closeAndRun = (command: () => void) => {
 		setMenu(null);
+		if (!canRunListContextMenuCommand(canEdit)) return;
 		command();
 	};
 
@@ -42,6 +47,7 @@ export function ListContextMenus() {
 					<button
 						className="delete"
 						data-react-controlled="true"
+						disabled={!canEdit}
 						onClick={() => closeAndRun(ViewerCommands.deleteContextSlide)}>
 						<i className="far fa-trash-alt"></i> <span>delete this slide</span>
 					</button>
@@ -50,6 +56,7 @@ export function ListContextMenus() {
 					<button
 						className="enable"
 						data-react-controlled="true"
+						disabled={!canEdit}
 						onClick={() => closeAndRun(ViewerCommands.enableOnlyContextSlide)}>
 						<i className="far fa-check-square"></i> <span>enable only this slide</span>
 					</button>
@@ -65,6 +72,7 @@ export function ListContextMenus() {
 					<button
 						className="unjoin"
 						data-react-controlled="true"
+						disabled={!canEdit}
 						onClick={() => closeAndRun(ViewerCommands.unjoinAllSlides)}>
 						<i className="fas fa-unlink"></i> <span>toggle joining all slides</span>
 					</button>
@@ -73,6 +81,7 @@ export function ListContextMenus() {
 					<button
 						className="delete"
 						data-react-controlled="true"
+						disabled={!canEdit}
 						onClick={() => closeAndRun(ViewerCommands.deleteDisabledSlides)}>
 						<i className="far fa-trash-alt"></i> <span>delete disabled slides</span>
 					</button>
@@ -81,6 +90,7 @@ export function ListContextMenus() {
 					<button
 						className="enable"
 						data-react-controlled="true"
+						disabled={!canEdit}
 						onClick={() => closeAndRun(ViewerCommands.enableAllSlides)}>
 						<i className="far fa-check-square"></i> <span>enable all slides</span>
 					</button>
@@ -89,6 +99,7 @@ export function ListContextMenus() {
 					<button
 						className="disable"
 						data-react-controlled="true"
+						disabled={!canEdit}
 						onClick={() => closeAndRun(ViewerCommands.disableAllSlides)}>
 						<i className="far fa-square"></i> <span>disable all slides</span>
 					</button>

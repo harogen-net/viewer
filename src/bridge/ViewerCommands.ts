@@ -75,8 +75,8 @@ export const ViewerCommands = {
 	enterEditMode(): void {
 		getViewer()?.commandEnterEditMode();
 	},
-	newDocument(): void {
-		getViewer()?.commandNewDocument();
+	newDocument(confirmed = false): void {
+		getViewer()?.commandNewDocument(confirmed);
 	},
 	saveDocument(): void {
 		getViewer()?.commandSaveDocument();

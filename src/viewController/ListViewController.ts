@@ -266,6 +266,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	}
 
 	public requestSlideContextMenuByIndex(index: number, top: number, left: number): void {
+		if (!this.canEdit) return;
 		if (index < 0 || index >= this._slides.length) return;
 		this.contextTargetSlide = this._slides[index];
 		const offset = this.obj.offset() ?? { top: 0, left: 0 };
@@ -339,6 +340,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.dispatchEvent(new CustomEvent("requestDeleteSlide", { detail: ce.detail as Slide }));
 	};
 	private onContextMenu = (ce: CustomEvent) => {
+		if (!this.canEdit) return;
 		var offset = this.obj.offset();
 
 		var targetContextMenu: any =

@@ -29,6 +29,7 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 	const { hasSelection } = useViewerEditSelection();
 	const { canUndo, canRedo } = useViewerHistory();
 	const canEdit = gate.canEdit;
+	const canExport = gate.canExport;
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,7 +91,7 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 		<>
 			<div className="canvas">
 				<div className="menu">
-					<CanvasMenu canEdit={canEdit} />
+					<CanvasMenu canEdit={canEdit} canExport={canExport} />
 				</div>
 				<div className="sideMenu">
 					<div className="property">
@@ -116,7 +117,7 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 				</div>
 			</div>
 			<div className="list">
-				<ListContextMenus />
+				<ListContextMenus canEdit={canEdit} />
 			</div>
 		</>
 	);

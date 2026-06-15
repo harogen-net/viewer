@@ -10,9 +10,10 @@ import {
 
 type CanvasMenuProps = {
 	canEdit?: boolean;
+	canExport?: boolean;
 };
 
-export function CanvasMenu({ canEdit = true }: CanvasMenuProps) {
+export function CanvasMenu({ canEdit = true, canExport = true }: CanvasMenuProps) {
 	const { canUndo, canRedo } = useViewerHistory();
 	const { mode } = useViewerMode();
 	const { hasSelection } = useViewerEditSelection();
@@ -225,6 +226,7 @@ export function CanvasMenu({ canEdit = true }: CanvasMenuProps) {
 				<button
 					className="slideDownload"
 					data-react-controlled="true"
+					disabled={!canExport}
 					onClick={() => ViewerCommands.downloadSelectedSlide()}>
 					<i className="fas fa-file-download"></i>
 				</button>

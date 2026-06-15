@@ -430,9 +430,7 @@ export class Viewer {
 			this.emitEditSelectionState();
 		});
 
-		this.editVC.addEventListener("download", () => {
-			this.viewerDocument.downloadImage(this.listVC.selectedSlideIndex);
-		});
+		this.editVC.addEventListener("download", () => this.commandDownloadSelectedSlide());
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
@@ -682,6 +680,7 @@ export class Viewer {
 	}
 
 	public commandRequestSlideContextMenu(index: number, top: number, left: number): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライドメニュー")) return;
 		this.listVC.requestSlideContextMenuByIndex(index, top, left);
 	}
 
@@ -977,10 +976,10 @@ export class Viewer {
 		this.editVC.setSlide(this.listVC.selectedSlide);
 	}
 
-	public commandNewDocument(): void {
+	public commandNewDocument(confirmed = false): void {
 		if (!this.ensureAllowed(this.canEdit(), "新規作成")) return;
 		if (this.viewerDocument.slides.length == 0) return;
-		if (this.canProceedWithDiscard("clear slides and new document. Are you sure?")) {
+		if (confirmed || this.canProceedWithDiscard("clear slides and new document. Are you sure?")) {
 			this.newDocument();
 		}
 	}
@@ -1079,6 +1078,7 @@ export class Viewer {
 	}
 
 	public commandDownloadSelectedSlide(): void {
+		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
 		this.viewerDocument.downloadImage(this.listVC.selectedSlideIndex);
 	}
 
@@ -1460,6 +1460,7 @@ export class Viewer {
 	}
 
 	public commandDownloadSelectedImage(): void {
+		if (!this.ensureAllowed(this.canExport(), "画像ダウンロード")) return;
 		this.runEditSelectionOperation("画像ダウンロード", () =>
 			this.editVC.downloadSelectedImage()
 		);
