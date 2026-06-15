@@ -1,5 +1,5 @@
 import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Switch, Text } from "@mantine/core";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
 	useViewerEditCanvasState,

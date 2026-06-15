@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useViewerListContextMenu } from "../bridge/useViewerBridge";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerEditLayerState, useViewerEditLayers, useViewerMode } from "../bridge/useViewerBridge";
 import { getLayerListKeyboardAction } from "./layerListKeyboard";
