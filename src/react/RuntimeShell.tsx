@@ -1297,7 +1297,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.pasteLayer()}
-									disabled={!gate.canEdit || !isEditMode}>
+									disabled={!gate.canEdit || !isEditMode || !editLayerState.canPasteLayer}>
 									Paste
 								</Button>
 							</Group>
@@ -1313,7 +1313,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.pasteLayerTransform()}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
+									disabled={!gate.canEdit || !isEditMode || !hasSelection || !editLayerState.canPasteLayerTransform}>
 									Paste T
 								</Button>
 								<Button

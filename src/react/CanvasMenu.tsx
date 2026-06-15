@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
     useViewerEditCanvasState,
+    useViewerEditLayerState,
     useViewerEditSelection,
     useViewerHistory,
     useViewerMode,
@@ -17,6 +18,7 @@ export function CanvasMenu({ canEdit = true, canExport = true }: CanvasMenuProps
 	const { canUndo, canRedo } = useViewerHistory();
 	const { mode } = useViewerMode();
 	const { hasSelection } = useViewerEditSelection();
+	const editLayerState = useViewerEditLayerState();
 	const { slides, selectedIndex } = useViewerSlides();
 	const editCanvasState = useViewerEditCanvasState();
 	const [directionOpen, setDirectionOpen] = useState(false);
@@ -124,7 +126,7 @@ export function CanvasMenu({ canEdit = true, canExport = true }: CanvasMenuProps
 					className="paste"
 					data-desc="paste copyed image"
 					data-react-controlled="true"
-					disabled={!canEditMode}
+					disabled={!canEditMode || !editLayerState.canPasteLayer}
 					onClick={() => ViewerCommands.pasteLayer()}>
 					<i className="fas fa-paste"></i>
 				</button>
@@ -311,4 +313,3 @@ export function CanvasMenu({ canEdit = true, canExport = true }: CanvasMenuProps
 	);
 }
 
-export const LegacyCanvasMenu = CanvasMenu;

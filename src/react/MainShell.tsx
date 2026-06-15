@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useViewerEditSelection, useViewerHistory, useViewerMode } from "../bridge/useViewerBridge";
+import { useViewerEditLayerState, useViewerHistory, useViewerMode } from "../bridge/useViewerBridge";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { FeatureGate, getFeatureGate } from "../runtime/featureGate";
 import { CanvasMenu } from "./CanvasMenu";
@@ -26,7 +26,7 @@ type MainShellProps = {
 
 export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) {
 	const { mode } = useViewerMode();
-	const { hasSelection } = useViewerEditSelection();
+	const { hasSelection, canPasteLayer } = useViewerEditLayerState();
 	const { canUndo, canRedo } = useViewerHistory();
 	const canEdit = gate.canEdit;
 	const canExport = gate.canExport;
@@ -40,6 +40,7 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 				shiftKey: e.shiftKey,
 				mode,
 				hasSelection,
+				canPasteLayer,
 				canUndo,
 				canRedo,
 				canEdit,
@@ -86,7 +87,7 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [mode, hasSelection, canUndo, canRedo, canEdit]);
+	}, [mode, hasSelection, canPasteLayer, canUndo, canRedo, canEdit]);
 	return (
 		<>
 			<div className="canvas">
@@ -123,4 +124,3 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 	);
 }
 
-export const LegacyMainShell = MainShell;

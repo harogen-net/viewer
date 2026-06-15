@@ -342,6 +342,8 @@ export class Viewer {
 		this.editVC.addEventListener("selectedLayerStateChanged", (e: CustomEvent) => {
 			ViewerBridge.emit("editLayerStateChanged", {
 				hasSelection: Boolean(e.detail?.hasSelection),
+				canPasteLayer: Boolean(e.detail?.canPasteLayer),
+				canPasteLayerTransform: Boolean(e.detail?.canPasteLayerTransform),
 				name: typeof e.detail?.name == "string" ? e.detail.name : null,
 				visible: typeof e.detail?.visible == "boolean" ? e.detail.visible : null,
 				locked: typeof e.detail?.locked == "boolean" ? e.detail.locked : null,

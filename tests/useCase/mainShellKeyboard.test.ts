@@ -13,6 +13,7 @@ const baseInput: MainShellKeyboardInput = {
 	shiftKey: false,
 	mode: "edit",
 	hasSelection: true,
+	canPasteLayer: true,
 	canUndo: true,
 	canRedo: true,
 	canEdit: true,
@@ -34,6 +35,10 @@ test("getMainShellKeyboardAction maps edit clipboard shortcuts", () => {
 	});
 	assert.deepEqual(action({ code: "KeyV", metaKey: true, hasSelection: false }), {
 		type: "paste",
+		preventDefault: true,
+	});
+	assert.deepEqual(action({ code: "KeyV", metaKey: true, canPasteLayer: false }), {
+		type: "preventOnly",
 		preventDefault: true,
 	});
 });

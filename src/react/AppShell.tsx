@@ -22,4 +22,3 @@ export function AppShell({ gate = getFeatureGate("browser") }: AppShellProps) {
 	);
 }
 
-export const LegacyAppShell = AppShell;

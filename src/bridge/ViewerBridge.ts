@@ -64,6 +64,8 @@ export type ViewerBridgeEventMap = {
 	/** Selected edit layer properties changed */
 	editLayerStateChanged: {
 		hasSelection: boolean;
+		canPasteLayer: boolean;
+		canPasteLayerTransform: boolean;
 		name: string | null;
 		visible: boolean | null;
 		locked: boolean | null;

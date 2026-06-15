@@ -29,6 +29,14 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	private _isActive: boolean = false;
 	public _rectEdit: boolean = false;
 
+	public get canPasteLayer(): boolean {
+		return this.copyedLayer !== null;
+	}
+
+	public get canPasteLayerTransform(): boolean {
+		return this.copyedTrans !== null;
+	}
+
 	//
 
 	private lastSelectedId: string = "";
@@ -247,7 +255,6 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			this.copyedLayer = this.selectedLayerView.data.clone();
 			//面倒くさいので、コピーするレイヤーはsharedをオフにする⇒やっぱめんどい
 			//this.copyedLayer.shared = false;
-			$(".paste").prop("disabled", false);
 		}
 	}
 

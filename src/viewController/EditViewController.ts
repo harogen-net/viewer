@@ -145,6 +145,8 @@ export class EditViewController extends EventDispatcher {
 				new CustomEvent("selectedLayerStateChanged", {
 					detail: {
 						hasSelection: false,
+						canPasteLayer: this.slideView.canPasteLayer,
+						canPasteLayerTransform: this.slideView.canPasteLayerTransform,
 						name: null,
 						visible: null,
 						locked: null,
@@ -163,6 +165,8 @@ export class EditViewController extends EventDispatcher {
 			new CustomEvent("selectedLayerStateChanged", {
 				detail: {
 					hasSelection: true,
+					canPasteLayer: this.slideView.canPasteLayer,
+					canPasteLayerTransform: this.slideView.canPasteLayerTransform,
 					name: layer.name,
 					visible: layer.visible,
 					locked: layer.locked,
@@ -547,6 +551,7 @@ export class EditViewController extends EventDispatcher {
 	public copySelectedLayer(): boolean {
 		if (!this.slideView.editingLayer) return false;
 		this.slideView.copy();
+		this.emitSelectedLayerState();
 		return true;
 	}
 
@@ -566,6 +571,7 @@ export class EditViewController extends EventDispatcher {
 	public copySelectedLayerTransform(): boolean {
 		if (!this.slideView.editingLayer) return false;
 		this.slideView.copyTrans();
+		this.emitSelectedLayerState();
 		return true;
 	}
 

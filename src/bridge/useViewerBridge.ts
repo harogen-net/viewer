@@ -137,6 +137,8 @@ export function useViewerEditLayers(): {
 
 export function useViewerEditLayerState(): {
 	hasSelection: boolean;
+	canPasteLayer: boolean;
+	canPasteLayerTransform: boolean;
 	name: string | null;
 	visible: boolean | null;
 	locked: boolean | null;
@@ -158,6 +160,8 @@ export function useViewerEditLayerState(): {
 } {
 	return useBridgeEvent("editLayerStateChanged", {
 		hasSelection: false,
+		canPasteLayer: false,
+		canPasteLayerTransform: false,
 		name: null,
 		visible: null,
 		locked: null,

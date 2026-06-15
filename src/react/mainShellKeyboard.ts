@@ -25,6 +25,7 @@ export type MainShellKeyboardInput = {
 	shiftKey: boolean;
 	mode: "select" | "edit" | "slideshow";
 	hasSelection: boolean;
+	canPasteLayer: boolean;
 	canUndo: boolean;
 	canRedo: boolean;
 	canEdit: boolean;
@@ -51,7 +52,7 @@ export function getMainShellKeyboardAction(input: MainShellKeyboardInput): MainS
 			case "KeyX":
 				return input.hasSelection ? shortcut("cut") : noneAction;
 			case "KeyV":
-				return shortcut("paste");
+				return input.canPasteLayer ? shortcut("paste") : shortcut("preventOnly");
 			case "KeyZ":
 				if (input.shiftKey) return input.canRedo ? shortcut("redo") : shortcut("preventOnly");
 				return input.canUndo ? shortcut("undo") : shortcut("preventOnly");

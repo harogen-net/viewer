@@ -16,7 +16,7 @@ type EditGateProps = {
 };
 
 export function CopyPasteControls({ canEdit = true }: EditGateProps) {
-	const { hasSelection } = useViewerEditLayerState();
+    const { hasSelection, canPasteLayerTransform } = useViewerEditLayerState();
 	const { mode } = useViewerMode();
     const canEditLayer = canEdit && mode === "edit" && hasSelection;
 
@@ -34,7 +34,7 @@ export function CopyPasteControls({ canEdit = true }: EditGateProps) {
                 className="pasteTrans"
                 data-react-controlled="true"
                 title="変形をペースト"
-                disabled={!canEditLayer}
+                disabled={!canEditLayer || !canPasteLayerTransform}
                 onClick={() => ViewerCommands.pasteLayerTransform()}>
                 <i className="far fa-clipboard"></i>
             </button>
@@ -819,10 +819,4 @@ export function LayerControls({ canEdit = true }: EditGateProps) {
     );
 }
 
-export const LegacyCopyPasteControls = CopyPasteControls;
-export const LegacySwapControls = SwapControls;
-export const LegacyImageRefControls = ImageRefControls;
-export const LegacyTextEditControls = TextEditControls;
-export const LegacyPropertyControls = PropertyControls;
-export const LegacyLayerControls = LayerControls;
 

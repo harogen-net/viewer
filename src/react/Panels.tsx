@@ -16,6 +16,3 @@ export function ImagesPanel() {
 	);
 }
 
-export const LegacyPrefPanel = PrefPanel;
-export const LegacyImagesPanel = ImagesPanel;
-

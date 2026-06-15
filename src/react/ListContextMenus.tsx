@@ -109,5 +109,3 @@ export function ListContextMenus({ canEdit = true }: ListContextMenusProps) {
 	);
 }
 
-export const LegacyListContextMenus = ListContextMenus;
-

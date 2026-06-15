@@ -290,6 +290,9 @@ CI実行時のレポート収集:
 - 2026-06-15: `ThumbSlideView` / `ListViewController` から旧サムネイル内の delete/clone/edit/duration/joining/disabled 操作UIと new/prev/next list button、`requestListCommand` listenerを削除。サムネイルは表示・選択・右クリック・ダブルクリック編集に限定し、スライド操作はReact `RuntimeShell` / `ListContextMenus` / `ViewerCommands` 経路へ集約。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
+- 2026-06-15: 未参照のReact `Legacy*` alias/exportファイルを削除し、paste/transform paste の可否を `EditableSlideView` 内部状態から `editLayerStateChanged` bridge eventへ公開。React `CanvasMenu` / `RuntimeShell` / `CopyPasteControls` / keyboard handlerはbridge stateで貼り付け可否を判定し、旧 `.paste` DOM disabled同期を削除。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間
