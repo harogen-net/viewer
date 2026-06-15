@@ -1,28 +1,60 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
-	useViewerEditCanvasState,
-	useViewerEditSelection,
-	useViewerHistory,
-	useViewerMode,
-	useViewerSlides,
+    useViewerEditCanvasState,
+    useViewerEditSelection,
+    useViewerHistory,
+    useViewerMode,
+    useViewerSlides,
 } from "../bridge/useViewerBridge";
 
-export function CanvasMenu() {
+type CanvasMenuProps = {
+	canEdit?: boolean;
+};
+
+export function CanvasMenu({ canEdit = true }: CanvasMenuProps) {
 	const { canUndo, canRedo } = useViewerHistory();
 	const { mode } = useViewerMode();
 	const { hasSelection } = useViewerEditSelection();
 	const { slides, selectedIndex } = useViewerSlides();
 	const editCanvasState = useViewerEditCanvasState();
 	const [directionOpen, setDirectionOpen] = useState(false);
+	const [textOpen, setTextOpen] = useState(false);
+	const [textInput, setTextInput] = useState("");
+	const [spreadConfirmOpen, setSpreadConfirmOpen] = useState(false);
 	const isEditMode = mode === "edit";
-	const canEditSelection = isEditMode && hasSelection;
+	const canEditMode = canEdit && isEditMode;
+	const canEditSelection = canEditMode && hasSelection;
 	const selectedSlide = selectedIndex >= 0 ? slides[selectedIndex] : null;
 	const selectedSlideLabel = selectedSlide ? String(selectedSlide.id) : "";
 
 	useEffect(() => {
 		if (!canEditSelection) setDirectionOpen(false);
+		if (!canEditSelection) setSpreadConfirmOpen(false);
 	}, [canEditSelection]);
+
+	useEffect(() => {
+		if (canEditMode) return;
+		setTextOpen(false);
+		setTextInput("");
+	}, [canEditMode]);
+
+	const submitTextLayer = (event?: FormEvent<HTMLFormElement>) => {
+		event?.preventDefault();
+		if (!canEditMode) return;
+		const text = textInput.trim();
+		if (!text) return;
+		ViewerCommands.addTextLayer(text);
+		setTextInput("");
+		setTextOpen(false);
+	};
+
+	const handleTextInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+		if (event.key !== "Escape") return;
+		event.stopPropagation();
+		setTextOpen(false);
+		setTextInput("");
+	};
 
 	return (
 		<>
@@ -31,7 +63,7 @@ export function CanvasMenu() {
 					className="undo"
 					data-desc="undo operation"
 					data-react-controlled="true"
-					disabled={!isEditMode || !canUndo}
+					disabled={!canEditMode || !canUndo}
 					onClick={() => ViewerCommands.undo()}>
 					<i className="fas fa-arrow-circle-left"></i>
 				</button>
@@ -39,7 +71,7 @@ export function CanvasMenu() {
 					className="redo"
 					data-desc="redo operation"
 					data-react-controlled="true"
-					disabled={!isEditMode || !canRedo}
+					disabled={!canEditMode || !canRedo}
 					onClick={() => ViewerCommands.redo()}>
 					<i className="fas fa-arrow-circle-right"></i>
 				</button>
@@ -49,7 +81,7 @@ export function CanvasMenu() {
 					className="zoomOut"
 					data-desc="zoom out"
 					data-react-controlled="true"
-					disabled={!isEditMode}
+					disabled={!canEditMode}
 					onClick={() => ViewerCommands.zoomOutCanvas()}>
 					<i className="fas fa-search-minus"></i>
 				</button>
@@ -57,7 +89,7 @@ export function CanvasMenu() {
 					className="showAll"
 					data-desc="set canvas to default scale"
 					data-react-controlled="true"
-					disabled={!isEditMode}
+					disabled={!canEditMode}
 					onClick={() => ViewerCommands.resetCanvasZoom()}>
 					<i className="far fa-window-maximize"></i>
 				</button>
@@ -65,7 +97,7 @@ export function CanvasMenu() {
 					className="zoomIn"
 					data-desc="zoom in"
 					data-react-controlled="true"
-					disabled={!isEditMode}
+					disabled={!canEditMode}
 					onClick={() => ViewerCommands.zoomInCanvas()}>
 					<i className="fas fa-search-plus"></i>
 				</button>
@@ -91,7 +123,7 @@ export function CanvasMenu() {
 					className="paste"
 					data-desc="paste copyed image"
 					data-react-controlled="true"
-					disabled={!isEditMode}
+					disabled={!canEditMode}
 					onClick={() => ViewerCommands.pasteLayer()}>
 					<i className="fas fa-paste"></i>
 				</button>
@@ -199,16 +231,28 @@ export function CanvasMenu() {
 			</div>
 			<div>
 				<button
-					className="text"
+					className={`text${textOpen ? " on" : ""}`}
 					data-react-controlled="true"
-					disabled={!isEditMode}
-					onClick={() => {
-						const text = window.prompt("insert text layer:");
-						if (text == null) return;
-						ViewerCommands.addTextLayer(text);
-					}}>
+					aria-expanded={textOpen}
+					disabled={!canEditMode}
+					onClick={() => setTextOpen((open) => !open)}>
 					<i className="fas fa-font"></i>
 				</button>
+				{textOpen && (
+					<form className="textLayerForm" data-react-controlled="true" onSubmit={submitTextLayer}>
+						<input
+							type="text"
+							value={textInput}
+							autoFocus
+							data-react-controlled="true"
+							onChange={(event) => setTextInput(event.currentTarget.value)}
+							onKeyDown={handleTextInputKeyDown}
+						/>
+						<button type="submit" data-react-controlled="true" disabled={!textInput.trim()}>
+							<i className="fas fa-plus"></i>
+						</button>
+					</form>
+				)}
 			</div>
 			<div>
 				<button
@@ -216,19 +260,41 @@ export function CanvasMenu() {
 					data-react-controlled="true"
 					data-desc="toggle rect edit"
 					aria-pressed={editCanvasState.rectEdit}
-					disabled={!isEditMode}
+					disabled={!canEditMode}
 					onClick={() => ViewerCommands.toggleRectEdit()}>
 					<i className="fas fa-th-large"></i>
 				</button>
 				<button
-					className="spread"
+					className={`spread${spreadConfirmOpen ? " on" : ""}`}
 					data-desc="spread selected image"
 					data-react-controlled="true"
+					aria-expanded={spreadConfirmOpen}
 					disabled={!canEditSelection}
-					onClick={() => ViewerCommands.spreadSelectedLayer()}>
+					onClick={() => setSpreadConfirmOpen((open) => !open)}>
 					<i className="far fa-clone"></i>
 					<i className="fas fa-exchange-alt" style={{ fontSize: "70%" }}></i>
 				</button>
+				{spreadConfirmOpen && (
+					<div className="spreadConfirm" data-react-controlled="true">
+						<button
+							type="button"
+							className="confirmSpread"
+							data-react-controlled="true"
+							onClick={() => {
+								setSpreadConfirmOpen(false);
+								ViewerCommands.spreadSelectedLayer(true);
+							}}>
+							<i className="fas fa-check"></i>
+						</button>
+						<button
+							type="button"
+							className="cancelSpread"
+							data-react-controlled="true"
+							onClick={() => setSpreadConfirmOpen(false)}>
+							<i className="fas fa-times"></i>
+						</button>
+					</div>
+				)}
 			</div>
 			<div>
 				<span className="name">{selectedSlideLabel}</span>

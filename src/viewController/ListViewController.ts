@@ -227,12 +227,21 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		const fromIndex = this._slides.indexOf(this._selectedSlide);
 		if (fromIndex === -1) return false;
 		const toIndex = Math.max(0, Math.min(this._slides.length - 1, fromIndex + offset));
-		if (toIndex === fromIndex) return false;
+		return this.moveSelectedSlideToIndex(toIndex);
+	}
+
+	public moveSelectedSlideToIndex(toIndex: number): boolean {
+		if (!this.canEdit || !this._selectedSlide) return false;
+		if (!Number.isInteger(toIndex)) return false;
+		const fromIndex = this._slides.indexOf(this._selectedSlide);
+		if (fromIndex === -1) return false;
+		const clampedToIndex = Math.max(0, Math.min(this._slides.length - 1, toIndex));
+		if (clampedToIndex === fromIndex) return false;
 
 		const [slide] = this._slides.splice(fromIndex, 1);
-		this._slides.splice(toIndex, 0, slide);
+		this._slides.splice(clampedToIndex, 0, slide);
 		const [slideView] = this._slideViews.splice(fromIndex, 1);
-		this._slideViews.splice(toIndex, 0, slideView);
+		this._slideViews.splice(clampedToIndex, 0, slideView);
 
 		this.sortSlideViewByIndex();
 		this.selectSlide(slide);
@@ -254,6 +263,17 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		const slide = this.contextTargetSlide;
 		this.contextTargetSlide = null;
 		return slide;
+	}
+
+	public requestSlideContextMenuByIndex(index: number, top: number, left: number): void {
+		if (index < 0 || index >= this._slides.length) return;
+		this.contextTargetSlide = this._slides[index];
+		const offset = this.obj.offset() ?? { top: 0, left: 0 };
+		ViewerBridge.emit("listContextMenuRequested", {
+			kind: "slide",
+			top: top - offset.top,
+			left: left - offset.left,
+		});
 	}
 
 	public selectPreviousSlide(): void {

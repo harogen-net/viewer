@@ -548,7 +548,6 @@ export class EditViewController extends EventDispatcher {
 	public spreadSelectedLayer(): boolean {
 		const layer = this.selectedLayer;
 		if (!layer) return false;
-		if (!window.confirm("spread layer to all slides. are you sure?")) return false;
 		this.slideView.spreadLayers(layer);
 		this.emitCurrentState();
 		return true;
@@ -838,6 +837,29 @@ export class EditViewController extends EventDispatcher {
 					},
 					() => {
 						this.slide.addLayer(layer, index);
+					}
+				)
+			)
+			.do();
+		this.emitCurrentState();
+		return true;
+	}
+
+	public moveSelectedLayerToIndex(toIndex: number): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return false;
+		const fromIndex = this.slide.indexOf(layer);
+		if (fromIndex === -1 || toIndex < 0 || toIndex >= this.slide.layers.length || fromIndex === toIndex) {
+			return false;
+		}
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						this.slide.addLayer(layer, toIndex);
+					},
+					() => {
+						this.slide.addLayer(layer, fromIndex);
 					}
 				)
 			)

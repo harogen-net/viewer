@@ -1,16 +1,17 @@
 import { useEffect } from "react";
 import { useViewerEditSelection, useViewerHistory, useViewerMode } from "../bridge/useViewerBridge";
 import { ViewerCommands } from "../bridge/ViewerCommands";
+import { FeatureGate, getFeatureGate } from "../runtime/featureGate";
 import { CanvasMenu } from "./CanvasMenu";
 import { ListContextMenus } from "./ListContextMenus";
 import { getMainShellKeyboardAction } from "./mainShellKeyboard";
 import {
-	CopyPasteControls,
-	ImageRefControls,
-	LayerControls,
-	PropertyControls,
-	SwapControls,
-	TextEditControls,
+    CopyPasteControls,
+    ImageRefControls,
+    LayerControls,
+    PropertyControls,
+    SwapControls,
+    TextEditControls,
 } from "./SideControls";
 
 function isTypingTarget(): boolean {
@@ -19,10 +20,15 @@ function isTypingTarget(): boolean {
 	return tag === "INPUT" || tag === "TEXTAREA" || Boolean(activeElement?.isContentEditable);
 }
 
-export function MainShell() {
+type MainShellProps = {
+	gate?: FeatureGate;
+};
+
+export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) {
 	const { mode } = useViewerMode();
 	const { hasSelection } = useViewerEditSelection();
 	const { canUndo, canRedo } = useViewerHistory();
+	const canEdit = gate.canEdit;
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -35,6 +41,7 @@ export function MainShell() {
 				hasSelection,
 				canUndo,
 				canRedo,
+				canEdit,
 				isTypingTarget: isTypingTarget(),
 			});
 			if (action.preventDefault) e.preventDefault();
@@ -78,33 +85,33 @@ export function MainShell() {
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [mode, hasSelection, canUndo, canRedo]);
+	}, [mode, hasSelection, canUndo, canRedo, canEdit]);
 	return (
 		<>
 			<div className="canvas">
 				<div className="menu">
-					<CanvasMenu />
+					<CanvasMenu canEdit={canEdit} />
 				</div>
 				<div className="sideMenu">
 					<div className="property">
 						<div>
-							<PropertyControls />
+							<PropertyControls canEdit={canEdit} />
 						</div>
 						<div className="copypaste">
-							<CopyPasteControls />
+							<CopyPasteControls canEdit={canEdit} />
 						</div>
 						<div className="imageRef">
-							<ImageRefControls />
+							<ImageRefControls canEdit={canEdit} />
 						</div>
 						<div className="textEdit">
-							<TextEditControls />
+							<TextEditControls canEdit={canEdit} />
 						</div>
 						<div className="swap">
-							<SwapControls />
+							<SwapControls canEdit={canEdit} />
 						</div>
 					</div>
 					<div className="layer">
-						<LayerControls />
+						<LayerControls canEdit={canEdit} />
 					</div>
 				</div>
 			</div>

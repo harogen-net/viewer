@@ -4,12 +4,23 @@ export type SlideListKeyboardAction =
 	| { type: "move"; direction: -1 | 1; index: number; preventDefault: true }
 	| { type: "delete"; index: number; preventDefault: true };
 
+export type SlideListDropAction =
+	| { type: "none"; preventDefault: false }
+	| { type: "move"; fromIndex: number; toIndex: number; preventDefault: true };
+
 type SlideListKeyboardInput = {
 	key: string;
 	metaKey?: boolean;
 	ctrlKey?: boolean;
 	canEdit: boolean;
 	slideIndex: number;
+	slideCount: number;
+};
+
+type SlideListDropInput = {
+	canEdit: boolean;
+	fromIndex: number | null;
+	toIndex: number;
 	slideCount: number;
 };
 
@@ -50,4 +61,14 @@ export function getSlideListKeyboardAction(input: SlideListKeyboardInput): Slide
 	}
 
 	return { type: "none", preventDefault: false };
+}
+
+export function getSlideListDropAction(input: SlideListDropInput): SlideListDropAction {
+	if (!input.canEdit || input.fromIndex == null) return { type: "none", preventDefault: false };
+	const fromIndex = clampIndex(input.fromIndex, input.slideCount);
+	const toIndex = clampIndex(input.toIndex, input.slideCount);
+	if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+		return { type: "none", preventDefault: false };
+	}
+	return { type: "move", fromIndex, toIndex, preventDefault: true };
 }

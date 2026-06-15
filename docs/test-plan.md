@@ -230,6 +230,24 @@ CI実行時のレポート収集:
 - 2026-06-15: CanvasMenu の選択スライドID表示を `useViewerSlides` に移し、EditViewController の `span.name` 直接DOM更新を削除。Edit/List controller の legacy click/change/disabled/hide 処理は `data-react-controlled` 要素へバインド・更新しないよう整理。スライド一覧コンテキストメニューの表示位置/show/hide を `listContextMenuRequested` bridge event と React state 管理へ移行。Legacy React re-export の重複も整理。
 - 確認: `npm run test:usecase`
 - 結果: 31 tests / 31 pass。
+- 2026-06-15: React スライド一覧に HTML drag/drop による並び替えを追加し、`getSlideListDropAction` として D&D 判定を単体化。`ViewerCommands.moveSelectedSlideToIndex` から `ListViewController.moveSelectedSlideToIndex` へ通す任意index移動経路を追加し、Undo/Redo 対応の履歴コマンドで実行する形へ更新。React 行の右クリックから既存 React context menu を開く経路も追加。
+- 確認: `npm run test:usecase`
+- 結果: 33 tests / 33 pass。
+- 2026-06-15: React レイヤー一覧に HTML drag/drop による並び替えを追加し、`getLayerListDropAction` として D&D 判定を単体化。`ViewerCommands.moveSelectedLayerToIndex` から `EditViewController.moveSelectedLayerToIndex` へ通す任意index移動経路を追加し、Undo/Redo 対応の履歴コマンドで実行する形へ更新。
+- 確認: `npm run test:usecase`
+- 結果: 35 tests / 35 pass。
+- 2026-06-15: React レイヤー一覧の Cmd/Ctrl+↑↓ を順序変更操作へ対応し、RuntimeShell / SideControls のキーボード経路から既存レイヤー順序変更コマンドを実行する形へ更新。
+- 確認: `npm run test:usecase`
+- 結果: 37 tests / 37 pass。
+- 2026-06-15: React スライド行右クリック時の context menu 座標計算を `RuntimeShell` の legacy DOM 参照から `ListViewController.requestSlideContextMenuByIndex` 側の offset 計算へ移し、React 側の `document.querySelector("#main .list")` 依存を削除。
+- 確認: `npm run test:usecase`
+- 結果: 37 tests / 37 pass。
+- 2026-06-15: CanvasMenu のテキストレイヤー追加を `window.prompt` から React 管理の入力フォームへ移行。spread 操作は CanvasMenu / RuntimeShell の React 確認UIから `ViewerCommands.spreadSelectedLayer(true)` へ通し、EditViewController 側の確認ダイアログ依存を削除。
+- 確認: `npm run test:usecase`
+- 結果: 37 tests / 37 pass。
+- 2026-06-15: AppShell / MainShell へ `FeatureGate` を渡し、CanvasMenu / SideControls / `getMainShellKeyboardAction` が `canEdit=false` を参照して編集UI・編集ショートカットを無効化するよう更新。
+- 確認: `npm run test:usecase`
+- 結果: 37 tests / 37 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

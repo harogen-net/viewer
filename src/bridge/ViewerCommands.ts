@@ -21,11 +21,17 @@ export const ViewerCommands = {
 	enableOnlyContextSlide(): void {
 		getViewer()?.commandEnableOnlyContextSlide();
 	},
+	requestSlideContextMenu(index: number, top: number, left: number): void {
+		getViewer()?.commandRequestSlideContextMenu(index, top, left);
+	},
 	moveSelectedSlideBackward(): void {
 		getViewer()?.commandMoveSelectedSlideBackward();
 	},
 	moveSelectedSlideForward(): void {
 		getViewer()?.commandMoveSelectedSlideForward();
+	},
+	moveSelectedSlideToIndex(toIndex: number): void {
+		getViewer()?.commandMoveSelectedSlideToIndex(toIndex);
 	},
 	toggleSelectedSlideJoining(): void {
 		getViewer()?.commandToggleSelectedSlideJoining();
@@ -150,8 +156,8 @@ export const ViewerCommands = {
 	toggleSelectedLayerIsText(): void {
 		getViewer()?.commandToggleSelectedLayerIsText();
 	},
-	spreadSelectedLayer(): void {
-		getViewer()?.commandSpreadSelectedLayer();
+	spreadSelectedLayer(confirmed = false): void {
+		getViewer()?.commandSpreadSelectedLayer(confirmed);
 	},
 	fitSelectedLayer(): void {
 		getViewer()?.commandFitSelectedLayer();
@@ -179,6 +185,9 @@ export const ViewerCommands = {
 	},
 	moveSelectedLayerToBottom(): void {
 		getViewer()?.commandMoveSelectedLayerToBottom();
+	},
+	moveSelectedLayerToIndex(toIndex: number): void {
+		getViewer()?.commandMoveSelectedLayerToIndex(toIndex);
 	},
 	copySelectedLayer(): void {
 		getViewer()?.commandCopySelectedLayer();

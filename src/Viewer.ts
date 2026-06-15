@@ -681,6 +681,10 @@ export class Viewer {
 		this.commandDeleteSelectedSlide();
 	}
 
+	public commandRequestSlideContextMenu(index: number, top: number, left: number): void {
+		this.listVC.requestSlideContextMenuByIndex(index, top, left);
+	}
+
 	public commandMoveSelectedSlideBackward(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
 		const slide = this.listVC.selectedSlide;
@@ -710,6 +714,26 @@ export class Viewer {
 			() => {
 				this.listVC.selectSlideInstance(slide);
 				this.listVC.moveSelectedSlideByOffset(-1);
+			}
+		);
+	}
+
+	public commandMoveSelectedSlideToIndex(toIndex: number): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
+		const slide = this.listVC.selectedSlide;
+		const fromIndex = slide ? this.listVC.slides.indexOf(slide) : -1;
+		if (!slide || fromIndex === -1 || !Number.isInteger(toIndex)) return;
+		const clampedToIndex = Math.max(0, Math.min(this.listVC.slides.length - 1, toIndex));
+		if (fromIndex === clampedToIndex) return;
+
+		this.recordSlideHistoryCommand(
+			() => {
+				this.listVC.selectSlideInstance(slide);
+				this.listVC.moveSelectedSlideToIndex(clampedToIndex);
+			},
+			() => {
+				this.listVC.selectSlideInstance(slide);
+				this.listVC.moveSelectedSlideToIndex(fromIndex);
 			}
 		);
 	}
@@ -1133,8 +1157,9 @@ export class Viewer {
 		);
 	}
 
-	public commandSpreadSelectedLayer(): void {
+	public commandSpreadSelectedLayer(confirmed = false): void {
 		if (!this.canRunEditOperations("全スライド展開")) return;
+		if (!confirmed && !window.confirm("spread layer to all slides. are you sure?")) return;
 		const ok = this.editVC.spreadSelectedLayer();
 		if (!ok) {
 			showNotice("レイヤーを選択してください。");
@@ -1184,6 +1209,12 @@ export class Viewer {
 	public commandMoveSelectedLayerToBottom(): void {
 		this.runEditSelectionOperation("最背面へ移動", () =>
 			this.editVC.moveSelectedLayerToBottom()
+		);
+	}
+
+	public commandMoveSelectedLayerToIndex(toIndex: number): void {
+		this.runEditSelectionOperation("レイヤー順序変更", () =>
+			this.editVC.moveSelectedLayerToIndex(toIndex)
 		);
 	}
 

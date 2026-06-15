@@ -15,6 +15,7 @@ const baseInput: MainShellKeyboardInput = {
 	hasSelection: true,
 	canUndo: true,
 	canRedo: true,
+	canEdit: true,
 	isTypingTarget: false,
 };
 
@@ -81,6 +82,10 @@ test("getMainShellKeyboardAction ignores typing targets readonly mode and select
 		preventDefault: false,
 	});
 	assert.deepEqual(action({ code: "KeyC", metaKey: true, mode: "select" }), {
+		type: "none",
+		preventDefault: false,
+	});
+	assert.deepEqual(action({ code: "KeyC", metaKey: true, canEdit: false }), {
 		type: "none",
 		preventDefault: false,
 	});

@@ -1,7 +1,12 @@
+import { FeatureGate, getFeatureGate } from "../runtime/featureGate";
 import { MainShell } from "./MainShell";
 import { ImagesPanel, PrefPanel } from "./Panels";
 
-export function AppShell() {
+type AppShellProps = {
+	gate?: FeatureGate;
+};
+
+export function AppShell({ gate = getFeatureGate("browser") }: AppShellProps) {
 	return (
 		<>
 			<div id="pref">
@@ -11,7 +16,7 @@ export function AppShell() {
 				<ImagesPanel />
 			</div>
 			<div id="main">
-				<MainShell />
+				<MainShell gate={gate} />
 			</div>
 		</>
 	);

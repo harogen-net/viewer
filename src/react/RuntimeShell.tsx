@@ -2,34 +2,34 @@ import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Switch, T
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
-	useViewerEditCanvasState,
-	useViewerEditLayerState,
-	useViewerEditLayers,
-	useViewerEditSelection,
-	useViewerHistory,
-	useViewerMode,
-	useViewerSavedFileSelection,
-	useViewerSlides,
-	useViewerSlideshowSettings,
-	useViewerStorage,
+    useViewerEditCanvasState,
+    useViewerEditLayerState,
+    useViewerEditLayers,
+    useViewerEditSelection,
+    useViewerHistory,
+    useViewerMode,
+    useViewerSavedFileSelection,
+    useViewerSlides,
+    useViewerSlideshowSettings,
+    useViewerStorage,
 } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
 import {
-	getImagesContainerElement,
-	getSaveFormat,
-	setSaveFormat,
+    getImagesContainerElement,
+    getSaveFormat,
+    setSaveFormat,
 } from "../runtime/reactDomRegistry";
-import { getLayerListKeyboardAction } from "./layerListKeyboard";
+import { getLayerListDropAction, getLayerListKeyboardAction } from "./layerListKeyboard";
 import {
-	type ClipSide,
-	getAdjustedClipValues,
-	getAdjustedNumericValue,
-	getClipValuesFromInputs,
-	getInputStep,
-	getWheelInputDelta,
+    type ClipSide,
+    getAdjustedClipValues,
+    getAdjustedNumericValue,
+    getClipValuesFromInputs,
+    getInputStep,
+    getWheelInputDelta,
 } from "./numericInput";
-import { getSlideListKeyboardAction } from "./slideListKeyboard";
+import { getSlideListDropAction, getSlideListKeyboardAction } from "./slideListKeyboard";
 
 const durationOptions = [
 	{ value: "1", label: "0" },
@@ -113,8 +113,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [textContentInput, setTextContentInput] = useState("");
 	const [replaceImageForAll, setReplaceImageForAll] = useState(false);
 	const [imagesPanelOpen, setImagesPanelOpen] = useState(false);
+	const [spreadConfirmOpen, setSpreadConfirmOpen] = useState(false);
 	const [saveFormat, setSaveFormatState] = useState<"png" | "hvz" | "hvd">("png");
 	const [durationRatioInput, setDurationRatioInput] = useState("");
+	const [draggingSlideIndex, setDraggingSlideIndex] = useState<number | null>(null);
+	const [slideDropIndex, setSlideDropIndex] = useState<number | null>(null);
+	const [draggingLayerPosition, setDraggingLayerPosition] = useState<number | null>(null);
+	const [layerDropPosition, setLayerDropPosition] = useState<number | null>(null);
 	const [renamingLayerId, setRenamingLayerId] = useState<number | null>(null);
 	const [renameLayerInput, setRenameLayerInput] = useState("");
 	const imageReplaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -334,6 +339,58 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		}
 	};
 
+	const handleSlideDragStart = (slide: SlideSnapshot, event: React.DragEvent<HTMLDivElement>) => {
+		if (!gate.canEdit || slides.length < 2) return;
+		setDraggingSlideIndex(slide.index);
+		setSlideDropIndex(slide.index);
+		event.dataTransfer.effectAllowed = "move";
+		event.dataTransfer.setData("text/plain", String(slide.index));
+	};
+
+	const handleSlideDragOver = (slide: SlideSnapshot, event: React.DragEvent<HTMLDivElement>) => {
+		const action = getSlideListDropAction({
+			canEdit: gate.canEdit,
+			fromIndex: draggingSlideIndex,
+			toIndex: slide.index,
+			slideCount: slides.length,
+		});
+		if (action.preventDefault) {
+			event.preventDefault();
+			event.dataTransfer.dropEffect = "move";
+			setSlideDropIndex(action.toIndex);
+		}
+	};
+
+	const handleSlideDrop = (slide: SlideSnapshot, event: React.DragEvent<HTMLDivElement>) => {
+		const action = getSlideListDropAction({
+			canEdit: gate.canEdit,
+			fromIndex: draggingSlideIndex,
+			toIndex: slide.index,
+			slideCount: slides.length,
+		});
+		setDraggingSlideIndex(null);
+		setSlideDropIndex(null);
+		if (!action.preventDefault) return;
+		event.preventDefault();
+		focusSlideAfterRender(slides[action.fromIndex]?.key);
+		ViewerCommands.selectSlideByIndex(action.fromIndex);
+		ViewerCommands.moveSelectedSlideToIndex(action.toIndex);
+	};
+
+	const handleSlideDragEnd = () => {
+		setDraggingSlideIndex(null);
+		setSlideDropIndex(null);
+	};
+
+	const handleSlideContextMenu = (slide: SlideSnapshot, event: React.MouseEvent<HTMLDivElement>) => {
+		event.preventDefault();
+		ViewerCommands.requestSlideContextMenu(
+			slide.index,
+			event.clientY,
+			event.clientX
+		);
+	};
+
 	const applyPosition = () => {
 		if (!canEditSelectedLayer) return;
 		const x = Number(posXInput);
@@ -447,6 +504,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		setTextLayerInput("");
 	};
 
+	const confirmSpreadSelectedLayer = () => {
+		if (!canEditSelectedLayer) return;
+		setSpreadConfirmOpen(false);
+		ViewerCommands.spreadSelectedLayer(true);
+	};
+
 	const applyLayerName = () => {
 		if (!canEditSelectedLayer) return;
 		const name = layerNameInput.trim();
@@ -485,6 +548,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	) => {
 		const action = getLayerListKeyboardAction({
 			key: event.key,
+			metaKey: event.metaKey,
+			ctrlKey: event.ctrlKey,
 			canEdit: gate.canEdit && isEditMode,
 			layerPosition: position,
 			layerCount: sortedEditLayers.length,
@@ -504,6 +569,15 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			case "rename":
 				startLayerRename(layer);
 				break;
+			case "move":
+				focusLayerAfterRender(getLayerKey(layer));
+				ViewerCommands.selectEditLayerByIndex(layer.index);
+				if (action.direction < 0) {
+					ViewerCommands.moveSelectedLayerUp();
+				} else {
+					ViewerCommands.moveSelectedLayerDown();
+				}
+				break;
 			case "delete": {
 				const nextLayer =
 					sortedEditLayers[action.position + 1] ?? sortedEditLayers[action.position - 1];
@@ -513,6 +587,61 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				break;
 			}
 		}
+	};
+
+	const handleLayerDragStart = (
+		position: number,
+		event: React.DragEvent<HTMLDivElement>
+	) => {
+		if (!gate.canEdit || !isEditMode || sortedEditLayers.length < 2) return;
+		setDraggingLayerPosition(position);
+		setLayerDropPosition(position);
+		event.dataTransfer.effectAllowed = "move";
+		event.dataTransfer.setData("text/plain", String(position));
+	};
+
+	const handleLayerDragOver = (
+		position: number,
+		event: React.DragEvent<HTMLDivElement>
+	) => {
+		const action = getLayerListDropAction({
+			canEdit: gate.canEdit && isEditMode,
+			fromPosition: draggingLayerPosition,
+			toPosition: position,
+			layerCount: sortedEditLayers.length,
+		});
+		if (action.preventDefault) {
+			event.preventDefault();
+			event.dataTransfer.dropEffect = "move";
+			setLayerDropPosition(action.toPosition);
+		}
+	};
+
+	const handleLayerDrop = (
+		position: number,
+		event: React.DragEvent<HTMLDivElement>
+	) => {
+		const action = getLayerListDropAction({
+			canEdit: gate.canEdit && isEditMode,
+			fromPosition: draggingLayerPosition,
+			toPosition: position,
+			layerCount: sortedEditLayers.length,
+		});
+		setDraggingLayerPosition(null);
+		setLayerDropPosition(null);
+		if (!action.preventDefault) return;
+		event.preventDefault();
+		const fromLayer = sortedEditLayers[action.fromPosition];
+		const toLayer = sortedEditLayers[action.toPosition];
+		if (!fromLayer || !toLayer) return;
+		focusLayerAfterRender(getLayerKey(fromLayer));
+		ViewerCommands.selectEditLayerByIndex(fromLayer.index);
+		ViewerCommands.moveSelectedLayerToIndex(toLayer.index);
+	};
+
+	const handleLayerDragEnd = () => {
+		setDraggingLayerPosition(null);
+		setLayerDropPosition(null);
 	};
 
 	const applyTextContent = () => {
@@ -623,6 +752,11 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const isEditMode = viewerMode === "edit";
 	const isImageLayer = editLayerState.layerType === "image";
 	const canEditSelectedLayer = gate.canEdit && isEditMode && hasSelection;
+	useEffect(() => {
+		if (canEditSelectedLayer) return;
+		setSpreadConfirmOpen(false);
+	}, [canEditSelectedLayer]);
+
 	const disabledSlideCount = slides.filter((slide) => slide.disabled).length;
 	const allSlidesJoined = slides.length > 0 && slides.every((slide) => slide.joining);
 	const canUnjoinSlides = slides.some((slide) => slide.joining || slide.durationRatio !== 1);
@@ -1154,12 +1288,30 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								/>
 								<Button
 									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.spreadSelectedLayer()}
+									variant={spreadConfirmOpen ? "filled" : "default"}
+									onClick={() => setSpreadConfirmOpen((open) => !open)}
 									disabled={!canEditSelectedLayer}>
 									Spread All
 								</Button>
 							</Group>
+							{spreadConfirmOpen && (
+								<Group grow>
+									<Button
+										size="xs"
+										color="red"
+										variant="light"
+										onClick={confirmSpreadSelectedLayer}
+										disabled={!canEditSelectedLayer}>
+										Confirm Spread
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => setSpreadConfirmOpen(false)}>
+										Cancel
+									</Button>
+								</Group>
+							)}
 							<Text size="xs" c="dimmed">
 								clip t:{fmt(editLayerState.clipTop, 0)} r:{fmt(editLayerState.clipRight, 0)} b:
 								{fmt(editLayerState.clipBottom, 0)} l:{fmt(editLayerState.clipLeft, 0)}
@@ -1334,12 +1486,20 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 													onClick={() => ViewerCommands.selectEditLayerByIndex(layer.index)}
 													onKeyDown={(e) => handleLayerKeyDown(layer, position, e)}
 													onDoubleClick={() => startLayerRename(layer)}
+													draggable={gate.canEdit && isEditMode && sortedEditLayers.length > 1}
+													onDragStart={(e) => handleLayerDragStart(position, e)}
+													onDragOver={(e) => handleLayerDragOver(position, e)}
+													onDrop={(e) => handleLayerDrop(position, e)}
+													onDragEnd={handleLayerDragEnd}
 													style={{
-														cursor: gate.canEdit && isEditMode ? "pointer" : "default",
+														cursor: gate.canEdit && isEditMode ? "grab" : "default",
+														opacity: draggingLayerPosition === position ? 0.35 : 1,
 														padding: "2px 4px",
 														borderRadius: 4,
-														outline: layer.selected ? "1px solid #339af0" : "1px solid transparent",
+														outline: layerDropPosition === position ? "1px solid #228be6" : layer.selected ? "1px solid #339af0" : "1px solid transparent",
+														outlineOffset: 1,
 													}}
+													aria-grabbed={draggingLayerPosition === position ? "true" : undefined}
 													data-react-controlled="true">
 													{renamingLayerId === layer.id ? (
 														<input
@@ -1564,10 +1724,18 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 												key={slide.key}
 												size="xs"
 												fw={slide.selected ? 700 : 400}
-												style={{ cursor: "pointer", opacity: slide.disabled ? 0.45 : 1 }}
+												style={{
+													cursor: gate.canEdit && slides.length > 1 ? "grab" : "pointer",
+													opacity: draggingSlideIndex === slide.index ? 0.35 : slide.disabled ? 0.45 : 1,
+													outline: slideDropIndex === slide.index ? "1px solid #228be6" : undefined,
+													outlineOffset: 1,
+													borderRadius: 3,
+												}}
 												role="button"
 												aria-current={slide.selected ? "true" : undefined}
 												aria-disabled={slide.disabled ? "true" : undefined}
+												aria-grabbed={draggingSlideIndex === slide.index ? "true" : undefined}
+												draggable={gate.canEdit && slides.length > 1}
 												tabIndex={0}
 												ref={(node) => {
 													if (node) {
@@ -1577,6 +1745,11 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 													}
 												}}
 												onKeyDown={(e) => handleSlideKeyDown(slide, e)}
+												onDragStart={(e) => handleSlideDragStart(slide, e)}
+												onDragOver={(e) => handleSlideDragOver(slide, e)}
+												onDrop={(e) => handleSlideDrop(slide, e)}
+												onDragEnd={handleSlideDragEnd}
+												onContextMenu={(e) => handleSlideContextMenu(slide, e)}
 												onClick={() => selectSlide(slide.index)}>
 												{slide.selected ? "● " : "○ "}
 												{slide.label}{slide.joining ? " [J]" : ""}{slide.disabled ? " ✕" : ""}{slide.durationRatio !== 1 ? ` ×${slide.durationRatio}` : ""}

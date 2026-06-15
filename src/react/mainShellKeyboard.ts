@@ -27,6 +27,7 @@ export type MainShellKeyboardInput = {
 	hasSelection: boolean;
 	canUndo: boolean;
 	canRedo: boolean;
+	canEdit: boolean;
 	isTypingTarget: boolean;
 };
 
@@ -40,6 +41,7 @@ export function getMainShellKeyboardAction(input: MainShellKeyboardInput): MainS
 	if (input.isTypingTarget) return noneAction;
 	const isEditMode = input.mode === "edit";
 	if (!isEditMode) return noneAction;
+	if (!input.canEdit) return noneAction;
 
 	const isMeta = input.metaKey || input.ctrlKey;
 	if (isMeta) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerEditLayerState, useViewerEditLayers, useViewerMode } from "../bridge/useViewerBridge";
-import { getLayerListKeyboardAction } from "./layerListKeyboard";
+import { getLayerListDropAction, getLayerListKeyboardAction } from "./layerListKeyboard";
 import {
     type ClipSide,
     getAdjustedClipValues,
@@ -11,10 +11,14 @@ import {
     getWheelInputDelta,
 } from "./numericInput";
 
-export function CopyPasteControls() {
+type EditGateProps = {
+    canEdit?: boolean;
+};
+
+export function CopyPasteControls({ canEdit = true }: EditGateProps) {
 	const { hasSelection } = useViewerEditLayerState();
 	const { mode } = useViewerMode();
-	const canEditLayer = mode === "edit" && hasSelection;
+    const canEditLayer = canEdit && mode === "edit" && hasSelection;
 
     return (
         <>
@@ -38,10 +42,10 @@ export function CopyPasteControls() {
     );
 }
 
-export function SwapControls() {
+export function SwapControls({ canEdit = true }: EditGateProps) {
 	const { hasSelection } = useViewerEditLayerState();
 	const { mode } = useViewerMode();
-	const canEditLayer = mode === "edit" && hasSelection;
+    const canEditLayer = canEdit && mode === "edit" && hasSelection;
 
     return (
         <>
@@ -77,12 +81,12 @@ export function SwapControls() {
     );
 }
 
-export function ImageRefControls() {
+export function ImageRefControls({ canEdit = true }: EditGateProps) {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [replaceForAll, setReplaceForAll] = useState(false);
 	const { hasSelection, layerType } = useViewerEditLayerState();
 	const { mode } = useViewerMode();
-	const canEditLayer = mode === "edit" && hasSelection;
+    const canEditLayer = canEdit && mode === "edit" && hasSelection;
 	const isImageLayer = layerType === "image";
 
 	const openPicker = () => {
@@ -140,10 +144,10 @@ export function ImageRefControls() {
 	);
 }
 
-export function TextEditControls() {
+export function TextEditControls({ canEdit = true }: EditGateProps) {
     const { hasSelection, layerType, textContent } = useViewerEditLayerState();
     const { mode } = useViewerMode();
-    const canEditLayer = mode === "edit" && hasSelection;
+    const canEditLayer = canEdit && mode === "edit" && hasSelection;
     const isTextLayer = layerType === "text";
     const [textInput, setTextInput] = useState("");
 
@@ -169,7 +173,7 @@ export function TextEditControls() {
     );
 }
 
-export function PropertyControls() {
+export function PropertyControls({ canEdit = true }: EditGateProps) {
     const {
         hasSelection,
         layerType,
@@ -187,7 +191,7 @@ export function PropertyControls() {
         isText,
     } = useViewerEditLayerState();
     const { mode } = useViewerMode();
-    const canEditLayer = mode === "edit" && hasSelection;
+    const canEditLayer = canEdit && mode === "edit" && hasSelection;
     const isImageLayer = layerType === "image";
     const [positionXInput, setPositionXInput] = useState("0");
     const [positionYInput, setPositionYInput] = useState("0");
@@ -523,12 +527,14 @@ export function PropertyControls() {
     );
 }
 
-export function LayerControls() {
+export function LayerControls({ canEdit = true }: EditGateProps) {
     const { layers } = useViewerEditLayers();
     const { mode } = useViewerMode();
-    const canEditLayers = mode === "edit";
+    const canEditLayers = canEdit && mode === "edit";
     const [renamingId, setRenamingId] = useState<number | null>(null);
     const [renameInput, setRenameInput] = useState("");
+    const [draggingPosition, setDraggingPosition] = useState<number | null>(null);
+    const [dropPosition, setDropPosition] = useState<number | null>(null);
     const pendingLayerFocusKey = useRef<string | null>(null);
     const layerItemRefs = useRef(new Map<string, HTMLLIElement>());
     const renameCanceledRef = useRef(false);
@@ -606,6 +612,8 @@ export function LayerControls() {
     ) => {
         const action = getLayerListKeyboardAction({
             key: event.key,
+            metaKey: event.metaKey,
+            ctrlKey: event.ctrlKey,
             canEdit: canEditLayers,
             layerPosition: position,
             layerCount: layers.length,
@@ -627,6 +635,15 @@ export function LayerControls() {
                 ViewerCommands.selectEditLayerByIndex(layer.index);
                 startRenameLayer(layer.id, layer.name);
                 break;
+            case "move":
+                focusLayerAfterRender(getLayerKey(layer));
+                ViewerCommands.selectEditLayerByIndex(layer.index);
+                if (action.direction < 0) {
+                    ViewerCommands.moveSelectedLayerUp();
+                } else {
+                    ViewerCommands.moveSelectedLayerDown();
+                }
+                break;
             case "delete": {
                 const nextLayer = layers[action.position + 1] ?? layers[action.position - 1];
                 focusLayerAfterRender(nextLayer ? getLayerKey(nextLayer) : undefined);
@@ -634,6 +651,52 @@ export function LayerControls() {
                 break;
             }
         }
+    };
+
+    const handleLayerDragStart = (position: number, event: React.DragEvent<HTMLLIElement>) => {
+        if (!canEditLayers || layers.length < 2) return;
+        setDraggingPosition(position);
+        setDropPosition(position);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(position));
+    };
+
+    const handleLayerDragOver = (position: number, event: React.DragEvent<HTMLLIElement>) => {
+        const action = getLayerListDropAction({
+            canEdit: canEditLayers,
+            fromPosition: draggingPosition,
+            toPosition: position,
+            layerCount: layers.length,
+        });
+        if (action.preventDefault) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            setDropPosition(action.toPosition);
+        }
+    };
+
+    const handleLayerDrop = (position: number, event: React.DragEvent<HTMLLIElement>) => {
+        const action = getLayerListDropAction({
+            canEdit: canEditLayers,
+            fromPosition: draggingPosition,
+            toPosition: position,
+            layerCount: layers.length,
+        });
+        setDraggingPosition(null);
+        setDropPosition(null);
+        if (!action.preventDefault) return;
+        event.preventDefault();
+        const fromLayer = layers[action.fromPosition];
+        const toLayer = layers[action.toPosition];
+        if (!fromLayer || !toLayer) return;
+        focusLayerAfterRender(getLayerKey(fromLayer));
+        ViewerCommands.selectEditLayerByIndex(fromLayer.index);
+        ViewerCommands.moveSelectedLayerToIndex(toLayer.index);
+    };
+
+    const handleLayerDragEnd = () => {
+        setDraggingPosition(null);
+        setDropPosition(null);
     };
 
     const commitRename = () => {
@@ -670,8 +733,18 @@ export function LayerControls() {
                     className={layer.selected ? "selected" : ""}
                     onClick={() => handleSelectLayer(layer.index)}
                     onKeyDown={(e) => handleLayerKeyDown(layer, position, e)}
+                    draggable={canEditLayers && layers.length > 1}
+                    onDragStart={(e) => handleLayerDragStart(position, e)}
+                    onDragOver={(e) => handleLayerDragOver(position, e)}
+                    onDrop={(e) => handleLayerDrop(position, e)}
+                    onDragEnd={handleLayerDragEnd}
                     tabIndex={canEditLayers ? 0 : -1}
+                    aria-grabbed={draggingPosition === position ? "true" : undefined}
                     data-react-controlled="true"
+                    style={{
+                        opacity: draggingPosition === position ? 0.35 : undefined,
+                        outline: dropPosition === position ? "1px solid #228be6" : undefined,
+                    }}
                 >
                     <button
                         className={`eye${layer.visible ? " on" : ""}`}

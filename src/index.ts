@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	if (wrapper) {
 		const root = createRoot(wrapper);
 		flushSync(() => {
-			root.render(createElement(AppShell));
+			root.render(createElement(AppShell, { gate }));
 		});
 	}
 	document.body.setAttribute("data-runtime-mode", runtimeMode);
