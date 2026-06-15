@@ -386,58 +386,6 @@ export class Viewer {
 				}, 301);
 			}
 		});
-		this.listVC.addEventListener("requestListCommand", (e: CustomEvent) => {
-			const slide = e.detail?.slide as Slide | null;
-			const ratio = Number(e.detail?.ratio);
-			switch (e.detail?.command) {
-				case "newSlide":
-					this.commandNewSlide();
-					break;
-				case "cloneSlide":
-					if (slide) this.listVC.selectSlideInstance(slide);
-					this.commandCloneSelectedSlide();
-					break;
-				case "deleteSlide":
-					if (slide) this.listVC.selectSlideInstance(slide);
-					this.commandDeleteSelectedSlide();
-					break;
-				case "unjoinAllSlides":
-					this.commandUnjoinAllSlides();
-					break;
-				case "deleteDisabledSlides":
-					this.commandDeleteDisabledSlides();
-					break;
-				case "enableAllSlides":
-					this.commandEnableAllSlides();
-					break;
-				case "disableAllSlides":
-					this.commandDisableAllSlides();
-					break;
-				case "enableOnlySlide":
-					if (slide) this.listVC.selectSlideInstance(slide);
-					this.commandEnableOnlySelectedSlide();
-					break;
-				case "toggleSlideJoining":
-					if (slide) this.listVC.selectSlideInstance(slide);
-					this.commandToggleSelectedSlideJoining();
-					break;
-				case "toggleSlideDisabled":
-					if (slide) this.listVC.selectSlideInstance(slide);
-					this.commandToggleSelectedSlideDisabled();
-					break;
-				case "setSlideDurationRatio":
-					if (slide) this.listVC.selectSlideInstance(slide);
-					this.commandSetSelectedSlideDurationRatio(ratio);
-					break;
-				case "selectPreviousSlide":
-					this.commandSelectPreviousSlide();
-					break;
-				case "selectNextSlide":
-					this.commandSelectNextSlide();
-					break;
-			}
-		});
-
 		this.listVC.addEventListener("close", () => {
 			this.editVC.initialize();
 			this.setMode(ViewerMode.SELECT);

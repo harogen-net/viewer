@@ -22,12 +22,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 	private _mode: ViewerMode;
 
-	private newSlideBtn: any;
 	private contextTargetSlide: Slide | null = null; //こいつが原因でバグを発生しそうな予感
-
-	private requestListCommand(command: string, slide: Slide | null = null, ratio?: number): void {
-		this.dispatchEvent(new CustomEvent("requestListCommand", { detail: { command, slide, ratio } }));
-	}
 
 	constructor(
 		public obj: any,
@@ -85,13 +80,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		});
 
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			this.newSlideBtn = $('<div class="newSlideBtn"><i class="fas fa-plus"></i></div>').appendTo(
-				this.containerObj
-			);
-			this.newSlideBtn.click(() => {
-				this.requestListCommand("newSlide");
-			});
-
 			this.obj.on("contextmenu.slide", (e) => {
 				if (this._slides.length > 0) {
 					this.contextTargetSlide = null;
@@ -100,21 +88,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 					);
 					return false;
 				}
-			});
-
-			var prevSlideBtn = $(
-				'<button class="selectSlideBtn prev"><i class="fas fa-chevron-left"></i></button>'
-			);
-			this.obj.append(prevSlideBtn);
-			prevSlideBtn.click(() => {
-				this.requestListCommand("selectPreviousSlide");
-			});
-			var nextSlideBtn = $(
-				'<button class="selectSlideBtn next"><i class="fas fa-chevron-right"></i></button>'
-			);
-			this.obj.append(nextSlideBtn);
-			nextSlideBtn.click(() => {
-				this.requestListCommand("selectNextSlide");
 			});
 		}
 	}
@@ -270,11 +243,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 
 		slideView.addEventListener("select", this.onSlideSelect);
 		slideView.addEventListener("edit", this.onSlideEdit);
-		slideView.addEventListener("clone", this.onSlideClone);
-		slideView.addEventListener("delete", this.onSlideDelete);
-		slideView.addEventListener("toggleJoining", this.onSlideToggleJoining);
-		slideView.addEventListener("toggleDisabled", this.onSlideToggleDisabled);
-		slideView.addEventListener("setDurationRatio", this.onSlideSetDurationRatio);
 		slideView.addEventListener("contextmenu", this.onContextMenu);
 
 		slideView.show();
@@ -298,21 +266,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private onSlideEdit = (ce: CustomEvent) => {
 		this.dispatchEvent(new Event("edit"));
 	};
-	private onSlideClone = (ce: CustomEvent) => {
-		this.requestListCommand("cloneSlide", ce.detail as Slide);
-	};
-	private onSlideDelete = (ce: CustomEvent) => {
-		this.requestListCommand("deleteSlide", ce.detail as Slide);
-	};
-	private onSlideToggleJoining = (ce: CustomEvent) => {
-		this.requestListCommand("toggleSlideJoining", ce.detail as Slide);
-	};
-	private onSlideToggleDisabled = (ce: CustomEvent) => {
-		this.requestListCommand("toggleSlideDisabled", ce.detail as Slide);
-	};
-	private onSlideSetDurationRatio = (ce: CustomEvent) => {
-		this.requestListCommand("setSlideDurationRatio", ce.detail.slide as Slide, ce.detail.ratio);
-	};
 	private onContextMenu = (ce: CustomEvent) => {
 		if (!this.canEdit) return;
 		var offset = this.obj.offset() ?? { top: 0, left: 0 };
@@ -332,10 +285,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		var slideView: ThumbSlideView = this.getSlideViewBySlide(slide);
 		slideView.removeEventListener("select", this.onSlideSelect);
 		slideView.removeEventListener("edit", this.onSlideEdit);
-		slideView.removeEventListener("clone", this.onSlideClone);
-		slideView.removeEventListener("delete", this.onSlideDelete);
-		slideView.removeEventListener("toggleJoining", this.onSlideToggleJoining);
-		slideView.removeEventListener("toggleDisabled", this.onSlideToggleDisabled);
 		slideView.removeEventListener("contextmenu", this.onContextMenu);
 		//slideView.clearEventListener();	//dispatchEventを発端とするスタック中で実行するとエラーになる
 
@@ -442,9 +391,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			slide.obj.removeClass("last");
 		});
 		this._slideViews[this._slideViews.length - 1].obj.addClass("last");
-		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			this.containerObj.append(this.newSlideBtn);
-		}
 		this.containerObj.sortable("refresh");
 	}
 

@@ -287,6 +287,9 @@ CI実行時のレポート収集:
 - 2026-06-15: `ListViewController` の旧context menu DOM binding/show-hide fallbackを削除し、右クリックは `listContextMenuRequested` bridge event でReact `ListContextMenus` を開く経路へ一本化。React `LayerControls` へ移行済みのため、旧 `EditLayerViewController` / `EditLayerListItem` fallback と `requestEditCommand` listenerを削除。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
+- 2026-06-15: `ThumbSlideView` / `ListViewController` から旧サムネイル内の delete/clone/edit/duration/joining/disabled 操作UIと new/prev/next list button、`requestListCommand` listenerを削除。サムネイルは表示・選択・右クリック・ダブルクリック編集に限定し、スライド操作はReact `RuntimeShell` / `ListContextMenus` / `ViewerCommands` 経路へ集約。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

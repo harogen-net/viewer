@@ -772,196 +772,11 @@ input.imageRef {
   filter: brightness(40%);
 }
 
-.slideList .container > .slide button {
-  position: absolute;
-  z-index: 3;
-  width: 30px;
-  height: 30px;
-  border: none;
-  opacity: 0;
-  cursor: pointer;
-  color: white;
-  text-align: center;
-  vertical-align: middle;
-  line-height: 30px;
-  font-size: 20px;
-  padding: 0;
-  margin: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-}
-.slideList .container > .slide.selected button {
-  pointer-events: auto;
-  opacity: 1;
-}
-.slideList .container > .slide.selected button:hover {
-  opacity: 1;
-}
-.slideList .container > .slide button.delete {
-  right: 0;
-  top: 0;
-  background-color: red;
-}
-.slideList .container > .slide button.clone {
-  right: 5px;
-  bottom: 5px;
-  background-color: rgba(0, 0, 0, 0.5);
-  border-radius: 3px;
-}
-.slideList .container > .slide button.edit {
-  left: 5px;
-  top: 5px;
-  background-color: rgba(0, 0, 0, 0.5);
-  border-radius: 3px;
-}
-
-.slideList .container > .slide input[type="checkbox"] {
-  position: absolute;
-  width: 25px;
-  height: 25px;
-  margin: 0;
-  left: 0;
-  bottom: 0;
-  /*opacity: 0;*/
-  transition: opacity 0.3s;
-  cursor: pointer;
-  /*pointer-events: none;*/
-  z-index: 3;
-  transition: left 0.1s ease-in-out;
-}
-.slideList .container > .slide.joining + .slide input[type="checkbox"] {
-  left: 16px;
-}
-
-.slideList .container > .slide .duration {
-  display: block;
-  position: absolute;
-  z-index: 2;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: 30px;
-  background-color: rgba(255, 0, 0, 0);
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-  text-align: center;
-}
-.slideList .container > .slide.selected .duration {
-  pointer-events: auto;
-  opacity: 1;
-}
-.slideList .container > .slide .duration span {
-  display: inline-block;
-  /*position: absolute;*/
-  /*	left:7px;*/
-  bottom: 5px;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px #000000;
-  font-size: 14px;
-  line-height: 14px;
-  white-space: nowrap;
-  color: white;
-  z-index: 2;
-  text-align: center;
-}
-.slideList .container > .slide .duration button {
-  width: 20px;
-  height: 20px;
-  line-height: 20px;
-  left: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.5);
-  text-shadow: 1px 1px 2px #000000;
-  border-radius: 3px;
-  color: white;
-
-  transition: opacity 0.3s;
-  opacity: 0;
-}
-.slideList .container > .slide .duration:hover button {
-  opacity: 1;
-}
-.slideList .container > .slide .duration button.up {
-  left: 50%;
-  width: 50%;
-  height: 40px;
-}
-.slideList .container > .slide .duration button.down {
-  left: 0;
-  width: 50%;
-  height: 40px;
-}
-.slideList .container > .slide .joinArrow {
-  position: absolute;
-  z-index: 1;
-  width: 16px;
-  height: 100%;
-  background-color: red;
-  opacity: 0;
-  top: 0;
-  right: 0;
-}
-.slideList .container > .slide.joining .joinArrow {
-  opacity: 0.2;
-}
 .slideList .container > .slide.joining {
   margin-right: -16px;
 }
 .slideList .container > .slide.joining.last {
   margin-right: 10px;
-}
-.slideList .container > .newSlideBtn {
-  /*width:var(--slideThumbHeight);*/
-  min-width: 40px;
-  height: var(--slideThumbHeight);
-  line-height: var(--slideThumbHeight);
-  overflow: hidden;
-  font-size: 32px;
-  color: rgba(255, 255, 255, 0.2);
-  text-shadow: 1px 1px 2px 2px rgba(0, 0, 0, 0.2);
-  background-color: gray;
-  border-radius: 10px;
-  box-shadow: 1px 1px 2px 2px rgba(0, 0, 0, 0.2);
-  cursor: pointer;
-  text-align: center;
-  /*	opacity: 0;*/
-  transition: opacity 0.3s;
-}
-.slideList .container > .newSlideBtn:hover {
-  opacity: 0.5;
-}
-.slideList > .selectSlideBtn {
-  display: none;
-  position: absolute;
-  top: 20px;
-  width: 26px;
-  height: calc(var(--slideThumbHeight) - 20px);
-  line-height: calc(var(--slideThumbHeight) - 20px);
-  overflow: hidden;
-  font-size: 20px;
-  color: rgba(255, 255, 255, 0.6);
-  /*	text-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);*/
-  background-color: rgba(0, 0, 0, 0.5);
-  /*	box-shadow: 1px 1px 2px 2px rgba(0,0,0,0.2);*/
-  cursor: pointer;
-  text-align: center;
-  transition: opacity 0.3s;
-  opacity: 0.5;
-  border: none;
-  z-index: 4;
-}
-.slideList > .selectSlideBtn:hover {
-  opacity: 1;
-  color: rgba(255, 255, 255, 1);
-}
-.slideList > .selectSlideBtn.prev {
-  border-radius: 0 10px 10px 0;
-  left: 0;
-}
-.slideList > .selectSlideBtn.next {
-  border-radius: 10px 0 0 10px;
-  right: 0;
 }
 
 /* ------------------ mode:select ----------------*/
@@ -994,27 +809,12 @@ body.edit .slideList {
   height: 150px;
 }
 body.edit .slideList .container {
-  /*	margin-left:20px;
-	margin-right:20px;
-	width:calc(100% - 40px);*/
-  padding-left: 40px;
-  padding-right: 40px;
-
   overflow-x: scroll;
   overflow-y: hidden;
-}
-body.edit .slideList .container::after {
-  min-width: 40px;
-}
-body.edit .slideList > .selectSlideBtn {
-  display: block;
 }
 body.edit .slideList .container > .slide {
   height: var(--slideThumbHeight);
   /*	margin-right: 10px;*/
-}
-body.edit .slideList .container > .slide button.edit {
-  display: none;
 }
 /* ------------------ mode:slideshow -------------*/
 

@@ -1,13 +1,9 @@
-import $ from "jquery";
 import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
 import { Viewer, ViewerStartUpMode } from "../../Viewer";
 import { CanvasSlideView } from "./CanvasSlideView";
 
 export class ThumbSlideView extends CanvasSlideView {
-	private doubleClickLock: boolean;
-	private doubleClickTimer;
-
 	constructor(
 		protected _slide: Slide,
 		public obj: any,
@@ -15,33 +11,8 @@ export class ThumbSlideView extends CanvasSlideView {
 	) {
 		super(_slide, obj, scale);
 
-		//
-
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
-			var deleteBtn = $('<button class="delete"><i class="fas fa-times"></i></button>').appendTo(
-				this.obj
-			);
-			deleteBtn.click(() => {
-				this.dispatchEvent(new CustomEvent("delete", { detail: this._slide }));
-				return false;
-			});
-			var cloneBtn = $('<button class="clone"><i class="fas fa-plus"></i></button>').appendTo(
-				this.obj
-			);
-			cloneBtn.click(() => {
-				this.dispatchEvent(new CustomEvent("clone", { detail: this._slide }));
-				return false;
-			});
-			var editBtn = $('<button class="edit"><i class="fas fa-edit"></i></button>').appendTo(
-				this.obj
-			);
-			editBtn.click(() => {
-				this.dispatchEvent(new CustomEvent("edit", { detail: this._slide }));
-				return false;
-			});
-
 			this.obj.on("dblclick.slide", () => {
-				if (this.doubleClickLock) return;
 				this.dispatchEvent(new CustomEvent("edit", { detail: this._slide }));
 				return false;
 			});
@@ -54,34 +25,6 @@ export class ThumbSlideView extends CanvasSlideView {
 				return false;
 			});
 		}
-
-		var durationDiv = $(
-			'<div class="duration"><button class="down">-</button><span>x1</span><button class="up">+</button></div>'
-		).appendTo(this.obj);
-		durationDiv.find("button.up").click((e: any) => {
-			this.lockDoubleClick();
-			this.dispatchDurationRatioChange(this.getAdjustedDurationRatio("up"));
-		});
-		durationDiv.find("button.down").click((e: any) => {
-			this.lockDoubleClick();
-			this.dispatchDurationRatioChange(this.getAdjustedDurationRatio("down"));
-		});
-
-		var joinArrow = $('<div class="joinArrow"></div>').appendTo(this.obj);
-		joinArrow.on("click.slide", (e: any) => {
-			this.dispatchEvent(new CustomEvent("toggleJoining", { detail: this._slide }));
-			e.preventDefault();
-			e.stopImmediatePropagation();
-		});
-
-		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(
-			this.obj
-		);
-		enableCheck.on("click.slide", (e: any) => {
-			this.dispatchEvent(new CustomEvent("toggleDisabled", { detail: this._slide }));
-			e.preventDefault();
-			e.stopImmediatePropagation();
-		});
 
 		//
 
@@ -124,10 +67,6 @@ export class ThumbSlideView extends CanvasSlideView {
 
 	public destroy() {
 		this.obj.stop();
-		this.obj.find("button").remove();
-		this.obj.find("div.duration").remove();
-		this.obj.find("div.joinArrow").remove();
-		this.obj.find("input.enableCheck").off("click.slide").remove();
 		this.obj.off("click.slide");
 		this.obj.off("dblclick.slide");
 		this.obj.off("contextmenu.slide");
@@ -148,7 +87,6 @@ export class ThumbSlideView extends CanvasSlideView {
 			} else {
 				this.obj.removeClass("disabled");
 			}
-			this.obj.find("input.enableCheck").prop("checked", !this._slide.disabled);
 		}
 		if (flag & PropFlags.S_JOIN) {
 			if (this._slide.joining) {
@@ -158,45 +96,10 @@ export class ThumbSlideView extends CanvasSlideView {
 			}
 		}
 		if (flag & PropFlags.S_DURATION) {
-			var durationStr = "";
-			if (this._slide.durationRatio != 1) {
-				durationStr = "x" + this._slide.durationRatio.toString().substr(0, 3);
-			}
-			this.obj.find(".duration > span").text(durationStr);
-
 			if (this.obj.height() > 0) {
 				this.fitToHeight();
 			}
 		}
-	}
-
-	private lockDoubleClick() {
-		if (this.doubleClickTimer) clearTimeout(this.doubleClickTimer);
-		this.doubleClickLock = true;
-		this.doubleClickTimer = setTimeout(() => {
-			this.doubleClickLock = false;
-		}, 100);
-	}
-
-	private getAdjustedDurationRatio(direction: "up" | "down"): number {
-		const currentRatio = this._slide.durationRatio;
-		if (direction === "up") {
-			if (currentRatio >= 9) return currentRatio;
-			if (currentRatio >= 2) return currentRatio + 1;
-			if (currentRatio >= 1) return currentRatio + 0.5;
-			return currentRatio + 0.2;
-		}
-		if (currentRatio <= 0.2) return currentRatio;
-		if (currentRatio > 2) return currentRatio - 1;
-		if (currentRatio > 1) return currentRatio - 0.5;
-		return currentRatio - 0.2;
-	}
-
-	private dispatchDurationRatioChange(ratio: number): void {
-		if (ratio === this._slide.durationRatio) return;
-		this.dispatchEvent(
-			new CustomEvent("setDurationRatio", { detail: { slide: this._slide, ratio } })
-		);
 	}
 
 	// protected replaceSlide(newSlide:Slide) {

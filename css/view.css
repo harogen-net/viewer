@@ -33,14 +33,6 @@
 	display: none;
 }
 
-.slideList .container > .slide button.edit {
-	display: none;
-}
-.slideList .container > .newSlideBtn {
-	display: none;
-}
-
-
 input[type=checkbox] {
 	transform: none;
 	-webkit-transform: scale(2,2);
