@@ -15,6 +15,12 @@ export const ViewerCommands = {
 	deleteSelectedSlide(): void {
 		getViewer()?.commandDeleteSelectedSlide();
 	},
+	deleteContextSlide(): void {
+		getViewer()?.commandDeleteContextSlide();
+	},
+	enableOnlyContextSlide(): void {
+		getViewer()?.commandEnableOnlyContextSlide();
+	},
 	moveSelectedSlideBackward(): void {
 		getViewer()?.commandMoveSelectedSlideBackward();
 	},
@@ -242,12 +248,6 @@ export const ViewerCommands = {
 	},
 	setSelectedLayerOpacity(opacity: number): void {
 		getViewer()?.commandSetSelectedLayerOpacity(opacity);
-	},
-	adjustSelectedImageClip(
-		side: "top" | "right" | "bottom" | "left",
-		delta: number
-	): void {
-		getViewer()?.commandAdjustSelectedImageClip(side, delta);
 	},
 	setSelectedImageClip(top: number, right: number, bottom: number, left: number): void {
 		getViewer()?.commandSetSelectedImageClip(top, right, bottom, left);

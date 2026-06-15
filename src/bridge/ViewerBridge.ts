@@ -15,6 +15,8 @@ export type ViewerBridgeEventMap = {
 	slidesChanged: { slides: readonly Slide[]; selectedIndex: number };
 	/** Selected slide index changed */
 	selectionChanged: { selectedIndex: number };
+	/** Slide list context menu requested */
+	listContextMenuRequested: { kind: "slide" | "list"; top: number; left: number };
 	/** Saved file titles in storage changed */
 	savedFilesChanged: { titles: readonly SlideTitle[] };
 	/** Selected saved file changed */

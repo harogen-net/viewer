@@ -23,6 +23,30 @@ export class EditViewController extends EventDispatcher {
 	private layerDiv: EditLayerViewController;
 	private observedLayer: Layer | null = null;
 
+	private bindLegacyClick(selector: string, handler: (event: JQuery.ClickEvent) => void): void {
+		$(selector).each((_index, element) => {
+			const target = $(element);
+			if (target.attr("data-react-controlled") === "true") return;
+			target.on("click", handler);
+		});
+	}
+
+	private bindLegacyChange(selector: string, handler: (event: JQuery.ChangeEvent) => void): void {
+		$(selector).each((_index, element) => {
+			const target = $(element);
+			if (target.attr("data-react-controlled") === "true") return;
+			target.on("change", handler);
+		});
+	}
+
+	private setLegacyDisabled(selector: string, disabled: boolean): void {
+		$(selector).each((_index, element) => {
+			const target = $(element);
+			if (target.attr("data-react-controlled") === "true") return;
+			target.prop("disabled", disabled);
+		});
+	}
+
 	constructor(public obj: any) {
 		super();
 		this.obj.addClass("slideCanvas");
@@ -288,66 +312,55 @@ export class EditViewController extends EventDispatcher {
 
 		//
 
-		$(".undo").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".undo", () => {
 			HistoryManager.shared.undo();
 		});
-		$(".redo").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".redo", () => {
 			HistoryManager.shared.redo();
 		});
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, () => {
-			$(".undo").prop("disabled", !HistoryManager.shared.canUndo);
-			$(".redo").prop("disabled", !HistoryManager.shared.canRedo);
+			this.setLegacyDisabled(".undo", !HistoryManager.shared.canUndo);
+			this.setLegacyDisabled(".redo", !HistoryManager.shared.canRedo);
 		});
 
 		//
 
-		$(".paste").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".paste", () => {
 			this.slideView.paste();
 		});
-		$(".zoomIn").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".zoomIn", () => {
 			this.zoomInCanvas();
 		});
-		$(".showAll").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".showAll", () => {
 			this.resetCanvasZoom();
 		});
-		$(".zoomOut").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".zoomOut", () => {
 			this.zoomOutCanvas();
 		});
-		$(".slideDownload").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".slideDownload", () => {
 			this.dispatchEvent(new Event("download"));
 		});
 		// Legacy .text button: React-side addTextLayer is now the primary path.
 		// Fallback prompt is kept for standalone (non-React) usage only.
-		$(".text").click((event) => {
-			if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick(".text", () => {
 			const text = prompt("insert text layer:");
 			if (text == null) return;
 			this.addTextLayer(text);
 		});
 
-		$("label[for='cb_imageRef']").click((e) => {
-			if ((e.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick("label[for='cb_imageRef']", () => {
 			$("input#cb_imageRef").prop("checked", !$("input#cb_imageRef").prop("checked"));
 			return false;
 		});
-		$("input.imageRef").on("change", async (e) => {
-			if ((e.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyChange("input.imageRef", async (e) => {
 			const file = (e.target as HTMLInputElement)?.files?.[0];
 			if (!file) return;
 			await this.replaceSelectedImage(file, $("input#cb_imageRef").prop("checked"));
 			//初期化
-			$("input.imageRef").val(null);
+			$(e.currentTarget).val(null);
 		});
 
-		$("#main .close").click((e) => {
-			if ((e.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+		this.bindLegacyClick("#main .close", () => {
 			this.dispatchEvent(new Event("close"));
 		});
 	}
@@ -357,7 +370,6 @@ export class EditViewController extends EventDispatcher {
 	initialize() {
 		this.setSlide(new Slide());
 		// this.slideView.slide = new Slide();
-		// $(".slideCanvas .menu span.name").text("");
 	}
 
 	setMode(mode: ViewerMode): void {
@@ -378,7 +390,6 @@ export class EditViewController extends EventDispatcher {
 
 		//HistoryManager.shared.initialize();
 		this.slideView.slide = newSlide;
-		$(".slideCanvas .menu span.name").text(newSlide.id);
 
 		this.layerDiv.layerViews = this.slideView.layerViews;
 		if (this.slide) {
@@ -1183,34 +1194,6 @@ export class EditViewController extends EventDispatcher {
 					},
 					() => {
 						layer.opacity = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
-	}
-
-	public adjustSelectedImageClip(
-		side: "top" | "right" | "bottom" | "left",
-		delta: number
-	): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer || layer.type != LayerType.IMAGE) return false;
-		const imageLayer = layer as ImageLayer;
-		const from = imageLayer.clipRect.concat();
-		const next = from.concat();
-		const index = side == "top" ? 0 : side == "right" ? 1 : side == "bottom" ? 2 : 3;
-		next[index] = Math.max(0, next[index] + delta);
-		if (next[index] === from[index]) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						imageLayer.clipRect = next;
-					},
-					() => {
-						imageLayer.clipRect = from;
 					}
 				)
 			)

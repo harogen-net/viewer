@@ -215,6 +215,21 @@ CI実行時のレポート収集:
 - 2026-06-15: RuntimeShell の boolean 状態操作（slide join/disabled、rect edit、layer mirror/visible/locked/shared/isText、slideshow mirror/fullscreen、images panel）を Mantine Switch UI へ変更。
 - 確認: `npm run test:usecase`
 - 結果: 23 tests / 23 pass。
+- 2026-06-15: SideControls の clip 増減も `setSelectedImageClip` 経路へ統一し、未使用になった delta 指定の clip command を削除。RuntimeShell の durationRatio 入力下限を Slide model と同じ 0.2 へ揃え、blur/click 適用処理を共通化。
+- 確認: `npm run test:usecase`
+- 結果: 23 tests / 23 pass。
+- 2026-06-15: clip 4辺入力の parse/増減ロジックを `numericInput` の純粋ヘルパーへ共通化し、RuntimeShell / SideControls の重複を削減。React 描画のスライド一覧コンテキストメニューに `ViewerCommands` 経由の click handler を追加し、メニュー項目の実行経路を React 側へ移行。
+- 確認: `npm run test:usecase`
+- 結果: 27 tests / 27 pass。
+- 2026-06-15: SideControls の mirrorH/mirrorV/isText とレイヤー一覧 visible/locked/shared ボタンへ ON 状態 class と `aria-pressed` を追加し、CanvasMenu の rect edit / direction pulldown も bridge/local state に応じた class/aria 属性へ同期。
+- 確認: `npm run test:usecase`
+- 結果: 27 tests / 27 pass。
+- 2026-06-15: MainShell の編集キーボードショートカット判定を `getMainShellKeyboardAction` として単体化し、copy/cut/paste、Undo/Redo、Escape、Delete/Backspace、Arrow nudge の分散 effect を1経路へ集約。
+- 確認: `npm run test:usecase`
+- 結果: 31 tests / 31 pass。
+- 2026-06-15: CanvasMenu の選択スライドID表示を `useViewerSlides` に移し、EditViewController の `span.name` 直接DOM更新を削除。Edit/List controller の legacy click/change/disabled/hide 処理は `data-react-controlled` 要素へバインド・更新しないよう整理。スライド一覧コンテキストメニューの表示位置/show/hide を `listContextMenuRequested` bridge event と React state 管理へ移行。Legacy React re-export の重複も整理。
+- 確認: `npm run test:usecase`
+- 結果: 31 tests / 31 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

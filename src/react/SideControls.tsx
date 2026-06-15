@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerEditLayerState, useViewerEditLayers, useViewerMode } from "../bridge/useViewerBridge";
 import { getLayerListKeyboardAction } from "./layerListKeyboard";
-import { clampNumericValue, getAdjustedNumericValue, getInputStep, getWheelInputDelta } from "./numericInput";
+import {
+    type ClipSide,
+    getAdjustedClipValues,
+    getAdjustedNumericValue,
+    getClipValuesFromInputs,
+    getInputStep,
+    getWheelInputDelta,
+} from "./numericInput";
 
 export function CopyPasteControls() {
 	const { hasSelection } = useViewerEditLayerState();
@@ -163,7 +170,22 @@ export function TextEditControls() {
 }
 
 export function PropertyControls() {
-    const { hasSelection, layerType, x, y, scale, rotation, opacity, clipTop, clipRight, clipBottom, clipLeft } = useViewerEditLayerState();
+    const {
+        hasSelection,
+        layerType,
+        x,
+        y,
+        scale,
+        rotation,
+        opacity,
+        clipTop,
+        clipRight,
+        clipBottom,
+        clipLeft,
+        mirrorH,
+        mirrorV,
+        isText,
+    } = useViewerEditLayerState();
     const { mode } = useViewerMode();
     const canEditLayer = mode === "edit" && hasSelection;
     const isImageLayer = layerType === "image";
@@ -259,49 +281,39 @@ export function PropertyControls() {
 
     const applyClip = () => {
         if (!canEditLayer || !isImageLayer) return;
-        const nextTop = Number(clipTopInput);
-        const nextRight = Number(clipRightInput);
-        const nextBottom = Number(clipBottomInput);
-        const nextLeft = Number(clipLeftInput);
-        if (!isFinite(nextTop) || !isFinite(nextRight) || !isFinite(nextBottom) || !isFinite(nextLeft)) return;
-        ViewerCommands.setSelectedImageClip(nextTop, nextRight, nextBottom, nextLeft);
-    };
-
-    const adjustClip = (side: "top" | "right" | "bottom" | "left", delta: number) => {
-        if (!canEditLayer || !isImageLayer) return;
-        const currentInputs = {
+        const next = getClipValuesFromInputs({
             top: clipTopInput,
             right: clipRightInput,
             bottom: clipBottomInput,
             left: clipLeftInput,
-        };
-        const currentValues = {
-            top: clipTop ?? 0,
-            right: clipRight ?? 0,
-            bottom: clipBottom ?? 0,
-            left: clipLeft ?? 0,
-        };
-        const inputValue = Number(currentInputs[side]);
-        const baseValue = Number.isFinite(inputValue) ? inputValue : currentValues[side];
-        const nextValue = clampNumericValue(baseValue + delta);
-        const actualDelta = nextValue - baseValue;
-        if (actualDelta === 0) return;
+        });
+        if (!next) return;
+        ViewerCommands.setSelectedImageClip(next.top, next.right, next.bottom, next.left);
+    };
 
-        switch (side) {
-            case "top":
-                setClipTopInput(String(nextValue));
-                break;
-            case "right":
-                setClipRightInput(String(nextValue));
-                break;
-            case "bottom":
-                setClipBottomInput(String(nextValue));
-                break;
-            case "left":
-                setClipLeftInput(String(nextValue));
-                break;
-        }
-        ViewerCommands.adjustSelectedImageClip(side, actualDelta);
+    const adjustClip = (side: ClipSide, delta: number) => {
+        if (!canEditLayer || !isImageLayer) return;
+        const next = getAdjustedClipValues(
+            {
+                top: clipTopInput,
+                right: clipRightInput,
+                bottom: clipBottomInput,
+                left: clipLeftInput,
+            },
+            {
+                top: clipTop ?? 0,
+                right: clipRight ?? 0,
+                bottom: clipBottom ?? 0,
+                left: clipLeft ?? 0,
+            },
+            side,
+            delta
+        );
+        setClipTopInput(String(next.top));
+        setClipRightInput(String(next.right));
+        setClipBottomInput(String(next.bottom));
+        setClipLeftInput(String(next.left));
+        ViewerCommands.setSelectedImageClip(next.top, next.right, next.bottom, next.left);
     };
 
     const handleNumericKeyDown = (
@@ -371,17 +383,21 @@ export function PropertyControls() {
                 </dd>
                 <dd>
                     <button
-                        className="mirrorH"
+                        className={`mirrorH${mirrorH ? " on" : ""}`}
                         data-react-controlled="true"
                         data-desc="flip selected image horizontally"
+                        title={mirrorH ? "unflip selected image horizontally" : "flip selected image horizontally"}
+                        aria-pressed={!!mirrorH}
                         disabled={!canEditLayer}
                         onClick={() => ViewerCommands.toggleSelectedLayerMirrorH()}>
                         <i className="fas fa-arrows-alt-h"></i>
                     </button>
                     <button
-                        className="mirrorV"
+                        className={`mirrorV${mirrorV ? " on" : ""}`}
                         data-react-controlled="true"
                         data-desc="flip selected image vertically"
+                        title={mirrorV ? "unflip selected image vertically" : "flip selected image vertically"}
+                        aria-pressed={!!mirrorV}
                         disabled={!canEditLayer}
                         onClick={() => ViewerCommands.toggleSelectedLayerMirrorV()}>
                         <i className="fas fa-arrows-alt-v"></i>
@@ -435,9 +451,11 @@ export function PropertyControls() {
                 </dd>
                 <dd>
                     <button
-                        className="isText"
+                        className={`isText${isText ? " on" : ""}`}
                         data-react-controlled="true"
                         data-desc="this image contains text"
+                        title={isText ? "mark image as non-text" : "mark image as text"}
+                        aria-pressed={!!isText}
                         disabled={!canEditLayer || !isImageLayer}
                         onClick={() => ViewerCommands.toggleSelectedLayerIsText()}>
                         <i className="far fa-image"></i>
@@ -661,6 +679,7 @@ export function LayerControls() {
                         onClick={(e) => handleToggleVisible(layer.index, e)}
                         disabled={!canEditLayers}
                         title={layer.visible ? "hide layer" : "show layer"}
+                        aria-pressed={layer.visible}
                     >
                         <i className={layer.visible ? "fas fa-eye" : "fas fa-eye-slash"}></i>
                     </button>
@@ -670,6 +689,7 @@ export function LayerControls() {
                         onClick={(e) => handleToggleLocked(layer.index, e)}
                         disabled={!canEditLayers}
                         title={layer.locked ? "unlock layer" : "lock layer"}
+                        aria-pressed={layer.locked}
                     >
                         <i className={layer.locked ? "fas fa-lock" : "fas fa-unlock"}></i>
                     </button>
@@ -679,6 +699,7 @@ export function LayerControls() {
                         onClick={(e) => handleToggleShared(layer.index, e)}
                         disabled={!canEditLayers}
                         title={layer.shared ? "unshare layer" : "share layer"}
+                        aria-pressed={layer.shared}
                     >
                         <i className="fas fa-exchange-alt"></i>
                     </button>

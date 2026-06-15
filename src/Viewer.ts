@@ -673,6 +673,14 @@ export class Viewer {
 		);
 	}
 
+	public commandDeleteContextSlide(): void {
+		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
+		const slide = this.listVC.consumeContextTargetSlide();
+		if (!slide) return;
+		this.listVC.selectSlideInstance(slide);
+		this.commandDeleteSelectedSlide();
+	}
+
 	public commandMoveSelectedSlideBackward(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
 		const slide = this.listVC.selectedSlide;
@@ -842,6 +850,14 @@ export class Viewer {
 				});
 			}
 		);
+	}
+
+	public commandEnableOnlyContextSlide(): void {
+		if (!this.ensureAllowed(this.canEdit(), "選択スライドのみ有効化")) return;
+		const slide = this.listVC.consumeContextTargetSlide();
+		if (!slide) return;
+		this.listVC.selectSlideInstance(slide);
+		this.commandEnableOnlySelectedSlide();
 	}
 
 	public commandDeleteDisabledSlides(): void {
@@ -1296,15 +1312,6 @@ export class Viewer {
 	public commandSetSelectedLayerOpacity(opacity: number): void {
 		this.runEditSelectionOperationSilently("透明度変更", () =>
 			this.editVC.setSelectedLayerOpacity(opacity)
-		);
-	}
-
-	public commandAdjustSelectedImageClip(
-		side: "top" | "right" | "bottom" | "left",
-		delta: number
-	): void {
-		this.runEditSelectionOperationSilently("クリップ変更", () =>
-			this.editVC.adjustSelectedImageClip(side, delta)
 		);
 	}
 

@@ -1,15 +1,16 @@
 import { useEffect } from "react";
-import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerEditSelection, useViewerHistory, useViewerMode } from "../bridge/useViewerBridge";
+import { ViewerCommands } from "../bridge/ViewerCommands";
 import { CanvasMenu } from "./CanvasMenu";
 import { ListContextMenus } from "./ListContextMenus";
+import { getMainShellKeyboardAction } from "./mainShellKeyboard";
 import {
-	CopyPasteControls,
-	ImageRefControls,
-	LayerControls,
-	PropertyControls,
-	SwapControls,
-	TextEditControls,
+    CopyPasteControls,
+    ImageRefControls,
+    LayerControls,
+    PropertyControls,
+    SwapControls,
+    TextEditControls,
 } from "./SideControls";
 
 function isTypingTarget(): boolean {
@@ -23,123 +24,53 @@ export function MainShell() {
 	const { hasSelection } = useViewerEditSelection();
 	const { canUndo, canRedo } = useViewerHistory();
 
-	// Keyboard shortcuts: Ctrl/Cmd + X/C/V for cut/copy/paste
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (mode !== "edit") return;
-			if (isTypingTarget()) return;
+			const action = getMainShellKeyboardAction({
+				code: e.code,
+				metaKey: e.metaKey,
+				ctrlKey: e.ctrlKey,
+				shiftKey: e.shiftKey,
+				mode,
+				hasSelection,
+				canUndo,
+				canRedo,
+				isTypingTarget: isTypingTarget(),
+			});
+			if (action.preventDefault) e.preventDefault();
 
-			const isMeta = e.metaKey || e.ctrlKey;
-			if (!isMeta) return;
-
-			switch (e.code) {
-				case "KeyC":
-					if (!hasSelection) return;
-					e.preventDefault();
+			switch (action.type) {
+				case "copy":
 					ViewerCommands.copySelectedLayer();
 					break;
-				case "KeyX":
-					if (!hasSelection) return;
-					e.preventDefault();
+				case "cut":
 					ViewerCommands.cutSelectedLayer();
 					break;
-				case "KeyV":
-					e.preventDefault();
+				case "paste":
 					ViewerCommands.pasteLayer();
 					break;
-			}
-		};
-
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [mode, hasSelection]);
-
-	// Keyboard shortcuts: Ctrl/Cmd + Z for undo, Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y for redo
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (mode !== "edit") return;
-			if (isTypingTarget()) return;
-
-			const isMeta = e.metaKey || e.ctrlKey;
-			if (!isMeta) return;
-
-			switch (e.code) {
-				case "KeyZ":
-					e.preventDefault();
-					if (e.shiftKey) {
-						// Ctrl/Cmd + Shift + Z for redo
-						if (canRedo) ViewerCommands.redo();
-					} else {
-						// Ctrl/Cmd + Z for undo
-						if (canUndo) ViewerCommands.undo();
-					}
+				case "undo":
+					ViewerCommands.undo();
 					break;
-				case "KeyY":
-					// Ctrl/Cmd + Y for redo (Windows convention)
-					if (!e.shiftKey) {
-						e.preventDefault();
-						if (canRedo) ViewerCommands.redo();
-					}
+				case "redo":
+					ViewerCommands.redo();
 					break;
-			}
-		};
-
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [mode, canUndo, canRedo]);
-
-	// Keyboard shortcuts: Escape to exit edit mode (enter select mode)
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (isTypingTarget()) return;
-
-			if (e.code === "Escape" && mode === "edit") {
-				e.preventDefault();
-				ViewerCommands.enterSelectMode();
-			}
-		};
-
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [mode]);
-
-	// Keyboard shortcuts: Delete / Backspace to remove selected layer
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (mode !== "edit" || !hasSelection) return;
-			if (isTypingTarget()) return;
-
-			if (e.code === "Delete" || e.code === "Backspace") {
-				e.preventDefault();
-				ViewerCommands.removeSelectedLayer();
-			}
-		};
-
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [mode, hasSelection]);
-
-	// Keyboard shortcuts: Arrow keys to nudge selected layer
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (mode !== "edit" || !hasSelection) return;
-			if (isTypingTarget()) return;
-
-			switch (e.code) {
-				case "ArrowLeft":
-					e.preventDefault();
+				case "enterSelectMode":
+					ViewerCommands.enterSelectMode();
+					break;
+				case "removeSelectedLayer":
+					ViewerCommands.removeSelectedLayer();
+					break;
+				case "nudgeLeft":
 					ViewerCommands.nudgeSelectedLayerLeft();
 					break;
-				case "ArrowRight":
-					e.preventDefault();
+				case "nudgeRight":
 					ViewerCommands.nudgeSelectedLayerRight();
 					break;
-				case "ArrowUp":
-					e.preventDefault();
+				case "nudgeUp":
 					ViewerCommands.nudgeSelectedLayerUp();
 					break;
-				case "ArrowDown":
-					e.preventDefault();
+				case "nudgeDown":
 					ViewerCommands.nudgeSelectedLayerDown();
 					break;
 			}
@@ -147,7 +78,7 @@ export function MainShell() {
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [mode, hasSelection]);
+	}, [mode, hasSelection, canUndo, canRedo]);
 	return (
 		<>
 			<div className="canvas">

@@ -21,7 +21,14 @@ import {
 	setSaveFormat,
 } from "../runtime/reactDomRegistry";
 import { getLayerListKeyboardAction } from "./layerListKeyboard";
-import { getAdjustedNumericValue, getInputStep, getWheelInputDelta } from "./numericInput";
+import {
+	type ClipSide,
+	getAdjustedClipValues,
+	getAdjustedNumericValue,
+	getClipValuesFromInputs,
+	getInputStep,
+	getWheelInputDelta,
+} from "./numericInput";
 import { getSlideListKeyboardAction } from "./slideListKeyboard";
 
 const durationOptions = [
@@ -52,6 +59,9 @@ const intervalOptions = [
 	{ value: "14000", label: "14000" },
 	{ value: "15000", label: "15000" },
 ];
+
+const SLIDE_DURATION_RATIO_MIN = 0.2;
+const SLIDE_DURATION_RATIO_MAX = 10;
 
 type RuntimeShellProps = {
 	mode: AppRuntimeMode;
@@ -394,27 +404,34 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const applyClip = () => {
 		if (!canEditSelectedLayer || !isImageLayer) return;
-		const top = Number(clipTopInput);
-		const right = Number(clipRightInput);
-		const bottom = Number(clipBottomInput);
-		const left = Number(clipLeftInput);
-		if (!isFinite(top) || !isFinite(right) || !isFinite(bottom) || !isFinite(left)) return;
-		ViewerCommands.setSelectedImageClip(top, right, bottom, left);
+		const next = getClipValuesFromInputs({
+			top: clipTopInput,
+			right: clipRightInput,
+			bottom: clipBottomInput,
+			left: clipLeftInput,
+		});
+		if (!next) return;
+		ViewerCommands.setSelectedImageClip(next.top, next.right, next.bottom, next.left);
 	};
 
-	const adjustClip = (side: "top" | "right" | "bottom" | "left", delta: number) => {
+	const adjustClip = (side: ClipSide, delta: number) => {
 		if (!canEditSelectedLayer || !isImageLayer) return;
-		const currentTop = Number(clipTopInput);
-		const currentRight = Number(clipRightInput);
-		const currentBottom = Number(clipBottomInput);
-		const currentLeft = Number(clipLeftInput);
-		const next = {
-			top: Number.isFinite(currentTop) ? currentTop : editLayerState.clipTop ?? 0,
-			right: Number.isFinite(currentRight) ? currentRight : editLayerState.clipRight ?? 0,
-			bottom: Number.isFinite(currentBottom) ? currentBottom : editLayerState.clipBottom ?? 0,
-			left: Number.isFinite(currentLeft) ? currentLeft : editLayerState.clipLeft ?? 0,
-		};
-		next[side] = getAdjustedNumericValue(String(next[side]), next[side], delta, { min: 0 });
+		const next = getAdjustedClipValues(
+			{
+				top: clipTopInput,
+				right: clipRightInput,
+				bottom: clipBottomInput,
+				left: clipLeftInput,
+			},
+			{
+				top: editLayerState.clipTop ?? 0,
+				right: editLayerState.clipRight ?? 0,
+				bottom: editLayerState.clipBottom ?? 0,
+				left: editLayerState.clipLeft ?? 0,
+			},
+			side,
+			delta
+		);
 		setClipTopInput(String(next.top));
 		setClipRightInput(String(next.right));
 		setClipBottomInput(String(next.bottom));
@@ -536,9 +553,21 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const adjustDurationRatio = (delta: number) => {
 		if (!gate.canEdit || !selectedRawSlide) return;
 		const nextRatio = getAdjustedNumericValue(durationRatioInput, selectedRawSlide.durationRatio, delta, {
-			min: 0.1,
-			max: 10,
+			min: SLIDE_DURATION_RATIO_MIN,
+			max: SLIDE_DURATION_RATIO_MAX,
 		});
+		setDurationRatioInput(String(nextRatio));
+		ViewerCommands.setSelectedSlideDurationRatio(nextRatio);
+	};
+
+	const applyDurationRatio = () => {
+		if (!gate.canEdit || !selectedRawSlide) return;
+		const ratio = Number(durationRatioInput);
+		if (!isFinite(ratio) || ratio <= 0) return;
+		const nextRatio = Math.min(
+			SLIDE_DURATION_RATIO_MAX,
+			Math.max(SLIDE_DURATION_RATIO_MIN, ratio)
+		);
 		setDurationRatioInput(String(nextRatio));
 		ViewerCommands.setSelectedSlideDurationRatio(nextRatio);
 	};
@@ -807,15 +836,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									</Text>
 									<input
 										type="number"
-										min="0.1"
-										max="10"
+										min={SLIDE_DURATION_RATIO_MIN}
+										max={SLIDE_DURATION_RATIO_MAX}
 										step="0.1"
 										value={durationRatioInput}
 										onChange={(e) => setDurationRatioInput(e.target.value)}
-										onBlur={() => {
-											const r = Number(durationRatioInput);
-											if (isFinite(r) && r > 0) ViewerCommands.setSelectedSlideDurationRatio(r);
-										}}
+										onBlur={applyDurationRatio}
 										onKeyDown={(e) => handleNumericKeyDown(e, adjustDurationRatio, 0.1)}
 										onWheel={(e) => handleNumericWheel(e, adjustDurationRatio, 0.1)}
 										style={{ width: "100%" }}
@@ -823,10 +849,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									<Button
 										size="xs"
 										variant="default"
-										onClick={() => {
-											const r = Number(durationRatioInput);
-											if (isFinite(r) && r > 0) ViewerCommands.setSelectedSlideDurationRatio(r);
-										}}>
+										onClick={applyDurationRatio}>
 										Set Time×
 									</Button>
 								</Group>

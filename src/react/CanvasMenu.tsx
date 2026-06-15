@@ -5,16 +5,20 @@ import {
     useViewerEditSelection,
     useViewerHistory,
     useViewerMode,
+    useViewerSlides,
 } from "../bridge/useViewerBridge";
 
 export function CanvasMenu() {
 	const { canUndo, canRedo } = useViewerHistory();
 	const { mode } = useViewerMode();
 	const { hasSelection } = useViewerEditSelection();
+	const { slides, selectedIndex } = useViewerSlides();
 	const editCanvasState = useViewerEditCanvasState();
 	const [directionOpen, setDirectionOpen] = useState(false);
 	const isEditMode = mode === "edit";
 	const canEditSelection = isEditMode && hasSelection;
+	const selectedSlide = selectedIndex >= 0 ? slides[selectedIndex] : null;
+	const selectedSlideLabel = selectedSlide ? String(selectedSlide.id) : "";
 
 	useEffect(() => {
 		if (!canEditSelection) setDirectionOpen(false);
@@ -119,10 +123,12 @@ export function CanvasMenu() {
 				</button>
 				<div className="pulldown">
 					<button
-						className="pulldownOpener toAnyWhere"
+						className={`pulldownOpener toAnyWhere${directionOpen ? " on" : ""}`}
 						data-target="direction"
 						data-desc="move selected layer to..."
 						data-react-controlled="true"
+						aria-controls="direction"
+						aria-expanded={directionOpen}
 						disabled={!canEditSelection}
 						onClick={() => setDirectionOpen((v) => !v)}>
 						<i className="fas fa-arrows-alt"></i>
@@ -206,7 +212,7 @@ export function CanvasMenu() {
 			</div>
 			<div>
 				<button
-					className="same"
+					className={`same${editCanvasState.rectEdit ? " on" : ""}`}
 					data-react-controlled="true"
 					data-desc="toggle rect edit"
 					aria-pressed={editCanvasState.rectEdit}
@@ -225,7 +231,7 @@ export function CanvasMenu() {
 				</button>
 			</div>
 			<div>
-				<span className="name">[スライド名]</span>
+				<span className="name">{selectedSlideLabel}</span>
 			</div>
 			<button
 				className="close"

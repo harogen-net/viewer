@@ -91,22 +91,20 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			});
 
 			this.listContextMenu = $("#listContextMenu");
-			this.listContextMenu.hide();
+			if (this.listContextMenu.attr("data-react-controlled") !== "true") {
+				this.listContextMenu.hide();
+			}
 
-			this.listContextMenu.find(".unjoin").click((event) => {
-				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+			this.bindLegacyClick(this.listContextMenu, ".unjoin", () => {
 				this.dispatchEvent(new Event("requestUnjoinAllSlides"));
 			});
-			this.listContextMenu.find(".delete").click((event) => {
-				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+			this.bindLegacyClick(this.listContextMenu, ".delete", () => {
 				this.dispatchEvent(new Event("requestDeleteDisabledSlides"));
 			});
-			this.listContextMenu.find(".enable").click((event) => {
-				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+			this.bindLegacyClick(this.listContextMenu, ".enable", () => {
 				this.dispatchEvent(new Event("requestEnableAllSlides"));
 			});
-			this.listContextMenu.find(".disable").click((event) => {
-				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+			this.bindLegacyClick(this.listContextMenu, ".disable", () => {
 				this.dispatchEvent(new Event("requestDisableAllSlides"));
 			});
 			this.obj.on("contextmenu.slide", (e) => {
@@ -120,15 +118,15 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			});
 
 			this.slideContextMenu = $("#slideContextMenu");
-			this.slideContextMenu.hide();
-			this.slideContextMenu.find(".delete").click((event) => {
-				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+			if (this.slideContextMenu.attr("data-react-controlled") !== "true") {
+				this.slideContextMenu.hide();
+			}
+			this.bindLegacyClick(this.slideContextMenu, ".delete", () => {
 				if (this.contextTargetSlide == null) return;
 				this.dispatchEvent(new CustomEvent("requestDeleteSlide", { detail: this.contextTargetSlide }));
 				this.contextTargetSlide = null;
 			});
-			this.slideContextMenu.find(".enable").click((event) => {
-				if ((event.currentTarget as HTMLElement)?.dataset?.reactControlled === "true") return;
+			this.bindLegacyClick(this.slideContextMenu, ".enable", () => {
 				if (this.contextTargetSlide == null) return;
 				this.dispatchEvent(new CustomEvent("requestEnableOnlySlide", { detail: this.contextTargetSlide }));
 				this.contextTargetSlide = null;
@@ -149,6 +147,14 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.selectNextSlide();
 			});
 		}
+	}
+
+	private bindLegacyClick(target: any, selector: string, handler: (event: JQuery.ClickEvent) => void): void {
+		target.find(selector).each((_index, element) => {
+			const button = $(element);
+			if (button.attr("data-react-controlled") === "true") return;
+			button.on("click", handler);
+		});
 	}
 
 	setMode(mode: ViewerMode): void {
@@ -244,6 +250,12 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.selectSlide(slide);
 	}
 
+	public consumeContextTargetSlide(): Slide | null {
+		const slide = this.contextTargetSlide;
+		this.contextTargetSlide = null;
+		return slide;
+	}
+
 	public selectPreviousSlide(): void {
 		this.selectSlideOffset(-1);
 	}
@@ -312,6 +324,14 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		var targetContextMenu: any =
 			ce.detail.slide != undefined ? this.slideContextMenu : this.listContextMenu;
 		this.contextTargetSlide = ce.detail.slide || null;
+		if (targetContextMenu.attr("data-react-controlled") === "true") {
+			ViewerBridge.emit("listContextMenuRequested", {
+				kind: ce.detail.slide != undefined ? "slide" : "list",
+				top: ce.detail.y - offset.top,
+				left: ce.detail.x - offset.left,
+			});
+			return;
+		}
 
 		targetContextMenu.css({ top: ce.detail.y - offset.top, left: ce.detail.x - offset.left });
 		targetContextMenu.show();

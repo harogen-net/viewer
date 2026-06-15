@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
     clampNumericValue,
+    getAdjustedClipValues,
     getAdjustedNumericValue,
+    getClipValuesFromInputs,
     getInputStep,
     getWheelInputDelta,
 } from "../../src/react/numericInput";
@@ -27,6 +29,44 @@ test("getAdjustedNumericValue falls back when input is not numeric", () => {
 test("getAdjustedNumericValue applies clamp options after adjustment", () => {
 	assert.equal(getAdjustedNumericValue("0.9", 1, 0.2, { min: 0, max: 1 }), 1);
 	assert.equal(getAdjustedNumericValue("0.1", 1, -0.2, { min: 0, max: 1 }), 0);
+});
+
+test("getClipValuesFromInputs parses all four clip sides", () => {
+	assert.deepEqual(
+		getClipValuesFromInputs({ top: "1", right: "2.5", bottom: "", left: " 4 " }),
+		{ top: 1, right: 2.5, bottom: 0, left: 4 }
+	);
+});
+
+test("getClipValuesFromInputs rejects invalid clip sides", () => {
+	assert.equal(
+		getClipValuesFromInputs({ top: "1", right: "nope", bottom: "3", left: "4" }),
+		null
+	);
+});
+
+test("getAdjustedClipValues adjusts one side and preserves parsed inputs", () => {
+	assert.deepEqual(
+		getAdjustedClipValues(
+			{ top: "1", right: "2", bottom: "3", left: "4" },
+			{ top: 10, right: 20, bottom: 30, left: 40 },
+			"right",
+			5
+		),
+		{ top: 1, right: 7, bottom: 3, left: 4 }
+	);
+});
+
+test("getAdjustedClipValues falls back for invalid inputs and clamps adjusted side", () => {
+	assert.deepEqual(
+		getAdjustedClipValues(
+			{ top: "", right: "abc", bottom: "6", left: " " },
+			{ top: 10, right: 20, bottom: 30, left: 40 },
+			"left",
+			-50
+		),
+		{ top: 10, right: 20, bottom: 6, left: 0 }
+	);
 });
 
 test("getInputStep supports shift and alt modifiers", () => {

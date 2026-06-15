@@ -41,6 +41,10 @@ export function useViewerSlides(): SlidesState {
 	return useBridgeEvent("slidesChanged", { slides: [], selectedIndex: -1 });
 }
 
+export function useViewerListContextMenu(): { kind: "slide" | "list"; top: number; left: number } | null {
+	return useBridgeEvent("listContextMenuRequested", null);
+}
+
 // ─── Storage ──────────────────────────────────────────────────────────────────
 
 type StorageState = {
