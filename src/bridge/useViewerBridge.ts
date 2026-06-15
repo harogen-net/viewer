@@ -93,6 +93,10 @@ export function useViewerSlideshowSettings(): {
 	});
 }
 
+export function useViewerSlideshowPlayback(): { isRun: boolean; isPause: boolean } {
+	return useBridgeEvent("slideshowPlaybackChanged", { isRun: false, isPause: false });
+}
+
 // ─── Modified flag ────────────────────────────────────────────────────────────
 
 export function useViewerModified(): { modified: boolean } {

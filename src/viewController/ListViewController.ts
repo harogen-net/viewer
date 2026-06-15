@@ -96,6 +96,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this._mode = mode;
 		switch (mode) {
 			case ViewerMode.SELECT:
+			case ViewerMode.SLIDESHOW:
 				this._slideViews.forEach((slideView) => {
 					slideView.fitToHeight();
 				});

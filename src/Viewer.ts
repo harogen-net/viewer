@@ -56,6 +56,7 @@ export class Viewer {
 	private slideShowFullscreen = false;
 	private slideShowMirrorH = false;
 	private slideShowMirrorV = false;
+	private modeBeforeSlideshow: ViewerMode | null = null;
 
 	private viewerDocument: ViewerDocument;
 	private _isDocumentModified = false;
@@ -285,6 +286,21 @@ export class Viewer {
 		this.slideShowVC.run(startIndex);
 	}
 
+	private updateSlideshowPlaybackState(isRun: boolean, isPause: boolean): void {
+		ViewerBridge.emit("slideshowPlaybackChanged", { isRun, isPause });
+		if (isRun) {
+			if (this._mode !== ViewerMode.SLIDESHOW) {
+				this.modeBeforeSlideshow = this._mode ?? ViewerMode.SELECT;
+				this.setMode(ViewerMode.SLIDESHOW);
+			}
+			return;
+		}
+		if (this._mode === ViewerMode.SLIDESHOW) {
+			this.setMode(this.modeBeforeSlideshow ?? ViewerMode.SELECT);
+		}
+		this.modeBeforeSlideshow = null;
+	}
+
 	private setSavedFileSelection(fileId: string | null): void {
 		const nextId = fileId == null || fileId === "-1" ? null : String(fileId);
 		this.selectedSavedFileId = nextId;
@@ -435,6 +451,12 @@ export class Viewer {
 				this.commandSetMirrorV(detail.mirrorV);
 			}
 		});
+		this.slideShowVC.addEventListener("playbackChanged", (e: CustomEvent) => {
+			this.updateSlideshowPlaybackState(
+				Boolean(e.detail?.isRun),
+				Boolean(e.detail?.isPause)
+			);
+		});
 		this.initializeDocumentStorage();
 		this.initializeEditModeFeatures(startUpMode);
 	}
@@ -467,6 +489,7 @@ export class Viewer {
 	}
 
 	private applySelectMode(): void {
+		$("body").removeClass("slideShow");
 		this.obj.addClass("select");
 		this.obj.removeClass("edit");
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
@@ -475,6 +498,7 @@ export class Viewer {
 	}
 
 	private applyEditMode(): void {
+		$("body").removeClass("slideShow");
 		this.obj.removeClass("select");
 		this.obj.addClass("edit");
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
@@ -544,7 +568,12 @@ export class Viewer {
 	}
 
 	public setMode(mode: ViewerMode) {
-		if (mode == this._mode) return;
+		if (mode == this._mode) {
+			if (mode !== ViewerMode.SLIDESHOW) {
+				$("body").removeClass("slideShow");
+			}
+			return;
+		}
 		this._mode = mode;
 
 		switch (this._mode) {
@@ -1096,6 +1125,22 @@ export class Viewer {
 
 	public commandStartSlideshow(): void {
 		this.startSlideShowFromSelection();
+	}
+
+	public commandStopSlideshow(): void {
+		this.slideShowVC.close();
+	}
+
+	public commandToggleSlideshowPause(): void {
+		this.slideShowVC.togglePause();
+	}
+
+	public commandShowPreviousSlide(): void {
+		this.slideShowVC.showPrevious();
+	}
+
+	public commandShowNextSlide(): void {
+		this.slideShowVC.showNext();
 	}
 
 	public commandUndo(): void {

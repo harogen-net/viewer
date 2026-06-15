@@ -38,6 +38,8 @@ export type ViewerBridgeEventMap = {
 		mirrorH: boolean;
 		mirrorV: boolean;
 	};
+	/** Slideshow playback state changed */
+	slideshowPlaybackChanged: { isRun: boolean; isPause: boolean };
 	/** Document modified status changed */
 	modifiedChanged: { modified: boolean };
 	/** Viewer mode changed */

@@ -138,6 +138,18 @@ export const ViewerCommands = {
 	startSlideshow(): void {
 		getViewer()?.commandStartSlideshow();
 	},
+	stopSlideshow(): void {
+		getViewer()?.commandStopSlideshow();
+	},
+	toggleSlideshowPause(): void {
+		getViewer()?.commandToggleSlideshowPause();
+	},
+	showPreviousSlide(): void {
+		getViewer()?.commandShowPreviousSlide();
+	},
+	showNextSlide(): void {
+		getViewer()?.commandShowNextSlide();
+	},
 	undo(): void {
 		getViewer()?.commandUndo();
 	},

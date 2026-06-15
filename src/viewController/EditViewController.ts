@@ -52,6 +52,7 @@ export class EditViewController extends EventDispatcher {
 	setMode(mode: ViewerMode): void {
 		switch (mode) {
 			case ViewerMode.SELECT:
+			case ViewerMode.SLIDESHOW:
 				this.slideView.isActive = false;
 				break;
 			case ViewerMode.EDIT:

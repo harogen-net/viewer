@@ -293,6 +293,9 @@ CI実行時のレポート収集:
 - 2026-06-15: 未参照のReact `Legacy*` alias/exportファイルを削除し、paste/transform paste の可否を `EditableSlideView` 内部状態から `editLayerStateChanged` bridge eventへ公開。React `CanvasMenu` / `RuntimeShell` / `CopyPasteControls` / keyboard handlerはbridge stateで貼り付け可否を判定し、旧 `.paste` DOM disabled同期を削除。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
+- 2026-06-15: `SlideShowViewController` が生成していた close/fullscreen/mirror/prev/next の旧DOMボタンを削除し、再生状態を `slideshowPlaybackChanged` bridge eventでReactへ公開。スライドショー中は `RuntimeShell` のReact overlayから停止/前後移動/pause/fullscreen/mirrorを `ViewerCommands` 経由で操作する形へ移行。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

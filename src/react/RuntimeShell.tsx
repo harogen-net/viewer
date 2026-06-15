@@ -13,6 +13,7 @@ import {
     useViewerSavedFileSelection,
     useViewerSharedLayerRemovalRequest,
     useViewerSlides,
+    useViewerSlideshowPlayback,
     useViewerSlideshowSettings,
     useViewerSpreadLayerRequest,
     useViewerStorage,
@@ -102,6 +103,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { titles } = useViewerStorage();
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();
+	const slideShowPlayback = useViewerSlideshowPlayback();
 	const requestedImageDelete = useViewerImageDeleteRequest();
 	const requestedSharedLayerRemoval = useViewerSharedLayerRemovalRequest();
 	const requestedSpreadLayer = useViewerSpreadLayerRequest();
@@ -906,6 +908,58 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const posStyle: React.CSSProperties = pos
 		? { left: pos.x, top: pos.y, right: "auto" }
 		: { right: 12, top: 12 };
+
+	if (viewerMode === "slideshow") {
+		return (
+			<Paper
+				shadow="md"
+				p="xs"
+				radius="md"
+				withBorder
+				style={{
+					position: "fixed",
+					top: 12,
+					left: "50%",
+					transform: "translateX(-50%)",
+					zIndex: 2147483647,
+					background: "rgba(255, 255, 255, 0.9)",
+					backdropFilter: "blur(2px)",
+				}}>
+				<Group gap={6} wrap="nowrap">
+					<Button size="xs" color="red" variant="light" onClick={() => ViewerCommands.stopSlideshow()}>
+						Exit
+					</Button>
+					<Button size="xs" variant="default" onClick={() => ViewerCommands.showPreviousSlide()}>
+						Back
+					</Button>
+					<Button size="xs" variant="default" onClick={() => ViewerCommands.toggleSlideshowPause()}>
+						{slideShowPlayback.isPause ? "Play" : "Pause"}
+					</Button>
+					<Button size="xs" variant="default" onClick={() => ViewerCommands.showNextSlide()}>
+						Next
+					</Button>
+					<Switch
+						size="xs"
+						label="Full"
+						checked={slideShowSettings.fullscreen}
+						onChange={(e) => ViewerCommands.setFullscreen(e.currentTarget.checked)}
+					/>
+					<Switch
+						size="xs"
+						label="H"
+						checked={slideShowSettings.mirrorH}
+						onChange={(e) => ViewerCommands.setMirrorH(e.currentTarget.checked)}
+					/>
+					<Switch
+						size="xs"
+						label="V"
+						checked={slideShowSettings.mirrorV}
+						onChange={(e) => ViewerCommands.setMirrorV(e.currentTarget.checked)}
+					/>
+				</Group>
+			</Paper>
+		);
+	}
 
 	return (
 		<>

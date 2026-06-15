@@ -59,55 +59,8 @@ export class SlideShowViewController extends EventDispatcher {
 
 		this.slideContainer = $('<div class="slideContainer" />').appendTo(obj);
 		this.slideContainer.on("mousedown", () => {
-			if (!this._isRun) return;
-			if (!this._isPause) {
-				this.pause();
-			} else {
-				this.resume();
-			}
+			this.togglePause();
 			return false;
-		});
-
-		var closeBtn = $('<button class="close"><i class="fas fa-times"></i></button>').appendTo(obj);
-		closeBtn.click(() => {
-			//this.stop();
-			this.intialize();
-		});
-		var fullScreenBtn = $(
-			'<button class="fullScreen"><i class="fas fa-expand"></i></button>'
-		).appendTo(obj);
-		fullScreenBtn.click(() => {
-			this.fullscreen = !this._fullscreen;
-			this.dispatchSettingsChanged({ fullscreen: this._fullscreen });
-		});
-		var mirrorHBtn = $(
-			'<button class="mirrorH"><i class="fas fa-arrows-alt-h"></i></button>'
-		).appendTo(obj);
-		mirrorHBtn.click(() => {
-			this.mirrorH = !this._mirrorH;
-			this.dispatchSettingsChanged({ mirrorH: this._mirrorH });
-		});
-		var mirrorVBtn = $(
-			'<button class="mirrorV"><i class="fas fa-arrows-alt-v"></i></button>'
-		).appendTo(obj);
-		mirrorVBtn.click(() => {
-			this.mirrorV = !this._mirrorV;
-			this.dispatchSettingsChanged({ mirrorV: this._mirrorV });
-		});
-		var prevBtn = $('<button class="prev"><i class="fas fa-arrow-left"></i></button>').appendTo(
-			obj
-		);
-		prevBtn.click(() => {
-			clearInterval(this.timer);
-			this.index -= -2;
-			this.slideShowFunc();
-		});
-		var nextBtn = $('<button class="next"><i class="fas fa-arrow-right"></i></button>').appendTo(
-			obj
-		);
-		nextBtn.click(() => {
-			clearInterval(this.timer);
-			this.slideShowFunc();
 		});
 	}
 
@@ -221,6 +174,7 @@ export class SlideShowViewController extends EventDispatcher {
 		this.history = [];
 
 		this.stopCursorAutoHide();
+		this.dispatchPlaybackChanged();
 	}
 
 	public run(initIndex: number = 0): void {
@@ -257,6 +211,7 @@ export class SlideShowViewController extends EventDispatcher {
 				}
 			});
 			this.startCursorAutoHide();
+			this.dispatchPlaybackChanged();
 			return;
 		}
 
@@ -272,6 +227,7 @@ export class SlideShowViewController extends EventDispatcher {
 		}, 1000);
 
 		this.startCursorAutoHide();
+		this.dispatchPlaybackChanged();
 	}
 
 	public stop(): void {
@@ -301,6 +257,7 @@ export class SlideShowViewController extends EventDispatcher {
 		});
 
 		this.stopCursorAutoHide();
+		this.dispatchPlaybackChanged();
 	}
 
 	public pause(): void {
@@ -316,6 +273,7 @@ export class SlideShowViewController extends EventDispatcher {
 		//console.log("slideDuration : " + this.slideDuration + "ms");
 		//console.log("elasped : " + this.elapsed + "ms");
 		this.stopCursorAutoHide();
+		this.dispatchPlaybackChanged();
 	}
 
 	public resume(): void {
@@ -337,6 +295,34 @@ export class SlideShowViewController extends EventDispatcher {
 		//note : 同一スライド上で2回以上ポーズをすると、経過時刻がおかしくなりリジュームが正常に動作しない。
 		//		とはいえリジューム後すぐに次のスライドが始まるだけなので現状実害はない
 		this.startCursorAutoHide();
+		this.dispatchPlaybackChanged();
+	}
+
+	public close(): void {
+		this.intialize();
+	}
+
+	public togglePause(): void {
+		if (!this._isRun) return;
+		if (this._isPause) {
+			this.resume();
+			return;
+		}
+		this.pause();
+	}
+
+	public showPrevious(): void {
+		if (!this._isRun || this.data.length <= 1) return;
+		clearInterval(this.timer);
+		this.index -= 2;
+		if (this.index < 0) this.index += this.data.length;
+		this.slideShowFunc();
+	}
+
+	public showNext(): void {
+		if (!this._isRun || this.data.length <= 1) return;
+		clearInterval(this.timer);
+		this.slideShowFunc();
 	}
 
 	//
@@ -449,6 +435,14 @@ export class SlideShowViewController extends EventDispatcher {
 		detail: Partial<{ fullscreen: boolean; mirrorH: boolean; mirrorV: boolean }>
 	) {
 		this.dispatchEvent(new CustomEvent("settingsChanged", { detail }));
+	}
+
+	private dispatchPlaybackChanged() {
+		this.dispatchEvent(
+			new CustomEvent("playbackChanged", {
+				detail: { isRun: this._isRun, isPause: this._isPause },
+			})
+		);
 	}
 
 	private requestFullscreen() {
