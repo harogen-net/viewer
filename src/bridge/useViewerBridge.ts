@@ -45,6 +45,22 @@ export function useViewerListContextMenu(): { kind: "slide" | "list"; top: numbe
 	return useBridgeEvent("listContextMenuRequested", null);
 }
 
+export function useViewerImageDeleteRequest(): { imageId: string; name: string } | null {
+	return useBridgeEvent("imageDeleteRequested", null);
+}
+
+export function useViewerSharedLayerRemovalRequest(): { layerName: string } | null {
+	return useBridgeEvent("sharedLayerRemovalRequested", null);
+}
+
+export function useViewerSpreadLayerRequest(): { layerName: string } | null {
+	return useBridgeEvent("spreadLayerRequested", null);
+}
+
+export function useViewerTextLayerInputRequest(): { open: boolean } | null {
+	return useBridgeEvent("textLayerInputRequested", null);
+}
+
 // ─── Storage ──────────────────────────────────────────────────────────────────
 
 type StorageState = {

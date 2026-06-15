@@ -431,6 +431,12 @@ export class Viewer {
 		});
 
 		this.editVC.addEventListener("download", () => this.commandDownloadSelectedSlide());
+		this.editVC.addEventListener("requestSpreadSelectedLayer", () =>
+			this.commandSpreadSelectedLayer()
+		);
+		this.editVC.addEventListener("requestTextLayerInput", () =>
+			this.commandRequestTextLayerInput()
+		);
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
@@ -984,10 +990,10 @@ export class Viewer {
 		}
 	}
 
-	public commandSaveDocument(): void {
+	public commandSaveDocument(override?: boolean): void {
 		if (!this.ensureAllowed(this.canSave(), "保存")) return;
 		if (this.listVC.slides.length == 0) return;
-		const isOverride = this.shouldOverrideSave();
+		const isOverride = override ?? this.shouldOverrideSave();
 		this.handleStorageResult(this.documentStorage.saveResult(this.viewerDocument, isOverride));
 	}
 
@@ -1049,9 +1055,9 @@ export class Viewer {
 		this.setSavedFileSelection(String(titles[nextIndex].id));
 	}
 
-	public commandOpenImportDialog(): void {
+	public commandOpenImportDialog(confirmed = false): void {
 		if (!this.ensureAllowed(this.canImport(), "読み込み")) return;
-		if (!this.canProceedWithDiscard("load slides. Are you sure?")) return;
+		if (!confirmed && !this.canProceedWithDiscard("load slides. Are you sure?")) return;
 
 		if (!this.importInput) {
 			const input = document.createElement("input");
@@ -1074,6 +1080,10 @@ export class Viewer {
 
 	public commandExportImages(): void {
 		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
+		if (this.viewerDocument.disabled) {
+			showNotice("有効なスライドがありません。");
+			return;
+		}
 		this.viewerDocument.downloadImage();
 	}
 
@@ -1159,6 +1169,16 @@ export class Viewer {
 
 	public commandSpreadSelectedLayer(confirmed = false): void {
 		if (!this.canRunEditOperations("全スライド展開")) return;
+		const request = this.editVC.getSelectedLayerRemovalRequest();
+		if (!request) {
+			showNotice("レイヤーを選択してください。");
+			this.emitEditSelectionState();
+			return;
+		}
+		if (!confirmed && ViewerBridge.hasListeners("spreadLayerRequested")) {
+			ViewerBridge.emit("spreadLayerRequested", { layerName: request.layerName });
+			return;
+		}
 		if (!confirmed && !window.confirm("spread layer to all slides. are you sure?")) return;
 		const ok = this.editVC.spreadSelectedLayer();
 		if (!ok) {
@@ -1238,6 +1258,17 @@ export class Viewer {
 		});
 	}
 
+	public commandRequestTextLayerInput(): void {
+		if (!this.canRunEditOperations("テキストレイヤー追加")) return;
+		if (ViewerBridge.hasListeners("textLayerInputRequested")) {
+			ViewerBridge.emit("textLayerInputRequested", { open: true });
+			return;
+		}
+		const text = prompt("insert text layer:");
+		if (text == null) return;
+		this.commandAddTextLayer(text);
+	}
+
 	public commandCopySelectedLayerTransform(): void {
 		this.runEditSelectionOperation("変形コピー", () => this.editVC.copySelectedLayerTransform());
 	}
@@ -1246,8 +1277,26 @@ export class Viewer {
 		this.runEditSelectionOperation("変形貼り付け", () => this.editVC.pasteLayerTransform());
 	}
 
-	public commandRemoveSelectedLayer(): void {
-		this.runEditSelectionOperation("レイヤー削除", () => this.editVC.removeSelectedLayer());
+	public commandRemoveSelectedLayer(confirmedSharedRemoval = false): void {
+		if (!this.canRunEditOperations("レイヤー削除")) {
+			return;
+		}
+		const request = this.editVC.getSelectedLayerRemovalRequest();
+		if (!request) {
+			showNotice("レイヤーを選択してください。");
+			this.emitEditSelectionState();
+			return;
+		}
+		if (
+			request.shared &&
+			!confirmedSharedRemoval &&
+			ViewerBridge.hasListeners("sharedLayerRemovalRequested")
+		) {
+			ViewerBridge.emit("sharedLayerRemovalRequested", { layerName: request.layerName });
+			return;
+		}
+		this.editVC.removeSelectedLayer(confirmedSharedRemoval);
+		this.emitEditSelectionState();
 	}
 
 	public commandNudgeSelectedLayerLeft(): void {
@@ -1464,6 +1513,17 @@ export class Viewer {
 		this.runEditSelectionOperation("画像ダウンロード", () =>
 			this.editVC.downloadSelectedImage()
 		);
+	}
+
+	public commandDeleteImageById(imageId: string, confirmed = false): void {
+		if (!this.ensureAllowed(this.canEdit(), "画像削除")) return;
+		if (!imageId) return;
+		if (!confirmed && !window.confirm("delete image. are you sure?")) return;
+		ImageManager.shared.deleteImageById(imageId);
+		this.IsDocumentModified = true;
+		this.emitCurrentSlides();
+		this.emitCurrentEditState();
+		this.emitHistoryState();
 	}
 
 	public getSavedFileTitles() {

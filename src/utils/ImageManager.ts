@@ -1,4 +1,5 @@
 import CryptoJS from "crypto-js";
+import { ViewerBridge } from "../bridge/ViewerBridge";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { Slide } from "../model/Slide";
@@ -78,6 +79,10 @@ export class ImageManager {
 				imgDom.src = src;
 
 				imgDom.addEventListener("dblclick", () => {
+					if (this.container.getAttribute("data-react-controlled") === "true") {
+						ViewerBridge.emit("imageDeleteRequested", { imageId: id, name });
+						return;
+					}
 					if (window.confirm("delete image. are you sure?")) {
 						this.deleteImageById(id);
 					}

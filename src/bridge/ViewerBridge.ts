@@ -17,6 +17,14 @@ export type ViewerBridgeEventMap = {
 	selectionChanged: { selectedIndex: number };
 	/** Slide list context menu requested */
 	listContextMenuRequested: { kind: "slide" | "list"; top: number; left: number };
+	/** Image deletion requested from the images panel */
+	imageDeleteRequested: { imageId: string; name: string } | null;
+	/** Shared layer removal requested from an edit command */
+	sharedLayerRemovalRequested: { layerName: string } | null;
+	/** Spread selected layer requested from an edit command */
+	spreadLayerRequested: { layerName: string } | null;
+	/** Text layer input requested from an edit command */
+	textLayerInputRequested: { open: boolean } | null;
 	/** Saved file titles in storage changed */
 	savedFilesChanged: { titles: readonly SlideTitle[] };
 	/** Selected saved file changed */
@@ -100,6 +108,10 @@ class ViewerBridgeClass {
 		for (const fn of set) {
 			fn(payload as never);
 		}
+	}
+
+	hasListeners<K extends ViewerBridgeEventType>(type: K): boolean {
+		return Boolean(this.listeners.get(type as string)?.size);
 	}
 }
 

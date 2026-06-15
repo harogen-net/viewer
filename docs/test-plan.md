@@ -254,6 +254,24 @@ CI実行時のレポート収集:
 - 2026-06-15: RuntimeShell の Images パネル表示を `getImagesPanelOpenState` / `canToggleImagesPanel` へ切り出し、readonly 時は React 側でも閉じる・操作できないよう更新。CanvasMenu のスライドダウンロードと Viewer の画像ダウンロード入口に `canExport` ゲートを追加し、legacy download event も command 経由へ集約。New Doc は変更済み時に RuntimeShell の React 確認UIから `ViewerCommands.newDocument(true)` へ通し、React 経路の `window.confirm` 依存を削減。
 - 確認: `npm run test:usecase`
 - 結果: 43 tests / 43 pass。
+- 2026-06-15: RuntimeShell の Save を React の Overwrite / New Save / Cancel 選択UIへ移し、`ViewerCommands.saveDocument(override)` から Viewer へ保存方針を明示する形に更新。Import も変更済み時は RuntimeShell の React 確認UIから `ViewerCommands.openImportDialog(true)` へ通し、React File IO 経路の `window.confirm` 依存を追加削減。`canRequestSaveChoice` / `getSaveChoiceOpenState` の usecase テストを追加。
+- 確認: `npm run test:usecase`
+- 結果: 46 tests / 46 pass。
+- 2026-06-15: Images パネルの画像 dblclick 削除確認を React 管理コンテナでは `imageDeleteRequested` bridge event へ移し、RuntimeShell の React 確認UIから `ViewerCommands.deleteImageById(imageId, true)` を実行する形へ更新。非Reactコンテナでは従来confirmを維持し、削除後は Viewer 側からスライド/編集/履歴状態を再通知するよう補強。`getImageDeleteRequestState` の usecase テストを追加。
+- 確認: `npm run test:usecase`
+- 結果: 49 tests / 49 pass。
+- 2026-06-15: shared layer 削除時の追加削除確認を React 確認UIへ移行。Viewer の `commandRemoveSelectedLayer(confirmedSharedRemoval)` で shared 連動削除が必要な場合のみ `sharedLayerRemovalRequested` bridge event を発火し、RuntimeShell から確認済み削除を実行する形に更新。React 購読者がいない場合は従来confirmへフォールバックし、`getSharedLayerRemovalRequestState` の usecase テストを追加。
+- 確認: `npm run test:usecase`
+- 結果: 52 tests / 52 pass。
+- 2026-06-15: 全スライド無効時の Export All で `ViewerDocument.downloadImage()` 内の browser alert に到達する前に Viewer command 側で `showNotice` を出して停止するよう更新し、React操作経路のブラウザalert依存を削減。
+- 確認: `npm run test:usecase`
+- 結果: 52 tests / 52 pass。
+- 2026-06-15: legacy spread ボタンの直書きconfirmを `requestSpreadSelectedLayer` → Viewer command → `spreadLayerRequested` bridge event へ集約し、RuntimeShell の既存React確認UIを開く形に更新。React購読者がいない場合は Viewer command 側の従来confirmへフォールバック。`getSpreadLayerRequestState` の usecase テストを追加。
+- 確認: `npm run test:usecase`
+- 結果: 55 tests / 55 pass。
+- 2026-06-15: legacy text ボタンの `prompt("insert text layer:")` を `requestTextLayerInput` → Viewer command → `textLayerInputRequested` bridge event へ移し、RuntimeShell のReactテキスト入力へフォーカスする形に更新。React購読者がいない場合のみ従来promptへフォールバック。`getTextLayerInputRequestState` の usecase テストを追加。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

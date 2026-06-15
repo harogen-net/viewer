@@ -1,19 +1,18 @@
-import { Layer, LayerType } from "../../model/Layer";
-import { ImageLayer } from "../../model/layer/ImageLayer";
-import { TextLayer } from "../../model/layer/TextLayer";
-import { KeyboardManager } from "../../utils/KeyboardManager";
-import { DropHelper } from "../../utils/DropHelper";
+import $ from "jquery";
+import { PropertyEvent } from "../../events/PropertyEvent";
 import { IDroppable } from "../../interface/IDroppable";
-import { DOMSlideView } from "./DOMSlideView";
-import { LayerView } from "../LayerView";
-import { TextView } from "../layer/TextView";
+import { Layer, LayerType } from "../../model/Layer";
+import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
 import { ViewerDocument } from "../../model/ViewerDocument";
-import { PropFlags } from "../../model/PropFlags";
-import { PropertyEvent } from "../../events/PropertyEvent";
+import { ImageLayer } from "../../model/layer/ImageLayer";
+import { TextLayer } from "../../model/layer/TextLayer";
+import { DropHelper } from "../../utils/DropHelper";
+import { Command, HistoryManager, Transaction } from "../../utils/HistoryManager";
+import { LayerView } from "../LayerView";
 import { AdjustView } from "../layer/AdjustView";
-import { HistoryManager, Command, Transaction } from "../../utils/HistoryManager";
-import $ from "jquery";
+import { TextView } from "../layer/TextView";
+import { DOMSlideView } from "./DOMSlideView";
 
 export class EditableSlideView extends DOMSlideView implements IDroppable {
 	public static SCALE_DEFAULT: number = 0.9;
@@ -36,6 +35,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	private lastSelectedIndex: number = -1;
 	private sharedLayersByUUID: { [key: string]: Layer[] } = {};
 	private rectLayers: { [key: string]: Layer[] } = {};
+	private allowSharedLayerRemovalWithoutConfirm = false;
 	//private rectLayers:Layer[] = [];
 
 	constructor(
@@ -177,7 +177,9 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		layerView.obj.off("mouseup.layer_preselect");
 		if (layerView.type == LayerType.TEXT) {
 			var textLayerView = layerView as TextView;
-			textLayerView.textObj.off("focusout.textLayer_edit");
+			if (textLayerView.textObj) {
+				$(textLayerView.textObj).off("focusout.textLayer_edit");
+			}
 		}
 
 		//share
@@ -636,6 +638,20 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ESV_RECT));
 	}
 
+	public runWithSharedLayerRemovalConfirmation<T>(confirmed: boolean, operation: () => T): T {
+		const previous = this.allowSharedLayerRemovalWithoutConfirm;
+		this.allowSharedLayerRemovalWithoutConfirm = confirmed;
+		try {
+			return operation();
+		} finally {
+			this.allowSharedLayerRemovalWithoutConfirm = previous;
+		}
+	}
+
+	public hasSharedLayerRemovalTargets(layer: Layer): boolean {
+		return Boolean(layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined);
+	}
+
 	//
 	// event handlers
 	//
@@ -692,7 +708,10 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			if (flag & PropFlags.S_LAYER_REMOVE) {
 				var layer: Layer = pe.options.layer;
 				if (layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined) {
-					if (window.confirm("remove shared layers. Are you sure?")) {
+					if (
+						this.allowSharedLayerRemovalWithoutConfirm ||
+						window.confirm("remove shared layers. Are you sure?")
+					) {
 						var transaction = new Transaction();
 
 						this.sharedLayersByUUID[layer.uuid].forEach((tmpLayer) => {

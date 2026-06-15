@@ -13,8 +13,8 @@ import { ImageManager } from "../utils/ImageManager";
 import { EditableSlideView } from "../view/slide/EditableSlideView";
 import { ViewerMode } from "../Viewer";
 import {
-    VMButton,
-    VMToggleButton,
+	VMButton,
+	VMToggleButton,
 } from "../viewModel/VMUI";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
 
@@ -267,9 +267,7 @@ export class EditViewController extends EventDispatcher {
 					.do();
 			}),
 			new VMButton($("#main button.spread"), Layer, () => {
-				if (window.confirm("spread layer to all slides. are you sure?")) {
-					this.slideView.spreadLayers(this.selectedLayer);
-				}
+				this.dispatchEvent(new Event("requestSpreadSelectedLayer"));
 			}),
 
 			// VMHistoricalVariableInput entries removed: React (RuntimeShell) owns
@@ -340,12 +338,8 @@ export class EditViewController extends EventDispatcher {
 		this.bindLegacyClick(".slideDownload", () => {
 			this.dispatchEvent(new Event("download"));
 		});
-		// Legacy .text button: React-side addTextLayer is now the primary path.
-		// Fallback prompt is kept for standalone (non-React) usage only.
 		this.bindLegacyClick(".text", () => {
-			const text = prompt("insert text layer:");
-			if (text == null) return;
-			this.addTextLayer(text);
+			this.dispatchEvent(new Event("requestTextLayerInput"));
 		});
 
 		this.bindLegacyClick("label[for='cb_imageRef']", () => {
@@ -900,22 +894,33 @@ export class EditViewController extends EventDispatcher {
 		return true;
 	}
 
-	public removeSelectedLayer(): boolean {
+	public getSelectedLayerRemovalRequest(): { layerName: string; shared: boolean } | null {
+		const layer = this.slideView.editingLayer;
+		if (!layer) return null;
+		return {
+			layerName: layer.name || "selected layer",
+			shared: this.slideView.hasSharedLayerRemovalTargets(layer),
+		};
+	}
+
+	public removeSelectedLayer(confirmedSharedRemoval = false): boolean {
 		const layer = this.slideView.editingLayer;
 		if (!layer) return false;
 		const index = this.slide.indexOf(layer);
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.removeLayer(layer);
-					},
-					() => {
-						this.slide.addLayer(layer, index);
-					}
+		this.slideView.runWithSharedLayerRemovalConfirmation(confirmedSharedRemoval, () => {
+			HistoryManager.shared
+				.record(
+					new Command(
+						() => {
+							this.slide.removeLayer(layer);
+						},
+						() => {
+							this.slide.addLayer(layer, index);
+						}
+					)
 				)
-			)
-			.do();
+				.do();
+		});
 		this.emitCurrentState();
 		return true;
 	}

@@ -78,8 +78,8 @@ export const ViewerCommands = {
 	newDocument(confirmed = false): void {
 		getViewer()?.commandNewDocument(confirmed);
 	},
-	saveDocument(): void {
-		getViewer()?.commandSaveDocument();
+	saveDocument(override?: boolean): void {
+		getViewer()?.commandSaveDocument(override);
 	},
 	exportDocument(): void {
 		getViewer()?.commandExportDocument();
@@ -108,8 +108,8 @@ export const ViewerCommands = {
 	setMirrorV(enabled: boolean): void {
 		getViewer()?.commandSetMirrorV(enabled);
 	},
-	openImportDialog(): void {
-		getViewer()?.commandOpenImportDialog();
+	openImportDialog(confirmed = false): void {
+		getViewer()?.commandOpenImportDialog(confirmed);
 	},
 	loadSavedFile(fileId: string): void {
 		getViewer()?.commandLoadSavedFile(fileId);
@@ -207,8 +207,8 @@ export const ViewerCommands = {
 	pasteLayerTransform(): void {
 		getViewer()?.commandPasteLayerTransform();
 	},
-	removeSelectedLayer(): void {
-		getViewer()?.commandRemoveSelectedLayer();
+	removeSelectedLayer(confirmedSharedRemoval = false): void {
+		getViewer()?.commandRemoveSelectedLayer(confirmedSharedRemoval);
 	},
 	nudgeSelectedLayerLeft(): void {
 		getViewer()?.commandNudgeSelectedLayerLeft();
@@ -305,6 +305,9 @@ export const ViewerCommands = {
 	},
 	downloadSelectedImage(): void {
 		getViewer()?.commandDownloadSelectedImage();
+	},
+	deleteImageById(imageId: string, confirmed = false): void {
+		getViewer()?.commandDeleteImageById(imageId, confirmed);
 	},
 	getSavedFileTitles(): readonly SlideTitle[] {
 		return getViewer()?.getSavedFileTitles() ?? [];

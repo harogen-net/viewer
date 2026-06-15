@@ -7,12 +7,16 @@ import {
     useViewerEditLayers,
     useViewerEditSelection,
     useViewerHistory,
+    useViewerImageDeleteRequest,
     useViewerMode,
     useViewerModified,
     useViewerSavedFileSelection,
+    useViewerSharedLayerRemovalRequest,
     useViewerSlides,
     useViewerSlideshowSettings,
+    useViewerSpreadLayerRequest,
     useViewerStorage,
+    useViewerTextLayerInputRequest,
 } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
@@ -21,6 +25,8 @@ import {
     getSaveFormat,
     setSaveFormat,
 } from "../runtime/reactDomRegistry";
+import type { ImageDeleteRequest } from "./imageDeleteRequest";
+import { getImageDeleteRequestState } from "./imageDeleteRequest";
 import { canToggleImagesPanel, getImagesPanelOpenState } from "./imagesPanelGate";
 import { getLayerListDropAction, getLayerListKeyboardAction } from "./layerListKeyboard";
 import {
@@ -31,7 +37,13 @@ import {
     getInputStep,
     getWheelInputDelta,
 } from "./numericInput";
+import { canRequestSaveChoice, getSaveChoiceOpenState } from "./saveDocumentChoice";
+import type { SharedLayerRemovalRequest } from "./sharedLayerRemovalRequest";
+import { getSharedLayerRemovalRequestState } from "./sharedLayerRemovalRequest";
 import { getSlideListDropAction, getSlideListKeyboardAction } from "./slideListKeyboard";
+import type { SpreadLayerRequest } from "./spreadLayerRequest";
+import { getSpreadLayerRequestState } from "./spreadLayerRequest";
+import { getTextLayerInputRequestState } from "./textLayerInputRequest";
 
 const durationOptions = [
 	{ value: "1", label: "0" },
@@ -90,6 +102,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { titles } = useViewerStorage();
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();
+	const requestedImageDelete = useViewerImageDeleteRequest();
+	const requestedSharedLayerRemoval = useViewerSharedLayerRemovalRequest();
+	const requestedSpreadLayer = useViewerSpreadLayerRequest();
+	const requestedTextLayerInput = useViewerTextLayerInputRequest();
 	const history = useViewerHistory();
 	const { modified } = useViewerModified();
 	const { mode: viewerMode } = useViewerMode();
@@ -116,7 +132,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [textContentInput, setTextContentInput] = useState("");
 	const [replaceImageForAll, setReplaceImageForAll] = useState(false);
 	const [imagesPanelOpen, setImagesPanelOpen] = useState(false);
+	const [imageDeleteRequest, setImageDeleteRequest] = useState<ImageDeleteRequest>(null);
+	const [sharedLayerRemovalRequest, setSharedLayerRemovalRequest] =
+		useState<SharedLayerRemovalRequest>(null);
+	const [spreadLayerRequest, setSpreadLayerRequest] = useState<SpreadLayerRequest>(null);
 	const [newDocumentConfirmOpen, setNewDocumentConfirmOpen] = useState(false);
+	const [importConfirmOpen, setImportConfirmOpen] = useState(false);
+	const [saveChoiceOpen, setSaveChoiceOpen] = useState(false);
 	const [spreadConfirmOpen, setSpreadConfirmOpen] = useState(false);
 	const [saveFormat, setSaveFormatState] = useState<"png" | "hvz" | "hvd">("png");
 	const [durationRatioInput, setDurationRatioInput] = useState("");
@@ -128,7 +150,15 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [renameLayerInput, setRenameLayerInput] = useState("");
 	const canUseImagesPanel = canToggleImagesPanel(gate.canEdit);
 	const effectiveImagesPanelOpen = getImagesPanelOpenState(imagesPanelOpen, canUseImagesPanel);
+	const canUseSaveChoice = canRequestSaveChoice(gate.canSave, rawSlides.length);
+	const effectiveSaveChoiceOpen = getSaveChoiceOpenState(
+		saveChoiceOpen,
+		gate.canSave,
+		rawSlides.length
+	);
+	const isEditMode = viewerMode === "edit";
 	const imageReplaceInputRef = useRef<HTMLInputElement | null>(null);
+	const textLayerInputRef = useRef<HTMLInputElement | null>(null);
 	const pendingSlideFocusKey = useRef<string | null>(null);
 	const pendingLayerFocusKey = useRef<string | null>(null);
 	const renameCanceledRef = useRef(false);
@@ -170,9 +200,49 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	}, [canUseImagesPanel]);
 
 	useEffect(() => {
+		setImageDeleteRequest(
+			getImageDeleteRequestState(requestedImageDelete, gate.canEdit, effectiveImagesPanelOpen)
+		);
+	}, [requestedImageDelete, gate.canEdit, effectiveImagesPanelOpen]);
+
+	useEffect(() => {
+		setSharedLayerRemovalRequest(
+			getSharedLayerRemovalRequestState(requestedSharedLayerRemoval, gate.canEdit, hasSelection)
+		);
+	}, [requestedSharedLayerRemoval, gate.canEdit, hasSelection]);
+
+	useEffect(() => {
+		setSpreadLayerRequest(
+			getSpreadLayerRequestState(requestedSpreadLayer, gate.canEdit, hasSelection)
+		);
+	}, [requestedSpreadLayer, gate.canEdit, hasSelection]);
+
+	useEffect(() => {
+		if (!spreadLayerRequest) return;
+		setSpreadConfirmOpen(true);
+	}, [spreadLayerRequest]);
+
+	useEffect(() => {
+		const request = getTextLayerInputRequestState(requestedTextLayerInput, gate.canEdit, isEditMode);
+		if (!request) return;
+		setTextLayerInput("");
+		textLayerInputRef.current?.focus();
+	}, [requestedTextLayerInput, gate.canEdit, isEditMode]);
+
+	useEffect(() => {
 		if (gate.canEdit && modified) return;
 		setNewDocumentConfirmOpen(false);
 	}, [gate.canEdit, modified]);
+
+	useEffect(() => {
+		if (gate.canImport && modified) return;
+		setImportConfirmOpen(false);
+	}, [gate.canImport, modified]);
+
+	useEffect(() => {
+		if (canUseSaveChoice) return;
+		setSaveChoiceOpen(false);
+	}, [canUseSaveChoice]);
 
 	useEffect(() => {
 		setPosXInput(editLayerState.x == null ? "" : String(Math.round(editLayerState.x)));
@@ -422,6 +492,42 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.newDocument(true);
 	};
 
+	const requestImportDialog = () => {
+		if (!gate.canImport) return;
+		if (modified) {
+			setImportConfirmOpen(true);
+			return;
+		}
+		ViewerCommands.openImportDialog();
+	};
+
+	const confirmImportDialog = () => {
+		setImportConfirmOpen(false);
+		ViewerCommands.openImportDialog(true);
+	};
+
+	const requestSaveDocument = () => {
+		if (!canUseSaveChoice) return;
+		setSaveChoiceOpen(true);
+	};
+
+	const saveDocumentWithChoice = (override: boolean) => {
+		setSaveChoiceOpen(false);
+		ViewerCommands.saveDocument(override);
+	};
+
+	const confirmImageDelete = () => {
+		const imageId = imageDeleteRequest?.imageId;
+		setImageDeleteRequest(null);
+		if (!imageId) return;
+		ViewerCommands.deleteImageById(imageId, true);
+	};
+
+	const confirmSharedLayerRemoval = () => {
+		setSharedLayerRemovalRequest(null);
+		ViewerCommands.removeSelectedLayer(true);
+	};
+
 	const applyPosition = () => {
 		if (!canEditSelectedLayer) return;
 		const x = Number(posXInput);
@@ -538,6 +644,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const confirmSpreadSelectedLayer = () => {
 		if (!canEditSelectedLayer) return;
 		setSpreadConfirmOpen(false);
+		setSpreadLayerRequest(null);
 		ViewerCommands.spreadSelectedLayer(true);
 	};
 
@@ -780,12 +887,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	};
 
 	const modeText = mode === "mobile-pwa" ? "mobile-pwa" : "browser";
-	const isEditMode = viewerMode === "edit";
 	const isImageLayer = editLayerState.layerType === "image";
 	const canEditSelectedLayer = gate.canEdit && isEditMode && hasSelection;
 	useEffect(() => {
 		if (canEditSelectedLayer) return;
 		setSpreadConfirmOpen(false);
+		setSpreadLayerRequest(null);
 	}, [canEditSelectedLayer]);
 
 	const disabledSlideCount = slides.filter((slide) => slide.disabled).length;
@@ -1218,8 +1325,27 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									Remove
 								</Button>
 							</Group>
+							{sharedLayerRemovalRequest && (
+								<Stack gap={4}>
+									<Text size="xs" c="dimmed">
+										{sharedLayerRemovalRequest.layerName}
+									</Text>
+									<Group grow>
+										<Button size="xs" color="red" variant="light" onClick={confirmSharedLayerRemoval}>
+											Remove Shared
+										</Button>
+										<Button
+											size="xs"
+											variant="default"
+											onClick={() => setSharedLayerRemovalRequest(null)}>
+											Cancel
+										</Button>
+									</Group>
+								</Stack>
+							)}
 							<Group grow>
 								<input
+									ref={textLayerInputRef}
 									type="text"
 									value={textLayerInput}
 									onChange={(e) => setTextLayerInput(e.target.value)}
@@ -1326,22 +1452,32 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								</Button>
 							</Group>
 							{spreadConfirmOpen && (
-								<Group grow>
-									<Button
-										size="xs"
-										color="red"
-										variant="light"
-										onClick={confirmSpreadSelectedLayer}
-										disabled={!canEditSelectedLayer}>
-										Confirm Spread
-									</Button>
-									<Button
-										size="xs"
-										variant="default"
-										onClick={() => setSpreadConfirmOpen(false)}>
-										Cancel
-									</Button>
-								</Group>
+								<Stack gap={4}>
+									{spreadLayerRequest && (
+										<Text size="xs" c="dimmed">
+											{spreadLayerRequest.layerName}
+										</Text>
+									)}
+									<Group grow>
+										<Button
+											size="xs"
+											color="red"
+											variant="light"
+											onClick={confirmSpreadSelectedLayer}
+											disabled={!canEditSelectedLayer}>
+											Confirm Spread
+										</Button>
+										<Button
+											size="xs"
+											variant="default"
+											onClick={() => {
+												setSpreadConfirmOpen(false);
+												setSpreadLayerRequest(null);
+											}}>
+											Cancel
+										</Button>
+									</Group>
+								</Stack>
 							)}
 							<Text size="xs" c="dimmed">
 								clip t:{fmt(editLayerState.clipTop, 0)} r:{fmt(editLayerState.clipRight, 0)} b:
@@ -1863,9 +1999,29 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								/>
 							</Group>
 							{effectiveImagesPanelOpen && (
-								<Text size="xs" c="dimmed">
-									Images panel opened near File IO.
-								</Text>
+								<Stack gap={4}>
+									<Text size="xs" c="dimmed">
+										Images panel opened near File IO.
+									</Text>
+									{imageDeleteRequest && (
+										<Text size="xs" c="dimmed">
+											{imageDeleteRequest.name || imageDeleteRequest.imageId}
+										</Text>
+									)}
+									{imageDeleteRequest && (
+										<Group grow>
+											<Button size="xs" color="red" variant="light" onClick={confirmImageDelete}>
+												Delete Img
+											</Button>
+											<Button
+												size="xs"
+												variant="default"
+												onClick={() => setImageDeleteRequest(null)}>
+												Cancel
+											</Button>
+										</Group>
+									)}
+								</Stack>
 							)}
 							<Group grow>
 								<Button
@@ -1878,7 +2034,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="light"
-									onClick={() => ViewerCommands.openImportDialog()}
+									onClick={requestImportDialog}
 									disabled={!gate.canImport}>
 									Import
 								</Button>
@@ -1899,6 +2055,19 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 										size="xs"
 										variant="default"
 										onClick={() => setNewDocumentConfirmOpen(false)}>
+										Cancel
+									</Button>
+								</Group>
+							)}
+							{importConfirmOpen && (
+								<Group grow>
+									<Button size="xs" color="red" variant="light" onClick={confirmImportDialog}>
+										Load File
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => setImportConfirmOpen(false)}>
 										Cancel
 									</Button>
 								</Group>
@@ -1979,8 +2148,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="light"
-									onClick={() => ViewerCommands.saveDocument()}
-									disabled={!gate.canSave}>
+									onClick={requestSaveDocument}
+									disabled={!canUseSaveChoice}>
 									Save
 								</Button>
 								<Button
@@ -1999,6 +2168,19 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									Delete
 								</Button>
 							</Group>
+							{effectiveSaveChoiceOpen && (
+								<Group grow>
+									<Button size="xs" variant="light" onClick={() => saveDocumentWithChoice(true)}>
+										Overwrite
+									</Button>
+									<Button size="xs" variant="default" onClick={() => saveDocumentWithChoice(false)}>
+										New Save
+									</Button>
+									<Button size="xs" variant="subtle" onClick={() => setSaveChoiceOpen(false)}>
+										Cancel
+									</Button>
+								</Group>
+							)}
 							<Button size="xs" variant="default" onClick={() => ViewerCommands.startSlideshow()}>
 								Start SlideShow
 							</Button>
