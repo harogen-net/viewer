@@ -130,7 +130,7 @@
 
 ## 7. 現行 MVVM からの対応
 - 旧 Model -> `documentStore` ドメインモデル
-- 旧 VMUI（双方向バインド） -> React フォーム + selector + action dispatch
+- 旧双方向UIバインド -> React フォーム + selector + action dispatch
 - 旧 ViewController -> 画面単位コンテナ + useCase hooks
 
 ## 8. 同期・整合ルール

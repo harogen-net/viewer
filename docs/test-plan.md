@@ -272,10 +272,19 @@ CI実行時のレポート収集:
 - 2026-06-15: legacy text ボタンの `prompt("insert text layer:")` を `requestTextLayerInput` → Viewer command → `textLayerInputRequested` bridge event へ移し、RuntimeShell のReactテキスト入力へフォーカスする形に更新。React購読者がいない場合のみ従来promptへフォールバック。`getTextLayerInputRequestState` の usecase テストを追加。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
-- 2026-06-15: `EditViewController` の legacy VMButton 直書き編集処理（cut/copy/rotate/align/mirror/isText/transform copy-paste/fit/layer order/download image）を `requestEditCommand` / `requestDownloadSelectedImage` event 経由で Viewer command に集約。React 側と同じ command gate / bridge 更新経路を通るようにし、旧UI内の履歴操作直書きを縮小。
+- 2026-06-15: `EditViewController` の legacy button binding 直書き編集処理（cut/copy/rotate/align/mirror/isText/transform copy-paste/fit/layer order/download image）を `requestEditCommand` / `requestDownloadSelectedImage` event 経由で Viewer command に集約。React 側と同じ command gate / bridge 更新経路を通るようにし、旧UI内の履歴操作直書きを縮小。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
 - 2026-06-15: legacy undo/redo/paste/zoom/slide download/text/spread/rect edit/close edit を `requestEditCommand` 経由へ追加集約し、`ListViewController` の legacy context/prev-next/new/clone/delete 操作も `requestListCommand` 経由で Viewer command に集約。旧 controller から個別 `request...` event と `VMToggleButton` 直操作を削減。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: legacy レイヤー一覧の visible/locked/shared/delete/選択 とサムネイルの joining/disabled/duration 操作を Viewer command 経由に集約。未使用になった legacy binding helper と関連インターフェースを削除。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: `EditViewController` に残っていた旧編集ボタン/画像差し替えinput/undo-redo disabled同期のDOM bindingを削除し、React `AppShell` / `CanvasMenu` / `SideControls` の `ViewerCommands` 経路へ一本化。`requestEditCommand` の Viewer 側受け口も legacy レイヤー一覧 fallback 用の選択/visible/locked/shared/delete のみに縮小。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: `ListViewController` の旧context menu DOM binding/show-hide fallbackを削除し、右クリックは `listContextMenuRequested` bridge event でReact `ListContextMenus` を開く経路へ一本化。React `LayerControls` へ移行済みのため、旧 `EditLayerViewController` / `EditLayerListItem` fallback と `requestEditCommand` listenerを削除。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
 

@@ -23,12 +23,10 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private _mode: ViewerMode;
 
 	private newSlideBtn: any;
-	private listContextMenu: any;
-	private slideContextMenu: any;
 	private contextTargetSlide: Slide | null = null; //こいつが原因でバグを発生しそうな予感
 
-	private requestListCommand(command: string, slide: Slide | null = null): void {
-		this.dispatchEvent(new CustomEvent("requestListCommand", { detail: { command, slide } }));
+	private requestListCommand(command: string, slide: Slide | null = null, ratio?: number): void {
+		this.dispatchEvent(new CustomEvent("requestListCommand", { detail: { command, slide, ratio } }));
 	}
 
 	constructor(
@@ -94,23 +92,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.requestListCommand("newSlide");
 			});
 
-			this.listContextMenu = $("#listContextMenu");
-			if (this.listContextMenu.attr("data-react-controlled") !== "true") {
-				this.listContextMenu.hide();
-			}
-
-			this.bindLegacyClick(this.listContextMenu, ".unjoin", () => {
-				this.requestListCommand("unjoinAllSlides");
-			});
-			this.bindLegacyClick(this.listContextMenu, ".delete", () => {
-				this.requestListCommand("deleteDisabledSlides");
-			});
-			this.bindLegacyClick(this.listContextMenu, ".enable", () => {
-				this.requestListCommand("enableAllSlides");
-			});
-			this.bindLegacyClick(this.listContextMenu, ".disable", () => {
-				this.requestListCommand("disableAllSlides");
-			});
 			this.obj.on("contextmenu.slide", (e) => {
 				if (this._slides.length > 0) {
 					this.contextTargetSlide = null;
@@ -119,21 +100,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 					);
 					return false;
 				}
-			});
-
-			this.slideContextMenu = $("#slideContextMenu");
-			if (this.slideContextMenu.attr("data-react-controlled") !== "true") {
-				this.slideContextMenu.hide();
-			}
-			this.bindLegacyClick(this.slideContextMenu, ".delete", () => {
-				if (this.contextTargetSlide == null) return;
-				this.requestListCommand("deleteSlide", this.contextTargetSlide);
-				this.contextTargetSlide = null;
-			});
-			this.bindLegacyClick(this.slideContextMenu, ".enable", () => {
-				if (this.contextTargetSlide == null) return;
-				this.requestListCommand("enableOnlySlide", this.contextTargetSlide);
-				this.contextTargetSlide = null;
 			});
 
 			var prevSlideBtn = $(
@@ -151,14 +117,6 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.requestListCommand("selectNextSlide");
 			});
 		}
-	}
-
-	private bindLegacyClick(target: any, selector: string, handler: (event: JQuery.ClickEvent) => void): void {
-		target.find(selector).each((_index, element) => {
-			const button = $(element);
-			if (button.attr("data-react-controlled") === "true") return;
-			button.on("click", handler);
-		});
 	}
 
 	setMode(mode: ViewerMode): void {
@@ -314,6 +272,9 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		slideView.addEventListener("edit", this.onSlideEdit);
 		slideView.addEventListener("clone", this.onSlideClone);
 		slideView.addEventListener("delete", this.onSlideDelete);
+		slideView.addEventListener("toggleJoining", this.onSlideToggleJoining);
+		slideView.addEventListener("toggleDisabled", this.onSlideToggleDisabled);
+		slideView.addEventListener("setDurationRatio", this.onSlideSetDurationRatio);
 		slideView.addEventListener("contextmenu", this.onContextMenu);
 
 		slideView.show();
@@ -343,29 +304,23 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private onSlideDelete = (ce: CustomEvent) => {
 		this.requestListCommand("deleteSlide", ce.detail as Slide);
 	};
+	private onSlideToggleJoining = (ce: CustomEvent) => {
+		this.requestListCommand("toggleSlideJoining", ce.detail as Slide);
+	};
+	private onSlideToggleDisabled = (ce: CustomEvent) => {
+		this.requestListCommand("toggleSlideDisabled", ce.detail as Slide);
+	};
+	private onSlideSetDurationRatio = (ce: CustomEvent) => {
+		this.requestListCommand("setSlideDurationRatio", ce.detail.slide as Slide, ce.detail.ratio);
+	};
 	private onContextMenu = (ce: CustomEvent) => {
 		if (!this.canEdit) return;
-		var offset = this.obj.offset();
-
-		var targetContextMenu: any =
-			ce.detail.slide != undefined ? this.slideContextMenu : this.listContextMenu;
+		var offset = this.obj.offset() ?? { top: 0, left: 0 };
 		this.contextTargetSlide = ce.detail.slide || null;
-		if (targetContextMenu.attr("data-react-controlled") === "true") {
-			ViewerBridge.emit("listContextMenuRequested", {
-				kind: ce.detail.slide != undefined ? "slide" : "list",
-				top: ce.detail.y - offset.top,
-				left: ce.detail.x - offset.left,
-			});
-			return;
-		}
-
-		targetContextMenu.css({ top: ce.detail.y - offset.top, left: ce.detail.x - offset.left });
-		targetContextMenu.show();
-
-		$(document).on("mouseup.ListVieController", () => {
-			targetContextMenu.hide();
-			$(document).off("mouseup.ListVieController");
-			//			this.contextTargetSlide = null;
+		ViewerBridge.emit("listContextMenuRequested", {
+			kind: ce.detail.slide != undefined ? "slide" : "list",
+			top: ce.detail.y - offset.top,
+			left: ce.detail.x - offset.left,
 		});
 	};
 
@@ -379,6 +334,8 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		slideView.removeEventListener("edit", this.onSlideEdit);
 		slideView.removeEventListener("clone", this.onSlideClone);
 		slideView.removeEventListener("delete", this.onSlideDelete);
+		slideView.removeEventListener("toggleJoining", this.onSlideToggleJoining);
+		slideView.removeEventListener("toggleDisabled", this.onSlideToggleDisabled);
 		slideView.removeEventListener("contextmenu", this.onContextMenu);
 		//slideView.clearEventListener();	//dispatchEventを発端とするスタック中で実行するとエラーになる
 

@@ -388,6 +388,7 @@ export class Viewer {
 		});
 		this.listVC.addEventListener("requestListCommand", (e: CustomEvent) => {
 			const slide = e.detail?.slide as Slide | null;
+			const ratio = Number(e.detail?.ratio);
 			switch (e.detail?.command) {
 				case "newSlide":
 					this.commandNewSlide();
@@ -416,6 +417,18 @@ export class Viewer {
 					if (slide) this.listVC.selectSlideInstance(slide);
 					this.commandEnableOnlySelectedSlide();
 					break;
+				case "toggleSlideJoining":
+					if (slide) this.listVC.selectSlideInstance(slide);
+					this.commandToggleSelectedSlideJoining();
+					break;
+				case "toggleSlideDisabled":
+					if (slide) this.listVC.selectSlideInstance(slide);
+					this.commandToggleSelectedSlideDisabled();
+					break;
+				case "setSlideDurationRatio":
+					if (slide) this.listVC.selectSlideInstance(slide);
+					this.commandSetSelectedSlideDurationRatio(ratio);
+					break;
 				case "selectPreviousSlide":
 					this.commandSelectPreviousSlide();
 					break;
@@ -431,100 +444,6 @@ export class Viewer {
 			this.emitEditSelectionState();
 		});
 
-		this.editVC.addEventListener("requestEditCommand", (e: CustomEvent) => {
-			switch (e.detail?.command) {
-				case "undo":
-					this.commandUndo();
-					break;
-				case "redo":
-					this.commandRedo();
-					break;
-				case "downloadSelectedSlide":
-					this.commandDownloadSelectedSlide();
-					break;
-				case "downloadSelectedImage":
-					this.commandDownloadSelectedImage();
-					break;
-				case "requestTextLayerInput":
-					this.commandRequestTextLayerInput();
-					break;
-				case "spreadSelectedLayer":
-					this.commandSpreadSelectedLayer();
-					break;
-				case "toggleRectEdit":
-					this.commandToggleRectEdit();
-					break;
-				case "closeEditMode":
-					this.commandCloseEditMode();
-					break;
-				case "zoomInCanvas":
-					this.commandZoomInCanvas();
-					break;
-				case "zoomOutCanvas":
-					this.commandZoomOutCanvas();
-					break;
-				case "resetCanvasZoom":
-					this.commandResetCanvasZoom();
-					break;
-				case "cutSelectedLayer":
-					this.commandCutSelectedLayer();
-					break;
-				case "pasteLayer":
-					this.commandPasteLayer();
-					break;
-				case "copySelectedLayer":
-					this.commandCopySelectedLayer();
-					break;
-				case "rotateSelectedLayerLeft":
-					this.commandRotateSelectedLayerLeft();
-					break;
-				case "rotateSelectedLayerRight":
-					this.commandRotateSelectedLayerRight();
-					break;
-				case "toggleSelectedLayerMirrorH":
-					this.commandToggleSelectedLayerMirrorH();
-					break;
-				case "toggleSelectedLayerMirrorV":
-					this.commandToggleSelectedLayerMirrorV();
-					break;
-				case "toggleSelectedLayerIsText":
-					this.commandToggleSelectedLayerIsText();
-					break;
-				case "arrangeSelectedLayerTop":
-					this.commandArrangeSelectedLayerTop();
-					break;
-				case "arrangeSelectedLayerRight":
-					this.commandArrangeSelectedLayerRight();
-					break;
-				case "arrangeSelectedLayerBottom":
-					this.commandArrangeSelectedLayerBottom();
-					break;
-				case "arrangeSelectedLayerLeft":
-					this.commandArrangeSelectedLayerLeft();
-					break;
-				case "copySelectedLayerTransform":
-					this.commandCopySelectedLayerTransform();
-					break;
-				case "pasteLayerTransform":
-					this.commandPasteLayerTransform();
-					break;
-				case "fitSelectedLayer":
-					this.commandFitSelectedLayer();
-					break;
-				case "moveSelectedLayerUp":
-					this.commandMoveSelectedLayerUp();
-					break;
-				case "moveSelectedLayerDown":
-					this.commandMoveSelectedLayerDown();
-					break;
-				case "moveSelectedLayerToTop":
-					this.commandMoveSelectedLayerToTop();
-					break;
-				case "moveSelectedLayerToBottom":
-					this.commandMoveSelectedLayerToBottom();
-					break;
-			}
-		});
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {

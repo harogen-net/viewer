@@ -1,11 +1,11 @@
-import { SlideView } from "../SlideView";
-import { Layer } from "../../model/Layer";
-import { LayerView } from "../LayerView";
-import { LayerViewFactory } from "../../utils/LayerViewFactory";
-import { Slide } from "../../model/Slide";
-import { PropertyEvent } from "../../events/PropertyEvent";
-import { PropFlags } from "../../model/PropFlags";
 import $ from "jquery";
+import { PropertyEvent } from "../../events/PropertyEvent";
+import { Layer } from "../../model/Layer";
+import { PropFlags } from "../../model/PropFlags";
+import { Slide } from "../../model/Slide";
+import { LayerViewFactory } from "../../utils/LayerViewFactory";
+import { LayerView } from "../LayerView";
+import { SlideView } from "../SlideView";
 
 export class DOMSlideView extends SlideView {
 	public layerViews: LayerView[] = [];
@@ -59,7 +59,7 @@ export class DOMSlideView extends SlideView {
 	//
 
 	protected updateViewsOrder() {
-		//slideのlayers並び順に従って、layerViewsの並び順も変える（主にlayerDivのため）
+		//slideのlayers並び順に従って、layerViewsの並び順も変える
 		//ついでにz-indexも設定して見た目の変更もする
 		this.layerViews.sort((a: LayerView, b: LayerView) => {
 			return this._slide.layers.indexOf(a.data) < this._slide.layers.indexOf(b.data) ? -1 : 1;

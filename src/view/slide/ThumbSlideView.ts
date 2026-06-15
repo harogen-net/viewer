@@ -1,9 +1,8 @@
-import { CanvasSlideView } from "./CanvasSlideView";
-import { Slide } from "../../model/Slide";
-import { PropFlags } from "../../model/PropFlags";
-import { Viewer, ViewerStartUpMode } from "../../Viewer";
-import { VMCheckBox } from "../../viewModel/VMUI";
 import $ from "jquery";
+import { PropFlags } from "../../model/PropFlags";
+import { Slide } from "../../model/Slide";
+import { Viewer, ViewerStartUpMode } from "../../Viewer";
+import { CanvasSlideView } from "./CanvasSlideView";
 
 export class ThumbSlideView extends CanvasSlideView {
 	private doubleClickLock: boolean;
@@ -61,32 +60,16 @@ export class ThumbSlideView extends CanvasSlideView {
 		).appendTo(this.obj);
 		durationDiv.find("button.up").click((e: any) => {
 			this.lockDoubleClick();
-			if (this._slide.durationRatio < 9) {
-				if (this._slide.durationRatio >= 2) {
-					this._slide.durationRatio += 1;
-				} else if (this._slide.durationRatio >= 1) {
-					this._slide.durationRatio += 0.5;
-				} else {
-					this._slide.durationRatio += 0.2;
-				}
-			}
+			this.dispatchDurationRatioChange(this.getAdjustedDurationRatio("up"));
 		});
 		durationDiv.find("button.down").click((e: any) => {
 			this.lockDoubleClick();
-			if (this._slide.durationRatio > 0.2) {
-				if (this._slide.durationRatio > 2) {
-					this._slide.durationRatio -= 1;
-				} else if (this._slide.durationRatio > 1) {
-					this._slide.durationRatio -= 0.5;
-				} else {
-					this._slide.durationRatio -= 0.2;
-				}
-			}
+			this.dispatchDurationRatioChange(this.getAdjustedDurationRatio("down"));
 		});
 
 		var joinArrow = $('<div class="joinArrow"></div>').appendTo(this.obj);
 		joinArrow.on("click.slide", (e: any) => {
-			this._slide.joining = !this._slide.joining;
+			this.dispatchEvent(new CustomEvent("toggleJoining", { detail: this._slide }));
 			e.preventDefault();
 			e.stopImmediatePropagation();
 		});
@@ -94,7 +77,11 @@ export class ThumbSlideView extends CanvasSlideView {
 		var enableCheck = $('<input class="enableCheck" type="checkbox" checked="checked" />').appendTo(
 			this.obj
 		);
-		new VMCheckBox(enableCheck, Slide, "disabled", PropFlags.S_DISABLED, true).target = this._slide;
+		enableCheck.on("click.slide", (e: any) => {
+			this.dispatchEvent(new CustomEvent("toggleDisabled", { detail: this._slide }));
+			e.preventDefault();
+			e.stopImmediatePropagation();
+		});
 
 		//
 
@@ -140,6 +127,7 @@ export class ThumbSlideView extends CanvasSlideView {
 		this.obj.find("button").remove();
 		this.obj.find("div.duration").remove();
 		this.obj.find("div.joinArrow").remove();
+		this.obj.find("input.enableCheck").off("click.slide").remove();
 		this.obj.off("click.slide");
 		this.obj.off("dblclick.slide");
 		this.obj.off("contextmenu.slide");
@@ -160,6 +148,7 @@ export class ThumbSlideView extends CanvasSlideView {
 			} else {
 				this.obj.removeClass("disabled");
 			}
+			this.obj.find("input.enableCheck").prop("checked", !this._slide.disabled);
 		}
 		if (flag & PropFlags.S_JOIN) {
 			if (this._slide.joining) {
@@ -187,6 +176,27 @@ export class ThumbSlideView extends CanvasSlideView {
 		this.doubleClickTimer = setTimeout(() => {
 			this.doubleClickLock = false;
 		}, 100);
+	}
+
+	private getAdjustedDurationRatio(direction: "up" | "down"): number {
+		const currentRatio = this._slide.durationRatio;
+		if (direction === "up") {
+			if (currentRatio >= 9) return currentRatio;
+			if (currentRatio >= 2) return currentRatio + 1;
+			if (currentRatio >= 1) return currentRatio + 0.5;
+			return currentRatio + 0.2;
+		}
+		if (currentRatio <= 0.2) return currentRatio;
+		if (currentRatio > 2) return currentRatio - 1;
+		if (currentRatio > 1) return currentRatio - 0.5;
+		return currentRatio - 0.2;
+	}
+
+	private dispatchDurationRatioChange(ratio: number): void {
+		if (ratio === this._slide.durationRatio) return;
+		this.dispatchEvent(
+			new CustomEvent("setDurationRatio", { detail: { slide: this._slide, ratio } })
+		);
 	}
 
 	// protected replaceSlide(newSlide:Slide) {

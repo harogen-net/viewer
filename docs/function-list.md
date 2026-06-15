@@ -249,10 +249,10 @@
 ## 現行 MVVM 的実装の移行メモ
 - 現行
   - Model: `Slide`, `Layer`, `ViewerDocument`
-  - ViewModel/UI Binding: `src/viewModel/VMUI.ts`
+  - ViewModel/UI Binding: legacy binding helper はPhase3で削除済み
   - View + Controller: `view/*`, `viewController/*`
 - React 移行
-  - VMUI の責務は React state + hooks + 共通フォームコンポーネントへ置換
+  - legacy binding helper の責務は React state + hooks + command/bridge 経路へ置換
   - Command ベース履歴は独立ストア化して UI から疎結合にする
   - モード切替は App レベルの feature gate で統制する
 

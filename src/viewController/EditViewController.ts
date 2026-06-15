@@ -1,7 +1,6 @@
 import $ from "jquery";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
-import { IVMUI } from "../interface/IVMUI";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
@@ -12,161 +11,19 @@ import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import { EditableSlideView } from "../view/slide/EditableSlideView";
 import { ViewerMode } from "../Viewer";
-import { VMButton } from "../viewModel/VMUI";
-import { EditLayerViewController } from "./edit/EditLayerViewController";
 
 export class EditViewController extends EventDispatcher {
 	public slideView: EditableSlideView;
-	private layerDiv: EditLayerViewController;
 	private observedLayer: Layer | null = null;
-
-	private bindLegacyClick(selector: string, handler: (event: JQuery.ClickEvent) => void): void {
-		$(selector).each((_index, element) => {
-			const target = $(element);
-			if (target.attr("data-react-controlled") === "true") return;
-			target.on("click", handler);
-		});
-	}
-
-	private bindLegacyChange(selector: string, handler: (event: JQuery.ChangeEvent) => void): void {
-		$(selector).each((_index, element) => {
-			const target = $(element);
-			if (target.attr("data-react-controlled") === "true") return;
-			target.on("change", handler);
-		});
-	}
-
-	private setLegacyDisabled(selector: string, disabled: boolean): void {
-		$(selector).each((_index, element) => {
-			const target = $(element);
-			if (target.attr("data-react-controlled") === "true") return;
-			target.prop("disabled", disabled);
-		});
-	}
-
-	private requestEditCommand(command: string): void {
-		this.dispatchEvent(new CustomEvent("requestEditCommand", { detail: { command } }));
-	}
 
 	constructor(public obj: any) {
 		super();
 		this.obj.addClass("slideCanvas");
 
 		this.slideView = new EditableSlideView(new Slide(), $("<div />").appendTo(this.obj));
-		this.layerDiv = new EditLayerViewController($(".layer"));
-
-		//
-
-		var rectEditButton = new VMButton(
-			$(".menu button.same"),
-			EditableSlideView,
-			() => {
-				this.requestEditCommand("toggleRectEdit");
-			}
-		);
-		rectEditButton.target = this.slideView;
-
-		var vms: IVMUI[] = [
-			new VMButton($("#main button.cut"), Layer, () => {
-				this.requestEditCommand("cutSelectedLayer");
-			}),
-			new VMButton($("#main button.copy"), Layer, () => {
-				this.requestEditCommand("copySelectedLayer");
-			}),
-			new VMButton($("#main button.rotateL"), Layer, () => {
-				this.requestEditCommand("rotateSelectedLayerLeft");
-			}),
-			new VMButton($("#main button.rotateR"), Layer, () => {
-				this.requestEditCommand("rotateSelectedLayerRight");
-			}),
-
-			new VMButton($("#main button.toAnyWhere"), Layer, () => {
-				var subButtons = $("#main .buttonGroup > button.at");
-				subButtons.toggle();
-			}),
-			new VMButton($("#main button.toTop"), Layer, () => {
-				var subButtons = $("#main .buttonGroup > button.at");
-				subButtons.hide();
-				this.requestEditCommand("arrangeSelectedLayerTop");
-			}),
-			new VMButton($("#main button.toRight"), Layer, () => {
-				var subButtons = $("#main .buttonGroup > button.at");
-				subButtons.hide();
-				this.requestEditCommand("arrangeSelectedLayerRight");
-			}),
-			new VMButton($("#main button.toBottom"), Layer, () => {
-				var subButtons = $("#main .buttonGroup > button.at");
-				subButtons.hide();
-				this.requestEditCommand("arrangeSelectedLayerBottom");
-			}),
-			new VMButton($("#main button.toLeft"), Layer, () => {
-				var subButtons = $("#main .buttonGroup > button.at");
-				subButtons.hide();
-				this.requestEditCommand("arrangeSelectedLayerLeft");
-			}),
-			new VMButton($("#main button.mirrorH"), Layer, () => {
-				this.requestEditCommand("toggleSelectedLayerMirrorH");
-			}),
-			new VMButton($("#main button.mirrorV"), Layer, () => {
-				this.requestEditCommand("toggleSelectedLayerMirrorV");
-			}),
-			new VMButton($("#main button.isText"), ImageLayer, () => {
-				this.requestEditCommand("toggleSelectedLayerIsText");
-			}),
-			new VMButton($("#main button.copyTrans"), Layer, () => {
-				this.requestEditCommand("copySelectedLayerTransform");
-			}),
-			new VMButton($("#main button.pasteTrans"), Layer, () => {
-				this.requestEditCommand("pasteLayerTransform");
-			}),
-			new VMButton($("#main button.fit"), Layer, () => {
-				this.requestEditCommand("fitSelectedLayer");
-			}),
-			new VMButton($("#main button.imageRef"), ImageLayer, () => {
-				const imageRefInput = $("input.imageRef").get(0) as HTMLInputElement | undefined;
-				imageRefInput?.click();
-			}),
-			new VMButton($("#main button.download"), ImageLayer, () => {
-				this.requestEditCommand("downloadSelectedImage");
-			}),
-
-			new VMButton($("#main button.up"), Layer, () => {
-				this.requestEditCommand("moveSelectedLayerUp");
-			}),
-			new VMButton($("#main button.down"), Layer, () => {
-				this.requestEditCommand("moveSelectedLayerDown");
-			}),
-			new VMButton($("#main button.top"), Layer, () => {
-				this.requestEditCommand("moveSelectedLayerToTop");
-			}),
-			new VMButton($("#main button.bottom"), Layer, () => {
-				this.requestEditCommand("moveSelectedLayerToBottom");
-			}),
-			new VMButton($("#main button.spread"), Layer, () => {
-				this.requestEditCommand("spreadSelectedLayer");
-			}),
-
-			// VMHistoricalVariableInput entries removed: React (RuntimeShell) owns
-			// position/scale/rotation/opacity/clip editing via bridge commands.
-			// Legacy inputs in .property / .clip remain in DOM but are no longer
-			// managed here, so they will stay disabled.
-
-			// VMHistoricalTextInput removed: React setSelectedLayerText owns text editing.
-			// VMShowHideUI removed: React controls visibility based on layerType from bridge.
-		];
 
 		this.slideView.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			if (pe.propFlags & PropFlags.LV_SELECT) {
-				try {
-					vms.forEach((vmi) => {
-						vmi.target = this.selectedLayer;
-					});
-				} catch (e) {
-					console.log(e);
-					vms.forEach((vmi) => {
-						vmi.target = null;
-					});
-				}
 				this.dispatchEvent(
 					new CustomEvent("selectionChanged", {
 						detail: {
@@ -182,56 +39,6 @@ export class EditViewController extends EventDispatcher {
 			if (pe.propFlags & (PropFlags.DSV_SCALE | PropFlags.ESV_RECT)) {
 				this.emitCanvasState();
 			}
-		});
-
-		//
-
-		this.bindLegacyClick(".undo", () => {
-			this.requestEditCommand("undo");
-		});
-		this.bindLegacyClick(".redo", () => {
-			this.requestEditCommand("redo");
-		});
-		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, () => {
-			this.setLegacyDisabled(".undo", !HistoryManager.shared.canUndo);
-			this.setLegacyDisabled(".redo", !HistoryManager.shared.canRedo);
-		});
-
-		//
-
-		this.bindLegacyClick(".paste", () => {
-			this.requestEditCommand("pasteLayer");
-		});
-		this.bindLegacyClick(".zoomIn", () => {
-			this.requestEditCommand("zoomInCanvas");
-		});
-		this.bindLegacyClick(".showAll", () => {
-			this.requestEditCommand("resetCanvasZoom");
-		});
-		this.bindLegacyClick(".zoomOut", () => {
-			this.requestEditCommand("zoomOutCanvas");
-		});
-		this.bindLegacyClick(".slideDownload", () => {
-			this.requestEditCommand("downloadSelectedSlide");
-		});
-		this.bindLegacyClick(".text", () => {
-			this.requestEditCommand("requestTextLayerInput");
-		});
-
-		this.bindLegacyClick("label[for='cb_imageRef']", () => {
-			$("input#cb_imageRef").prop("checked", !$("input#cb_imageRef").prop("checked"));
-			return false;
-		});
-		this.bindLegacyChange("input.imageRef", async (e) => {
-			const file = (e.target as HTMLInputElement)?.files?.[0];
-			if (!file) return;
-			await this.replaceSelectedImage(file, $("input#cb_imageRef").prop("checked"));
-			//初期化
-			$(e.currentTarget).val(null);
-		});
-
-		this.bindLegacyClick("#main .close", () => {
-			this.requestEditCommand("closeEditMode");
 		});
 	}
 
@@ -261,7 +68,6 @@ export class EditViewController extends EventDispatcher {
 		//HistoryManager.shared.initialize();
 		this.slideView.slide = newSlide;
 
-		this.layerDiv.layerViews = this.slideView.layerViews;
 		if (this.slide) {
 			this.slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
 		}
@@ -280,7 +86,6 @@ export class EditViewController extends EventDispatcher {
 	}
 
 	private emitCanvasState(): void {
-		this.syncLegacyRectEditButton();
 		this.dispatchEvent(
 			new CustomEvent("canvasStateChanged", {
 				detail: {
@@ -289,14 +94,6 @@ export class EditViewController extends EventDispatcher {
 				},
 			})
 		);
-	}
-
-	private syncLegacyRectEditButton(): void {
-		$(".menu button.same").each((_index, element) => {
-			const target = $(element);
-			if (target.attr("data-react-controlled") === "true") return;
-			target.toggleClass("on", Boolean(this.slideView.rectEdit));
-		});
 	}
 
 	private emitLayerListState(): void {
@@ -1203,7 +1000,6 @@ export class EditViewController extends EventDispatcher {
 	private onSlideUpdate = (pe: PropertyEvent) => {
 		var flag = pe.propFlags;
 		if (flag & (PropFlags.S_LAYER_ADD | PropFlags.S_LAYER_REMOVE | PropFlags.S_LAYER_ORDER)) {
-			this.layerDiv.layerViews = this.slideView.layerViews;
 			this.emitLayerListState();
 		}
 	};
