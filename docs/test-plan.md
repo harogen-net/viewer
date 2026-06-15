@@ -272,6 +272,12 @@ CI実行時のレポート収集:
 - 2026-06-15: legacy text ボタンの `prompt("insert text layer:")` を `requestTextLayerInput` → Viewer command → `textLayerInputRequested` bridge event へ移し、RuntimeShell のReactテキスト入力へフォーカスする形に更新。React購読者がいない場合のみ従来promptへフォールバック。`getTextLayerInputRequestState` の usecase テストを追加。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
+- 2026-06-15: `EditViewController` の legacy VMButton 直書き編集処理（cut/copy/rotate/align/mirror/isText/transform copy-paste/fit/layer order/download image）を `requestEditCommand` / `requestDownloadSelectedImage` event 経由で Viewer command に集約。React 側と同じ command gate / bridge 更新経路を通るようにし、旧UI内の履歴操作直書きを縮小。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
+- 2026-06-15: legacy undo/redo/paste/zoom/slide download/text/spread/rect edit/close edit を `requestEditCommand` 経由へ追加集約し、`ListViewController` の legacy context/prev-next/new/clone/delete 操作も `requestListCommand` 経由で Viewer command に集約。旧 controller から個別 `request...` event と `VMToggleButton` 直操作を削減。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

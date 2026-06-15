@@ -27,6 +27,10 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 	private slideContextMenu: any;
 	private contextTargetSlide: Slide | null = null; //こいつが原因でバグを発生しそうな予感
 
+	private requestListCommand(command: string, slide: Slide | null = null): void {
+		this.dispatchEvent(new CustomEvent("requestListCommand", { detail: { command, slide } }));
+	}
+
 	constructor(
 		public obj: any,
 		private readonly canEdit: boolean = true
@@ -87,7 +91,7 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 				this.containerObj
 			);
 			this.newSlideBtn.click(() => {
-				this.dispatchEvent(new Event("requestNewSlide"));
+				this.requestListCommand("newSlide");
 			});
 
 			this.listContextMenu = $("#listContextMenu");
@@ -96,16 +100,16 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			}
 
 			this.bindLegacyClick(this.listContextMenu, ".unjoin", () => {
-				this.dispatchEvent(new Event("requestUnjoinAllSlides"));
+				this.requestListCommand("unjoinAllSlides");
 			});
 			this.bindLegacyClick(this.listContextMenu, ".delete", () => {
-				this.dispatchEvent(new Event("requestDeleteDisabledSlides"));
+				this.requestListCommand("deleteDisabledSlides");
 			});
 			this.bindLegacyClick(this.listContextMenu, ".enable", () => {
-				this.dispatchEvent(new Event("requestEnableAllSlides"));
+				this.requestListCommand("enableAllSlides");
 			});
 			this.bindLegacyClick(this.listContextMenu, ".disable", () => {
-				this.dispatchEvent(new Event("requestDisableAllSlides"));
+				this.requestListCommand("disableAllSlides");
 			});
 			this.obj.on("contextmenu.slide", (e) => {
 				if (this._slides.length > 0) {
@@ -123,12 +127,12 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			}
 			this.bindLegacyClick(this.slideContextMenu, ".delete", () => {
 				if (this.contextTargetSlide == null) return;
-				this.dispatchEvent(new CustomEvent("requestDeleteSlide", { detail: this.contextTargetSlide }));
+				this.requestListCommand("deleteSlide", this.contextTargetSlide);
 				this.contextTargetSlide = null;
 			});
 			this.bindLegacyClick(this.slideContextMenu, ".enable", () => {
 				if (this.contextTargetSlide == null) return;
-				this.dispatchEvent(new CustomEvent("requestEnableOnlySlide", { detail: this.contextTargetSlide }));
+				this.requestListCommand("enableOnlySlide", this.contextTargetSlide);
 				this.contextTargetSlide = null;
 			});
 
@@ -137,14 +141,14 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 			);
 			this.obj.append(prevSlideBtn);
 			prevSlideBtn.click(() => {
-				this.selectPreviousSlide();
+				this.requestListCommand("selectPreviousSlide");
 			});
 			var nextSlideBtn = $(
 				'<button class="selectSlideBtn next"><i class="fas fa-chevron-right"></i></button>'
 			);
 			this.obj.append(nextSlideBtn);
 			nextSlideBtn.click(() => {
-				this.selectNextSlide();
+				this.requestListCommand("selectNextSlide");
 			});
 		}
 	}
@@ -334,10 +338,10 @@ export class ListViewController extends EventDispatcher implements IDroppable {
 		this.dispatchEvent(new Event("edit"));
 	};
 	private onSlideClone = (ce: CustomEvent) => {
-		this.dispatchEvent(new CustomEvent("requestCloneSlide", { detail: ce.detail as Slide }));
+		this.requestListCommand("cloneSlide", ce.detail as Slide);
 	};
 	private onSlideDelete = (ce: CustomEvent) => {
-		this.dispatchEvent(new CustomEvent("requestDeleteSlide", { detail: ce.detail as Slide }));
+		this.requestListCommand("deleteSlide", ce.detail as Slide);
 	};
 	private onContextMenu = (ce: CustomEvent) => {
 		if (!this.canEdit) return;

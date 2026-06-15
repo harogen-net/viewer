@@ -386,57 +386,145 @@ export class Viewer {
 				}, 301);
 			}
 		});
-		this.listVC.addEventListener("requestNewSlide", () => {
-			this.commandNewSlide();
-		});
-		this.listVC.addEventListener("requestCloneSlide", (e: CustomEvent) => {
-			this.listVC.selectSlideInstance(e.detail as Slide);
-			this.commandCloneSelectedSlide();
-		});
-		this.listVC.addEventListener("requestDeleteSlide", (e: CustomEvent) => {
-			this.listVC.selectSlideInstance(e.detail as Slide);
-			this.commandDeleteSelectedSlide();
-		});
-		this.listVC.addEventListener("requestToggleAllSlidesJoining", () => {
-			this.commandToggleAllSlidesJoining();
-		});
-		this.listVC.addEventListener("requestUnjoinAllSlides", () => {
-			this.commandUnjoinAllSlides();
-		});
-		this.listVC.addEventListener("requestDeleteDisabledSlides", () => {
-			this.commandDeleteDisabledSlides();
-		});
-		this.listVC.addEventListener("requestEnableAllSlides", () => {
-			this.commandEnableAllSlides();
-		});
-		this.listVC.addEventListener("requestDisableAllSlides", () => {
-			this.commandDisableAllSlides();
-		});
-		this.listVC.addEventListener("requestEnableOnlySlide", (e: CustomEvent) => {
-			this.listVC.selectSlideInstance(e.detail as Slide);
-			this.commandEnableOnlySelectedSlide();
+		this.listVC.addEventListener("requestListCommand", (e: CustomEvent) => {
+			const slide = e.detail?.slide as Slide | null;
+			switch (e.detail?.command) {
+				case "newSlide":
+					this.commandNewSlide();
+					break;
+				case "cloneSlide":
+					if (slide) this.listVC.selectSlideInstance(slide);
+					this.commandCloneSelectedSlide();
+					break;
+				case "deleteSlide":
+					if (slide) this.listVC.selectSlideInstance(slide);
+					this.commandDeleteSelectedSlide();
+					break;
+				case "unjoinAllSlides":
+					this.commandUnjoinAllSlides();
+					break;
+				case "deleteDisabledSlides":
+					this.commandDeleteDisabledSlides();
+					break;
+				case "enableAllSlides":
+					this.commandEnableAllSlides();
+					break;
+				case "disableAllSlides":
+					this.commandDisableAllSlides();
+					break;
+				case "enableOnlySlide":
+					if (slide) this.listVC.selectSlideInstance(slide);
+					this.commandEnableOnlySelectedSlide();
+					break;
+				case "selectPreviousSlide":
+					this.commandSelectPreviousSlide();
+					break;
+				case "selectNextSlide":
+					this.commandSelectNextSlide();
+					break;
+			}
 		});
 
-		this.editVC.addEventListener("close", () => {
-			this.setMode(ViewerMode.SELECT);
-			setTimeout(() => {
-				this.editVC.initialize();
-				this.emitEditSelectionState();
-			}, 301);
-		});
 		this.listVC.addEventListener("close", () => {
 			this.editVC.initialize();
 			this.setMode(ViewerMode.SELECT);
 			this.emitEditSelectionState();
 		});
 
-		this.editVC.addEventListener("download", () => this.commandDownloadSelectedSlide());
-		this.editVC.addEventListener("requestSpreadSelectedLayer", () =>
-			this.commandSpreadSelectedLayer()
-		);
-		this.editVC.addEventListener("requestTextLayerInput", () =>
-			this.commandRequestTextLayerInput()
-		);
+		this.editVC.addEventListener("requestEditCommand", (e: CustomEvent) => {
+			switch (e.detail?.command) {
+				case "undo":
+					this.commandUndo();
+					break;
+				case "redo":
+					this.commandRedo();
+					break;
+				case "downloadSelectedSlide":
+					this.commandDownloadSelectedSlide();
+					break;
+				case "downloadSelectedImage":
+					this.commandDownloadSelectedImage();
+					break;
+				case "requestTextLayerInput":
+					this.commandRequestTextLayerInput();
+					break;
+				case "spreadSelectedLayer":
+					this.commandSpreadSelectedLayer();
+					break;
+				case "toggleRectEdit":
+					this.commandToggleRectEdit();
+					break;
+				case "closeEditMode":
+					this.commandCloseEditMode();
+					break;
+				case "zoomInCanvas":
+					this.commandZoomInCanvas();
+					break;
+				case "zoomOutCanvas":
+					this.commandZoomOutCanvas();
+					break;
+				case "resetCanvasZoom":
+					this.commandResetCanvasZoom();
+					break;
+				case "cutSelectedLayer":
+					this.commandCutSelectedLayer();
+					break;
+				case "pasteLayer":
+					this.commandPasteLayer();
+					break;
+				case "copySelectedLayer":
+					this.commandCopySelectedLayer();
+					break;
+				case "rotateSelectedLayerLeft":
+					this.commandRotateSelectedLayerLeft();
+					break;
+				case "rotateSelectedLayerRight":
+					this.commandRotateSelectedLayerRight();
+					break;
+				case "toggleSelectedLayerMirrorH":
+					this.commandToggleSelectedLayerMirrorH();
+					break;
+				case "toggleSelectedLayerMirrorV":
+					this.commandToggleSelectedLayerMirrorV();
+					break;
+				case "toggleSelectedLayerIsText":
+					this.commandToggleSelectedLayerIsText();
+					break;
+				case "arrangeSelectedLayerTop":
+					this.commandArrangeSelectedLayerTop();
+					break;
+				case "arrangeSelectedLayerRight":
+					this.commandArrangeSelectedLayerRight();
+					break;
+				case "arrangeSelectedLayerBottom":
+					this.commandArrangeSelectedLayerBottom();
+					break;
+				case "arrangeSelectedLayerLeft":
+					this.commandArrangeSelectedLayerLeft();
+					break;
+				case "copySelectedLayerTransform":
+					this.commandCopySelectedLayerTransform();
+					break;
+				case "pasteLayerTransform":
+					this.commandPasteLayerTransform();
+					break;
+				case "fitSelectedLayer":
+					this.commandFitSelectedLayer();
+					break;
+				case "moveSelectedLayerUp":
+					this.commandMoveSelectedLayerUp();
+					break;
+				case "moveSelectedLayerDown":
+					this.commandMoveSelectedLayerDown();
+					break;
+				case "moveSelectedLayerToTop":
+					this.commandMoveSelectedLayerToTop();
+					break;
+				case "moveSelectedLayerToBottom":
+					this.commandMoveSelectedLayerToBottom();
+					break;
+			}
+		});
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
@@ -968,6 +1056,14 @@ export class Viewer {
 
 	public commandEnterSelectMode(): void {
 		this.setMode(ViewerMode.SELECT);
+	}
+
+	public commandCloseEditMode(): void {
+		this.setMode(ViewerMode.SELECT);
+		setTimeout(() => {
+			this.editVC.initialize();
+			this.emitEditSelectionState();
+		}, 301);
 	}
 
 	public commandEnterEditMode(): void {

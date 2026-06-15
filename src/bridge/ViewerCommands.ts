@@ -72,6 +72,9 @@ export const ViewerCommands = {
 	enterSelectMode(): void {
 		getViewer()?.commandEnterSelectMode();
 	},
+	closeEditMode(): void {
+		getViewer()?.commandCloseEditMode();
+	},
 	enterEditMode(): void {
 		getViewer()?.commandEnterEditMode();
 	},

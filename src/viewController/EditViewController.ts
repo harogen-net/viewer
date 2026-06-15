@@ -12,10 +12,7 @@ import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import { EditableSlideView } from "../view/slide/EditableSlideView";
 import { ViewerMode } from "../Viewer";
-import {
-	VMButton,
-	VMToggleButton,
-} from "../viewModel/VMUI";
+import { VMButton } from "../viewModel/VMUI";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
 
 export class EditViewController extends EventDispatcher {
@@ -47,6 +44,10 @@ export class EditViewController extends EventDispatcher {
 		});
 	}
 
+	private requestEditCommand(command: string): void {
+		this.dispatchEvent(new CustomEvent("requestEditCommand", { detail: { command } }));
+	}
+
 	constructor(public obj: any) {
 		super();
 		this.obj.addClass("slideCanvas");
@@ -56,218 +57,93 @@ export class EditViewController extends EventDispatcher {
 
 		//
 
-		var rectEditButton = new VMToggleButton(
+		var rectEditButton = new VMButton(
 			$(".menu button.same"),
 			EditableSlideView,
-			"rectEdit",
-			PropFlags.ESV_RECT
+			() => {
+				this.requestEditCommand("toggleRectEdit");
+			}
 		);
 		rectEditButton.target = this.slideView;
 
 		var vms: IVMUI[] = [
 			new VMButton($("#main button.cut"), Layer, () => {
-				this.slideView.cut();
+				this.requestEditCommand("cutSelectedLayer");
 			}),
 			new VMButton($("#main button.copy"), Layer, () => {
-				this.slideView.copy();
+				this.requestEditCommand("copySelectedLayer");
 			}),
-			new VMButton($("#main button.rotateL"), Layer, (layer: Layer) => {
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								layer.rotateBy(-90);
-							},
-							() => {
-								layer.rotateBy(90);
-							}
-						)
-					)
-					.do();
+			new VMButton($("#main button.rotateL"), Layer, () => {
+				this.requestEditCommand("rotateSelectedLayerLeft");
 			}),
-			new VMButton($("#main button.rotateR"), Layer, (layer: Layer) => {
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								layer.rotateBy(90);
-							},
-							() => {
-								layer.rotateBy(-90);
-							}
-						)
-					)
-					.do();
+			new VMButton($("#main button.rotateR"), Layer, () => {
+				this.requestEditCommand("rotateSelectedLayerRight");
 			}),
 
 			new VMButton($("#main button.toAnyWhere"), Layer, () => {
 				var subButtons = $("#main .buttonGroup > button.at");
 				subButtons.toggle();
 			}),
-			new VMButton($("#main button.toTop"), Layer, (layer: Layer) => {
+			new VMButton($("#main button.toTop"), Layer, () => {
 				var subButtons = $("#main .buttonGroup > button.at");
 				subButtons.hide();
-
-				var y = layer.y;
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.arrangeLayer(this.slideView.editingLayer, Direction.TOP);
-							},
-							() => {
-								layer.y = y;
-							}
-						)
-					)
-					.do();
+				this.requestEditCommand("arrangeSelectedLayerTop");
 			}),
-			new VMButton($("#main button.toRight"), Layer, (layer: Layer) => {
+			new VMButton($("#main button.toRight"), Layer, () => {
 				var subButtons = $("#main .buttonGroup > button.at");
 				subButtons.hide();
-
-				var x = layer.x;
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.arrangeLayer(this.slideView.editingLayer, Direction.RIGHT);
-							},
-							() => {
-								layer.x = x;
-							}
-						)
-					)
-					.do();
+				this.requestEditCommand("arrangeSelectedLayerRight");
 			}),
-			new VMButton($("#main button.toBottom"), Layer, (layer: Layer) => {
+			new VMButton($("#main button.toBottom"), Layer, () => {
 				var subButtons = $("#main .buttonGroup > button.at");
 				subButtons.hide();
-
-				var y = layer.y;
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.arrangeLayer(this.slideView.editingLayer, Direction.BOTTOM);
-							},
-							() => {
-								layer.y = y;
-							}
-						)
-					)
-					.do();
+				this.requestEditCommand("arrangeSelectedLayerBottom");
 			}),
-			new VMButton($("#main button.toLeft"), Layer, (layer: Layer) => {
+			new VMButton($("#main button.toLeft"), Layer, () => {
 				var subButtons = $("#main .buttonGroup > button.at");
 				subButtons.hide();
-
-				var x = layer.x;
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.arrangeLayer(this.slideView.editingLayer, Direction.LEFT);
-							},
-							() => {
-								layer.x = x;
-							}
-						)
-					)
-					.do();
+				this.requestEditCommand("arrangeSelectedLayerLeft");
 			}),
-			new VMToggleButton($("#main button.mirrorH"), Layer, "mirrorH", PropFlags.MIRROR_H),
-			new VMToggleButton($("#main button.mirrorV"), Layer, "mirrorV", PropFlags.MIRROR_V),
-			new VMToggleButton($("#main button.isText"), ImageLayer, "isText", PropFlags.IMG_TEXT),
+			new VMButton($("#main button.mirrorH"), Layer, () => {
+				this.requestEditCommand("toggleSelectedLayerMirrorH");
+			}),
+			new VMButton($("#main button.mirrorV"), Layer, () => {
+				this.requestEditCommand("toggleSelectedLayerMirrorV");
+			}),
+			new VMButton($("#main button.isText"), ImageLayer, () => {
+				this.requestEditCommand("toggleSelectedLayerIsText");
+			}),
 			new VMButton($("#main button.copyTrans"), Layer, () => {
-				this.slideView.copyTrans();
+				this.requestEditCommand("copySelectedLayerTransform");
 			}),
 			new VMButton($("#main button.pasteTrans"), Layer, () => {
-				this.slideView.pasteTrans();
+				this.requestEditCommand("pasteLayerTransform");
 			}),
-			new VMButton($("#main button.fit"), Layer, (layer: Layer) => {
-				var transform = layer.transform;
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.fitLayer(layer);
-							},
-							() => {
-								layer.transform = transform;
-							}
-						)
-					)
-					.do();
+			new VMButton($("#main button.fit"), Layer, () => {
+				this.requestEditCommand("fitSelectedLayer");
 			}),
 			new VMButton($("#main button.imageRef"), ImageLayer, () => {
 				const imageRefInput = $("input.imageRef").get(0) as HTMLInputElement | undefined;
 				imageRefInput?.click();
 			}),
 			new VMButton($("#main button.download"), ImageLayer, () => {
-				this.downloadSelectedImage();
+				this.requestEditCommand("downloadSelectedImage");
 			}),
 
-			new VMButton($("#main button.up"), Layer, (layer: Layer) => {
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.swapLayer(layer, 1);
-							},
-							() => {
-								this.slide.swapLayer(layer, -1);
-							}
-						)
-					)
-					.do();
+			new VMButton($("#main button.up"), Layer, () => {
+				this.requestEditCommand("moveSelectedLayerUp");
 			}),
-			new VMButton($("#main button.down"), Layer, (layer: Layer) => {
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.swapLayer(layer, -1);
-							},
-							() => {
-								this.slide.swapLayer(layer, 1);
-							}
-						)
-					)
-					.do();
+			new VMButton($("#main button.down"), Layer, () => {
+				this.requestEditCommand("moveSelectedLayerDown");
 			}),
-			new VMButton($("#main button.top"), Layer, (layer: Layer) => {
-				var index = this.slide.indexOf(layer);
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.swapLayer(layer, Slide.LAYER_NUM_MAX);
-							},
-							() => {
-								this.slide.addLayer(layer, index);
-							}
-						)
-					)
-					.do();
+			new VMButton($("#main button.top"), Layer, () => {
+				this.requestEditCommand("moveSelectedLayerToTop");
 			}),
-			new VMButton($("#main button.bottom"), Layer, (layer: Layer) => {
-				var index = this.slide.indexOf(layer);
-				HistoryManager.shared
-					.record(
-						new Command(
-							() => {
-								this.slide.swapLayer(layer, -Slide.LAYER_NUM_MAX);
-							},
-							() => {
-								this.slide.addLayer(layer, index);
-							}
-						)
-					)
-					.do();
+			new VMButton($("#main button.bottom"), Layer, () => {
+				this.requestEditCommand("moveSelectedLayerToBottom");
 			}),
 			new VMButton($("#main button.spread"), Layer, () => {
-				this.dispatchEvent(new Event("requestSpreadSelectedLayer"));
+				this.requestEditCommand("spreadSelectedLayer");
 			}),
 
 			// VMHistoricalVariableInput entries removed: React (RuntimeShell) owns
@@ -311,10 +187,10 @@ export class EditViewController extends EventDispatcher {
 		//
 
 		this.bindLegacyClick(".undo", () => {
-			HistoryManager.shared.undo();
+			this.requestEditCommand("undo");
 		});
 		this.bindLegacyClick(".redo", () => {
-			HistoryManager.shared.redo();
+			this.requestEditCommand("redo");
 		});
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, () => {
 			this.setLegacyDisabled(".undo", !HistoryManager.shared.canUndo);
@@ -324,22 +200,22 @@ export class EditViewController extends EventDispatcher {
 		//
 
 		this.bindLegacyClick(".paste", () => {
-			this.slideView.paste();
+			this.requestEditCommand("pasteLayer");
 		});
 		this.bindLegacyClick(".zoomIn", () => {
-			this.zoomInCanvas();
+			this.requestEditCommand("zoomInCanvas");
 		});
 		this.bindLegacyClick(".showAll", () => {
-			this.resetCanvasZoom();
+			this.requestEditCommand("resetCanvasZoom");
 		});
 		this.bindLegacyClick(".zoomOut", () => {
-			this.zoomOutCanvas();
+			this.requestEditCommand("zoomOutCanvas");
 		});
 		this.bindLegacyClick(".slideDownload", () => {
-			this.dispatchEvent(new Event("download"));
+			this.requestEditCommand("downloadSelectedSlide");
 		});
 		this.bindLegacyClick(".text", () => {
-			this.dispatchEvent(new Event("requestTextLayerInput"));
+			this.requestEditCommand("requestTextLayerInput");
 		});
 
 		this.bindLegacyClick("label[for='cb_imageRef']", () => {
@@ -355,7 +231,7 @@ export class EditViewController extends EventDispatcher {
 		});
 
 		this.bindLegacyClick("#main .close", () => {
-			this.dispatchEvent(new Event("close"));
+			this.requestEditCommand("closeEditMode");
 		});
 	}
 
@@ -404,6 +280,7 @@ export class EditViewController extends EventDispatcher {
 	}
 
 	private emitCanvasState(): void {
+		this.syncLegacyRectEditButton();
 		this.dispatchEvent(
 			new CustomEvent("canvasStateChanged", {
 				detail: {
@@ -412,6 +289,14 @@ export class EditViewController extends EventDispatcher {
 				},
 			})
 		);
+	}
+
+	private syncLegacyRectEditButton(): void {
+		$(".menu button.same").each((_index, element) => {
+			const target = $(element);
+			if (target.attr("data-react-controlled") === "true") return;
+			target.toggleClass("on", Boolean(this.slideView.rectEdit));
+		});
 	}
 
 	private emitLayerListState(): void {

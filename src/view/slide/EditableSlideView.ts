@@ -319,6 +319,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		//
 
 		super.replaceSlide(newSlide);
+		this.scale = EditableSlideView.SCALE_DEFAULT;
 
 		//
 		//autoselect
