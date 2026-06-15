@@ -203,6 +203,19 @@ export class Viewer {
 		});
 	}
 
+	private emitCurrentEditState(): void {
+		if (
+			Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT ||
+			this._mode != ViewerMode.EDIT ||
+			!this.editVC
+		) {
+			this.emitEditSelectionState();
+			return;
+		}
+		this.editVC.emitCurrentState();
+		this.emitEditSelectionState();
+	}
+
 	private canRunEditOperations(actionLabel: string): boolean {
 		if (!this.ensureAllowed(this.canEdit(), actionLabel)) {
 			return false;
@@ -215,6 +228,13 @@ export class Viewer {
 			return false;
 		}
 		return true;
+	}
+
+	private canEnterEditMode(actionLabel: string): boolean {
+		if (!this.ensureAllowed(this.canEdit(), actionLabel)) {
+			return false;
+		}
+		return Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT;
 	}
 
 	private runEditSelectionOperation(actionLabel: string, operation: () => boolean): void {
@@ -300,6 +320,7 @@ export class Viewer {
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			this.IsDocumentModified = HistoryManager.shared.canUndo;
 			this.emitHistoryState();
+			this.emitCurrentEditState();
 		});
 		this.emitHistoryState();
 
@@ -905,7 +926,7 @@ export class Viewer {
 	}
 
 	public commandEnterEditMode(): void {
-		if (!this.canRunEditOperations("編集モード切替")) {
+		if (!this.canEnterEditMode("編集モード切替")) {
 			return;
 		}
 		if (!this.listVC.selectedSlide) {
@@ -1284,6 +1305,17 @@ export class Viewer {
 	): void {
 		this.runEditSelectionOperationSilently("クリップ変更", () =>
 			this.editVC.adjustSelectedImageClip(side, delta)
+		);
+	}
+
+	public commandSetSelectedImageClip(
+		top: number,
+		right: number,
+		bottom: number,
+		left: number
+	): void {
+		this.runEditSelectionOperationSilently("クリップ変更", () =>
+			this.editVC.setSelectedImageClip(top, right, bottom, left)
 		);
 	}
 

@@ -13,8 +13,8 @@ import { ImageManager } from "../utils/ImageManager";
 import { EditableSlideView } from "../view/slide/EditableSlideView";
 import { ViewerMode } from "../Viewer";
 import {
-	VMButton,
-	VMToggleButton,
+    VMButton,
+    VMToggleButton,
 } from "../viewModel/VMUI";
 import { EditLayerViewController } from "./edit/EditLayerViewController";
 
@@ -499,6 +499,21 @@ export class EditViewController extends EventDispatcher {
 		);
 	}
 
+	public emitCurrentState(): void {
+		this.watchSelectedLayer();
+		this.dispatchEvent(
+			new CustomEvent("selectionChanged", {
+				detail: {
+					hasSelection: this.hasSelectedLayer(),
+					layerType: this.selectedLayer?.type ?? null,
+				},
+			})
+		);
+		this.emitSelectedLayerState();
+		this.emitLayerListState();
+		this.emitCanvasState();
+	}
+
 	public toggleSelectedLayerIsText(): boolean {
 		const layer = this.slideView.editingLayer;
 		if (!layer || layer.type != LayerType.IMAGE) return false;
@@ -515,7 +530,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -524,6 +539,7 @@ export class EditViewController extends EventDispatcher {
 		if (!layer) return false;
 		if (!window.confirm("spread layer to all slides. are you sure?")) return false;
 		this.slideView.spreadLayers(layer);
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -653,7 +669,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -672,7 +688,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -775,7 +791,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -795,7 +811,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -815,7 +831,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -828,12 +844,13 @@ export class EditViewController extends EventDispatcher {
 	public cutSelectedLayer(): boolean {
 		if (!this.slideView.editingLayer) return false;
 		this.slideView.cut();
+		this.emitCurrentState();
 		return true;
 	}
 
 	public pasteLayer(): boolean {
 		this.slideView.paste();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -846,7 +863,7 @@ export class EditViewController extends EventDispatcher {
 	public pasteLayerTransform(): boolean {
 		if (!this.slideView.editingLayer) return false;
 		this.slideView.pasteTrans();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -866,7 +883,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -887,7 +904,7 @@ export class EditViewController extends EventDispatcher {
 				)
 			)
 			.do();
-		this.emitSelectedLayerState();
+		this.emitCurrentState();
 		return true;
 	}
 
@@ -1186,6 +1203,36 @@ export class EditViewController extends EventDispatcher {
 		const index = side == "top" ? 0 : side == "right" ? 1 : side == "bottom" ? 2 : 3;
 		next[index] = Math.max(0, next[index] + delta);
 		if (next[index] === from[index]) return true;
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						imageLayer.clipRect = next;
+					},
+					() => {
+						imageLayer.clipRect = from;
+					}
+				)
+			)
+			.do();
+		this.emitSelectedLayerState();
+		return true;
+	}
+
+	public setSelectedImageClip(
+		top: number,
+		right: number,
+		bottom: number,
+		left: number
+	): boolean {
+		const layer = this.slideView.editingLayer;
+		if (!layer || layer.type != LayerType.IMAGE) return false;
+		const values = [top, right, bottom, left];
+		if (values.some((value) => !isFinite(value))) return false;
+		const imageLayer = layer as ImageLayer;
+		const from = imageLayer.clipRect.concat();
+		const next = values.map((value) => Math.max(0, value));
+		if (from.every((value, index) => value === next[index])) return true;
 		HistoryManager.shared
 			.record(
 				new Command(

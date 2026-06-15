@@ -249,6 +249,9 @@ export const ViewerCommands = {
 	): void {
 		getViewer()?.commandAdjustSelectedImageClip(side, delta);
 	},
+	setSelectedImageClip(top: number, right: number, bottom: number, left: number): void {
+		getViewer()?.commandSetSelectedImageClip(top, right, bottom, left);
+	},
 	resetSelectedImageClip(): void {
 		getViewer()?.commandResetSelectedImageClip();
 	},

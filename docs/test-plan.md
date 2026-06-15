@@ -199,6 +199,23 @@ CI実行時のレポート収集:
 注記:
 - 実ファイル配置は実装時にプロジェクト構成へ合わせる。
 
+### 6.4 Phase3 実行記録
+- 2026-06-15: React レイヤーリストのキーボード操作判定を `getLayerListKeyboardAction` として単体化し、RuntimeShell / SideControls から利用する形に更新。選択/削除/rename 後のフォーカス追従も実装。
+- 確認: `npm run test:usecase`
+- 結果: 22 tests / 22 pass。Enter/Space 選択、上下/Home/End 移動、F2 rename、Delete/Backspace 削除、readonly拒否の判定を確認。
+- 2026-06-15: React Edit ボタンから select mode -> edit mode へ入る経路のガードを修正。Undo/Redo 後に React 編集パネルへ選択状態・レイヤー一覧・キャンバス状態を再通知する経路を追加。
+- 確認: `npm run test:usecase`
+- 結果: 22 tests / 22 pass。
+- 2026-06-15: React PropertyControls の clip 4辺直接入力を `setSelectedImageClip` 経路へ変更し、1回の入力確定が1つの履歴ステップになるよう更新。cut/paste/add text/remove/spread 後の React 編集状態再通知も強化。
+- 確認: `npm run test:usecase`
+- 結果: 22 tests / 22 pass。
+- 2026-06-15: RuntimeShell に clip 4辺の直接入力を追加し、clip ステップボタンも `setSelectedImageClip` 経路へ統一。レイヤー順序変更後に React レイヤー一覧へ即時再通知するよう更新。数値入力ホイール方向判定を `getWheelInputDelta` として単体化。
+- 確認: `npm run test:usecase`
+- 結果: 23 tests / 23 pass。
+- 2026-06-15: RuntimeShell の boolean 状態操作（slide join/disabled、rect edit、layer mirror/visible/locked/shared/isText、slideshow mirror/fullscreen、images panel）を Mantine Switch UI へ変更。
+- 確認: `npm run test:usecase`
+- 結果: 23 tests / 23 pass。
+
 ## 7. 非機能テスト
 - 初期表示時間
 - スライドショー遷移の体感遅延

@@ -5,6 +5,7 @@ import {
     clampNumericValue,
     getAdjustedNumericValue,
     getInputStep,
+    getWheelInputDelta,
 } from "../../src/react/numericInput";
 
 test("clampNumericValue clamps values to optional min and max", () => {
@@ -32,4 +33,23 @@ test("getInputStep supports shift and alt modifiers", () => {
 	assert.equal(getInputStep(2, { shiftKey: false, altKey: false } as never), 2);
 	assert.equal(getInputStep(2, { shiftKey: true, altKey: false } as never), 20);
 	assert.equal(getInputStep(2, { shiftKey: false, altKey: true } as never), 0.2);
+});
+
+test("getWheelInputDelta maps wheel direction and modifiers to numeric deltas", () => {
+	assert.equal(
+		getWheelInputDelta(2, { deltaY: -1, shiftKey: false, altKey: false } as never),
+		2
+	);
+	assert.equal(
+		getWheelInputDelta(2, { deltaY: 1, shiftKey: false, altKey: false } as never),
+		-2
+	);
+	assert.equal(
+		getWheelInputDelta(2, { deltaY: -1, shiftKey: true, altKey: false } as never),
+		20
+	);
+	assert.equal(
+		getWheelInputDelta(2, { deltaY: 1, shiftKey: false, altKey: true } as never),
+		-0.2
+	);
 });

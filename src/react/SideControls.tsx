@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import { useViewerEditLayerState, useViewerEditLayers, useViewerMode } from "../bridge/useViewerBridge";
-import { clampNumericValue, getAdjustedNumericValue, getInputStep } from "./numericInput";
+import { getLayerListKeyboardAction } from "./layerListKeyboard";
+import { clampNumericValue, getAdjustedNumericValue, getInputStep, getWheelInputDelta } from "./numericInput";
 
 export function CopyPasteControls() {
 	const { hasSelection } = useViewerEditLayerState();
@@ -263,22 +264,7 @@ export function PropertyControls() {
         const nextBottom = Number(clipBottomInput);
         const nextLeft = Number(clipLeftInput);
         if (!isFinite(nextTop) || !isFinite(nextRight) || !isFinite(nextBottom) || !isFinite(nextLeft)) return;
-        const currentTop = clipTop ?? 0;
-        const currentRight = clipRight ?? 0;
-        const currentBottom = clipBottom ?? 0;
-        const currentLeft = clipLeft ?? 0;
-        if (nextTop !== currentTop) {
-            ViewerCommands.adjustSelectedImageClip("top", nextTop - currentTop);
-        }
-        if (nextRight !== currentRight) {
-            ViewerCommands.adjustSelectedImageClip("right", nextRight - currentRight);
-        }
-        if (nextBottom !== currentBottom) {
-            ViewerCommands.adjustSelectedImageClip("bottom", nextBottom - currentBottom);
-        }
-        if (nextLeft !== currentLeft) {
-            ViewerCommands.adjustSelectedImageClip("left", nextLeft - currentLeft);
-        }
+        ViewerCommands.setSelectedImageClip(nextTop, nextRight, nextBottom, nextLeft);
     };
 
     const adjustClip = (side: "top" | "right" | "bottom" | "left", delta: number) => {
@@ -340,8 +326,7 @@ export function PropertyControls() {
     ) => {
         if (document.activeElement !== event.currentTarget) return;
         event.preventDefault();
-        const direction = event.deltaY < 0 ? 1 : -1;
-        adjustValue(getInputStep(baseStep, event) * direction);
+        adjustValue(getWheelInputDelta(baseStep, event));
     };
 
     return (
@@ -526,7 +511,23 @@ export function LayerControls() {
     const canEditLayers = mode === "edit";
     const [renamingId, setRenamingId] = useState<number | null>(null);
     const [renameInput, setRenameInput] = useState("");
+    const pendingLayerFocusKey = useRef<string | null>(null);
+    const layerItemRefs = useRef(new Map<string, HTMLLIElement>());
     const renameCanceledRef = useRef(false);
+
+    const getLayerKey = (layer: (typeof layers)[number]) => String(layer.id);
+
+    useEffect(() => {
+        const focusKey = pendingLayerFocusKey.current;
+        if (!focusKey) return;
+        pendingLayerFocusKey.current = null;
+        layerItemRefs.current.get(focusKey)?.focus();
+    }, [layers]);
+
+    const focusLayerAfterRender = (key: string | undefined) => {
+        if (!key) return;
+        pendingLayerFocusKey.current = key;
+    };
 
     const handleSelectLayer = (index: number) => {
         if (!canEditLayers) return;
@@ -567,15 +568,6 @@ export function LayerControls() {
         ViewerCommands.removeSelectedLayer();
     };
 
-    const selectAdjacentLayer = (index: number, direction: -1 | 1) => {
-        if (!canEditLayers) return;
-        const currentPosition = layers.findIndex((layer) => layer.index === index);
-        if (currentPosition === -1) return;
-        const nextLayer = layers[currentPosition + direction];
-        if (!nextLayer) return;
-        ViewerCommands.selectEditLayerByIndex(nextLayer.index);
-    };
-
     const startRename = (id: number, currentName: string, event: React.MouseEvent) => {
         event.stopPropagation();
         if (!canEditLayers) return;
@@ -589,32 +581,40 @@ export function LayerControls() {
         setRenameInput(currentName);
     };
 
-    const handleLayerKeyDown = (layer: (typeof layers)[number], event: React.KeyboardEvent<HTMLLIElement>) => {
-        if (!canEditLayers) return;
-        switch (event.key) {
-            case "Enter":
-            case " ":
-                event.preventDefault();
-                ViewerCommands.selectEditLayerByIndex(layer.index);
+    const handleLayerKeyDown = (
+        layer: (typeof layers)[number],
+        position: number,
+        event: React.KeyboardEvent<HTMLLIElement>
+    ) => {
+        const action = getLayerListKeyboardAction({
+            key: event.key,
+            canEdit: canEditLayers,
+            layerPosition: position,
+            layerCount: layers.length,
+        });
+        if (action.preventDefault) {
+            event.preventDefault();
+        }
+
+        switch (action.type) {
+            case "select": {
+                const nextLayer = layers[action.position];
+                if (nextLayer) {
+                    focusLayerAfterRender(getLayerKey(nextLayer));
+                    ViewerCommands.selectEditLayerByIndex(nextLayer.index);
+                }
                 break;
-            case "ArrowUp":
-                event.preventDefault();
-                selectAdjacentLayer(layer.index, -1);
-                break;
-            case "ArrowDown":
-                event.preventDefault();
-                selectAdjacentLayer(layer.index, 1);
-                break;
-            case "F2":
-                event.preventDefault();
+            }
+            case "rename":
                 ViewerCommands.selectEditLayerByIndex(layer.index);
                 startRenameLayer(layer.id, layer.name);
                 break;
-            case "Delete":
-            case "Backspace":
-                event.preventDefault();
+            case "delete": {
+                const nextLayer = layers[action.position + 1] ?? layers[action.position - 1];
+                focusLayerAfterRender(nextLayer ? getLayerKey(nextLayer) : undefined);
                 deleteLayerByIndex(layer.index);
                 break;
+            }
         }
     };
 
@@ -629,6 +629,7 @@ export function LayerControls() {
         if (layer) {
             ViewerCommands.selectEditLayerByIndex(layer.index);
             ViewerCommands.setSelectedLayerName(renameInput);
+            focusLayerAfterRender(getLayerKey(layer));
         }
         setRenamingId(null);
     };
@@ -640,12 +641,17 @@ export function LayerControls() {
 
     return (
         <ul className="layerList" data-react-controlled="true">
-            {layers.map((layer) => (
+            {layers.map((layer, position) => (
                 <li
                     key={layer.id}
+                    ref={(el) => {
+                        const key = getLayerKey(layer);
+                        if (el) layerItemRefs.current.set(key, el);
+                        else layerItemRefs.current.delete(key);
+                    }}
                     className={layer.selected ? "selected" : ""}
                     onClick={() => handleSelectLayer(layer.index)}
-                    onKeyDown={(e) => handleLayerKeyDown(layer, e)}
+                    onKeyDown={(e) => handleLayerKeyDown(layer, position, e)}
                     tabIndex={canEditLayers ? 0 : -1}
                     data-react-controlled="true"
                 >
@@ -689,6 +695,7 @@ export function LayerControls() {
                                 if (e.key === "Escape") {
                                     renameCanceledRef.current = true;
                                     setRenamingId(null);
+                                    focusLayerAfterRender(getLayerKey(layer));
                                 }
                             }}
                             onClick={(e) => e.stopPropagation()}

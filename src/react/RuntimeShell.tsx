@@ -1,4 +1,4 @@
-import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Text } from "@mantine/core";
+import { Badge, Button, Group, NativeSelect, Paper, ScrollArea, Stack, Switch, Text } from "@mantine/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
@@ -20,7 +20,8 @@ import {
 	getSaveFormat,
 	setSaveFormat,
 } from "../runtime/reactDomRegistry";
-import { getAdjustedNumericValue, getInputStep } from "./numericInput";
+import { getLayerListKeyboardAction } from "./layerListKeyboard";
+import { getAdjustedNumericValue, getInputStep, getWheelInputDelta } from "./numericInput";
 import { getSlideListKeyboardAction } from "./slideListKeyboard";
 
 const durationOptions = [
@@ -92,6 +93,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [scaleInput, setScaleInput] = useState("");
 	const [rotationInput, setRotationInput] = useState("");
 	const [opacityInput, setOpacityInput] = useState("");
+	const [clipTopInput, setClipTopInput] = useState("");
+	const [clipRightInput, setClipRightInput] = useState("");
+	const [clipBottomInput, setClipBottomInput] = useState("");
+	const [clipLeftInput, setClipLeftInput] = useState("");
 	const [zoomInput, setZoomInput] = useState("");
 	const [textLayerInput, setTextLayerInput] = useState("");
 	const [layerNameInput, setLayerNameInput] = useState("");
@@ -100,9 +105,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const [imagesPanelOpen, setImagesPanelOpen] = useState(false);
 	const [saveFormat, setSaveFormatState] = useState<"png" | "hvz" | "hvd">("png");
 	const [durationRatioInput, setDurationRatioInput] = useState("");
+	const [renamingLayerId, setRenamingLayerId] = useState<number | null>(null);
+	const [renameLayerInput, setRenameLayerInput] = useState("");
 	const imageReplaceInputRef = useRef<HTMLInputElement | null>(null);
 	const pendingSlideFocusKey = useRef<string | null>(null);
+	const pendingLayerFocusKey = useRef<string | null>(null);
+	const renameCanceledRef = useRef(false);
 	const slideRowRefs = useRef(new Map<string, HTMLElement>());
+	const layerRowRefs = useRef(new Map<string, HTMLElement>());
 	const dragState = useRef<{
 		startMouseX: number;
 		startMouseY: number;
@@ -141,6 +151,16 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			editLayerState.rotation == null ? "" : String(Math.round(editLayerState.rotation))
 		);
 		setOpacityInput(editLayerState.opacity == null ? "" : editLayerState.opacity.toFixed(2));
+		setClipTopInput(editLayerState.clipTop == null ? "" : String(Math.round(editLayerState.clipTop)));
+		setClipRightInput(
+			editLayerState.clipRight == null ? "" : String(Math.round(editLayerState.clipRight))
+		);
+		setClipBottomInput(
+			editLayerState.clipBottom == null ? "" : String(Math.round(editLayerState.clipBottom))
+		);
+		setClipLeftInput(
+			editLayerState.clipLeft == null ? "" : String(Math.round(editLayerState.clipLeft))
+		);
 		setLayerNameInput(editLayerState.name ?? "");
 	}, [
 		editLayerState.x,
@@ -148,6 +168,10 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		editLayerState.scale,
 		editLayerState.rotation,
 		editLayerState.opacity,
+		editLayerState.clipTop,
+		editLayerState.clipRight,
+		editLayerState.clipBottom,
+		editLayerState.clipLeft,
 		editLayerState.name,
 	]);
 
@@ -234,6 +258,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		[editLayers]
 	);
 
+	const getLayerKey = (layer: (typeof sortedEditLayers)[number]) =>
+		String(layer.id) + "-" + String(layer.index);
+
 	const selectSlide = (index: number) => {
 		ViewerCommands.selectSlideByIndex(index);
 	};
@@ -248,6 +275,18 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const focusSlideAfterRender = (key: string | undefined) => {
 		if (!key) return;
 		pendingSlideFocusKey.current = key;
+	};
+
+	useEffect(() => {
+		const focusKey = pendingLayerFocusKey.current;
+		if (!focusKey) return;
+		pendingLayerFocusKey.current = null;
+		layerRowRefs.current.get(focusKey)?.focus();
+	}, [sortedEditLayers]);
+
+	const focusLayerAfterRender = (key: string | undefined) => {
+		if (!key) return;
+		pendingLayerFocusKey.current = key;
 	};
 
 	const handleSlideKeyDown = (slide: SlideSnapshot, event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -353,6 +392,36 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		ViewerCommands.setSelectedLayerOpacity(opacity);
 	};
 
+	const applyClip = () => {
+		if (!canEditSelectedLayer || !isImageLayer) return;
+		const top = Number(clipTopInput);
+		const right = Number(clipRightInput);
+		const bottom = Number(clipBottomInput);
+		const left = Number(clipLeftInput);
+		if (!isFinite(top) || !isFinite(right) || !isFinite(bottom) || !isFinite(left)) return;
+		ViewerCommands.setSelectedImageClip(top, right, bottom, left);
+	};
+
+	const adjustClip = (side: "top" | "right" | "bottom" | "left", delta: number) => {
+		if (!canEditSelectedLayer || !isImageLayer) return;
+		const currentTop = Number(clipTopInput);
+		const currentRight = Number(clipRightInput);
+		const currentBottom = Number(clipBottomInput);
+		const currentLeft = Number(clipLeftInput);
+		const next = {
+			top: Number.isFinite(currentTop) ? currentTop : editLayerState.clipTop ?? 0,
+			right: Number.isFinite(currentRight) ? currentRight : editLayerState.clipRight ?? 0,
+			bottom: Number.isFinite(currentBottom) ? currentBottom : editLayerState.clipBottom ?? 0,
+			left: Number.isFinite(currentLeft) ? currentLeft : editLayerState.clipLeft ?? 0,
+		};
+		next[side] = getAdjustedNumericValue(String(next[side]), next[side], delta, { min: 0 });
+		setClipTopInput(String(next.top));
+		setClipRightInput(String(next.right));
+		setClipBottomInput(String(next.bottom));
+		setClipLeftInput(String(next.left));
+		ViewerCommands.setSelectedImageClip(next.top, next.right, next.bottom, next.left);
+	};
+
 	const addTextLayer = () => {
 		if (!gate.canEdit || !isEditMode) return;
 		const text = textLayerInput.trim();
@@ -366,6 +435,67 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		const name = layerNameInput.trim();
 		if (!name) return;
 		ViewerCommands.setSelectedLayerName(name);
+	};
+
+	const startLayerRename = (layer: (typeof sortedEditLayers)[number]) => {
+		if (!gate.canEdit || !isEditMode) return;
+		renameCanceledRef.current = false;
+		ViewerCommands.selectEditLayerByIndex(layer.index);
+		setRenamingLayerId(layer.id);
+		setRenameLayerInput(layer.name);
+	};
+
+	const commitLayerRename = () => {
+		if (renameCanceledRef.current) {
+			renameCanceledRef.current = false;
+			setRenamingLayerId(null);
+			return;
+		}
+		if (renamingLayerId === null) return;
+		const layer = sortedEditLayers.find((l) => l.id === renamingLayerId);
+		if (layer) {
+			ViewerCommands.selectEditLayerByIndex(layer.index);
+			ViewerCommands.setSelectedLayerName(renameLayerInput);
+			focusLayerAfterRender(getLayerKey(layer));
+		}
+		setRenamingLayerId(null);
+	};
+
+	const handleLayerKeyDown = (
+		layer: (typeof sortedEditLayers)[number],
+		position: number,
+		event: React.KeyboardEvent<HTMLDivElement>
+	) => {
+		const action = getLayerListKeyboardAction({
+			key: event.key,
+			canEdit: gate.canEdit && isEditMode,
+			layerPosition: position,
+			layerCount: sortedEditLayers.length,
+		});
+		if (action.preventDefault) {
+			event.preventDefault();
+		}
+
+		switch (action.type) {
+			case "select": {
+				const nextLayer = sortedEditLayers[action.position];
+				if (!nextLayer) return;
+				focusLayerAfterRender(getLayerKey(nextLayer));
+				ViewerCommands.selectEditLayerByIndex(nextLayer.index);
+				break;
+			}
+			case "rename":
+				startLayerRename(layer);
+				break;
+			case "delete": {
+				const nextLayer =
+					sortedEditLayers[action.position + 1] ?? sortedEditLayers[action.position - 1];
+				focusLayerAfterRender(nextLayer ? getLayerKey(nextLayer) : undefined);
+				ViewerCommands.selectEditLayerByIndex(layer.index);
+				ViewerCommands.removeSelectedLayer();
+				break;
+			}
+		}
 	};
 
 	const applyTextContent = () => {
@@ -437,8 +567,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	) => {
 		if (document.activeElement !== event.currentTarget) return;
 		event.preventDefault();
-		const direction = event.deltaY < 0 ? 1 : -1;
-		adjustValue(getInputStep(baseStep, event) * direction);
+		adjustValue(getWheelInputDelta(baseStep, event));
 	};
 
 	const selectSavedFile = (value: string) => {
@@ -609,29 +738,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 							)}
 							{selectedRawSlide && gate.canEdit && (
 								<Group grow>
-									<Button
+									<Switch
 										size="xs"
-										variant={selectedRawSlide.joining ? "filled" : "default"}
-										onClick={() => ViewerCommands.toggleSelectedSlideJoining()}>
-										Join {selectedRawSlide.joining ? "ON" : "OFF"}
-									</Button>
-									<Button
+										label="Join"
+										checked={Boolean(selectedRawSlide.joining)}
+										onChange={() => ViewerCommands.toggleSelectedSlideJoining()}
+									/>
+									<Switch
 										size="xs"
-										variant={selectedRawSlide.disabled ? "filled" : "default"}
-										color={selectedRawSlide.disabled ? "gray" : "blue"}
-										onClick={() => ViewerCommands.toggleSelectedSlideDisabled()}>
-										{selectedRawSlide.disabled ? "Disabled" : "Enabled"}
-									</Button>
+										label="Disabled"
+										checked={Boolean(selectedRawSlide.disabled)}
+										onChange={() => ViewerCommands.toggleSelectedSlideDisabled()}
+									/>
 								</Group>
 							)}
 							{gate.canEdit && slides.length > 0 && (
 								<Group grow>
-									<Button
+									<Switch
 										size="xs"
-										variant={allSlidesJoined ? "filled" : "default"}
-										onClick={() => ViewerCommands.toggleAllSlidesJoining()}>
-										All Join {allSlidesJoined ? "ON" : "OFF"}
-									</Button>
+										label="All Join"
+										checked={allSlidesJoined}
+										onChange={() => ViewerCommands.toggleAllSlidesJoining()}
+									/>
 									<Button
 										size="xs"
 										variant="default"
@@ -726,13 +854,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Text size="xs" c="dimmed" style={{ display: "flex", alignItems: "center" }}>
 									Zoom: {Math.round((editCanvasState.scale || 1) * 100)}%
 								</Text>
-								<Button
+								<Switch
 									size="xs"
-									variant={editCanvasState.rectEdit ? "filled" : "default"}
-									onClick={() => ViewerCommands.setRectEdit(!editCanvasState.rectEdit)}
-									disabled={!gate.canEdit || !isEditMode}>
-									Rect {editCanvasState.rectEdit ? "ON" : "OFF"}
-								</Button>
+									label="Rect Edit"
+									checked={editCanvasState.rectEdit}
+									onChange={(e) => ViewerCommands.setRectEdit(e.currentTarget.checked)}
+									disabled={!gate.canEdit || !isEditMode}
+								/>
 							</Group>
 							<Group grow>
 								<input
@@ -780,20 +908,20 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								</Button>
 							</Group>
 							<Group grow>
-								<Button
+								<Switch
 									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.toggleSelectedLayerMirrorH()}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Mirror H
-								</Button>
-								<Button
+									label="Mirror H"
+									checked={Boolean(editLayerState.mirrorH)}
+									onChange={() => ViewerCommands.toggleSelectedLayerMirrorH()}
+									disabled={!gate.canEdit || !isEditMode || !hasSelection}
+								/>
+								<Switch
 									size="xs"
-									variant="default"
-									onClick={() => ViewerCommands.toggleSelectedLayerMirrorV()}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
-									Mirror V
-								</Button>
+									label="Mirror V"
+									checked={Boolean(editLayerState.mirrorV)}
+									onChange={() => ViewerCommands.toggleSelectedLayerMirrorV()}
+									disabled={!gate.canEdit || !isEditMode || !hasSelection}
+								/>
 							</Group>
 							<Group grow>
 								<Button
@@ -957,27 +1085,27 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									disabled={!canEditSelectedLayer}>
 									Set Name
 								</Button>
-								<Button
+								<Switch
 									size="xs"
-									variant={editLayerState.visible === false ? "filled" : "default"}
-									onClick={() => ViewerCommands.toggleSelectedLayerVisible()}
-									disabled={!canEditSelectedLayer}>
-									{editLayerState.visible === false ? "Hidden" : "Visible"}
-								</Button>
-								<Button
+									label="Visible"
+									checked={editLayerState.visible !== false}
+									onChange={() => ViewerCommands.toggleSelectedLayerVisible()}
+									disabled={!canEditSelectedLayer}
+								/>
+								<Switch
 									size="xs"
-									variant={editLayerState.locked ? "filled" : "default"}
-									onClick={() => ViewerCommands.toggleSelectedLayerLocked()}
-									disabled={!canEditSelectedLayer}>
-									{editLayerState.locked ? "Locked" : "Unlocked"}
-								</Button>
-								<Button
+									label="Locked"
+									checked={Boolean(editLayerState.locked)}
+									onChange={() => ViewerCommands.toggleSelectedLayerLocked()}
+									disabled={!canEditSelectedLayer}
+								/>
+								<Switch
 									size="xs"
-									variant={editLayerState.shared ? "filled" : "default"}
-									onClick={() => ViewerCommands.toggleSelectedLayerShared()}
-									disabled={!canEditSelectedLayer}>
-									{editLayerState.shared ? "Shared" : "Local"}
-								</Button>
+									label="Shared"
+									checked={Boolean(editLayerState.shared)}
+									onChange={() => ViewerCommands.toggleSelectedLayerShared()}
+									disabled={!canEditSelectedLayer}
+								/>
 							</Group>
 							<Text size="xs" c="dimmed">
 								x:{fmt(editLayerState.x, 0)} y:{fmt(editLayerState.y, 0)} scale:
@@ -994,13 +1122,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								isText:{editLayerState.isText == null ? "-" : editLayerState.isText ? "on" : "off"}
 							</Text>
 							<Group grow>
-								<Button
+								<Switch
 									size="xs"
-									variant={editLayerState.isText ? "filled" : "default"}
-									onClick={() => ViewerCommands.toggleSelectedLayerIsText()}
-									disabled={!canEditSelectedLayer || !isImageLayer}>
-									{editLayerState.isText ? "isText ON" : "isText OFF"}
-								</Button>
+									label="Image Text"
+									checked={Boolean(editLayerState.isText)}
+									onChange={() => ViewerCommands.toggleSelectedLayerIsText()}
+									disabled={!canEditSelectedLayer || !isImageLayer}
+								/>
 								<Button
 									size="xs"
 									variant="default"
@@ -1014,31 +1142,79 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								{fmt(editLayerState.clipBottom, 0)} l:{fmt(editLayerState.clipLeft, 0)}
 							</Text>
 							<Group grow>
+								<input
+									type="number"
+									min="0"
+									value={clipTopInput}
+									onChange={(e) => setClipTopInput(e.target.value)}
+									onBlur={applyClip}
+									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("top", delta), 1, applyClip)}
+									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("top", delta), 1)}
+									disabled={!canEditSelectedLayer || !isImageLayer}
+									style={{ width: "100%" }}
+								/>
+								<input
+									type="number"
+									min="0"
+									value={clipRightInput}
+									onChange={(e) => setClipRightInput(e.target.value)}
+									onBlur={applyClip}
+									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("right", delta), 1, applyClip)}
+									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("right", delta), 1)}
+									disabled={!canEditSelectedLayer || !isImageLayer}
+									style={{ width: "100%" }}
+								/>
+							</Group>
+							<Group grow>
+								<input
+									type="number"
+									min="0"
+									value={clipBottomInput}
+									onChange={(e) => setClipBottomInput(e.target.value)}
+									onBlur={applyClip}
+									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("bottom", delta), 1, applyClip)}
+									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("bottom", delta), 1)}
+									disabled={!canEditSelectedLayer || !isImageLayer}
+									style={{ width: "100%" }}
+								/>
+								<input
+									type="number"
+									min="0"
+									value={clipLeftInput}
+									onChange={(e) => setClipLeftInput(e.target.value)}
+									onBlur={applyClip}
+									onKeyDown={(e) => handleNumericKeyDown(e, (delta) => adjustClip("left", delta), 1, applyClip)}
+									onWheel={(e) => handleNumericWheel(e, (delta) => adjustClip("left", delta), 1)}
+									disabled={!canEditSelectedLayer || !isImageLayer}
+									style={{ width: "100%" }}
+								/>
+							</Group>
+							<Group grow>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("top", -5)}
+									onClick={() => adjustClip("top", -5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									T-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("top", 5)}
+									onClick={() => adjustClip("top", 5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									T+
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("right", -5)}
+									onClick={() => adjustClip("right", -5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									R-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("right", 5)}
+									onClick={() => adjustClip("right", 5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									R+
 								</Button>
@@ -1047,28 +1223,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("bottom", -5)}
+									onClick={() => adjustClip("bottom", -5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									B-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("bottom", 5)}
+									onClick={() => adjustClip("bottom", 5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									B+
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("left", -5)}
+									onClick={() => adjustClip("left", -5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									L-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedImageClip("left", 5)}
+									onClick={() => adjustClip("left", 5)}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									L+
 								</Button>
@@ -1104,16 +1280,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									Download Img
 								</Button>
-								<label
-									style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
-									<input
-										type="checkbox"
-										checked={replaceImageForAll}
-										onChange={(e) => setReplaceImageForAll(e.currentTarget.checked)}
-										disabled={!canEditSelectedLayer || !isImageLayer}
-									/>
-									forALL
-								</label>
+								<Switch
+									size="xs"
+									label="forALL"
+									checked={replaceImageForAll}
+									onChange={(e) => setReplaceImageForAll(e.currentTarget.checked)}
+									disabled={!canEditSelectedLayer || !isImageLayer}
+								/>
 							</Group>
 							<Text size="xs" c="dimmed">
 								Layer List (Edit)
@@ -1125,18 +1298,55 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 											No layers
 										</Text>
 									) : (
-										sortedEditLayers.map((layer) => (
-											<Text
-												key={String(layer.id) + "-" + String(layer.index)}
-												size="xs"
-												fw={layer.selected ? 700 : 400}
-												style={{ cursor: "pointer" }}
-												onClick={() => ViewerCommands.selectEditLayerByIndex(layer.index)}>
-												{layer.selected ? "● " : "○ "}L{layer.index + 1} {layer.type}{" "}
-												{layer.visible ? "" : "(hidden)"} {layer.locked ? "(locked)" : ""}{" "}
-												{layer.shared ? "(shared)" : ""}
-											</Text>
-										))
+										sortedEditLayers.map((layer, position) => {
+											const layerKey = getLayerKey(layer);
+											return (
+												<div
+													key={layerKey}
+													ref={(el) => {
+														if (el) layerRowRefs.current.set(layerKey, el);
+														else layerRowRefs.current.delete(layerKey);
+													}}
+													tabIndex={gate.canEdit && isEditMode ? 0 : -1}
+													onClick={() => ViewerCommands.selectEditLayerByIndex(layer.index)}
+													onKeyDown={(e) => handleLayerKeyDown(layer, position, e)}
+													onDoubleClick={() => startLayerRename(layer)}
+													style={{
+														cursor: gate.canEdit && isEditMode ? "pointer" : "default",
+														padding: "2px 4px",
+														borderRadius: 4,
+														outline: layer.selected ? "1px solid #339af0" : "1px solid transparent",
+													}}
+													data-react-controlled="true">
+													{renamingLayerId === layer.id ? (
+														<input
+															type="text"
+															value={renameLayerInput}
+															autoFocus
+															onChange={(e) => setRenameLayerInput(e.currentTarget.value)}
+															onBlur={commitLayerRename}
+															onKeyDown={(e) => {
+																e.stopPropagation();
+																if (e.key === "Enter") e.currentTarget.blur();
+																if (e.key === "Escape") {
+																	renameCanceledRef.current = true;
+																	setRenamingLayerId(null);
+																	focusLayerAfterRender(layerKey);
+																}
+															}}
+															onClick={(e) => e.stopPropagation()}
+															style={{ width: "100%", fontSize: 11 }}
+														/>
+													) : (
+														<Text size="xs" fw={layer.selected ? 700 : 400}>
+															{layer.selected ? "● " : "○ "}L{layer.index + 1} {layer.name || layer.type}{" "}
+															({layer.type}) {layer.visible ? "" : "(hidden)"}{" "}
+															{layer.locked ? "(locked)" : ""} {layer.shared ? "(shared)" : ""}
+														</Text>
+													)}
+												</div>
+											);
+										})
 									)}
 								</Stack>
 							</ScrollArea>
@@ -1414,12 +1624,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 										{ value: "hvd", label: "Save: .hvd" },
 									]}
 								/>
-								<Button
+								<Switch
 									size="xs"
-									variant={imagesPanelOpen ? "filled" : "default"}
-									onClick={() => setImagesPanelOpen((v) => !v)}>
-									{imagesPanelOpen ? "Hide Images" : "Show Images"}
-								</Button>
+									label="Images"
+									checked={imagesPanelOpen}
+									onChange={(e) => setImagesPanelOpen(e.currentTarget.checked)}
+								/>
 							</Group>
 							{imagesPanelOpen && (
 								<Text size="xs" c="dimmed">
@@ -1486,24 +1696,24 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									onChange={(e) => ViewerCommands.setBackgroundColor(e.target.value)}
 									disabled={!gate.canEdit}
 								/>
-								<Button
+								<Switch
 									size="xs"
-									variant={slideShowSettings.fullscreen ? "filled" : "default"}
-									onClick={() => ViewerCommands.setFullscreen(!slideShowSettings.fullscreen)}>
-									Fullscreen
-								</Button>
-								<Button
+									label="Fullscreen"
+									checked={slideShowSettings.fullscreen}
+									onChange={(e) => ViewerCommands.setFullscreen(e.currentTarget.checked)}
+								/>
+								<Switch
 									size="xs"
-									variant={slideShowSettings.mirrorH ? "filled" : "default"}
-									onClick={() => ViewerCommands.setMirrorH(!slideShowSettings.mirrorH)}>
-									Mirror H
-								</Button>
-								<Button
+									label="Mirror H"
+									checked={slideShowSettings.mirrorH}
+									onChange={(e) => ViewerCommands.setMirrorH(e.currentTarget.checked)}
+								/>
+								<Switch
 									size="xs"
-									variant={slideShowSettings.mirrorV ? "filled" : "default"}
-									onClick={() => ViewerCommands.setMirrorV(!slideShowSettings.mirrorV)}>
-									Mirror V
-								</Button>
+									label="Mirror V"
+									checked={slideShowSettings.mirrorV}
+									onChange={(e) => ViewerCommands.setMirrorV(e.currentTarget.checked)}
+								/>
 							</Group>
 							<Group grow>
 								<Button
