@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
-    useViewerEditCanvasState,
-    useViewerEditSelection,
-    useViewerHistory,
-    useViewerMode,
-    useViewerSlides,
+	useViewerEditCanvasState,
+	useViewerEditSelection,
+	useViewerHistory,
+	useViewerMode,
+	useViewerSlides,
 } from "../bridge/useViewerBridge";
 
 export function CanvasMenu() {

@@ -5,6 +5,9 @@ import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
 	base: "./",
+	esbuild: {
+		jsx: "automatic",
+	},
 	build: {
 		outDir: "dist", // ビルドの出力ディレクトリ
 	},

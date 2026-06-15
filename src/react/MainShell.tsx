@@ -5,12 +5,12 @@ import { CanvasMenu } from "./CanvasMenu";
 import { ListContextMenus } from "./ListContextMenus";
 import { getMainShellKeyboardAction } from "./mainShellKeyboard";
 import {
-    CopyPasteControls,
-    ImageRefControls,
-    LayerControls,
-    PropertyControls,
-    SwapControls,
-    TextEditControls,
+	CopyPasteControls,
+	ImageRefControls,
+	LayerControls,
+	PropertyControls,
+	SwapControls,
+	TextEditControls,
 } from "./SideControls";
 
 function isTypingTarget(): boolean {
@@ -116,4 +116,3 @@ export function MainShell() {
 }
 
 export const LegacyMainShell = MainShell;
-
