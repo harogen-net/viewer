@@ -15,13 +15,12 @@ import {
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { IDroppable } from "../../interface/IDroppable";
 import { Layer, LayerType } from "../../model/Layer";
-import { createImageLayer, ImageLayer } from "../../model/layer/ImageLayer";
+import { ImageLayer } from "../../model/layer/ImageLayer";
 import { TextLayer } from "../../model/layer/TextLayer";
 import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
 import { slideStore } from "../../state/slideStore";
 import { DropHelper } from "../../utils/DropHelper";
-import { Command, HistoryManager, Transaction } from "../../utils/HistoryManager";
 import { AdjustView, type AdjustViewHandle } from "../layer/AdjustView";
 import { LayerView } from "../LayerView";
 import { DOMSlideView } from "./DOMSlideView";
@@ -51,6 +50,7 @@ export const EDITABLE_SLIDE_VIEW_SCALE_DEFAULT = 0.9;
 export type EditableSlideViewProps = {
 	ref?: Ref<EditableSlideViewHandle>;
 	slide: Slide;
+	onImageDropped?: (imageId: string) => void;
 };
 
 export type EditableSlideViewHandle = EventDispatcher &
@@ -67,8 +67,8 @@ export type EditableSlideViewHandle = EventDispatcher &
 		updateSize: () => void;
 		selectLayerView: (targetLayerView?: LayerView | null) => void;
 		trackSharedLayer: (layer: Layer) => void;
-		runWithSharedLayerRemovalConfirmation: <T>(confirmed: boolean, operation: () => T) => T;
-		hasSharedLayerRemovalTargets: (layer: Layer) => boolean;
+		getSharedLayerRemovalTargets: (layer: Layer) => readonly Layer[] | undefined;
+		clearSharedLayerTracking: (layer: Layer) => void;
 	};
 
 type LayerCleanup = () => void;
@@ -77,7 +77,7 @@ const getLayerElement = (layerView: LayerView): HTMLElement => {
 	return layerView.element;
 };
 
-export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
+export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideViewProps) => {
 	const baseRef = useRef<DOMSlideViewHandle | null>(null);
 	const adjustViewRef = useRef<AdjustViewHandle | null>(null);
 	const borderRef = useRef<HTMLDivElement | null>(null);
@@ -88,7 +88,6 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 	const lastSelectedIndexRef = useRef(-1);
 	const sharedLayersByUUIDRef = useRef<{ [key: string]: Layer[] }>({});
 	const rectLayersRef = useRef<{ [key: string]: Layer[] }>({});
-	const allowSharedLayerRemovalWithoutConfirmRef = useRef(false);
 	const layerCleanupsRef = useRef(new Map<LayerView, LayerCleanup>());
 	const handleRef = useRef<EditableSlideViewHandle | null>(null);
 	const listenersRef = useRef<EventListenerMap>({});
@@ -447,20 +446,12 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 		dispatcher.updateSize = updateSize;
 		dispatcher.selectLayerView = selectLayerView;
 		dispatcher.trackSharedLayer = listSharedLayers;
-		dispatcher.runWithSharedLayerRemovalConfirmation = <T,>(
-			confirmed: boolean,
-			operation: () => T
-		): T => {
-			const previous = allowSharedLayerRemovalWithoutConfirmRef.current;
-			allowSharedLayerRemovalWithoutConfirmRef.current = confirmed;
-			try {
-				return operation();
-			} finally {
-				allowSharedLayerRemovalWithoutConfirmRef.current = previous;
-			}
+		dispatcher.getSharedLayerRemovalTargets = (layer: Layer): readonly Layer[] | undefined => {
+			if (!layer.shared) return undefined;
+			return sharedLayersByUUIDRef.current[layer.uuid];
 		};
-		dispatcher.hasSharedLayerRemovalTargets = (layer: Layer): boolean => {
-			return Boolean(layer.shared && sharedLayersByUUIDRef.current[layer.uuid] !== undefined);
+		dispatcher.clearSharedLayerTracking = (layer: Layer): void => {
+			delete sharedLayersByUUIDRef.current[layer.uuid];
 		};
 		return dispatcher;
 	}, [
@@ -507,29 +498,6 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 						if (flagForRect)
 							multipleLayerOperation(layer, rectLayersRef.current[layer.uuid], flagForRect);
 					}
-				} else if (flag & PropFlags.S_LAYER_REMOVE) {
-					const layer: Layer = event.options.layer;
-					if (
-						layer.shared &&
-						sharedLayersByUUIDRef.current[layer.uuid] !== undefined &&
-						allowSharedLayerRemovalWithoutConfirmRef.current
-					) {
-						const transaction = new Transaction();
-						sharedLayersByUUIDRef.current[layer.uuid].forEach((tmpLayer) => {
-							const slide = tmpLayer.parent;
-							const index = slide.indexOf(tmpLayer);
-							transaction.record(
-								() => {
-									slide.removeLayer(tmpLayer);
-								},
-								() => {
-									slide.addLayer(tmpLayer, index);
-								}
-							);
-						});
-						delete sharedLayersByUUIDRef.current[layer.uuid];
-						if (transaction.length) HistoryManager.shared.record(transaction).do();
-					}
 				}
 				return false;
 			},
@@ -545,24 +513,7 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 		const dropHelper = new DropHelper(handle);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (event: CustomEvent) => {
 			const imageId = event.detail;
-			const layer = createImageLayer(imageId);
-			if (layer.originHeight > layer.originWidth * 1.2) layer.rotation -= 90;
-			HistoryManager.shared
-				.record(
-					new Command(
-						() => {
-							base.slide.addLayer(layer);
-							const layerView = base.getViewByLayer(layer);
-							if (layerView) layerView.selected = true;
-							base.slide.fitLayer(layer);
-						},
-						() => {
-							base.slide.removeLayer(layer);
-							layer.scale = 1;
-						}
-					)
-				)
-				.do();
+			onImageDropped?.(imageId);
 		});
 		const onWheel = (event: WheelEvent) => {
 			if (!isActiveRef.current) return;
@@ -594,7 +545,7 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 			window.removeEventListener("resize", onResize);
 			dropHelper.clearEventListener();
 		};
-	}, []);
+	}, [handle, onImageDropped]);
 
 	return (
 		<DOMSlideViewForRender

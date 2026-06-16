@@ -26,8 +26,10 @@ export type LayerMutationSlide = {
 };
 
 export type TextLayerFactory = (text: string) => Layer;
+export type ImageLayerFactory = (imageId: string) => Layer;
 export type ImageRegistration = (file: File) => Promise<string | null>;
 export type SlideLookup = (slide: LayerMutationSlide) => LayerMutationSlide | null;
+export type SharedLayerRemovalTargetLookup = (layer: Layer) => readonly Layer[] | undefined;
 
 export type EditLayerMutationUseCase = {
 	recordLayerMutation: (
@@ -82,8 +84,10 @@ export type EditLayerMutationUseCase = {
 	pasteLayer: () => boolean;
 	copySelectedLayerTransform: () => boolean;
 	pasteLayerTransform: () => boolean;
-	removeSelectedLayer: () => boolean;
+	hasSelectedLayerSharedRemovalTargets: () => boolean;
+	removeSelectedLayer: (confirmedSharedRemoval?: boolean) => boolean;
 	addTextLayer: (text: string) => boolean;
+	addImageLayer: (imageId: string) => boolean;
 	replaceSelectedImage: (file: File, applyAllReferences: boolean) => Promise<boolean>;
 	nudgeSelectedLayer: (deltaX: number, deltaY: number) => boolean;
 	setSelectedLayerPosition: (nextX: number, nextY: number) => boolean;
@@ -105,10 +109,13 @@ export type EditLayerMutationUseCaseOptions = {
 	getNextSlide?: SlideLookup;
 	getPrevSlide?: SlideLookup;
 	getReferenceLayers?: () => readonly Layer[];
+	getSharedLayerRemovalTargets?: SharedLayerRemovalTargetLookup;
 	createTextLayer?: TextLayerFactory;
+	createImageLayer?: ImageLayerFactory;
 	registerImageFromFile?: ImageRegistration;
 	selectLayer?: (layer: Layer) => void;
 	trackSharedLayer?: (layer: Layer) => void;
+	clearSharedLayerTracking?: (layer: Layer) => void;
 	maxLayerMoveOffset?: number;
 	emitAfterMutation: (render: LayerMutationRenderScope, includeLayerList: boolean) => void;
 };
@@ -514,20 +521,61 @@ export function createEditLayerMutationUseCase(
 		);
 	}
 
-	function removeSelectedLayer(): boolean {
+	function hasSelectedLayerSharedRemovalTargets(): boolean {
+		const layer = options.getSelectedLayer();
+		if (!layer?.shared) return false;
+		return options.getSharedLayerRemovalTargets?.(layer) !== undefined;
+	}
+
+	function removeSelectedLayer(confirmedSharedRemoval = false): boolean {
 		const context = getSelectedSlideLayer();
 		if (!context) return false;
 		const currentIndex = context.slide.indexOf(context.layer);
 		if (currentIndex === -1) return false;
-		return recordLayerMutation(
+
+		const sharedRemovalTargets =
+			confirmedSharedRemoval && context.layer.shared
+				? (options.getSharedLayerRemovalTargets?.(context.layer) ?? [])
+				: [];
+		const sharedRemovalEntries = sharedRemovalTargets
+			.map((layer) => {
+				const slide = layer.parent as LayerMutationSlide | null;
+				const index = slide?.indexOf(layer) ?? -1;
+				return slide && index !== -1 ? { layer, slide, index } : null;
+			})
+			.filter((entry): entry is { layer: Layer; slide: LayerMutationSlide; index: number } =>
+				Boolean(entry)
+			);
+
+		const transaction = new Transaction();
+		transaction.record(
 			() => {
 				context.slide.removeLayer(context.layer);
+				if (sharedRemovalEntries.length > 0) {
+					options.clearSharedLayerTracking?.(context.layer);
+				}
 			},
 			() => {
 				context.slide.addLayer(context.layer, currentIndex);
-			},
-			"current"
+				if (sharedRemovalEntries.length > 0) {
+					options.trackSharedLayer?.(context.layer);
+				}
+			}
 		);
+		sharedRemovalEntries.forEach(({ layer, slide, index }) => {
+			transaction.record(
+				() => {
+					slide.removeLayer(layer);
+				},
+				() => {
+					slide.addLayer(layer, index);
+				}
+			);
+		});
+
+		HistoryManager.shared.record(transaction).do();
+		options.emitAfterMutation("current", false);
+		return true;
 	}
 
 	function addTextLayer(text: string): boolean {
@@ -543,6 +591,29 @@ export function createEditLayerMutationUseCase(
 			},
 			() => {
 				slide.removeLayer(textLayer);
+			},
+			"current"
+		);
+	}
+
+	function addImageLayer(imageId: string): boolean {
+		const slide = options.getCurrentSlide?.() ?? null;
+		const createImageLayer = options.createImageLayer;
+		if (!slide || !createImageLayer || !imageId) return false;
+		const imageLayer = createImageLayer(imageId);
+		if (imageLayer.originHeight > imageLayer.originWidth * 1.2) {
+			imageLayer.rotation -= 90;
+		}
+		const initialScale = imageLayer.scale;
+		return recordLayerMutation(
+			() => {
+				slide.addLayer(imageLayer);
+				options.selectLayer?.(imageLayer);
+				slide.fitLayer(imageLayer);
+			},
+			() => {
+				slide.removeLayer(imageLayer);
+				imageLayer.scale = initialScale;
 			},
 			"current"
 		);
@@ -728,8 +799,10 @@ export function createEditLayerMutationUseCase(
 		pasteLayer,
 		copySelectedLayerTransform,
 		pasteLayerTransform,
+		hasSelectedLayerSharedRemovalTargets,
 		removeSelectedLayer,
 		addTextLayer,
+		addImageLayer,
 		replaceSelectedImage,
 		nudgeSelectedLayer,
 		setSelectedLayerPosition,

@@ -124,6 +124,7 @@ function createSlideLayerMutationFixture() {
 			} else {
 				layers.splice(index, 0, layer as MutableTextLayer);
 			}
+			(layer as unknown as { parent: LayerMutationSlide }).parent = slide;
 			return layer;
 		},
 		removeLayer: (layer: Layer) => {
@@ -131,6 +132,7 @@ function createSlideLayerMutationFixture() {
 			if (currentIndex !== -1) {
 				layers.splice(currentIndex, 1);
 			}
+			(layer as unknown as { parent: LayerMutationSlide | null }).parent = null;
 			return layer;
 		},
 		swapLayer: (layer: Layer, offset: number) => {
@@ -142,6 +144,8 @@ function createSlideLayerMutationFixture() {
 		fitLayer: (layer: Layer) => layer,
 		arrangeLayer: (layer: Layer) => layer,
 	};
+	(firstLayer as unknown as { parent: LayerMutationSlide }).parent = slide;
+	(secondLayer as unknown as { parent: LayerMutationSlide }).parent = slide;
 	const emissions: MutationEmission[] = [];
 	const useCase = createEditLayerMutationUseCase({
 		getSelectedLayer: () => firstLayer,
@@ -150,7 +154,7 @@ function createSlideLayerMutationFixture() {
 			emissions.push({ render, includeLayerList });
 		},
 	});
-	return { emissions, firstLayer, layers, secondLayer, useCase };
+	return { emissions, firstLayer, layers, secondLayer, slide, useCase };
 }
 
 function createImageReplacementFixture() {
@@ -236,6 +240,70 @@ test("removeSelectedLayer records undoable slide removal", () => {
 
 	HistoryManager.shared.undo();
 	assert.deepEqual(layers, [firstLayer, secondLayer]);
+});
+
+test("removeSelectedLayer records confirmed shared target removal in one transaction", () => {
+	const { emissions, firstLayer, layers, secondLayer, slide } = createSlideLayerMutationFixture();
+	const sharedLayer = createFakeTextLayer();
+	firstLayer.shared = true;
+	sharedLayer.shared = true;
+	const sharedLayers = [sharedLayer];
+	const sharedSlide: LayerMutationSlide = {
+		layers: sharedLayers,
+		centerX: 0,
+		centerY: 0,
+		indexOf: (layer) => sharedLayers.indexOf(layer as MutableTextLayer),
+		addLayer: (layer, index = -1) => {
+			const currentIndex = sharedLayers.indexOf(layer as MutableTextLayer);
+			if (currentIndex !== -1) sharedLayers.splice(currentIndex, 1);
+			if (index === -1) {
+				sharedLayers.push(layer as MutableTextLayer);
+			} else {
+				sharedLayers.splice(index, 0, layer as MutableTextLayer);
+			}
+			(layer as unknown as { parent: LayerMutationSlide }).parent = sharedSlide;
+			return layer;
+		},
+		removeLayer: (layer) => {
+			const index = sharedLayers.indexOf(layer as MutableTextLayer);
+			if (index !== -1) sharedLayers.splice(index, 1);
+			(layer as unknown as { parent: LayerMutationSlide | null }).parent = null;
+			return layer;
+		},
+		fitLayer: (layer) => layer,
+		arrangeLayer: (layer) => layer,
+		swapLayer: (layer) => layer,
+	};
+	(sharedLayer as unknown as { parent: LayerMutationSlide }).parent = sharedSlide;
+	const clearedLayers: Layer[] = [];
+	const trackedLayers: Layer[] = [];
+	const useCase = createEditLayerMutationUseCase({
+		getSelectedLayer: () => firstLayer,
+		getCurrentSlide: () => slide,
+		getSharedLayerRemovalTargets: () => [sharedLayer],
+		clearSharedLayerTracking: (layer) => {
+			clearedLayers.push(layer);
+		},
+		trackSharedLayer: (layer) => {
+			trackedLayers.push(layer);
+		},
+		emitAfterMutation: (render, includeLayerList) => {
+			emissions.push({ render, includeLayerList });
+		},
+	});
+
+	assert.equal(useCase.hasSelectedLayerSharedRemovalTargets(), true);
+	assert.equal(useCase.removeSelectedLayer(true), true);
+
+	assert.deepEqual(layers, [secondLayer]);
+	assert.deepEqual(sharedLayers, []);
+	assert.deepEqual(clearedLayers, [firstLayer]);
+	assert.deepEqual(emissions, [{ render: "current", includeLayerList: false }]);
+
+	HistoryManager.shared.undo();
+	assert.deepEqual(layers, [firstLayer, secondLayer]);
+	assert.deepEqual(sharedLayers, [sharedLayer]);
+	assert.deepEqual(trackedLayers, [firstLayer]);
 });
 
 test("copy and paste layer use an undoable cloned layer", () => {
@@ -413,10 +481,67 @@ test("addTextLayer creates centered undoable layer", () => {
 	assert.equal(createdLayers[0].text, "hello");
 	assert.equal(createdLayers[0].x, 320);
 	assert.equal(createdLayers[0].y, 240);
-	assert.equal(layers.includes(createdLayers[0]), true);
+	assert.equal((layers as Layer[]).includes(createdLayers[0]), true);
 
 	HistoryManager.shared.undo();
-	assert.equal(layers.includes(createdLayers[0]), false);
+	assert.equal((layers as Layer[]).includes(createdLayers[0]), false);
+});
+
+test("addImageLayer creates fitted undoable layer from image id", () => {
+	const { emissions, layers } = createSlideLayerMutationFixture();
+	const createdLayers: MutableImageLayer[] = [];
+	const selectedLayers: Layer[] = [];
+	const imageUseCase = createEditLayerMutationUseCase({
+		getCurrentSlide: () => ({
+			centerX: 320,
+			centerY: 240,
+			layers,
+			indexOf: (layer) => layers.indexOf(layer as MutableTextLayer),
+			addLayer: (layer) => {
+				layers.push(layer as MutableTextLayer);
+				return layer;
+			},
+			removeLayer: (layer) => {
+				const index = layers.indexOf(layer as MutableTextLayer);
+				if (index !== -1) layers.splice(index, 1);
+				return layer;
+			},
+			fitLayer: (layer) => {
+				layer.scale = 0.5;
+				return layer;
+			},
+			arrangeLayer: (layer) => layer,
+			swapLayer: (layer) => layer,
+		}),
+		getSelectedLayer: () => null,
+		createImageLayer: (imageId) => {
+			const layer = createFakeImageLayer(imageId);
+			layer.originWidth = 100;
+			layer.originHeight = 180;
+			createdLayers.push(layer);
+			return layer;
+		},
+		selectLayer: (layer) => {
+			selectedLayers.push(layer);
+		},
+		emitAfterMutation: (render, includeLayerList) => {
+			emissions.push({ render, includeLayerList });
+		},
+	});
+
+	const result = imageUseCase.addImageLayer("drop-image");
+
+	assert.equal(result, true);
+	assert.equal(createdLayers[0].imageId, "drop-image");
+	assert.equal(createdLayers[0].rotation, -90);
+	assert.equal(createdLayers[0].scale, 0.5);
+	assert.equal((layers as Layer[]).includes(createdLayers[0]), true);
+	assert.deepEqual(selectedLayers, [createdLayers[0]]);
+	assert.deepEqual(emissions, [{ render: "current", includeLayerList: false }]);
+
+	HistoryManager.shared.undo();
+	assert.equal((layers as Layer[]).includes(createdLayers[0]), false);
+	assert.equal(createdLayers[0].scale, 1);
 });
 
 test("replaceSelectedImage updates matching references in one transaction", async () => {

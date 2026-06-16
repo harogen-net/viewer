@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
-import { ImageLayer } from "../model/layer/ImageLayer";
+import { createImageLayer, ImageLayer } from "../model/layer/ImageLayer";
 import { createTextLayer, TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
 import { createSlide, SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
@@ -25,6 +25,7 @@ import { ViewerMode } from "./viewerMode";
 const EditableSlideViewForRender = EditableSlideView as unknown as FunctionComponent<{
 	ref: Ref<EditableSlideViewHandle>;
 	slide: Slide;
+	onImageDropped?: (imageId: string) => void;
 }>;
 
 export class EditCanvasRuntime {
@@ -48,6 +49,9 @@ export class EditCanvasRuntime {
 				createElement(EditableSlideViewForRender, {
 					ref: this.slideViewRef,
 					slide: createSlide(),
+					onImageDropped: (imageId) => {
+						this.layerMutations.addImageLayer(imageId);
+					},
 				})
 			);
 		});
@@ -59,9 +63,12 @@ export class EditCanvasRuntime {
 			getPrevSlide: (slide) => slideStore.getState().getPrevSlide(slide as Slide),
 			getReferenceLayers: () => layerStore.getState().layers,
 			createTextLayer,
+			createImageLayer,
+			getSharedLayerRemovalTargets: (layer) => this.slideView.getSharedLayerRemovalTargets(layer),
 			registerImageFromFile: (file) => ImageManager.shared.registImageFromFile(file),
 			selectLayer: (layer) => this.selectEditLayer(layer),
 			trackSharedLayer: (layer) => this.slideView.trackSharedLayer(layer),
+			clearSharedLayerTracking: (layer) => this.slideView.clearSharedLayerTracking(layer),
 			maxLayerMoveOffset: SLIDE_LAYER_NUM_MAX,
 			emitAfterMutation: (render, includeLayerList) => {
 				this.emitAfterLayerMutation(render, includeLayerList);
@@ -336,17 +343,12 @@ export class EditCanvasRuntime {
 		if (!layer) return null;
 		return {
 			layerName: layer.name || "selected layer",
-			shared: this.slideView.hasSharedLayerRemovalTargets(layer),
+			shared: this.layerMutations.hasSelectedLayerSharedRemovalTargets(),
 		};
 	}
 
 	public removeSelectedLayer(confirmedSharedRemoval = false): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		this.slideView.runWithSharedLayerRemovalConfirmation(confirmedSharedRemoval, () => {
-			this.layerMutations.removeSelectedLayer();
-		});
-		return true;
+		return this.layerMutations.removeSelectedLayer(confirmedSharedRemoval);
 	}
 
 	public addTextLayer(text: string): boolean {
