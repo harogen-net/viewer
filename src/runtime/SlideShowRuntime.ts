@@ -2,7 +2,6 @@ import $ from "jquery";
 import { createElement, createRef, type FunctionComponent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
@@ -15,6 +14,10 @@ export type SlideShowPlaybackSettings = {
 	duration: number;
 };
 
+export type SlideShowRuntimeOptions = {
+	onPlaybackChanged?: (detail: { isRun: boolean; isPause: boolean }) => void;
+};
+
 type SlideShowSlideView = DOMSlideViewHandle & {
 	unmount: () => void;
 };
@@ -25,14 +28,6 @@ const DOMSlideViewForRender = DOMSlideView as unknown as FunctionComponent<{
 }>;
 
 export class SlideShowRuntime {
-	declare listeners: EventDispatcher["listeners"];
-	declare dispatchEvent: EventDispatcher["dispatchEvent"];
-	declare addEventListener: EventDispatcher["addEventListener"];
-	declare removeEventListener: EventDispatcher["removeEventListener"];
-	declare clearEventListener: EventDispatcher["clearEventListener"];
-	declare containEventListener: EventDispatcher["containEventListener"];
-	declare hasEventListener: EventDispatcher["hasEventListener"];
-
 	private _isRun: boolean;
 	private _isPause: boolean;
 	private _fullscreen: boolean;
@@ -59,9 +54,10 @@ export class SlideShowRuntime {
 
 	//private readonly RUN_IN_WINDOW:boolean = true;
 
-	constructor(public obj: any) {
-		attachEventDispatcher(this);
-
+	constructor(
+		public obj: any,
+		private readonly options: SlideShowRuntimeOptions = {}
+	) {
 		obj.addClass("slideShow");
 		document.addEventListener("webkitfullscreenchange", () => {
 			if (document["webkitFullscreenElement"]) {
@@ -434,18 +430,8 @@ export class SlideShowRuntime {
 		}, 1000);
 	}
 
-	private dispatchSettingsChanged(
-		detail: Partial<{ fullscreen: boolean; mirrorH: boolean; mirrorV: boolean }>
-	) {
-		this.dispatchEvent(new CustomEvent("settingsChanged", { detail }));
-	}
-
 	private dispatchPlaybackChanged() {
-		this.dispatchEvent(
-			new CustomEvent("playbackChanged", {
-				detail: { isRun: this._isRun, isPause: this._isPause },
-			})
-		);
+		this.options.onPlaybackChanged?.({ isRun: this._isRun, isPause: this._isPause });
 	}
 
 	private requestFullscreen() {

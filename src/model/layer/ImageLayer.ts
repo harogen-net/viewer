@@ -3,6 +3,14 @@ import { ImageManager } from "../../utils/ImageManager";
 import { Layer, LayerType } from "../Layer";
 import { PropFlags } from "../PropFlags";
 
+export function createImageLayer(
+	imageId: string,
+	transform: any = null,
+	id: number = -1
+): ImageLayer {
+	return new ImageLayer(imageId, transform, id);
+}
+
 export class ImageLayer extends Layer {
 	private _clipRect: number[] = [0, 0, 0, 0];
 	private _isText: boolean = false;

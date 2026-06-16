@@ -4,16 +4,16 @@ import { createRoot, type Root } from "react-dom/client";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
-import { TextLayer } from "../model/layer/TextLayer";
+import { createTextLayer, TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
-import { Direction, Slide } from "../model/Slide";
+import { createSlide, Direction, Slide } from "../model/Slide";
 import { layerStore, type EditLayerState } from "../state/layerStore";
 import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import {
-	EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
-	EditableSlideView,
-	type EditableSlideViewHandle,
+    EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
+    EditableSlideView,
+    type EditableSlideViewHandle,
 } from "../view/slide";
 import { ViewerMode } from "../Viewer";
 
@@ -41,7 +41,7 @@ export class EditCanvasRuntime {
 			this.slideViewRoot.render(
 				createElement(EditableSlideViewForRender, {
 					ref: this.slideViewRef,
-					slide: new Slide(),
+					slide: createSlide(),
 				})
 			);
 		});
@@ -62,8 +62,8 @@ export class EditCanvasRuntime {
 	//
 
 	initialize() {
-		this.setSlide(new Slide());
-		// this.slideView.slide = new Slide();
+		this.setSlide(createSlide());
+		// this.slideView.slide = createSlide();
 	}
 
 	setMode(mode: ViewerMode): void {
@@ -617,7 +617,7 @@ export class EditCanvasRuntime {
 	public addTextLayer(text: string): boolean {
 		const normalizedText = (text ?? "").trim();
 		if (!normalizedText) return false;
-		const textLayer = new TextLayer(normalizedText);
+		const textLayer = createTextLayer(normalizedText);
 		HistoryManager.shared
 			.record(
 				new Command(

@@ -2,12 +2,14 @@ import $ from "jquery";
 import JSZip from "jszip";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
-import { ImageLayer } from "./model/layer/ImageLayer";
-import { Direction, Slide } from "./model/Slide";
+import { createImageLayer } from "./model/layer/ImageLayer";
+import { createSlide, Direction, Slide } from "./model/Slide";
 import { createViewerDocument, type ViewerDocument } from "./model/ViewerDocument";
+import { EditCanvasRuntime } from "./runtime/EditCanvasRuntime";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { getSaveFormat } from "./runtime/reactDomRegistry";
+import { SlideShowPlaybackSettings, SlideShowRuntime } from "./runtime/SlideShowRuntime";
 import { layerStore } from "./state/layerStore";
 import { slideStore } from "./state/slideStore";
 import { viewerDocumentStore } from "./state/viewerDocumentStore";
@@ -20,11 +22,6 @@ import { DateUtil } from "./utils/DateUtil";
 import { Command, HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
-import { EditViewController } from "./viewController/EditViewController";
-import {
-	SlideShowPlaybackSettings,
-	SlideShowViewController,
-} from "./viewController/SlideShowViewController";
 
 export const ViewerMode = {
 	SELECT: 0,
@@ -50,8 +47,8 @@ export class Viewer {
 	public static readonly SCREEN_WIDTH = Math.max(window.screen.width, window.screen.height);
 	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
-	private editVC: EditViewController;
-	private slideShowVC: SlideShowViewController;
+	private editVC: EditCanvasRuntime;
+	private slideShowVC: SlideShowRuntime;
 	private documentStorage: DocumentStorageUseCase;
 
 	private _mode: ViewerMode;
@@ -347,7 +344,7 @@ export class Viewer {
 		});
 		this.emitHistoryState();
 
-		this.editVC = new EditViewController(this.obj.find(".canvas"));
+		this.editVC = new EditCanvasRuntime(this.obj.find(".canvas"));
 	}
 
 	private handleSlideSelectionChanged(): void {
@@ -549,21 +546,10 @@ export class Viewer {
 	}
 
 	private initializeControllers(startUpMode: ViewerStartUpMode): void {
-		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(this.obj));
-		this.slideShowVC.addEventListener("settingsChanged", (e: CustomEvent) => {
-			const detail = e.detail || {};
-			if (typeof detail.fullscreen === "boolean") {
-				this.commandSetFullscreen(detail.fullscreen);
-			}
-			if (typeof detail.mirrorH === "boolean") {
-				this.commandSetMirrorH(detail.mirrorH);
-			}
-			if (typeof detail.mirrorV === "boolean") {
-				this.commandSetMirrorV(detail.mirrorV);
-			}
-		});
-		this.slideShowVC.addEventListener("playbackChanged", (e: CustomEvent) => {
-			this.updateSlideshowPlaybackState(Boolean(e.detail?.isRun), Boolean(e.detail?.isPause));
+		this.slideShowVC = new SlideShowRuntime($("<div />").appendTo(this.obj), {
+			onPlaybackChanged: ({ isRun, isPause }) => {
+				this.updateSlideshowPlaybackState(isRun, isPause);
+			},
 		});
 		this.initializeDocumentStorage();
 		this.initializeEditModeFeatures(startUpMode);
@@ -708,7 +694,7 @@ export class Viewer {
 	public commandNewSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド追加")) return;
 		const { width, height } = viewerDocumentStore.getState();
-		const slide = new Slide(width, height);
+		const slide = createSlide(width, height);
 		const index = this.slides.length;
 		const previousLastSlide = this.slides[index - 1] ?? null;
 		const previousLastJoining = previousLastSlide?.joining ?? false;
@@ -758,11 +744,11 @@ export class Viewer {
 		if (!this.ensureAllowed(this.canEdit(), "画像スライド追加")) return;
 		if (!imageId || !ImageManager.shared.getImagePropsById(imageId)) return;
 
-		const layer = new ImageLayer(imageId);
+		const layer = createImageLayer(imageId);
 		if (layer.originHeight > layer.originWidth * 1.2) {
 			layer.rotation -= 90;
 		}
-		const slide = new Slide(null, null, [layer]);
+		const slide = createSlide(null, null, [layer]);
 		slide.fitLayer(layer);
 		const insertIndex = Number.isInteger(toIndex)
 			? Math.max(0, Math.min(this.slides.length, toIndex))

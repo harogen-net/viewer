@@ -15,7 +15,7 @@ import {
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { IDroppable } from "../../interface/IDroppable";
 import { Layer, LayerType } from "../../model/Layer";
-import { ImageLayer } from "../../model/layer/ImageLayer";
+import { createImageLayer, ImageLayer } from "../../model/layer/ImageLayer";
 import { TextLayer } from "../../model/layer/TextLayer";
 import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
@@ -712,7 +712,7 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 		const dropHelper = new DropHelper(handle);
 		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (event: CustomEvent) => {
 			const imageId = event.detail;
-			const layer = new ImageLayer(imageId);
+			const layer = createImageLayer(imageId);
 			if (layer.originHeight > layer.originWidth * 1.2) layer.rotation -= 90;
 			HistoryManager.shared
 				.record(

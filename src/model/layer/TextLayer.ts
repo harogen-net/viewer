@@ -1,6 +1,10 @@
-import { Layer, LayerType } from "../Layer";
 import { PropertyEvent } from "../../events/PropertyEvent";
+import { Layer, LayerType } from "../Layer";
 import { PropFlags } from "../PropFlags";
+
+export function createTextLayer(text: string, transform: any = null, id: number = -1): TextLayer {
+	return new TextLayer(text, transform, id);
+}
 
 export class TextLayer extends Layer {
 	public textObj: any;

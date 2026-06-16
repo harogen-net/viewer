@@ -1,9 +1,9 @@
 import JSZip from "jszip";
 import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { LayerType } from "../model/Layer";
-import { ImageLayer } from "../model/layer/ImageLayer";
-import { TextLayer } from "../model/layer/TextLayer";
-import { Slide } from "../model/Slide";
+import { createImageLayer, ImageLayer } from "../model/layer/ImageLayer";
+import { createTextLayer } from "../model/layer/TextLayer";
+import { createSlide, Slide } from "../model/Slide";
 import { createViewerDocument, type ViewerDocument } from "../model/ViewerDocument";
 import {
 	createStorageOperationError,
@@ -434,7 +434,7 @@ export class SlideStorage {
 
 			//construct slides
 			json.slideData.forEach((slideDatum) => {
-				let slide: Slide = new Slide(width, height);
+				let slide: Slide = createSlide(width, height);
 				slide.durationRatio = slideDatum.durationRatio || 1;
 				slide.joining = Boolean(slideDatum.joining);
 				slide.disabled = Boolean(slideDatum.disabled);
@@ -452,7 +452,7 @@ export class SlideStorage {
 
 					switch (layerDatum.type) {
 						case LayerType.TEXT:
-							let textLayer = new TextLayer(layerDatum.text, {
+							let textLayer = createTextLayer(layerDatum.text, {
 								transX: layerDatum.transX,
 								transY: layerDatum.transY,
 								scaleX: layerDatum.scaleX,
@@ -477,7 +477,7 @@ export class SlideStorage {
 							break;
 						case undefined: //version < 2.1
 						case LayerType.IMAGE:
-							let img: ImageLayer = new ImageLayer(layerDatum.imageId, {
+							let img: ImageLayer = createImageLayer(layerDatum.imageId, {
 								transX: layerDatum.transX,
 								transY: layerDatum.transY,
 								scaleX: layerDatum.scaleX,

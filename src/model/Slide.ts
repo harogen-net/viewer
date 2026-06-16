@@ -16,6 +16,14 @@ export const Direction = {
 
 export type Direction = (typeof Direction)[keyof typeof Direction];
 
+export function createSlide(
+	width: number | null = 0,
+	height: number | null = 0,
+	layers: Layer[] = []
+): Slide {
+	return new Slide(width ?? 0, height ?? 0, layers);
+}
+
 export class Slide {
 	declare listeners: EventDispatcher["listeners"];
 	declare dispatchEvent: EventDispatcher["dispatchEvent"];
