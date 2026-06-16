@@ -56,8 +56,6 @@ export type EditableSlideViewProps = {
 export type EditableSlideViewHandle = EventDispatcher &
 	IDroppable & {
 		readonly layerViews: LayerView[];
-		readonly canPasteLayer: boolean;
-		readonly canPasteLayerTransform: boolean;
 		selectedLayerView: LayerView | null;
 		isActive: boolean;
 		rectEdit: boolean;
@@ -68,12 +66,7 @@ export type EditableSlideViewHandle = EventDispatcher &
 		destroy: () => void;
 		updateSize: () => void;
 		selectLayerView: (targetLayerView?: LayerView | null) => void;
-		cut: () => void;
-		copy: () => void;
-		paste: () => void;
-		copyTrans: () => void;
-		pasteTrans: () => void;
-		spreadLayers: (layer: Layer) => void;
+		trackSharedLayer: (layer: Layer) => void;
 		runWithSharedLayerRemovalConfirmation: <T>(confirmed: boolean, operation: () => T) => T;
 		hasSharedLayerRemovalTargets: (layer: Layer) => boolean;
 	};
@@ -89,8 +82,6 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 	const adjustViewRef = useRef<AdjustViewHandle | null>(null);
 	const borderRef = useRef<HTMLDivElement | null>(null);
 	const selectedLayerViewRef = useRef<LayerView | null>(null);
-	const copiedLayerRef = useRef<Layer | null>(null);
-	const copiedTransformRef = useRef<any>(null);
 	const isActiveRef = useRef(false);
 	const rectEditRef = useRef(false);
 	const lastSelectedIdRef = useRef("");
@@ -205,78 +196,6 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 		if (sharedLayersByUUIDRef.current[layerView.data.uuid] !== undefined) {
 			delete sharedLayersByUUIDRef.current[layerView.data.uuid];
 		}
-	};
-
-	const copy = () => {
-		if (!isActiveRef.current) return;
-		if (selectedLayerViewRef.current) {
-			copiedLayerRef.current = selectedLayerViewRef.current.data.clone();
-		}
-	};
-
-	const cut = () => {
-		if (!isActiveRef.current) return;
-		if (!selectedLayerViewRef.current) return;
-		copy();
-		const layer = selectedLayerViewRef.current.data;
-		const index = getBase().slide.indexOf(layer);
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						getBase().slide.removeLayer(layer);
-					},
-					() => {
-						getBase().slide.addLayer(layer, index);
-					}
-				)
-			)
-			.do();
-	};
-
-	const paste = () => {
-		if (!isActiveRef.current) return;
-		if (!copiedLayerRef.current) return;
-		const layer = copiedLayerRef.current.clone();
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						getBase().slide.addLayer(layer);
-						const layerView = getBase().getViewByLayer(layer);
-						if (layerView) layerView.selected = true;
-					},
-					() => {
-						getBase().slide.removeLayer(layer);
-					}
-				)
-			)
-			.do();
-	};
-
-	const copyTrans = () => {
-		if (!selectedLayerViewRef.current) return;
-		copiedTransformRef.current = selectedLayerViewRef.current.data.transform;
-	};
-
-	const pasteTrans = () => {
-		if (!selectedLayerViewRef.current) return;
-		if (!copiedTransformRef.current) return;
-		const layer = selectedLayerViewRef.current.data;
-		const initValue = layer.transform;
-		const endValue = Object.assign({}, copiedTransformRef.current);
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.transform = endValue;
-					},
-					() => {
-						layer.transform = initValue;
-					}
-				)
-			)
-			.do();
 	};
 
 	const updateSize = () => {
@@ -444,81 +363,6 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 		isActiveRef.current = true;
 	};
 
-	const spreadLayers = (layer: Layer) => {
-		if (!layer) return;
-		if (!getBase().slide.contains(layer)) return;
-		if (!layer.shared) layer.shared = true;
-		const index = getBase().slide.indexOf(layer);
-		const transaction = new Transaction();
-		const applyToSlide = (slide: Slide) => {
-			let continueToNext = true;
-			let find = false;
-			for (let i = 0; i < slide.layers.length; i++) {
-				const tmpLayer = slide.layers[i];
-				if (tmpLayer.type !== layer.type) continue;
-				if (layer.type === LayerType.IMAGE) {
-					if ((layer as ImageLayer).imageId === (tmpLayer as ImageLayer).imageId) {
-						find = true;
-						if (tmpLayer.shared) {
-							continueToNext = false;
-						} else {
-							const targetLayer = tmpLayer;
-							transaction.record(
-								() => {
-									targetLayer.shared = true;
-								},
-								() => {
-									targetLayer.shared = false;
-								}
-							);
-						}
-						break;
-					}
-				} else if (layer.type === LayerType.TEXT) {
-					if ((layer as TextLayer).text === (tmpLayer as TextLayer).text) {
-						find = true;
-						if (tmpLayer.shared) {
-							continueToNext = false;
-						} else {
-							const targetLayer = tmpLayer;
-							transaction.record(
-								() => {
-									targetLayer.shared = true;
-								},
-								() => {
-									targetLayer.shared = false;
-								}
-							);
-						}
-						break;
-					}
-				}
-			}
-			if (!find) {
-				const newLayer = layer.clone();
-				transaction.record(
-					() => {
-						slide.addLayer(newLayer, index);
-					},
-					() => {
-						slide.removeLayer(newLayer);
-					}
-				);
-			}
-			return continueToNext;
-		};
-
-		let slide = getSlideStore().getNextSlide(getBase().slide);
-		while (slide && applyToSlide(slide)) slide = getSlideStore().getNextSlide(slide);
-		slide = getSlideStore().getPrevSlide(getBase().slide);
-		while (slide && applyToSlide(slide)) slide = getSlideStore().getPrevSlide(slide);
-
-		if (transaction.length > 0) {
-			HistoryManager.shared.record(transaction).do();
-			listSharedLayers(layer);
-		}
-	};
-
 	const handle = useMemo(() => {
 		const dispatcher = {
 			listeners,
@@ -541,12 +385,6 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 				set: (value: LayerView | null) => {
 					selectedLayerViewRef.current = value;
 				},
-			},
-			canPasteLayer: {
-				get: () => copiedLayerRef.current !== null,
-			},
-			canPasteLayerTransform: {
-				get: () => copiedTransformRef.current !== null,
 			},
 			isActive: {
 				get: () => isActiveRef.current,
@@ -608,12 +446,7 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 		};
 		dispatcher.updateSize = updateSize;
 		dispatcher.selectLayerView = selectLayerView;
-		dispatcher.cut = cut;
-		dispatcher.copy = copy;
-		dispatcher.paste = paste;
-		dispatcher.copyTrans = copyTrans;
-		dispatcher.pasteTrans = pasteTrans;
-		dispatcher.spreadLayers = spreadLayers;
+		dispatcher.trackSharedLayer = listSharedLayers;
 		dispatcher.runWithSharedLayerRemovalConfirmation = <T,>(
 			confirmed: boolean,
 			operation: () => T

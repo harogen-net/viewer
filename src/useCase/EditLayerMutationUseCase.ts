@@ -2,7 +2,7 @@ import type { Layer } from "../model/Layer";
 import type { ImageLayer } from "../model/layer/ImageLayer";
 import type { TextLayer } from "../model/layer/TextLayer";
 import type { Direction } from "../model/Slide";
-import { Command, HistoryManager } from "../utils/HistoryManager";
+import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 
 export type LayerMutationRenderScope = "selection" | "current";
 
@@ -14,13 +14,20 @@ export type LayerMutationOptions<TLayer extends Layer, TValue> = {
 };
 
 export type LayerMutationSlide = {
-	layers: Layer[];
+	layers: readonly Layer[];
+	centerX: number;
+	centerY: number;
 	indexOf: (layer: Layer) => number;
 	addLayer: (layer: Layer, index?: number) => Layer;
+	removeLayer: (layer: Layer) => Layer;
 	fitLayer: (layer: Layer) => Layer;
 	arrangeLayer: (layer: Layer, direction: Direction) => Layer;
 	swapLayer: (layer: Layer, offset: number) => Layer;
 };
+
+export type TextLayerFactory = (text: string) => Layer;
+export type ImageRegistration = (file: File) => Promise<string | null>;
+export type SlideLookup = (slide: LayerMutationSlide) => LayerMutationSlide | null;
 
 export type EditLayerMutationUseCase = {
 	recordLayerMutation: (
@@ -61,12 +68,23 @@ export type EditLayerMutationUseCase = {
 	rotateSelectedLayer: (degree: number) => boolean;
 	toggleSelectedLayerMirrorH: () => boolean;
 	toggleSelectedLayerMirrorV: () => boolean;
+	spreadSelectedLayer: () => boolean;
 	fitSelectedLayer: () => boolean;
 	arrangeSelectedLayer: (direction: Direction) => boolean;
 	swapSelectedLayer: (offset: number) => boolean;
 	moveSelectedLayerToTop: () => boolean;
 	moveSelectedLayerToBottom: () => boolean;
 	moveSelectedLayerToIndex: (toIndex: number) => boolean;
+	canPasteLayer: () => boolean;
+	canPasteLayerTransform: () => boolean;
+	copySelectedLayer: () => boolean;
+	cutSelectedLayer: () => boolean;
+	pasteLayer: () => boolean;
+	copySelectedLayerTransform: () => boolean;
+	pasteLayerTransform: () => boolean;
+	removeSelectedLayer: () => boolean;
+	addTextLayer: (text: string) => boolean;
+	replaceSelectedImage: (file: File, applyAllReferences: boolean) => Promise<boolean>;
 	nudgeSelectedLayer: (deltaX: number, deltaY: number) => boolean;
 	setSelectedLayerPosition: (nextX: number, nextY: number) => boolean;
 	scaleSelectedLayer: (factor: number) => boolean;
@@ -84,6 +102,13 @@ export type EditLayerMutationUseCase = {
 export type EditLayerMutationUseCaseOptions = {
 	getSelectedLayer: () => Layer | null;
 	getCurrentSlide?: () => LayerMutationSlide | null;
+	getNextSlide?: SlideLookup;
+	getPrevSlide?: SlideLookup;
+	getReferenceLayers?: () => readonly Layer[];
+	createTextLayer?: TextLayerFactory;
+	registerImageFromFile?: ImageRegistration;
+	selectLayer?: (layer: Layer) => void;
+	trackSharedLayer?: (layer: Layer) => void;
 	maxLayerMoveOffset?: number;
 	emitAfterMutation: (render: LayerMutationRenderScope, includeLayerList: boolean) => void;
 };
@@ -99,6 +124,9 @@ export function isTextLayer(layer: Layer): layer is TextLayer {
 export function createEditLayerMutationUseCase(
 	options: EditLayerMutationUseCaseOptions
 ): EditLayerMutationUseCase {
+	let copiedLayer: Layer | null = null;
+	let copiedTransform: unknown = null;
+
 	function recordLayerMutation(
 		apply: () => void,
 		revert: () => void,
@@ -268,6 +296,73 @@ export function createEditLayerMutationUseCase(
 		);
 	}
 
+	function isMatchingSpreadLayer(sourceLayer: Layer, targetLayer: Layer): boolean {
+		if (targetLayer.type !== sourceLayer.type) return false;
+		if (isImageLayer(sourceLayer) && isImageLayer(targetLayer)) {
+			return sourceLayer.imageId === targetLayer.imageId;
+		}
+		if (isTextLayer(sourceLayer) && isTextLayer(targetLayer)) {
+			return sourceLayer.text === targetLayer.text;
+		}
+		return false;
+	}
+
+	function spreadSelectedLayer(): boolean {
+		const context = getSelectedSlideLayer();
+		const getNextSlide = options.getNextSlide;
+		const getPrevSlide = options.getPrevSlide;
+		if (!context || !getNextSlide || !getPrevSlide) return false;
+		if (context.slide.indexOf(context.layer) === -1) return false;
+		if (!context.layer.shared) context.layer.shared = true;
+		const index = context.slide.indexOf(context.layer);
+		const transaction = new Transaction();
+
+		const applyToSlide = (slide: LayerMutationSlide): boolean => {
+			let continueToNext = true;
+			let found = false;
+			for (const targetLayer of slide.layers) {
+				if (!isMatchingSpreadLayer(context.layer, targetLayer)) continue;
+				found = true;
+				if (targetLayer.shared) {
+					continueToNext = false;
+				} else {
+					transaction.record(
+						() => {
+							targetLayer.shared = true;
+						},
+						() => {
+							targetLayer.shared = false;
+						}
+					);
+				}
+				break;
+			}
+			if (!found) {
+				const newLayer = context.layer.clone();
+				transaction.record(
+					() => {
+						slide.addLayer(newLayer, index);
+					},
+					() => {
+						slide.removeLayer(newLayer);
+					}
+				);
+			}
+			return continueToNext;
+		};
+
+		let slide = getNextSlide(context.slide);
+		while (slide && applyToSlide(slide)) slide = getNextSlide(slide);
+		slide = getPrevSlide(context.slide);
+		while (slide && applyToSlide(slide)) slide = getPrevSlide(slide);
+
+		if (transaction.length === 0) return true;
+		HistoryManager.shared.record(transaction).do();
+		options.trackSharedLayer?.(context.layer);
+		options.emitAfterMutation("current", true);
+		return true;
+	}
+
 	function fitSelectedLayer(): boolean {
 		const context = getSelectedSlideLayer();
 		if (!context) return false;
@@ -355,6 +450,141 @@ export function createEditLayerMutationUseCase(
 				context.slide.addLayer(context.layer, fromIndex);
 			},
 			"current"
+		);
+	}
+
+	function canPasteLayer(): boolean {
+		return copiedLayer !== null;
+	}
+
+	function canPasteLayerTransform(): boolean {
+		return copiedTransform !== null;
+	}
+
+	function copySelectedLayer(): boolean {
+		const layer = options.getSelectedLayer();
+		if (!layer) return false;
+		copiedLayer = layer.clone();
+		return true;
+	}
+
+	function cutSelectedLayer(): boolean {
+		const context = getSelectedSlideLayer();
+		if (!context) return false;
+		copiedLayer = context.layer.clone();
+		return removeSelectedLayer();
+	}
+
+	function pasteLayer(): boolean {
+		const slide = options.getCurrentSlide?.() ?? null;
+		if (!slide || !copiedLayer) return false;
+		const pastedLayer = copiedLayer.clone();
+		return recordLayerMutation(
+			() => {
+				slide.addLayer(pastedLayer);
+				options.selectLayer?.(pastedLayer);
+			},
+			() => {
+				slide.removeLayer(pastedLayer);
+			},
+			"current"
+		);
+	}
+
+	function copySelectedLayerTransform(): boolean {
+		const layer = options.getSelectedLayer();
+		if (!layer) return false;
+		copiedTransform = layer.transform;
+		return true;
+	}
+
+	function pasteLayerTransform(): boolean {
+		const layer = options.getSelectedLayer();
+		if (!layer || !copiedTransform) return false;
+		const currentTransform = layer.transform;
+		const nextTransform = Object.assign({}, copiedTransform);
+		return recordLayerMutation(
+			() => {
+				layer.transform = nextTransform;
+			},
+			() => {
+				layer.transform = currentTransform;
+			},
+			"current"
+		);
+	}
+
+	function removeSelectedLayer(): boolean {
+		const context = getSelectedSlideLayer();
+		if (!context) return false;
+		const currentIndex = context.slide.indexOf(context.layer);
+		if (currentIndex === -1) return false;
+		return recordLayerMutation(
+			() => {
+				context.slide.removeLayer(context.layer);
+			},
+			() => {
+				context.slide.addLayer(context.layer, currentIndex);
+			},
+			"current"
+		);
+	}
+
+	function addTextLayer(text: string): boolean {
+		const slide = options.getCurrentSlide?.() ?? null;
+		const createTextLayer = options.createTextLayer;
+		const normalizedText = (text ?? "").trim();
+		if (!slide || !createTextLayer || !normalizedText) return false;
+		const textLayer = createTextLayer(normalizedText);
+		return recordLayerMutation(
+			() => {
+				slide.addLayer(textLayer);
+				textLayer.moveTo(slide.centerX, slide.centerY);
+			},
+			() => {
+				slide.removeLayer(textLayer);
+			},
+			"current"
+		);
+	}
+
+	async function replaceSelectedImage(file: File, applyAllReferences: boolean): Promise<boolean> {
+		const layer = options.getSelectedLayer();
+		const registerImageFromFile = options.registerImageFromFile;
+		if (!layer || !isImageLayer(layer) || !file || !registerImageFromFile) return false;
+		const targetImage = layer;
+		const currentImageId = targetImage.imageId;
+		const nextImageId = await registerImageFromFile(file);
+		if (!nextImageId) return false;
+
+		if (applyAllReferences) {
+			const transaction = new Transaction();
+			const referenceLayers = options.getReferenceLayers?.() ?? [];
+			referenceLayers.forEach((referenceLayer) => {
+				if (!isImageLayer(referenceLayer) || referenceLayer.imageId !== currentImageId) return;
+				transaction.record(
+					() => {
+						referenceLayer.imageId = nextImageId;
+					},
+					() => {
+						referenceLayer.imageId = currentImageId;
+					}
+				);
+			});
+			if (transaction.length > 0) {
+				HistoryManager.shared.record(transaction).do();
+			}
+			options.emitAfterMutation("selection", false);
+			return true;
+		}
+
+		return recordLayerMutation(
+			() => {
+				targetImage.imageId = nextImageId;
+			},
+			() => {
+				targetImage.imageId = currentImageId;
+			}
 		);
 	}
 
@@ -484,12 +714,23 @@ export function createEditLayerMutationUseCase(
 		rotateSelectedLayer,
 		toggleSelectedLayerMirrorH,
 		toggleSelectedLayerMirrorV,
+		spreadSelectedLayer,
 		fitSelectedLayer,
 		arrangeSelectedLayer,
 		swapSelectedLayer,
 		moveSelectedLayerToTop,
 		moveSelectedLayerToBottom,
 		moveSelectedLayerToIndex,
+		canPasteLayer,
+		canPasteLayerTransform,
+		copySelectedLayer,
+		cutSelectedLayer,
+		pasteLayer,
+		copySelectedLayerTransform,
+		pasteLayerTransform,
+		removeSelectedLayer,
+		addTextLayer,
+		replaceSelectedImage,
 		nudgeSelectedLayer,
 		setSelectedLayerPosition,
 		scaleSelectedLayer,

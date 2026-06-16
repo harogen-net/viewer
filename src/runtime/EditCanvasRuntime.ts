@@ -8,12 +8,12 @@ import { createTextLayer, TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
 import { createSlide, SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
 import { layerStore, type EditLayerState } from "../state/layerStore";
+import { slideStore } from "../state/slideStore";
 import {
 	createEditLayerMutationUseCase,
 	type EditLayerMutationUseCase,
 	type LayerMutationRenderScope,
 } from "../useCase/EditLayerMutationUseCase";
-import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import {
 	EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
@@ -55,6 +55,13 @@ export class EditCanvasRuntime {
 		this.layerMutations = createEditLayerMutationUseCase({
 			getSelectedLayer: () => this.slideView.editingLayer,
 			getCurrentSlide: () => this.slide,
+			getNextSlide: (slide) => slideStore.getState().getNextSlide(slide as Slide),
+			getPrevSlide: (slide) => slideStore.getState().getPrevSlide(slide as Slide),
+			getReferenceLayers: () => layerStore.getState().layers,
+			createTextLayer,
+			registerImageFromFile: (file) => ImageManager.shared.registImageFromFile(file),
+			selectLayer: (layer) => this.selectEditLayer(layer),
+			trackSharedLayer: (layer) => this.slideView.trackSharedLayer(layer),
 			maxLayerMoveOffset: SLIDE_LAYER_NUM_MAX,
 			emitAfterMutation: (render, includeLayerList) => {
 				this.emitAfterLayerMutation(render, includeLayerList);
@@ -97,7 +104,6 @@ export class EditCanvasRuntime {
 			this.slide.removeEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
 		}
 
-		//HistoryManager.shared.initialize();
 		this.slideView.slide = newSlide;
 
 		if (this.slide) {
@@ -157,8 +163,8 @@ export class EditCanvasRuntime {
 		if (!layer) {
 			const detail: EditLayerState = {
 				hasSelection: false,
-				canPasteLayer: this.slideView.canPasteLayer,
-				canPasteLayerTransform: this.slideView.canPasteLayerTransform,
+				canPasteLayer: this.layerMutations.canPasteLayer(),
+				canPasteLayerTransform: this.layerMutations.canPasteLayerTransform(),
 				name: null,
 				visible: null,
 				locked: null,
@@ -184,8 +190,8 @@ export class EditCanvasRuntime {
 		const imageLayer = layer.type == LayerType.IMAGE ? (layer as ImageLayer) : null;
 		const detail: EditLayerState = {
 			hasSelection: true,
-			canPasteLayer: this.slideView.canPasteLayer,
-			canPasteLayerTransform: this.slideView.canPasteLayerTransform,
+			canPasteLayer: this.layerMutations.canPasteLayer(),
+			canPasteLayerTransform: this.layerMutations.canPasteLayerTransform(),
 			name: layer.name,
 			visible: layer.visible,
 			locked: layer.locked,
@@ -231,11 +237,7 @@ export class EditCanvasRuntime {
 	}
 
 	public spreadSelectedLayer(): boolean {
-		const layer = this.selectedLayer;
-		if (!layer) return false;
-		this.slideView.spreadLayers(layer);
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.spreadSelectedLayer();
 	}
 
 	public hasSelectedLayer(): boolean {
@@ -246,13 +248,7 @@ export class EditCanvasRuntime {
 		if (!Number.isInteger(index)) return false;
 		const layer = this.slide.layers[index];
 		if (!layer) return false;
-		const layerView = this.slideView.layerViews.find((view) => view.data === layer);
-		if (!layerView) return false;
-		this.slideView.selectLayerView(layerView);
-		this.watchSelectedLayer();
-		this.emitSelectedLayerState();
-		this.emitLayerListState();
-		return true;
+		return this.selectEditLayer(layer);
 	}
 
 	public toggleSelectedLayerVisible(): boolean {
@@ -312,37 +308,27 @@ export class EditCanvasRuntime {
 	}
 
 	public copySelectedLayer(): boolean {
-		if (!this.slideView.editingLayer) return false;
-		this.slideView.copy();
+		if (!this.layerMutations.copySelectedLayer()) return false;
 		this.emitSelectedLayerState();
 		return true;
 	}
 
 	public cutSelectedLayer(): boolean {
-		if (!this.slideView.editingLayer) return false;
-		this.slideView.cut();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.cutSelectedLayer();
 	}
 
 	public pasteLayer(): boolean {
-		this.slideView.paste();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.pasteLayer();
 	}
 
 	public copySelectedLayerTransform(): boolean {
-		if (!this.slideView.editingLayer) return false;
-		this.slideView.copyTrans();
+		if (!this.layerMutations.copySelectedLayerTransform()) return false;
 		this.emitSelectedLayerState();
 		return true;
 	}
 
 	public pasteLayerTransform(): boolean {
-		if (!this.slideView.editingLayer) return false;
-		this.slideView.pasteTrans();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.pasteLayerTransform();
 	}
 
 	public getSelectedLayerRemovalRequest(): { layerName: string; shared: boolean } | null {
@@ -357,89 +343,18 @@ export class EditCanvasRuntime {
 	public removeSelectedLayer(confirmedSharedRemoval = false): boolean {
 		const layer = this.slideView.editingLayer;
 		if (!layer) return false;
-		const index = this.slide.indexOf(layer);
 		this.slideView.runWithSharedLayerRemovalConfirmation(confirmedSharedRemoval, () => {
-			HistoryManager.shared
-				.record(
-					new Command(
-						() => {
-							this.slide.removeLayer(layer);
-						},
-						() => {
-							this.slide.addLayer(layer, index);
-						}
-					)
-				)
-				.do();
+			this.layerMutations.removeSelectedLayer();
 		});
-		this.emitCurrentState();
 		return true;
 	}
 
 	public addTextLayer(text: string): boolean {
-		const normalizedText = (text ?? "").trim();
-		if (!normalizedText) return false;
-		const textLayer = createTextLayer(normalizedText);
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.addLayer(textLayer);
-						textLayer.moveTo(this.slide.centerX, this.slide.centerY);
-					},
-					() => {
-						this.slide.removeLayer(textLayer);
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.addTextLayer(text);
 	}
 
 	public async replaceSelectedImage(file: File, applyAllReferences: boolean): Promise<boolean> {
-		const layer = this.slideView.editingLayer;
-		if (!layer || layer.type != LayerType.IMAGE || !file) return false;
-		const targetImage = layer as ImageLayer;
-		const fromImageId = targetImage.imageId;
-		const newImageId = await ImageManager.shared.registImageFromFile(file);
-		if (!newImageId) return false;
-
-		if (applyAllReferences) {
-			const transaction = new Transaction();
-			layerStore.getState().layers.forEach((tmpLayer) => {
-				if (tmpLayer.type != LayerType.IMAGE) return;
-				const imageLayer = tmpLayer as ImageLayer;
-				if (imageLayer.imageId != fromImageId) return;
-				transaction.record(
-					() => {
-						imageLayer.imageId = newImageId;
-					},
-					() => {
-						imageLayer.imageId = fromImageId;
-					}
-				);
-			});
-			if (transaction.length > 0) {
-				HistoryManager.shared.record(transaction).do();
-			}
-		} else {
-			HistoryManager.shared
-				.record(
-					new Command(
-						() => {
-							targetImage.imageId = newImageId;
-						},
-						() => {
-							targetImage.imageId = fromImageId;
-						}
-					)
-				)
-				.do();
-		}
-
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.replaceSelectedImage(file, applyAllReferences);
 	}
 
 	public downloadSelectedImage(): boolean {
@@ -549,6 +464,16 @@ export class EditCanvasRuntime {
 	//
 	// getset
 	//
+	private selectEditLayer(layer: Layer): boolean {
+		const layerView = this.slideView.layerViews.find((view) => view.data === layer);
+		if (!layerView) return false;
+		this.slideView.selectLayerView(layerView);
+		this.watchSelectedLayer();
+		this.emitSelectedLayerState();
+		this.emitLayerListState();
+		return true;
+	}
+
 	private get slide(): Slide {
 		return this.slideView.slide;
 	}
