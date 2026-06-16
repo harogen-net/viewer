@@ -1,6 +1,5 @@
 import "@fortawesome/fontawesome-free/css/all.css";
 import $ from "jquery";
-import "jquery-ui-dist/jquery-ui";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";

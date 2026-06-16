@@ -17,6 +17,16 @@ export type ViewerBridgeEventMap = {
 	selectionChanged: { selectedIndex: number };
 	/** Image deletion requested from the images panel */
 	imageDeleteRequested: { imageId: string; name: string } | null;
+	/** Registered image library changed */
+	imageLibraryChanged: {
+		images: readonly {
+			id: string;
+			name: string;
+			width: number;
+			height: number;
+			src: string;
+		}[];
+	};
 	/** Shared layer removal requested from an edit command */
 	sharedLayerRemovalRequested: { layerName: string } | null;
 	/** Spread selected layer requested from an edit command */

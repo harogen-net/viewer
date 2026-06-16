@@ -220,7 +220,7 @@ export class Slide extends EventDispatcher {
 	private onLayerUpdate = (pe: PropertyEvent) => {
 		//note :
 		//Slideの子レイヤのUPDATEイベントについては、そのもののフラグにS_LAYERフラグを付加してスライドが発行する
-		//レイヤではなくSlideが単一のViewを持っているCanvasSlideViewはこのイベントで再描画を行う
+		//Slide自体の描画Viewはこのイベントでレイヤー由来の再描画を行う
 		this.dispatchEvent(
 			new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER | pe.propFlags, {
 				layer: pe.targe,

@@ -8,6 +8,7 @@ import {
     useViewerEditSelection,
     useViewerHistory,
     useViewerImageDeleteRequest,
+    useViewerImages,
     useViewerImportDialogRequest,
     useViewerImportFileDialogRequest,
     useViewerMode,
@@ -27,11 +28,7 @@ import {
 } from "../bridge/useViewerBridge";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
-import {
-    getImagesContainerElement,
-    getSaveFormat,
-    setSaveFormat,
-} from "../runtime/reactDomRegistry";
+import { getSaveFormat, setSaveFormat } from "../runtime/reactDomRegistry";
 import type { ImageDeleteRequest } from "./imageDeleteRequest";
 import { getImageDeleteRequestState } from "./imageDeleteRequest";
 import { canToggleImagesPanel, getImagesPanelOpenState } from "./imagesPanelGate";
@@ -174,6 +171,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const slideShowSettings = useViewerSlideshowSettings();
 	const slideShowPlayback = useViewerSlideshowPlayback();
 	const requestedImageDelete = useViewerImageDeleteRequest();
+	const { images } = useViewerImages();
 	const requestedImportDialog = useViewerImportDialogRequest();
 	const requestedImportFileDialog = useViewerImportFileDialogRequest();
 	const requestedNewDocument = useViewerNewDocumentRequest();
@@ -253,25 +251,6 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	useEffect(() => {
 		setSaveFormatState(getSaveFormat());
 	}, []);
-
-	useEffect(() => {
-		const container = getImagesContainerElement();
-		if (!container) return;
-		container.style.display = effectiveImagesPanelOpen ? "block" : "none";
-		if (effectiveImagesPanelOpen) {
-			container.style.position = "fixed";
-			container.style.right = "12px";
-			container.style.bottom = "320px";
-			container.style.zIndex = "2147483645";
-			container.style.width = "320px";
-			container.style.height = "220px";
-			container.style.overflowY = "auto";
-			container.style.padding = "4px";
-			container.style.background = "rgba(248, 249, 250, 0.9)";
-			container.style.border = "1px solid #dee2e6";
-			container.style.borderRadius = "6px";
-		}
-	}, [effectiveImagesPanelOpen]);
 
 	useEffect(() => {
 		if (canUseImagesPanel) return;
@@ -538,7 +517,17 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		event.dataTransfer.setData("text/plain", String(slide.index));
 	};
 
+	const hasDroppedImage = (event: React.DragEvent<HTMLElement>) => {
+		return Array.from(event.dataTransfer.types).includes("imageId");
+	};
+
 	const handleSlideDragOver = (slide: SlideSnapshot, event: React.DragEvent<HTMLDivElement>) => {
+		if (gate.canEdit && hasDroppedImage(event)) {
+			event.preventDefault();
+			event.dataTransfer.dropEffect = "copy";
+			setSlideDropIndex(slide.index);
+			return;
+		}
 		const action = getSlideListDropAction({
 			canEdit: gate.canEdit,
 			fromIndex: draggingSlideIndex,
@@ -553,6 +542,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	};
 
 	const handleSlideDrop = (slide: SlideSnapshot, event: React.DragEvent<HTMLDivElement>) => {
+		const droppedImageId = event.dataTransfer.getData("imageId");
+		if (gate.canEdit && droppedImageId) {
+			event.preventDefault();
+			setDraggingSlideIndex(null);
+			setSlideDropIndex(null);
+			ViewerCommands.addImageSlide(droppedImageId, slide.index);
+			return;
+		}
 		const action = getSlideListDropAction({
 			canEdit: gate.canEdit,
 			fromIndex: draggingSlideIndex,
@@ -622,6 +619,15 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		setImageDeleteRequest(null);
 		if (!imageId) return;
 		ViewerCommands.deleteImageById(imageId, true);
+	};
+
+	const requestImageDelete = (image: (typeof images)[number]) => {
+		if (!canUseImagesPanel) return;
+		setImageDeleteRequest({ imageId: image.id, name: image.name || image.id });
+	};
+
+	const dragImage = (imageId: string, event: React.DragEvent<HTMLImageElement>) => {
+		event.dataTransfer.setData("imageId", imageId);
 	};
 
 	const confirmSharedLayerRemoval = () => {
@@ -2162,9 +2168,40 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 							</Group>
 							{effectiveImagesPanelOpen && (
 								<Stack gap={4}>
-									<Text size="xs" c="dimmed">
-										Images panel opened near File IO.
-									</Text>
+									{images.length === 0 ? (
+										<Text size="xs" c="dimmed">
+											No images
+										</Text>
+									) : (
+										<div
+											style={{
+												display: "grid",
+												gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+												gap: 6,
+											}}>
+											{images.map((image) => (
+												<img
+													key={image.id}
+													src={image.src}
+													alt={image.name || image.id}
+													title={image.name || image.id}
+													draggable={gate.canEdit}
+													onDragStart={(event) => dragImage(image.id, event)}
+													onDoubleClick={() => requestImageDelete(image)}
+													style={{
+														width: "100%",
+														aspectRatio: "1 / 1",
+														objectFit: "contain",
+														background: "#868e96",
+														border: "1px solid #dee2e6",
+														borderRadius: 4,
+														boxSizing: "border-box",
+														cursor: gate.canEdit ? "grab" : "default",
+													}}
+												/>
+											))}
+										</div>
+									)}
 									{imageDeleteRequest && (
 										<Text size="xs" c="dimmed">
 											{imageDeleteRequest.name || imageDeleteRequest.imageId}

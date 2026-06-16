@@ -1,11 +1,12 @@
 import $ from "jquery";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
+import { ImageLayer } from "./model/layer/ImageLayer";
 import { Direction, Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
-import { getImagesContainerElement, getSaveFormat } from "./runtime/reactDomRegistry";
+import { getSaveFormat } from "./runtime/reactDomRegistry";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
@@ -393,14 +394,6 @@ export class Viewer {
 				}
 			}
 		});
-		this.listVC.addEventListener("edit", () => {
-			if (this.listVC.selectedSlide) {
-				this.setMode(ViewerMode.EDIT);
-				setTimeout(() => {
-					this.editVC.setSlide(this.listVC.selectedSlide);
-				}, 301);
-			}
-		});
 		this.listVC.addEventListener("close", () => {
 			this.editVC.initialize();
 			this.setMode(ViewerMode.SELECT);
@@ -410,11 +403,7 @@ export class Viewer {
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
-		const imageContainer = getImagesContainerElement();
-		if (!imageContainer) {
-			throw new Error("React images panel was not mounted.");
-		}
-		ImageManager.init(imageContainer);
+		ImageManager.init();
 
 		if (startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 			const preventDefault = (e: Event) => {
@@ -428,7 +417,7 @@ export class Viewer {
 	}
 
 	private initializeControllers(startUpMode: ViewerStartUpMode): void {
-		this.listVC = new ListViewController(this.obj.find(".list"), this.canEdit());
+		this.listVC = new ListViewController(this.canEdit());
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(this.obj));
 		this.slideShowVC.addEventListener("settingsChanged", (e: CustomEvent) => {
 			const detail = e.detail || {};
@@ -577,7 +566,6 @@ export class Viewer {
 			/*			case ViewerMode.SLIDESHOW:
 						break;*/
 		}
-		this.listVC.setMode(this._mode);
 		if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 			this.editVC.setMode(this._mode);
 		}
@@ -631,6 +619,32 @@ export class Viewer {
 				this.listVC.removeSlide(clonedSlide, false, false);
 				sourceSlide.joining = sourceJoining;
 				this.listVC.selectSlideInstance(sourceSlide);
+			},
+			true
+		);
+	}
+
+	public commandAddImageSlide(imageId: string, toIndex: number = -1): void {
+		if (!this.ensureAllowed(this.canEdit(), "画像スライド追加")) return;
+		if (!imageId || !ImageManager.shared.getImagePropsById(imageId)) return;
+
+		const layer = new ImageLayer(imageId);
+		if (layer.originHeight > layer.originWidth * 1.2) {
+			layer.rotation -= 90;
+		}
+		const slide = new Slide(null, null, [layer]);
+		slide.fitLayer(layer);
+		const insertIndex = Number.isInteger(toIndex)
+			? Math.max(0, Math.min(this.listVC.slides.length, toIndex))
+			: -1;
+
+		this.recordSlideHistoryCommand(
+			() => {
+				this.listVC.addSlide(slide, insertIndex);
+				this.listVC.selectSlideInstance(slide);
+			},
+			() => {
+				this.listVC.removeSlide(slide, false, false);
 			},
 			true
 		);

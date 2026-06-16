@@ -317,6 +317,12 @@ CI実行時のレポート収集:
 - 2026-06-15: RuntimeShell と重複していた MainShell の旧 `CanvasMenu` / `SideControls` / `ListContextMenus` を削除し、MainShell は legacy controller 用の `.canvas` / `.list` host とキーボード処理だけに縮小。旧context menu bridge/command/controller経路と専用CSSも削除し、RuntimeShell の可視入力を Mantine `TextInput` / `Textarea` / `ColorInput` / `FileButton` へ統一。
 - 確認: `npm run test:usecase`
 - 結果: 55 tests / 55 pass。
+- 2026-06-16: Images パネルのサムネイルDOM生成を `ImageManager` から削除し、`imageLibraryChanged` bridge event 経由で RuntimeShell が画像一覧をReact描画する形へ移行。画像drag開始とdblclick削除requestもRuntimeShell側イベントに集約し、画像dropによる新規スライド作成も RuntimeShell slide list drop -> `ViewerCommands.addImageSlide` へ移行。旧 `#images` host / `ImagesPanel` / images container registry / 専用CSSを削除。ReactスライドリストD&Dと重複していた `ListViewController` のjQuery UI sortable経路も削除し、未使用になった `jquery-ui-dist` / `@types/jqueryui` 依存を削除。
+- 確認: `npm run test:usecase`
+- 結果: 55 tests / 55 pass。
+- 2026-06-16: React RuntimeShell のスライド一覧と重複していた legacy サムネイルDOMを削除し、`ListViewController` をスライド配列・選択状態の管理だけに縮小。`ThumbSlideView` / `CanvasSlideView`、旧 `.slideList` CSSを削除し、`.list` host は React `MainShell` の表示用スライドリストとして復旧。編集キャンバスの表示CSSは Viewer が付与する `body` の mode class に合わせて整理。DOMなし削除時の選択保持を usecase テストで追加確認。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

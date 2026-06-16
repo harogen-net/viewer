@@ -1,6 +1,5 @@
 :root {
   --slideBackgroundColor: #000000;
-  --slideThumbHeight: 0;
   /*	--slideWidth:1920px;
 	--slideHeight:1080px;*/
   --textGlowColor: black;
@@ -22,10 +21,6 @@ body.runtime-readonly .canvas {
   display: none;
 }
 
-body.runtime-readonly .list {
-  height: 100%;
-}
-
 body.forced-landscape {
   overflow: hidden;
 }
@@ -39,14 +34,18 @@ body.forced-landscape {
 
 #main {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .canvas {
   height: 0;
+  min-height: 0;
   transition-property: height;
   transition-duration: 0.3s;
 }
 .list {
   height: 100%;
+  min-height: 0;
   transition-property: height;
   transition-duration: 0.3s;
 }
@@ -58,16 +57,6 @@ label {
 .fileOver {
   box-sizing: border-box;
   border: 5px dashed red !important;
-}
-
-/* ---------------------- imagelist ---------------------- */
-#images .container > img {
-  width: 100px;
-  height: 100px;
-  object-fit: contain;
-  background-color: gray;
-  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5) inset;
-  margin: 0 5px 5px 0;
 }
 
 /* slide */
@@ -229,90 +218,27 @@ label {
   border: 1px dashed black;
 }
 
-/* slideList */
-.slideList {
-  width: 100%;
-  position: relative;
-}
-.slideList .container {
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  background-color: gray;
-  box-shadow: 2px 2px 4px 4px rgba(0, 0, 0, 0.2) inset;
-  padding: 10px;
-  display: flex;
-}
-.slideList .container::after {
-  /* for right-padding */
-  content: " ";
-  min-width: 10px;
-}
-.slideList .container > .slide {
-  height: var(--slideThumbHeight);
-  box-shadow: 1px 1px 2px 2px rgba(0, 0, 0, 0.2);
-  flex-shrink: 0;
-  cursor: pointer;
-  box-sizing: border-box;
-  overflow: hidden;
-  background-color: var(--slideBackgroundColor);
-  margin-right: 10px;
-  transition: margin-right 0.1s ease-in-out;
-}
-.slideList .container > .slide.selected {
-  /*border:2px solid red;*/
-  box-shadow: 0 0 2px 2px rgba(255, 0, 0, 0.8);
-}
-/* .slideList > .slide.selected .layerWrapper {
-	transition:transform 0.2s;
-} */
-.slideList .container > .slide.disabled {
-  filter: brightness(40%);
-}
-
-.slideList .container > .slide.joining {
-  margin-right: -16px;
-}
-.slideList .container > .slide.joining.last {
-  margin-right: 10px;
-}
-
 /* ------------------ mode:select ----------------*/
+body.select .canvas,
 body.select .slideCanvas {
   pointer-events: none;
   height: 0;
   margin: 0;
   border: none;
 }
-body.select .slideList {
+body.select .list {
   height: 100%;
 }
-body.select .slideList .container {
-  overflow-x: hidden;
-  overflow-y: scroll;
-  flex-wrap: wrap;
-  align-content: flex-start;
-}
-body.select .slideList .container > .slide {
-  height: var(--slideThumbHeight);
-  /*margin-right: 10px;*/
-  margin-bottom: 30px;
-}
 /* ------------------ mode:edit ----------------*/
-body.edit .slideCanvas {
+body.edit .canvas {
   height: calc(100% - 10px - 150px);
-  margin-bottom: 10px;
 }
-body.edit .slideList {
+body.edit .slideCanvas {
+  height: 100%;
+}
+body.edit .list {
   height: 150px;
-}
-body.edit .slideList .container {
-  overflow-x: scroll;
-  overflow-y: hidden;
-}
-body.edit .slideList .container > .slide {
-  height: var(--slideThumbHeight);
-  /*	margin-right: 10px;*/
+  margin-top: 10px;
 }
 /* ------------------ mode:slideshow -------------*/
 
@@ -330,7 +256,84 @@ body.slideShow .slide.editable {
   pointer-events: none;
 }
 
-body.slideShow .slideList {
+body.slideShow .list {
   display: none;
   pointer-events: none;
+}
+
+/* React main slide list */
+.mainSlideList {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 10px;
+  background-color: #72777d;
+  box-shadow: 2px 2px 4px 4px rgba(0, 0, 0, 0.2) inset;
+}
+
+.mainSlideList-empty {
+  color: white;
+  font-size: 14px;
+}
+
+.mainSlideList-item {
+  width: 148px;
+  height: 84px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: #111;
+  color: white;
+  cursor: pointer;
+  box-shadow: 1px 1px 2px 2px rgba(0, 0, 0, 0.2);
+  font: inherit;
+  text-align: left;
+}
+
+.mainSlideList-item.selected {
+  border-color: #ff3434;
+  box-shadow: 0 0 2px 2px rgba(255, 0, 0, 0.8);
+}
+
+.mainSlideList-item.disabled {
+  filter: brightness(45%);
+}
+
+.mainSlideList-item.dragging {
+  opacity: 0.35;
+}
+
+.mainSlideList-item.dropTarget {
+  outline: 3px solid #228be6;
+  outline-offset: 2px;
+}
+
+.mainSlideList-index {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.mainSlideList-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #d6d6d6;
+}
+
+body.edit .mainSlideList {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
 }

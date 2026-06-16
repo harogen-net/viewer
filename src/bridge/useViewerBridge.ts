@@ -45,6 +45,12 @@ export function useViewerImageDeleteRequest(): { imageId: string; name: string }
 	return useBridgeEvent("imageDeleteRequested", null);
 }
 
+export function useViewerImages(): {
+	images: readonly { id: string; name: string; width: number; height: number; src: string }[];
+} {
+	return useBridgeEvent("imageLibraryChanged", { images: [] });
+}
+
 export function useViewerSharedLayerRemovalRequest(): { layerName: string } | null {
 	return useBridgeEvent("sharedLayerRemovalRequested", null);
 }

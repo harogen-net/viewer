@@ -1288,19 +1288,12 @@
   resolved "https://registry.npmjs.org/@types/estree/-/estree-0.0.39.tgz"
   integrity sha512-EYNwp3bU+98cpU4lAWYYL7Zz+2gryWH1qbdDTidVd6hkiR6weksdbMadyXKXNPEkQFhXM+hVO9ZygomHXp+AIw==
 
-"@types/jquery@*", "@types/jquery@^3.5.30":
+"@types/jquery@^3.5.30":
   version "3.5.30"
   resolved "https://registry.npmjs.org/@types/jquery/-/jquery-3.5.30.tgz"
   integrity sha512-nbWKkkyb919DOUxjmRVk8vwtDb0/k8FKncmUKFi+NY+QXqWltooxTrswvz4LspQwxvLdvzBN1TImr6cw3aQx2A==
   dependencies:
     "@types/sizzle" "*"
-
-"@types/jqueryui@^1.12.22":
-  version "1.12.22"
-  resolved "https://registry.npmjs.org/@types/jqueryui/-/jqueryui-1.12.22.tgz"
-  integrity sha512-4r7ROoUJ5gaIWvQa2qAHyrhskJcUNM62Md8M9+4DtabEiIQ9Y0pVlW88ojyXvn4M1HNUc/47KpFJaXhrk8P/rg==
-  dependencies:
-    "@types/jquery" "*"
 
 "@types/json-schema@*", "@types/json-schema@^7.0.8":
   version "7.0.12"
@@ -2592,14 +2585,7 @@ jest-worker@^27.4.5:
     merge-stream "^2.0.0"
     supports-color "^8.0.0"
 
-jquery-ui-dist@^1.13.2:
-  version "1.13.2"
-  resolved "https://registry.npmjs.org/jquery-ui-dist/-/jquery-ui-dist-1.13.2.tgz"
-  integrity sha512-oVDRd1NLtTbBwpRKAYdIRgpWVDzeBhfy7Gu0RmY6JEaZtmBq6kDn1pm5SgDiAotrnDS+RoTRXO6xvcNTxA9tOA==
-  dependencies:
-    jquery ">=1.8.0 <4.0.0"
-
-jquery@^3.7.1, "jquery@>=1.8.0 <4.0.0":
+jquery@^3.7.1:
   version "3.7.1"
   resolved "https://registry.npmjs.org/jquery/-/jquery-3.7.1.tgz"
   integrity sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==

@@ -24,6 +24,9 @@ export const ViewerCommands = {
 	moveSelectedSlideToIndex(toIndex: number): void {
 		getViewer()?.commandMoveSelectedSlideToIndex(toIndex);
 	},
+	addImageSlide(imageId: string, toIndex?: number): void {
+		getViewer()?.commandAddImageSlide(imageId, toIndex);
+	},
 	toggleSelectedSlideJoining(): void {
 		getViewer()?.commandToggleSelectedSlideJoining();
 	},

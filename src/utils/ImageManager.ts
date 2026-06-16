@@ -22,18 +22,15 @@ export class ImageManager {
 		return this._instance;
 	}
 
-	public static init(container: HTMLElement) {
-		this._instance = new ImageManager(container);
+	public static init() {
+		this._instance = new ImageManager();
 	}
 
 	//
 
 	private _imageById: Record<string, ImageRecord | undefined>;
 
-	private container: HTMLElement;
-
-	private constructor(container: HTMLElement) {
-		this.container = container;
+	private constructor() {
 		console.log("ImageManager constructor");
 		this._imageById = {};
 	}
@@ -43,9 +40,9 @@ export class ImageManager {
 			var imgObjData = this._imageById[id];
 			if (imgObjData == undefined) continue;
 
-			imgObjData.element.remove();
 			delete this._imageById[id];
 		}
+		this.emitImageLibraryChanged();
 	}
 
 	public registImageData(id: string, src: string, name: string = "") {
@@ -55,21 +52,15 @@ export class ImageManager {
 			} else {
 				var imgDom = new Image();
 
-				//set data for drop to slide or list.
-				imgDom.draggable = true;
-				imgDom.addEventListener("dragstart", (e: DragEvent) => {
-					e.dataTransfer?.setData("imageId", id);
-				});
-
 				var onImageLoad = (e: Event) => {
 					var imgDom = e.target as HTMLImageElement;
 					imgDom.removeEventListener("load", onImageLoad);
 					this._imageById[id].width = Math.round(imgDom.naturalWidth);
 					this._imageById[id].height = Math.round(imgDom.naturalHeight);
+					this.emitImageLibraryChanged();
 					resolve();
 				};
 				imgDom.addEventListener("load", onImageLoad);
-				this.container.appendChild(imgDom);
 				this._imageById[id] = {
 					width: imgDom.naturalWidth,
 					height: imgDom.naturalHeight,
@@ -77,12 +68,6 @@ export class ImageManager {
 					name: name,
 				};
 				imgDom.src = src;
-
-				imgDom.addEventListener("dblclick", () => {
-					if (ViewerBridge.hasListeners("imageDeleteRequested")) {
-						ViewerBridge.emit("imageDeleteRequested", { imageId: id, name });
-					}
-				});
 			}
 		});
 	}
@@ -128,7 +113,6 @@ export class ImageManager {
 			targets.forEach((target: { slide: Slide; layer: Layer; index: number }) => {
 				target.slide.removeLayer(target.layer);
 			});
-			imgObjData.element.remove();
 			delete this._imageById[id];
 			// 	},
 			// 	()=>{
@@ -141,9 +125,24 @@ export class ImageManager {
 			// )).do();
 			HistoryManager.shared.initialize();
 		} else {
-			imgObjData.element.remove();
 			delete this._imageById[id];
 		}
+		this.emitImageLibraryChanged();
+	}
+
+	private emitImageLibraryChanged(): void {
+		ViewerBridge.emit("imageLibraryChanged", {
+			images: Object.keys(this._imageById).map((id) => {
+				const image = this._imageById[id];
+				return {
+					id,
+					name: image?.name ?? "",
+					width: image?.width ?? 0,
+					height: image?.height ?? 0,
+					src: image?.element.src ?? "",
+				};
+			}),
+		});
 	}
 
 	public getImagePropsById(id: string): { width: number; height: number; name: string } {
