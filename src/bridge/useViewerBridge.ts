@@ -12,6 +12,8 @@ import { useEffect, useState } from "react";
 import { Layer } from "../model/Layer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
+import { useLayerStore } from "../state/layerStore";
+import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { SlideTitle } from "../storage/storageTypes";
 import { ViewerBridge, ViewerBridgeEventMap } from "./ViewerBridge";
@@ -42,9 +44,9 @@ type SlidesState = {
 };
 
 export function useViewerSlides(): SlidesState {
-	const slides = useViewerDocumentStore((state) => state.slides);
-	const selectedIndex = useViewerDocumentStore((state) => state.selectedIndex);
-	const revision = useViewerDocumentStore((state) => state.revision);
+	const slides = useSlideStore((state) => state.slides);
+	const selectedIndex = useSlideStore((state) => state.selectedIndex);
+	const revision = useSlideStore((state) => state.revision);
 	return { slides, selectedIndex, revision };
 }
 
@@ -52,8 +54,36 @@ export function useViewerDocument(): ViewerDocument | null {
 	return useViewerDocumentStore((state) => state.document);
 }
 
+export function useViewerDocumentState() {
+	const document = useViewerDocumentStore((state) => state.document);
+	const title = useViewerDocumentStore((state) => state.title);
+	const createTime = useViewerDocumentStore((state) => state.createTime);
+	const editTime = useViewerDocumentStore((state) => state.editTime);
+	const isSensitive = useViewerDocumentStore((state) => state.isSensitive);
+	const duration = useViewerDocumentStore((state) => state.duration);
+	const interval = useViewerDocumentStore((state) => state.interval);
+	const width = useViewerDocumentStore((state) => state.width);
+	const height = useViewerDocumentStore((state) => state.height);
+	const bgColor = useViewerDocumentStore((state) => state.bgColor);
+	const revision = useViewerDocumentStore((state) => state.revision);
+
+	return {
+		document,
+		title,
+		createTime,
+		editTime,
+		isSensitive,
+		duration,
+		interval,
+		width,
+		height,
+		bgColor,
+		revision,
+	};
+}
+
 export function useViewerLayers(): readonly Layer[] {
-	return useViewerDocumentStore((state) => state.layers);
+	return useLayerStore((state) => state.layers);
 }
 
 export function useViewerImageDeleteRequest(): { imageId: string; name: string } | null {

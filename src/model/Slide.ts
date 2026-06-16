@@ -2,10 +2,10 @@ import { v4 as uuidv4 } from "uuid";
 import { Viewer } from "../Viewer";
 import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
+import { slideStore } from "../state/slideStore";
 import { viewerDocumentStore } from "../state/viewerDocumentStore";
 import { Layer } from "./Layer";
 import { PropFlags } from "./PropFlags";
-import { ViewerDocument } from "./ViewerDocument";
 
 export const Direction = {
 	TOP: 0,
@@ -46,10 +46,9 @@ export class Slide {
 		attachEventDispatcher(this);
 
 		this._uuid = uuidv4();
-		this._width =
-			width || (ViewerDocument.shared ? ViewerDocument.shared.width : Viewer.SCREEN_WIDTH);
-		this._height =
-			height || (ViewerDocument.shared ? ViewerDocument.shared.height : Viewer.SCREEN_HEIGHT);
+		const documentState = viewerDocumentStore.getState();
+		this._width = width || documentState.width || Viewer.SCREEN_WIDTH;
+		this._height = height || documentState.height || Viewer.SCREEN_HEIGHT;
 
 		this._layers.forEach((layer) => {
 			layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
@@ -112,7 +111,7 @@ export class Slide {
 				layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 				layer.parent = this;
 			}
-			viewerDocumentStore.getState().notifyLayersChanged();
+			slideStore.getState().notifyLayersChanged();
 
 			this.dispatchEvent(
 				new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_ADD, { layer: layer })
@@ -139,7 +138,7 @@ export class Slide {
 				layer.parent = null;
 				layer.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 			}
-			viewerDocumentStore.getState().notifyLayersChanged();
+			slideStore.getState().notifyLayersChanged();
 
 			this.dispatchEvent(
 				new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_REMOVE, { layer: layer })

@@ -7,6 +7,7 @@ import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { getSaveFormat } from "./runtime/reactDomRegistry";
+import { viewerDocumentStore } from "./state/viewerDocumentStore";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
@@ -15,7 +16,10 @@ import { Command, HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { EditViewController } from "./viewController/EditViewController";
 import { ListViewController } from "./viewController/ListViewController";
-import { SlideShowPlaybackSettings, SlideShowViewController } from "./viewController/SlideShowViewController";
+import {
+    SlideShowPlaybackSettings,
+    SlideShowViewController,
+} from "./viewController/SlideShowViewController";
 
 export const ViewerMode = {
 	SELECT: 0,
@@ -171,7 +175,11 @@ export class Viewer {
 		this.emitCurrentSlides();
 	}
 
-	private recordSlideHistoryCommand(fwd: () => void, rev: () => void, rebindSlides: boolean = false): void {
+	private recordSlideHistoryCommand(
+		fwd: () => void,
+		rev: () => void,
+		rebindSlides: boolean = false
+	): void {
 		HistoryManager.shared
 			.record(
 				new Command(
@@ -399,7 +407,6 @@ export class Viewer {
 			this.setMode(ViewerMode.SELECT);
 			this.emitEditSelectionState();
 		});
-
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
@@ -413,7 +420,6 @@ export class Viewer {
 			document.addEventListener("drop", preventDefault);
 			document.addEventListener("dragover", preventDefault);
 		}
-
 	}
 
 	private initializeControllers(startUpMode: ViewerStartUpMode): void {
@@ -432,10 +438,7 @@ export class Viewer {
 			}
 		});
 		this.slideShowVC.addEventListener("playbackChanged", (e: CustomEvent) => {
-			this.updateSlideshowPlaybackState(
-				Boolean(e.detail?.isRun),
-				Boolean(e.detail?.isPause)
-			);
+			this.updateSlideshowPlaybackState(Boolean(e.detail?.isRun), Boolean(e.detail?.isPause));
 		});
 		this.initializeDocumentStorage();
 		this.initializeEditModeFeatures(startUpMode);
@@ -447,8 +450,7 @@ export class Viewer {
 
 	private shouldRegisterBeforeUnloadWarning(): boolean {
 		return (
-			Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT &&
-			process.env.NODE_ENV == "production"
+			Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT && process.env.NODE_ENV == "production"
 		);
 	}
 
@@ -570,15 +572,20 @@ export class Viewer {
 			this.editVC.setMode(this._mode);
 		}
 
-		const bridgeMode = this._mode === ViewerMode.EDIT ? "edit"
-			: this._mode === ViewerMode.SLIDESHOW ? "slideshow" : "select";
+		const bridgeMode =
+			this._mode === ViewerMode.EDIT
+				? "edit"
+				: this._mode === ViewerMode.SLIDESHOW
+					? "slideshow"
+					: "select";
 		ViewerBridge.emit("modeChanged", { mode: bridgeMode });
 		this.emitEditSelectionState();
 	}
 
 	public commandNewSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド追加")) return;
-		const slide = new Slide(ViewerDocument.shared.width, ViewerDocument.shared.height);
+		const { width, height } = viewerDocumentStore.getState();
+		const slide = new Slide(width, height);
 		const index = this.listVC.slides.length;
 		const previousLastSlide = this.listVC.slides[index - 1] ?? null;
 		const previousLastJoining = previousLastSlide?.joining ?? false;
@@ -842,7 +849,9 @@ export class Viewer {
 		if (!this.ensureAllowed(this.canEdit(), "選択スライドのみ有効化")) return;
 		const selectedSlide = this.listVC.selectedSlide;
 		if (!selectedSlide) return;
-		const hasChange = this.listVC.slides.some((slide) => slide.disabled !== (slide !== selectedSlide));
+		const hasChange = this.listVC.slides.some(
+			(slide) => slide.disabled !== (slide !== selectedSlide)
+		);
 		if (!hasChange) return;
 		const previousStates = this.listVC.slides.map((slide) => ({ slide, disabled: slide.disabled }));
 		this.recordSlideHistoryCommand(
@@ -963,7 +972,12 @@ export class Viewer {
 	public commandNewDocument(confirmed = false): void {
 		if (!this.ensureAllowed(this.canEdit(), "新規作成")) return;
 		if (this.viewerDocument.slides.length == 0) return;
-		if (!confirmed && this.IsDocumentModified && Viewer.isStrictMode && ViewerBridge.hasListeners("newDocumentRequested")) {
+		if (
+			!confirmed &&
+			this.IsDocumentModified &&
+			Viewer.isStrictMode &&
+			ViewerBridge.hasListeners("newDocumentRequested")
+		) {
 			ViewerBridge.emit("newDocumentRequested", { open: true });
 			return;
 		}
@@ -996,7 +1010,8 @@ export class Viewer {
 	}
 
 	public commandDeleteSavedFile(fileId: string): void {
-		if (!this.ensureAllowed(this.getPermissionPolicy().canDeleteSavedData, "保存データ削除")) return;
+		if (!this.ensureAllowed(this.getPermissionPolicy().canDeleteSavedData, "保存データ削除"))
+			return;
 		if (fileId == null || fileId === "-1") return;
 		this.setSavedFileSelection(fileId);
 		this.handleStorageResult(this.documentStorage.deleteResult(fileId));
@@ -1043,7 +1058,12 @@ export class Viewer {
 
 	public commandOpenImportDialog(confirmed = false): void {
 		if (!this.ensureAllowed(this.canImport(), "読み込み")) return;
-		if (!confirmed && this.IsDocumentModified && Viewer.isStrictMode && ViewerBridge.hasListeners("importDialogRequested")) {
+		if (
+			!confirmed &&
+			this.IsDocumentModified &&
+			Viewer.isStrictMode &&
+			ViewerBridge.hasListeners("importDialogRequested")
+		) {
 			ViewerBridge.emit("importDialogRequested", { open: true });
 			return;
 		}
@@ -1164,9 +1184,7 @@ export class Viewer {
 	}
 
 	public commandToggleSelectedLayerIsText(): void {
-		this.runEditSelectionOperation("テキスト切替", () =>
-			this.editVC.toggleSelectedLayerIsText()
-		);
+		this.runEditSelectionOperation("テキスト切替", () => this.editVC.toggleSelectedLayerIsText());
 	}
 
 	public commandSpreadSelectedLayer(confirmed = false): void {
@@ -1193,9 +1211,7 @@ export class Viewer {
 	}
 
 	public commandArrangeSelectedLayerTop(): void {
-		this.runEditSelectionOperation("上揃え", () =>
-			this.editVC.arrangeSelectedLayer(Direction.TOP)
-		);
+		this.runEditSelectionOperation("上揃え", () => this.editVC.arrangeSelectedLayer(Direction.TOP));
 	}
 
 	public commandArrangeSelectedLayerRight(): void {
@@ -1229,9 +1245,7 @@ export class Viewer {
 	}
 
 	public commandMoveSelectedLayerToBottom(): void {
-		this.runEditSelectionOperation("最背面へ移動", () =>
-			this.editVC.moveSelectedLayerToBottom()
-		);
+		this.runEditSelectionOperation("最背面へ移動", () => this.editVC.moveSelectedLayerToBottom());
 	}
 
 	public commandMoveSelectedLayerToIndex(toIndex: number): void {
@@ -1489,10 +1503,7 @@ export class Viewer {
 		});
 	}
 
-	public async commandReplaceSelectedImage(
-		file: File,
-		applyAllReferences: boolean
-	): Promise<void> {
+	public async commandReplaceSelectedImage(file: File, applyAllReferences: boolean): Promise<void> {
 		if (!this.canRunEditOperations("画像差し替え")) {
 			return;
 		}
@@ -1508,9 +1519,7 @@ export class Viewer {
 
 	public commandDownloadSelectedImage(): void {
 		if (!this.ensureAllowed(this.canExport(), "画像ダウンロード")) return;
-		this.runEditSelectionOperation("画像ダウンロード", () =>
-			this.editVC.downloadSelectedImage()
-		);
+		this.runEditSelectionOperation("画像ダウンロード", () => this.editVC.downloadSelectedImage());
 	}
 
 	public commandDeleteImageById(imageId: string, confirmed = false): void {

@@ -1,82 +1,114 @@
 import { create } from "zustand";
-import type { Layer } from "../model/Layer";
 import type { Slide } from "../model/Slide";
 import type { ViewerDocument } from "../model/ViewerDocument";
+import { slideStore } from "./slideStore";
 
 type ViewerDocumentStateSnapshot = {
 	document: ViewerDocument | null;
-	slides: readonly Slide[];
-	selectedIndex: number;
-	selectedSlide: Slide | null;
-	layers: readonly Layer[];
+	title: string;
+	createTime: number;
+	editTime: number;
+	isSensitive: boolean;
+	duration: number | undefined;
+	interval: number | undefined;
+	width: number;
+	height: number;
+	bgColor: string;
 	revision: number;
 };
 
+export type ViewerDocumentStoreDocumentInput = {
+	document: ViewerDocument | null;
+	title: string;
+	createTime: number;
+	editTime: number;
+	isSensitive: boolean;
+	duration?: number;
+	interval?: number;
+	width: number;
+	height: number;
+	bgColor: string;
+	slides: readonly Slide[];
+};
+
 type ViewerDocumentActions = {
-	setDocument: (document: ViewerDocument | null, selectedIndex?: number) => void;
-	setSlides: (slides: readonly Slide[], selectedIndex?: number) => void;
-	setSelectedIndex: (selectedIndex: number) => void;
-	notifyLayersChanged: () => void;
+	setDocument: (input: ViewerDocumentStoreDocumentInput | null, selectedIndex?: number) => void;
+	setDocumentMeta: (
+		patch: Partial<
+			Pick<
+				ViewerDocumentStateSnapshot,
+				| "title"
+				| "createTime"
+				| "editTime"
+				| "isSensitive"
+				| "duration"
+				| "interval"
+				| "width"
+				| "height"
+				| "bgColor"
+			>
+		>
+	) => void;
 	reset: () => void;
 };
 
 export type ViewerDocumentStore = ViewerDocumentStateSnapshot & ViewerDocumentActions;
 
-const getSelectedSlide = (slides: readonly Slide[], selectedIndex: number): Slide | null => {
-	return selectedIndex >= 0 && selectedIndex < slides.length ? slides[selectedIndex] : null;
+const setDocumentCssVariables = (bgColor: string): void => {
+	if (typeof document === "undefined") return;
+	document.documentElement.style.setProperty("--slideBackgroundColor", bgColor);
 };
 
-const getLayers = (slides: readonly Slide[]): readonly Layer[] => {
-	return slides.flatMap((slide) => slide.layers);
+const initialDocumentState = {
+	document: null,
+	title: "",
+	createTime: 0,
+	editTime: 0,
+	isSensitive: false,
+	duration: undefined,
+	interval: undefined,
+	width: 0,
+	height: 0,
+	bgColor: "#000000",
 };
 
 export const useViewerDocumentStore = create<ViewerDocumentStore>((set, get) => ({
-	document: null,
-	slides: [],
-	selectedIndex: -1,
-	selectedSlide: null,
-	layers: [],
+	...initialDocumentState,
 	revision: 0,
-	setDocument: (document, selectedIndex = -1) => {
-		const slides = document?.slides ?? [];
+	setDocument: (input, selectedIndex = -1) => {
+		if (!input) {
+			get().reset();
+			return;
+		}
+		setDocumentCssVariables(input.bgColor);
+		slideStore.getState().setSlides(input.slides, selectedIndex);
 		set((state) => ({
-			document,
-			slides,
-			selectedIndex,
-			selectedSlide: getSelectedSlide(slides, selectedIndex),
-			layers: getLayers(slides),
+			document: input.document,
+			title: input.title,
+			createTime: input.createTime,
+			editTime: input.editTime,
+			isSensitive: input.isSensitive,
+			duration: input.duration,
+			interval: input.interval,
+			width: input.width,
+			height: input.height,
+			bgColor: input.bgColor,
 			revision: state.revision + 1,
 		}));
 	},
-	setSlides: (slides, selectedIndex = get().selectedIndex) => {
+	setDocumentMeta: (patch) => {
+		if (patch.bgColor !== undefined) {
+			setDocumentCssVariables(patch.bgColor);
+		}
 		set((state) => ({
-			slides,
-			selectedIndex,
-			selectedSlide: getSelectedSlide(slides, selectedIndex),
-			layers: getLayers(slides),
-			revision: state.revision + 1,
-		}));
-	},
-	setSelectedIndex: (selectedIndex) => {
-		set((state) => ({
-			selectedIndex,
-			selectedSlide: getSelectedSlide(state.slides, selectedIndex),
-			revision: state.revision + 1,
-		}));
-	},
-	notifyLayersChanged: () => {
-		set((state) => ({
-			layers: getLayers(state.slides),
+			...patch,
 			revision: state.revision + 1,
 		}));
 	},
 	reset: () => {
+		slideStore.getState().reset();
 		set((state) => ({
-			document: null,
-			slides: [],
-			selectedIndex: -1,
-			selectedSlide: null,
-			layers: [],
+			...initialDocumentState,
 			revision: state.revision + 1,
 		}));
 	},

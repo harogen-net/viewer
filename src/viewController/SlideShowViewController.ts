@@ -7,7 +7,7 @@ import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
-import { ViewerDocument } from "../model/ViewerDocument";
+import { viewerDocumentStore } from "../state/viewerDocumentStore";
 import { DOMSlideView, type DOMSlideViewHandle } from "../view/slide";
 
 export type SlideShowPlaybackSettings = {
@@ -489,18 +489,16 @@ export class SlideShowViewController {
 		//		console.log("updateSlideSize");
 		let dispWidth = this.obj.width();
 		let dispHeight = this.obj.height();
-		let dispScale = Math.min(
-			dispWidth / ViewerDocument.shared.width,
-			dispHeight / ViewerDocument.shared.height
-		);
-		let offsetX = (dispWidth - ViewerDocument.shared.width) / 2;
-		let offsetY = (dispHeight - ViewerDocument.shared.height) / 2;
+		const { width, height } = viewerDocumentStore.getState();
+		let dispScale = Math.min(dispWidth / width, dispHeight / height);
+		let offsetX = (dispWidth - width) / 2;
+		let offsetY = (dispHeight - height) / 2;
 
 		this.slides.forEach((slide) => {
 			slide.setDisplayTransform(
 				"translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")",
-				ViewerDocument.shared.width,
-				ViewerDocument.shared.height
+				width,
+				height
 			);
 		});
 	}

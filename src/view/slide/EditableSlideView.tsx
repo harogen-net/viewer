@@ -19,7 +19,7 @@ import { ImageLayer } from "../../model/layer/ImageLayer";
 import { TextLayer } from "../../model/layer/TextLayer";
 import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
-import { ViewerDocument } from "../../model/ViewerDocument";
+import { slideStore } from "../../state/slideStore";
 import { DropHelper } from "../../utils/DropHelper";
 import { Command, HistoryManager, Transaction } from "../../utils/HistoryManager";
 import { AdjustView, type AdjustViewHandle } from "../layer/AdjustView";
@@ -113,6 +113,7 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 
 	const getBase = () => baseRef.current as DOMSlideViewHandle;
 	const getAdjustView = () => adjustViewRef.current as AdjustViewHandle;
+	const getSlideStore = () => slideStore.getState();
 
 	const selectLayerView = (targetLayerView: LayerView | null = null) => {
 		const handle = handleRef.current as EditableSlideViewHandle;
@@ -371,10 +372,10 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 			return find;
 		};
 
-		let slide = ViewerDocument.shared.getNextSlide(getBase().slide);
-		while (slide && findInSlide(slide)) slide = ViewerDocument.shared.getNextSlide(slide);
-		slide = ViewerDocument.shared.getPrevSlide(getBase().slide);
-		while (slide && findInSlide(slide)) slide = ViewerDocument.shared.getPrevSlide(slide);
+		let slide = getSlideStore().getNextSlide(getBase().slide);
+		while (slide && findInSlide(slide)) slide = getSlideStore().getNextSlide(slide);
+		slide = getSlideStore().getPrevSlide(getBase().slide);
+		while (slide && findInSlide(slide)) slide = getSlideStore().getPrevSlide(slide);
 	};
 
 	const listRectLayers = (layer: Layer) => {
@@ -397,15 +398,15 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 		};
 
 		collect(getBase().slide);
-		let slide = ViewerDocument.shared.getNextSlide(getBase().slide);
+		let slide = getSlideStore().getNextSlide(getBase().slide);
 		while (slide) {
 			collect(slide);
-			slide = ViewerDocument.shared.getNextSlide(slide);
+			slide = getSlideStore().getNextSlide(slide);
 		}
-		slide = ViewerDocument.shared.getPrevSlide(getBase().slide);
+		slide = getSlideStore().getPrevSlide(getBase().slide);
 		while (slide) {
 			collect(slide);
-			slide = ViewerDocument.shared.getPrevSlide(slide);
+			slide = getSlideStore().getPrevSlide(slide);
 		}
 	};
 
@@ -507,10 +508,10 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 			return continueToNext;
 		};
 
-		let slide = ViewerDocument.shared.getNextSlide(getBase().slide);
-		while (slide && applyToSlide(slide)) slide = ViewerDocument.shared.getNextSlide(slide);
-		slide = ViewerDocument.shared.getPrevSlide(getBase().slide);
-		while (slide && applyToSlide(slide)) slide = ViewerDocument.shared.getPrevSlide(slide);
+		let slide = getSlideStore().getNextSlide(getBase().slide);
+		while (slide && applyToSlide(slide)) slide = getSlideStore().getNextSlide(slide);
+		slide = getSlideStore().getPrevSlide(getBase().slide);
+		while (slide && applyToSlide(slide)) slide = getSlideStore().getPrevSlide(slide);
 
 		if (transaction.length > 0) {
 			HistoryManager.shared.record(transaction).do();

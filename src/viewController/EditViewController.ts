@@ -8,7 +8,7 @@ import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
 import { Direction, Slide } from "../model/Slide";
-import { ViewerDocument } from "../model/ViewerDocument";
+import { layerStore } from "../state/layerStore";
 import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import {
@@ -685,7 +685,7 @@ export class EditViewController {
 
 		if (applyAllReferences) {
 			const transaction = new Transaction();
-			ViewerDocument.shared.allLayers.forEach((tmpLayer) => {
+			layerStore.getState().layers.forEach((tmpLayer) => {
 				if (tmpLayer.type != LayerType.IMAGE) return;
 				const imageLayer = tmpLayer as ImageLayer;
 				if (imageLayer.imageId != fromImageId) return;

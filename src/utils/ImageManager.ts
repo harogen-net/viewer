@@ -3,7 +3,7 @@ import { ViewerBridge } from "../bridge/ViewerBridge";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { Slide } from "../model/Slide";
-import { ViewerDocument } from "../model/ViewerDocument";
+import { layerStore } from "../state/layerStore";
 import { HistoryManager } from "./HistoryManager";
 
 type ImageRecord = {
@@ -97,7 +97,7 @@ export class ImageManager {
 		if (imgObjData == undefined) return;
 
 		var targets: { slide: Slide; layer: Layer; index: number }[] = [];
-		ViewerDocument.shared.allLayers.forEach((layer) => {
+		layerStore.getState().layers.forEach((layer) => {
 			if (layer.type == LayerType.IMAGE && (layer as ImageLayer).imageId == id) {
 				if (layer.shared) layer.shared = false;
 				targets.push({
