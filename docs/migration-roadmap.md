@@ -125,12 +125,39 @@
 
 ### R1: 状態の SSoT 化（Zustand 一元化）
 **目的**：4 系統を Zustand へ収束させ、二重管理を解消する。
-- `ViewerDocument` を含むメタ状態をストアへ統合（プレーンオブジェクトの同期漏れを解消）。
-- `EditLayerState` を **UI 状態（hasSelection 等）とモデル由来状態（x/y/scale 等）に分離**。
-- `notifyLayersChanged()` の手動呼び出しを廃し、配列変更を action 内に閉じる。
-- Undo/Redo（`HistoryManager`）をストア更新と**同一トランザクション**に統合し、失敗時の不整合を排除。
+**方針**：big-bang を避け、ストラングラー方式で**各サブステップごとに `npm run test:usecase`（R0=71 pass）を緑に保つ**。
+モデルクラスの `EventDispatcher` 内部実装の完全撤去は R4 と協調するが、R1 では**「UI 同期が `PropertyEvent` に依存しない」状態**までを到達点とする。
 
-**完了条件**：状態更新経路がストア action に一本化。`PropertyEvent` 依存が UI 同期から外れている。
+#### R1.0: スナップショット型 + 純粋マッパー（純加算・低リスク）
+- UI が必要とするプレーンデータ型（`LayerSnapshot` / `SlideSnapshot` / `DocumentSnapshot`）を定義。
+- モデル → スナップショットの**純粋関数マッパー**を追加し、単体テストを付ける。
+- この時点では挙動を変えない（型と関数の追加のみ）。「純データ」の目標形を確定する。
+
+#### R1.1: 読み取り経路をスナップショットへ一本化
+- ストアがスナップショット（プレーンデータ）を公開し、React の読み取りを**モデル getter から selector へ移行**。
+- モデルは暫定的に真実源のまま（`notify` 時にマッパーを走らせる）。UI からモデル getter 直読を除去。
+
+#### R1.2: `EditLayerState` を UI 状態とモデル由来状態へ分離
+- `EditLayerSelectionState`（`hasSelection`/`canPaste*` 等 UI 状態）と
+  `EditLayerValues`（`x`/`y`/`scale` 等モデル由来）に型・スライスを分割。
+- `layerStore` と消費側、関連テストを更新。
+
+#### R1.3: 書き込み経路をストア action へ集約
+- 変更操作をストア action / useCase 関数に集約し、**モデル更新とスナップショット更新を同一トランザクション化**。
+- UI パスから直接のモデル setter 呼び出しを段階的に撤去。
+
+#### R1.4: `notifyLayersChanged()` 手動呼び出しの廃止
+- 配列変更（add/remove/sort）を action 内に閉じ、`Viewer.ts`/`EditCanvasRuntime` 等に散在する手動 `notify*` を撤去。
+
+#### R1.5: Undo/Redo のトランザクション統合
+- `HistoryManager` の記録をスナップショット更新と同一トランザクションに統合。
+- `emitAfterMutation` の副作用重複・失敗時不整合リスクを排除。
+
+#### R1.6: `PropertyEvent` UI 同期撤去の確認（R1 ゲート）
+- UI 同期が `PropertyEvent` に依存しないことを確認（KPI: UI パスの `EventDispatcher`/`PropertyEvent` 参照ゼロ）。
+- モデル内部の `EventDispatcher` 実体は R4 で除去するため、ここでは「UI 非依存」を完了線とする。
+
+**完了条件**：状態更新経路がストア action に一本化。`PropertyEvent` 依存が UI 同期から外れている。R0 の 71 テストが緑。
 **ロールバック**：特定操作で不整合が出た場合、その操作のみ旧経路に退避し原因修正を優先。
 
 ### R2: ブリッジ／シングルトン撤去

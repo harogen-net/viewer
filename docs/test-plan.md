@@ -348,3 +348,45 @@ CI実行時のレポート収集:
 - P0 未解決ゼロ。
 - P1 は合意済み件のみ残件許容。
 - browser/mobile の必須シナリオが全て成功する。
+
+## 10. R0 ベースライン（合理化ロードマップ起点 / 2026-06-16）
+
+[docs/migration-roadmap.md](migration-roadmap.md) の R0 安全網として、撤去対象の現状値を固定する。
+以降の各 R フェーズはこの値からの「減少」を完了判定に用いる。
+
+### 10.1 回帰最小セット
+- 確認: `npm run test:usecase`
+- 結果: **71 tests / 71 pass**（緑）。これを R1 以降の不変ベースラインとする。
+
+### 10.2 撤去対象ベースライン（KPI 初期値）
+
+| 指標 | R0 実測 | 目標 | 主な所在 |
+|------|--------|------|---------|
+| jQuery 依存ファイル | 4 | 0 | `index.ts` / `Viewer.ts` / `runtime/SlideShowRuntime.ts` / `utils/LayerViewFactory.ts` |
+| `Viewer.shared` 参照ファイル | 2 | 0 | `Viewer.ts` / `bridge/ViewerCommands.ts` |
+| `ViewerBridge` イベント種別 | 19 | 0 | `bridge/ViewerBridge.ts` |
+| `EventDispatcher`/`PropertyEvent` 参照ファイル | 17 | 0 | model 4 / view 5 / utils 4 / runtime 1 / events 2 / `Viewer.ts` |
+| `any`（型注釈・キャスト）出現 | 52（16 ファイル） | 0 | runtime 2 / utils 6 / model 4 / view 3 / events 1 |
+| `innerHTML` 直書き | 1 | 0 | `view/layer/TextView.tsx` |
+| 命令的 View クラス | 3 | 0 | `LayerView` / `ImageView` / `TextView` |
+| 二重 React root | 2 | 1 | `#wrapper` / `#react-runtime-shell` |
+| `RuntimeShell.tsx` 行数 | 2,413 | < 400/コンポーネント | `react/RuntimeShell.tsx` |
+| `Viewer.ts` 行数 | 1,700 | < 300 | `Viewer.ts` |
+
+### 10.3 tsconfig 現状
+- `strict: false` / `noImplicitAny` 無効（コメントアウト）。
+- R フェーズで `any` を解消した領域から段階的に `strict` 系を有効化する（一括有効化はしない）。
+
+### 10.4 計測コマンド（再現用）
+```sh
+# 回帰最小セット
+npm run test:usecase
+# jQuery 依存ファイル
+grep -rln "from \"jquery\"" src
+# Viewer.shared 参照
+grep -rln "Viewer.shared" src
+# EventDispatcher / PropertyEvent 参照
+grep -rln "EventDispatcher\|PropertyEvent" src
+# any 出現数
+grep -rEn ":\s*any\b|as any|<any>|any\[\]" src | wc -l
+```
