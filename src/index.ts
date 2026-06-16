@@ -3,13 +3,14 @@ import $ from "jquery";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { Viewer, ViewerStartUpMode } from "./Viewer";
+import { Viewer } from "./Viewer";
 import { AppShell } from "./react/AppShell";
 import { mountRuntimeShell } from "./react/mountRuntimeShell";
 import { applyFeatureGate } from "./runtime/applyFeatureGate";
 import { getFeatureGate } from "./runtime/featureGate";
 import { setUpMobileLandscapeFallback } from "./runtime/mobileOrientation";
 import { resolveRuntimeMode } from "./runtime/mode";
+import { ViewerStartUpMode } from "./runtime/viewerMode";
 
 import "../css/slideShow.scss";
 import "../css/ui.scss";

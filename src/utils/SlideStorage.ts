@@ -3,7 +3,7 @@ import { attachEventDispatcher, type EventDispatcher } from "../events/EventDisp
 import { LayerType } from "../model/Layer";
 import { createImageLayer, ImageLayer } from "../model/layer/ImageLayer";
 import { createTextLayer } from "../model/layer/TextLayer";
-import { createSlide, Slide } from "../model/Slide";
+import { createSlide, getScreenSlideSize, type Slide } from "../model/Slide";
 import { createViewerDocument, type ViewerDocument } from "../model/ViewerDocument";
 import {
 	createStorageOperationError,
@@ -11,7 +11,6 @@ import {
 	type StorageExportOptions,
 } from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../storage/storageTypes";
-import { Viewer } from "../Viewer";
 import { DataUtil } from "./DataUtil";
 import { DateUtil } from "./DateUtil";
 import { ImageManager } from "./ImageManager";
@@ -394,8 +393,9 @@ export class SlideStorage {
 
 		//ver2
 		if (json.version >= 2) {
-			let width: number = Viewer.SCREEN_WIDTH;
-			let height: number = Viewer.SCREEN_HEIGHT;
+			const defaultSize = getScreenSlideSize();
+			let width: number = defaultSize.width;
+			let height: number = defaultSize.height;
 			if (json.screen) {
 				width = parseInt(json.screen.width) || width;
 				height = parseInt(json.screen.height) || height;

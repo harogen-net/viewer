@@ -6,16 +6,21 @@ import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { createTextLayer, TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
-import { createSlide, Direction, Slide } from "../model/Slide";
+import { createSlide, SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
 import { layerStore, type EditLayerState } from "../state/layerStore";
+import {
+	createEditLayerMutationUseCase,
+	type EditLayerMutationUseCase,
+	type LayerMutationRenderScope,
+} from "../useCase/EditLayerMutationUseCase";
 import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import {
-    EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
-    EditableSlideView,
-    type EditableSlideViewHandle,
+	EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
+	EditableSlideView,
+	type EditableSlideViewHandle,
 } from "../view/slide";
-import { ViewerMode } from "../Viewer";
+import { ViewerMode } from "./viewerMode";
 
 const EditableSlideViewForRender = EditableSlideView as unknown as FunctionComponent<{
 	ref: Ref<EditableSlideViewHandle>;
@@ -25,6 +30,7 @@ const EditableSlideViewForRender = EditableSlideView as unknown as FunctionCompo
 export class EditCanvasRuntime {
 	public slideView: EditableSlideViewHandle;
 	private observedLayer: Layer | null = null;
+	private readonly layerMutations: EditLayerMutationUseCase;
 	private readonly slideViewRoot: Root;
 	private readonly slideViewHost: HTMLDivElement;
 	private readonly slideViewRef = createRef<EditableSlideViewHandle>();
@@ -46,6 +52,14 @@ export class EditCanvasRuntime {
 			);
 		});
 		this.slideView = this.slideViewRef.current as EditableSlideViewHandle;
+		this.layerMutations = createEditLayerMutationUseCase({
+			getSelectedLayer: () => this.slideView.editingLayer,
+			getCurrentSlide: () => this.slide,
+			maxLayerMoveOffset: SLIDE_LAYER_NUM_MAX,
+			emitAfterMutation: (render, includeLayerList) => {
+				this.emitAfterLayerMutation(render, includeLayerList);
+			},
+		});
 
 		this.slideView.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			if (pe.propFlags & PropFlags.LV_SELECT) {
@@ -201,24 +215,19 @@ export class EditCanvasRuntime {
 		this.emitCanvasState();
 	}
 
+	private emitAfterLayerMutation(render: LayerMutationRenderScope, includeLayerList = false): void {
+		if (render === "current") {
+			this.emitCurrentState();
+			return;
+		}
+		this.emitSelectedLayerState();
+		if (includeLayerList) {
+			this.emitLayerListState();
+		}
+	}
+
 	public toggleSelectedLayerIsText(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer || layer.type != LayerType.IMAGE) return false;
-		const imageLayer = layer as ImageLayer;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						imageLayer.isText = !imageLayer.isText;
-					},
-					() => {
-						imageLayer.isText = !imageLayer.isText;
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.toggleSelectedLayerIsText();
 	}
 
 	public spreadSelectedLayer(): boolean {
@@ -247,306 +256,59 @@ export class EditCanvasRuntime {
 	}
 
 	public toggleSelectedLayerVisible(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.visible;
-		const to = !from;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.visible = to;
-					},
-					() => {
-						layer.visible = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		this.emitLayerListState();
-		return true;
+		return this.layerMutations.toggleSelectedLayerVisible();
 	}
 
 	public toggleSelectedLayerLocked(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.locked;
-		const to = !from;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.locked = to;
-					},
-					() => {
-						layer.locked = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		this.emitLayerListState();
-		return true;
+		return this.layerMutations.toggleSelectedLayerLocked();
 	}
 
 	public toggleSelectedLayerShared(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.shared;
-		const to = !from;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.shared = to;
-					},
-					() => {
-						layer.shared = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		this.emitLayerListState();
-		return true;
+		return this.layerMutations.toggleSelectedLayerShared();
 	}
 
 	public setSelectedLayerName(name: string): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const next = (name ?? "").trim();
-		if (!next) return false;
-		const from = layer.name;
-		if (from === next) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.name = next;
-					},
-					() => {
-						layer.name = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		this.emitLayerListState();
-		return true;
+		return this.layerMutations.setSelectedLayerName(name);
 	}
 
 	public setSelectedLayerText(text: string): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer || layer.type !== LayerType.TEXT) return false;
-		const textLayer = layer as TextLayer;
-		const from = textLayer.text;
-		const next = text ?? "";
-		if (from === next) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						textLayer.text = next;
-					},
-					() => {
-						textLayer.text = from;
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.setSelectedLayerText(text);
 	}
 
 	public rotateSelectedLayer(degree: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.rotateBy(degree);
-					},
-					() => {
-						layer.rotateBy(-degree);
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.rotateSelectedLayer(degree);
 	}
 
 	public toggleSelectedLayerMirrorH(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.mirrorH;
-		const to = !from;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.mirrorH = to;
-					},
-					() => {
-						layer.mirrorH = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.toggleSelectedLayerMirrorH();
 	}
 
 	public toggleSelectedLayerMirrorV(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.mirrorV;
-		const to = !from;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.mirrorV = to;
-					},
-					() => {
-						layer.mirrorV = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.toggleSelectedLayerMirrorV();
 	}
 
 	public fitSelectedLayer(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.transform;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.fitLayer(layer);
-					},
-					() => {
-						layer.transform = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.fitSelectedLayer();
 	}
 
 	public arrangeSelectedLayer(direction: Direction): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const x = layer.x;
-		const y = layer.y;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.arrangeLayer(layer, direction);
-					},
-					() => {
-						layer.x = x;
-						layer.y = y;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.arrangeSelectedLayer(direction);
 	}
 
 	public swapSelectedLayer(offset: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.swapLayer(layer, offset);
-					},
-					() => {
-						this.slide.swapLayer(layer, -offset);
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.swapSelectedLayer(offset);
 	}
 
 	public moveSelectedLayerToTop(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const index = this.slide.indexOf(layer);
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.swapLayer(layer, Slide.LAYER_NUM_MAX);
-					},
-					() => {
-						this.slide.addLayer(layer, index);
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.moveSelectedLayerToTop();
 	}
 
 	public moveSelectedLayerToBottom(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const index = this.slide.indexOf(layer);
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.swapLayer(layer, -Slide.LAYER_NUM_MAX);
-					},
-					() => {
-						this.slide.addLayer(layer, index);
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.moveSelectedLayerToBottom();
 	}
 
 	public moveSelectedLayerToIndex(toIndex: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const fromIndex = this.slide.indexOf(layer);
-		if (
-			fromIndex === -1 ||
-			toIndex < 0 ||
-			toIndex >= this.slide.layers.length ||
-			fromIndex === toIndex
-		) {
-			return false;
-		}
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						this.slide.addLayer(layer, toIndex);
-					},
-					() => {
-						this.slide.addLayer(layer, fromIndex);
-					}
-				)
-			)
-			.do();
-		this.emitCurrentState();
-		return true;
+		return this.layerMutations.moveSelectedLayerToIndex(toIndex);
 	}
 
 	public copySelectedLayer(): boolean {
@@ -695,274 +457,52 @@ export class EditCanvasRuntime {
 		return true;
 	}
 
-	public nudgeSelectedLayer(dx: number, dy: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const fromX = layer.x;
-		const fromY = layer.y;
-		const toX = fromX + dx;
-		const toY = fromY + dy;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.x = toX;
-						layer.y = toY;
-					},
-					() => {
-						layer.x = fromX;
-						layer.y = fromY;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+	public nudgeSelectedLayer(deltaX: number, deltaY: number): boolean {
+		return this.layerMutations.nudgeSelectedLayer(deltaX, deltaY);
 	}
 
-	public setSelectedLayerPosition(x: number, y: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		if (!isFinite(x) || !isFinite(y)) return false;
-		const fromX = layer.x;
-		const fromY = layer.y;
-		if (fromX === x && fromY === y) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.x = x;
-						layer.y = y;
-					},
-					() => {
-						layer.x = fromX;
-						layer.y = fromY;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+	public setSelectedLayerPosition(nextX: number, nextY: number): boolean {
+		return this.layerMutations.setSelectedLayerPosition(nextX, nextY);
 	}
 
 	public scaleSelectedLayer(factor: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		if (!isFinite(factor) || factor <= 0) return false;
-		const from = layer.scale;
-		const to = from * factor;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.scale = to;
-					},
-					() => {
-						layer.scale = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.scaleSelectedLayer(factor);
 	}
 
 	public setSelectedLayerScale(scale: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		if (!isFinite(scale) || scale <= 0) return false;
-		const from = layer.scale;
-		if (from === scale) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.scale = scale;
-					},
-					() => {
-						layer.scale = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.setSelectedLayerScale(scale);
 	}
 
 	public adjustSelectedLayerRotation(delta: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.rotation;
-		const to = from + delta;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.rotation = to;
-					},
-					() => {
-						layer.rotation = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.adjustSelectedLayerRotation(delta);
 	}
 
 	public setSelectedLayerRotation(rotation: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		if (!isFinite(rotation)) return false;
-		const from = layer.rotation;
-		if (from === rotation) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.rotation = rotation;
-					},
-					() => {
-						layer.rotation = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.setSelectedLayerRotation(rotation);
 	}
 
 	public resetSelectedLayerRotation(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		if (layer.rotation == 0) return true;
-		const from = layer.rotation;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.rotation = 0;
-					},
-					() => {
-						layer.rotation = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.resetSelectedLayerRotation();
 	}
 
 	public adjustSelectedLayerOpacity(delta: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		const from = layer.opacity;
-		const to = Math.max(0, Math.min(1, from + delta));
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.opacity = to;
-					},
-					() => {
-						layer.opacity = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.adjustSelectedLayerOpacity(delta);
 	}
 
 	public setSelectedLayerOpacity(opacity: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		if (!isFinite(opacity)) return false;
-		const clamped = Math.max(0, Math.min(1, opacity));
-		const from = layer.opacity;
-		if (from === clamped) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.opacity = clamped;
-					},
-					() => {
-						layer.opacity = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.setSelectedLayerOpacity(opacity);
 	}
 
 	public resetSelectedLayerOpacity(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer) return false;
-		if (layer.opacity == 1) return true;
-		const from = layer.opacity;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						layer.opacity = 1;
-					},
-					() => {
-						layer.opacity = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.resetSelectedLayerOpacity();
 	}
 
 	public setSelectedImageClip(top: number, right: number, bottom: number, left: number): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer || layer.type != LayerType.IMAGE) return false;
-		const values = [top, right, bottom, left];
-		if (values.some((value) => !isFinite(value))) return false;
-		const imageLayer = layer as ImageLayer;
-		const from = imageLayer.clipRect.concat();
-		const next = values.map((value) => Math.max(0, value));
-		if (from.every((value, index) => value === next[index])) return true;
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						imageLayer.clipRect = next;
-					},
-					() => {
-						imageLayer.clipRect = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.setSelectedImageClip(top, right, bottom, left);
 	}
 
 	public resetSelectedImageClip(): boolean {
-		const layer = this.slideView.editingLayer;
-		if (!layer || layer.type != LayerType.IMAGE) return false;
-		const imageLayer = layer as ImageLayer;
-		if (!imageLayer.isClipped) return true;
-		const from = imageLayer.clipRect.concat();
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						imageLayer.clipRect = [0, 0, 0, 0];
-					},
-					() => {
-						imageLayer.clipRect = from;
-					}
-				)
-			)
-			.do();
-		this.emitSelectedLayerState();
-		return true;
+		return this.layerMutations.resetSelectedImageClip();
 	}
 
 	public zoomInCanvas(): void {

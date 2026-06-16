@@ -1,9 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import { Viewer } from "../Viewer";
 import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
-import { slideStore } from "../state/slideStore";
-import { viewerDocumentStore } from "../state/viewerDocumentStore";
 import { Layer } from "./Layer";
 import { PropFlags } from "./PropFlags";
 
@@ -16,12 +13,34 @@ export const Direction = {
 
 export type Direction = (typeof Direction)[keyof typeof Direction];
 
+export const SLIDE_LAYER_NUM_MAX = 20;
+
+export type SlideSize = {
+	width: number;
+	height: number;
+};
+
+export function getScreenSlideSize(): SlideSize {
+	if (typeof window === "undefined") {
+		return { width: 0, height: 0 };
+	}
+	return {
+		width: Math.max(window.screen.width, window.screen.height),
+		height: Math.min(window.screen.width, window.screen.height),
+	};
+}
+
+export function getDefaultSlideSize(): SlideSize {
+	return getScreenSlideSize();
+}
+
 export function createSlide(
 	width: number | null = 0,
 	height: number | null = 0,
 	layers: Layer[] = []
 ): Slide {
-	return new Slide(width ?? 0, height ?? 0, layers);
+	const defaultSize = getDefaultSlideSize();
+	return new Slide(width || defaultSize.width, height || defaultSize.height, layers);
 }
 
 export class Slide {
@@ -32,10 +51,6 @@ export class Slide {
 	declare clearEventListener: EventDispatcher["clearEventListener"];
 	declare containEventListener: EventDispatcher["containEventListener"];
 	declare hasEventListener: EventDispatcher["hasEventListener"];
-
-	static readonly LAYER_NUM_MAX: number = 20;
-
-	//
 
 	private _uuid: string;
 	private _id: number;
@@ -54,9 +69,8 @@ export class Slide {
 		attachEventDispatcher(this);
 
 		this._uuid = uuidv4();
-		const documentState = viewerDocumentStore.getState();
-		this._width = width || documentState.width || Viewer.SCREEN_WIDTH;
-		this._height = height || documentState.height || Viewer.SCREEN_HEIGHT;
+		this._width = width;
+		this._height = height;
 
 		this._layers.forEach((layer) => {
 			layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
@@ -97,7 +111,7 @@ export class Slide {
 			}
 		}
 
-		if (this._layers.length >= Slide.LAYER_NUM_MAX - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
+		if (this._layers.length >= SLIDE_LAYER_NUM_MAX - (this._layers.indexOf(layer) != -1 ? 1 : 0)) {
 			throw new Error("exceeds max layer num.");
 		}
 
@@ -119,8 +133,6 @@ export class Slide {
 				layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 				layer.parent = this;
 			}
-			slideStore.getState().notifyLayersChanged();
-
 			this.dispatchEvent(
 				new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_ADD, { layer: layer })
 			);
@@ -146,8 +158,6 @@ export class Slide {
 				layer.parent = null;
 				layer.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 			}
-			slideStore.getState().notifyLayersChanged();
-
 			this.dispatchEvent(
 				new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_REMOVE, { layer: layer })
 			);

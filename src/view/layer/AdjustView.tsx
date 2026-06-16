@@ -11,7 +11,7 @@ import {
 } from "react";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
-import { Slide } from "../../model/Slide";
+import { SLIDE_LAYER_NUM_MAX } from "../../model/Slide";
 import { Command, HistoryManager } from "../../utils/HistoryManager";
 import { KeyboardManager } from "../../utils/KeyboardManager";
 import { LayerView } from "../LayerView";
@@ -105,7 +105,7 @@ export const AdjustView = ({ ref }: AdjustViewProps) => {
 	const [wrapperClassName, setWrapperClassName] = useState("layerWrapper");
 	const [wrapperStyle, setWrapperStyle] = useState<CSSProperties>({
 		display: "none",
-		zIndex: Slide.LAYER_NUM_MAX + 1,
+		zIndex: SLIDE_LAYER_NUM_MAX + 1,
 	});
 
 	const clearDragListeners = useCallback(() => {
