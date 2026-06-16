@@ -1,9 +1,10 @@
 import $ from "jquery";
+import JSZip from "jszip";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
 import { ImageLayer } from "./model/layer/ImageLayer";
 import { Direction, Slide } from "./model/Slide";
-import { ViewerDocument } from "./model/ViewerDocument";
+import { createViewerDocument, type ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { getSaveFormat } from "./runtime/reactDomRegistry";
@@ -14,12 +15,15 @@ import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
 import { handleStorageActionResult } from "./useCase/storageActionResult";
+import { DataUtil } from "./utils/DataUtil";
+import { DateUtil } from "./utils/DateUtil";
 import { Command, HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
+import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 import { EditViewController } from "./viewController/EditViewController";
 import {
-    SlideShowPlaybackSettings,
-    SlideShowViewController,
+	SlideShowPlaybackSettings,
+	SlideShowViewController,
 } from "./viewController/SlideShowViewController";
 
 export const ViewerMode = {
@@ -375,6 +379,97 @@ export class Viewer {
 		return slideStore.getState().selectedIndex;
 	}
 
+	private createDocumentSnapshot(
+		overrides: Partial<Omit<ViewerDocument, "slides">> = {}
+	): ViewerDocument {
+		const documentState = viewerDocumentStore.getState();
+		return createViewerDocument([...this.slides], {
+			title: overrides.title ?? documentState.title,
+			createTime: overrides.createTime ?? documentState.createTime,
+			editTime: overrides.editTime ?? documentState.editTime,
+			isSensitive: overrides.isSensitive ?? documentState.isSensitive,
+			duration: overrides.duration ?? documentState.duration,
+			interval: overrides.interval ?? documentState.interval,
+			width: overrides.width ?? documentState.width,
+			height: overrides.height ?? documentState.height,
+			bgColor: overrides.bgColor ?? documentState.bgColor,
+		});
+	}
+
+	private bindViewerDocument(document: ViewerDocument, slides: Slide[]): void {
+		viewerDocumentStore.getState().setDocument({
+			document,
+			title: document.title,
+			createTime: document.createTime,
+			editTime: document.editTime,
+			isSensitive: document.isSensitive,
+			duration: document.duration,
+			interval: document.interval,
+			width: document.width,
+			height: document.height,
+			bgColor: document.bgColor,
+			slides,
+		});
+	}
+
+	private createDefaultViewerDocument(): ViewerDocument {
+		const now = new Date().getTime();
+		return createViewerDocument([], {
+			title: DateUtil.getDateString(),
+			createTime: now,
+			editTime: now,
+			isSensitive: false,
+			width: Viewer.SCREEN_WIDTH,
+			height: Viewer.SCREEN_HEIGHT,
+			bgColor: "#000000",
+		});
+	}
+
+	private hasEnabledSlides(): boolean {
+		return this.slides.some((slide) => !slide.disabled);
+	}
+
+	private downloadDocumentImages(targetIndex: number = -1): void {
+		const isTransparent = false;
+		const { title, width, height, bgColor } = viewerDocumentStore.getState();
+		const converter = new SlideToPNGConverter();
+
+		if (targetIndex != -1) {
+			const slide = this.slides[targetIndex];
+			if (!slide) {
+				throw new Error("invalid index.");
+			}
+			const canvas = converter.slide2canvas(
+				slide,
+				width,
+				height,
+				1,
+				isTransparent ? undefined : bgColor
+			);
+			DataUtil.downloadBlob(
+				DataUtil.dataURItoBlob(canvas.toDataURL()),
+				title + "_" + (targetIndex + 1) + ".png"
+			);
+			return;
+		}
+
+		const zip = new JSZip();
+		this.slides.forEach((slide, index) => {
+			if (slide.disabled) return;
+			const canvas = converter.slide2canvas(
+				slide,
+				width,
+				height,
+				1,
+				isTransparent ? undefined : bgColor
+			);
+			zip.file(title + "_" + (index + 1) + ".png", DataUtil.dataURItoBlob(canvas.toDataURL()));
+		});
+		zip.generateAsync({ type: "blob", compression: "DEFLATE" }).then((blob) => {
+			DataUtil.downloadBlob(blob, title + ".zip");
+		});
+	}
+
 	private setSlides(slides: Slide[], selectedIndex = -1): void {
 		slideStore.getState().setSlides(slides, selectedIndex);
 	}
@@ -535,7 +630,7 @@ export class Viewer {
 
 	//priate methods
 	private newDocument(nextDocument?: ViewerDocument) {
-		const nextSlides = nextDocument ? nextDocument.getStoredSlides() : null;
+		const nextSlides = nextDocument ? [...nextDocument.slides] : null;
 		if (this.viewerDocument) {
 			this.viewerDocument = null;
 
@@ -551,15 +646,15 @@ export class Viewer {
 		if (!nextDocument) {
 			//nextDocumentがnullでない⇒slideStorageがdocumentを生成してImageManagerをリセット＆登録済みなので
 			ImageManager.shared.initialize();
-			nextDocument = new ViewerDocument();
+			nextDocument = this.createDefaultViewerDocument();
 		}
-		const slidesToBind = nextSlides ?? nextDocument.getStoredSlides();
+		const slidesToBind = nextSlides ?? [...nextDocument.slides];
 		this.viewerDocument = nextDocument;
 		this.slideShowBgColor = this.viewerDocument.bgColor;
 		this.slideShowVC.fullscreen = this.slideShowFullscreen;
 		this.slideShowVC.mirrorH = this.slideShowMirrorH;
 		this.slideShowVC.mirrorV = this.slideShowMirrorV;
-		this.setSlides(slidesToBind);
+		this.bindViewerDocument(this.viewerDocument, slidesToBind);
 		this.IsDocumentModified = false;
 		this.emitHistoryState();
 		this.emitEditSelectionState();
@@ -1017,7 +1112,16 @@ export class Viewer {
 			return;
 		}
 		const isOverride = override ?? this.shouldOverrideSave();
-		this.handleStorageResult(this.documentStorage.saveResult(this.viewerDocument, isOverride));
+		const editTime = new Date().getTime();
+		const title = isOverride ? viewerDocumentStore.getState().title : DateUtil.getDateString();
+		const snapshot = this.createDocumentSnapshot({ title, editTime });
+		const resultPromise = this.documentStorage.saveResult(snapshot, isOverride).then((result) => {
+			if (result.ok) {
+				viewerDocumentStore.getState().setDocumentMeta({ title, editTime });
+			}
+			return result;
+		});
+		this.handleStorageResult(resultPromise);
 	}
 
 	public commandExportDocument(): void {
@@ -1026,7 +1130,7 @@ export class Viewer {
 		const fmt = getSaveFormat();
 		const type = fmt === "hvz" ? HVDataType.HVZ : fmt === "hvd" ? HVDataType.HVD : HVDataType.PNG;
 
-		const result = this.documentStorage.exportResult(this.viewerDocument, type, {
+		const result = this.documentStorage.exportResult(this.createDocumentSnapshot(), type, {
 			pages: this.selectedSlideIndex != -1 ? [this.selectedSlideIndex] : undefined,
 		});
 		this.handleStorageResult(result);
@@ -1105,20 +1209,20 @@ export class Viewer {
 
 	public commandExportImages(): void {
 		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
-		if (this.viewerDocument.disabled) {
+		if (!this.hasEnabledSlides()) {
 			showNotice("有効なスライドがありません。");
 			return;
 		}
-		this.viewerDocument.downloadImage();
+		this.downloadDocumentImages();
 	}
 
 	public commandDownloadSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
-		if (this.selectedSlideIndex === -1 && this.viewerDocument.disabled) {
+		if (this.selectedSlideIndex === -1 && !this.hasEnabledSlides()) {
 			showNotice("有効なスライドがありません。");
 			return;
 		}
-		this.viewerDocument.downloadImage(this.selectedSlideIndex);
+		this.downloadDocumentImages(this.selectedSlideIndex);
 	}
 
 	public commandSetSlideShowDuration(duration: number): void {
@@ -1134,9 +1238,7 @@ export class Viewer {
 	public commandSetBackgroundColor(color: string): void {
 		if (!this.ensureAllowed(this.canEdit(), "背景色変更")) return;
 		this.slideShowBgColor = color;
-		if (this.viewerDocument) {
-			this.viewerDocument.bgColor = color;
-		}
+		viewerDocumentStore.getState().setDocumentMeta({ bgColor: color });
 		this.emitSlideShowSettings();
 	}
 
