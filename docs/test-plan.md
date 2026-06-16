@@ -326,6 +326,9 @@ CI実行時のレポート収集:
 - 2026-06-16: `src/view` 配下の残存 view クラスファイル（LayerView / SlideView / DOMSlideView / EditableSlideView / AdjustView / ImageView / TextView）を React 移行準備として `.tsx` へ変更。現段階では既存DOM viewクラスを維持し、今後コンポーネント化するものは `export const XxxComponent = () => { return <></>; }` 形式で追加する方針に統一。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
+- 2026-06-16: `AdjustView` を class から `export const AdjustView = () => { return ... }` 形式のReactコンポーネントへ移行。操作ハンドルUIは `AdjustViewComponent` としてReact描画し、`AdjustView` 内のjQuery `$` 利用を廃止。既存 `EditableSlideView` からの `startDrag` / `base_scale` / `targetLayerView` 接続は `AdjustViewHandle` ref 経由へ置換。
+- 確認: `npm run test:usecase`、browser reload smoke（5174）
+- 結果: 58 tests / 58 pass。5174でpage error/request failedなし、`.controls` 1件 / `.frame` 1件 / `.anchor` 4件を確認。
 
 ## 7. 非機能テスト
 - 初期表示時間

@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useViewerEditLayerState, useViewerHistory, useViewerMode, useViewerSlides } from "../bridge/useViewerBridge";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+    useViewerEditLayerState,
+    useViewerHistory,
+    useViewerMode,
+    useViewerSlides,
+} from "../bridge/useViewerBridge";
 import { ViewerCommands } from "../bridge/ViewerCommands";
+import { Layer, LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { TextLayer } from "../model/layer/TextLayer";
+import { Slide } from "../model/Slide";
 import { FeatureGate, getFeatureGate } from "../runtime/featureGate";
+import { ImageManager } from "../utils/ImageManager";
 import { getMainShellKeyboardAction } from "./mainShellKeyboard";
 import { getSlideListDropAction, getSlideListKeyboardAction } from "./slideListKeyboard";
 
@@ -18,6 +28,7 @@ type MainShellProps = {
 type MainSlideSnapshot = {
 	key: string;
 	index: number;
+	slide: Slide;
 	label: string;
 	selected: boolean;
 	joining: boolean;
@@ -25,7 +36,82 @@ type MainSlideSnapshot = {
 	durationRatio: number;
 };
 
-function MainSlideList({ gate }: { gate: FeatureGate }) {
+type MainSlidePreviewProps = {
+	slide: Slide;
+};
+
+const getLayerPreviewStyle = (layer: Layer): CSSProperties => {
+	const style: CSSProperties = {
+		position: "absolute",
+		left: 0,
+		top: 0,
+		transform: "matrix(" + layer.matrix.join(",") + ")",
+		opacity: layer.opacity,
+		display: layer.visible ? undefined : "none",
+	};
+
+	if (Number.isFinite(layer.originWidth) && layer.originWidth > 0) {
+		style.width = layer.originWidth;
+	}
+	if (Number.isFinite(layer.originHeight) && layer.originHeight > 0) {
+		style.height = layer.originHeight;
+	}
+
+	return style;
+};
+
+const MainSlidePreviewLayer = ({ layer }: { layer: Layer }) => {
+	if (layer.type === LayerType.IMAGE) {
+		const imageLayer = layer as ImageLayer;
+		const src = ImageManager.instance?.getSrcById(imageLayer.imageId);
+		if (!src) return null;
+		return (
+			<img
+				className="mainSlideList-previewImage"
+				src={src}
+				style={getLayerPreviewStyle(layer)}
+				draggable={false}
+			/>
+		);
+	}
+
+	if (layer.type === LayerType.TEXT) {
+		const textLayer = layer as TextLayer;
+		return (
+			<span className="mainSlideList-previewText" style={getLayerPreviewStyle(layer)}>
+				{textLayer.text}
+			</span>
+		);
+	}
+
+	return null;
+};
+
+const MainSlidePreview = ({ slide }: MainSlidePreviewProps) => {
+	const width = slide.width || 1;
+	const height = slide.height || 1;
+	const scale = Math.min(148 / width, 84 / height);
+	const offsetX = (148 - width * scale) / 2;
+	const offsetY = (84 - height * scale) / 2;
+
+	return (
+		<span className="mainSlideList-preview" aria-hidden="true">
+			<span
+				className="mainSlideList-previewScene"
+				style={{
+					width,
+					height,
+					transform: `matrix(${scale},0,0,${scale},${offsetX},${offsetY})`,
+				}}>
+				{slide.layers.map((layer) => (
+					<MainSlidePreviewLayer key={layer.uuid} layer={layer} />
+				))}
+			</span>
+		</span>
+	);
+};
+
+const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 	const { slides: rawSlides, selectedIndex } = useViewerSlides();
 	const [draggingSlideIndex, setDraggingSlideIndex] = useState<number | null>(null);
 	const [slideDropIndex, setSlideDropIndex] = useState<number | null>(null);
@@ -33,15 +119,17 @@ function MainSlideList({ gate }: { gate: FeatureGate }) {
 	const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
 	const slides = useMemo<MainSlideSnapshot[]>(
-		() => rawSlides.map((slide, index) => ({
-			key: slide.uuid || String(slide.id),
-			index,
-			label: String(index + 1),
-			selected: index === selectedIndex,
-			joining: Boolean(slide.joining),
-			disabled: Boolean(slide.disabled),
-			durationRatio: typeof slide.durationRatio === "number" ? slide.durationRatio : 1,
-		})),
+		() =>
+			rawSlides.map((slide, index) => ({
+				key: slide.uuid || String(slide.id),
+				index,
+				slide,
+				label: String(index + 1),
+				selected: index === selectedIndex,
+				joining: Boolean(slide.joining),
+				disabled: Boolean(slide.disabled),
+				durationRatio: typeof slide.durationRatio === "number" ? slide.durationRatio : 1,
+			})),
 		[rawSlides, selectedIndex]
 	);
 
@@ -61,7 +149,10 @@ function MainSlideList({ gate }: { gate: FeatureGate }) {
 		return Array.from(event.dataTransfer.types).includes("imageId");
 	};
 
-	const handleSlideKeyDown = (slide: MainSlideSnapshot, event: React.KeyboardEvent<HTMLButtonElement>) => {
+	const handleSlideKeyDown = (
+		slide: MainSlideSnapshot,
+		event: React.KeyboardEvent<HTMLButtonElement>
+	) => {
 		const action = getSlideListKeyboardAction({
 			key: event.key,
 			metaKey: event.metaKey,
@@ -94,7 +185,10 @@ function MainSlideList({ gate }: { gate: FeatureGate }) {
 		}
 	};
 
-	const handleSlideDragStart = (slide: MainSlideSnapshot, event: React.DragEvent<HTMLButtonElement>) => {
+	const handleSlideDragStart = (
+		slide: MainSlideSnapshot,
+		event: React.DragEvent<HTMLButtonElement>
+	) => {
 		if (!gate.canEdit || slides.length < 2) return;
 		setDraggingSlideIndex(slide.index);
 		setSlideDropIndex(slide.index);
@@ -102,7 +196,10 @@ function MainSlideList({ gate }: { gate: FeatureGate }) {
 		event.dataTransfer.setData("text/plain", String(slide.index));
 	};
 
-	const handleSlideDragOver = (slide: MainSlideSnapshot, event: React.DragEvent<HTMLButtonElement>) => {
+	const handleSlideDragOver = (
+		slide: MainSlideSnapshot,
+		event: React.DragEvent<HTMLButtonElement>
+	) => {
 		if (gate.canEdit && hasDroppedImage(event)) {
 			event.preventDefault();
 			event.dataTransfer.dropEffect = "copy";
@@ -169,7 +266,9 @@ function MainSlideList({ gate }: { gate: FeatureGate }) {
 							slide.disabled ? "disabled" : "",
 							draggingSlideIndex === slide.index ? "dragging" : "",
 							slideDropIndex === slide.index ? "dropTarget" : "",
-						].filter(Boolean).join(" ")}
+						]
+							.filter(Boolean)
+							.join(" ")}
 						aria-current={slide.selected ? "true" : undefined}
 						aria-disabled={slide.disabled ? "true" : undefined}
 						aria-grabbed={draggingSlideIndex === slide.index ? "true" : undefined}
@@ -188,16 +287,19 @@ function MainSlideList({ gate }: { gate: FeatureGate }) {
 						onDragEnd={handleSlideDragEnd}
 						onClick={() => ViewerCommands.selectSlideByIndex(slide.index)}
 						onDoubleClick={() => gate.canEdit && ViewerCommands.enterEditMode()}>
+						<MainSlidePreview slide={slide.slide} />
 						<span className="mainSlideList-index">{slide.label}</span>
 						<span className="mainSlideList-meta">
-							{slide.joining ? "J" : ""}{slide.disabled ? " off" : ""}{slide.durationRatio !== 1 ? ` x${slide.durationRatio}` : ""}
+							{slide.joining ? "J" : ""}
+							{slide.disabled ? " off" : ""}
+							{slide.durationRatio !== 1 ? ` x${slide.durationRatio}` : ""}
 						</span>
 					</button>
 				))
 			)}
 		</div>
 	);
-}
+};
 
 export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) {
 	const { mode } = useViewerMode();
@@ -271,4 +373,3 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 		</>
 	);
 }
-

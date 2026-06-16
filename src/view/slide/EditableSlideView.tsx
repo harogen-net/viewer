@@ -1,4 +1,7 @@
 import $ from "jquery";
+import { createRef } from "react";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { IDroppable } from "../../interface/IDroppable";
 import { Layer, LayerType } from "../../model/Layer";
@@ -10,6 +13,7 @@ import { TextLayer } from "../../model/layer/TextLayer";
 import { DropHelper } from "../../utils/DropHelper";
 import { Command, HistoryManager, Transaction } from "../../utils/HistoryManager";
 import { LayerView } from "../LayerView";
+import type { AdjustViewHandle } from "../layer/AdjustView";
 import { AdjustView } from "../layer/AdjustView";
 import { TextView } from "../layer/TextView";
 import { DOMSlideView } from "./DOMSlideView";
@@ -21,7 +25,9 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 	private copyedLayer: Layer | null;
 	private copyedTrans: any = null;
 
-	private adjustView: AdjustView;
+	private adjustViewRoot: Root;
+	private adjustViewHost: HTMLDivElement;
+	private adjustViewRef = createRef<AdjustViewHandle>();
 
 	//private shadow:any;
 	private border: any;
@@ -56,8 +62,12 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 
 		this.obj.addClass("editable");
 
-		this.adjustView = new AdjustView();
-		this.container.append(this.adjustView.obj);
+		this.adjustViewHost = document.createElement("div");
+		(this.container[0] as HTMLElement).appendChild(this.adjustViewHost);
+		this.adjustViewRoot = createRoot(this.adjustViewHost);
+		flushSync(() => {
+			this.adjustViewRoot.render(<AdjustView ref={this.adjustViewRef} />);
+		});
 		this.border = $('<div class="border" />').appendTo(this.container);
 
 		//
@@ -132,6 +142,16 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 		//
 
 		this.isActive = false;
+	}
+
+	private get adjustView(): AdjustViewHandle {
+		return this.adjustViewRef.current as AdjustViewHandle;
+	}
+
+	public destroy() {
+		this.adjustViewRoot?.unmount();
+		this.adjustViewHost?.remove();
+		super.destroy();
 	}
 
 	//

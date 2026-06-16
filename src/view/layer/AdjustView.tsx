@@ -1,294 +1,433 @@
-import { LayerView } from "../LayerView";
-import { Layer, LayerType } from "../../model/Layer";
-import { KeyboardManager } from "../../utils/KeyboardManager";
+import { Matrix4 } from "matrixgl";
+import {
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useRef,
+	useState,
+	type CSSProperties,
+	type MouseEvent as ReactMouseEvent,
+	type Ref,
+} from "react";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
-import { HistoryManager, Command } from "../../utils/HistoryManager";
-import { Matrix4 } from "matrixgl";
-import $ from "jquery";
+import { Command, HistoryManager } from "../../utils/HistoryManager";
+import { KeyboardManager } from "../../utils/KeyboardManager";
+import { LayerView } from "../LayerView";
 
-export class AdjustView extends LayerView {
-	private readonly ENFORCE_ASPECT_RATIO: boolean = true;
+type AdjustHandleKey = "ne" | "nw" | "se" | "sw";
 
-	private _base_scale: number = 1;
+export type AdjustViewHandle = {
+	readonly isDrag: boolean;
+	startDrag: (event: MouseEvent) => void;
+	base_scale: number;
+	targetLayerView: LayerView | null;
+};
 
-	private controls: any;
-	private anchorPoint1: any;
-	private anchorPoint2: any;
-	private anchorPoint3: any;
-	private anchorPoint4: any;
-	private frame: any;
+type AdjustViewProps = {
+	ref?: Ref<AdjustViewHandle>;
+};
 
-	private _targetLayerView: LayerView;
+type AdjustViewComponentProps = {
+	anchorStyle: CSSProperties;
+	frameStyle: CSSProperties;
+	onAnchorMouseDown: (key: AdjustHandleKey, event: ReactMouseEvent<HTMLDivElement>) => void;
+	onFrameMouseDown: (event: ReactMouseEvent<HTMLDivElement>) => void;
+};
 
-	public isDrag: boolean;
+const ENFORCE_ASPECT_RATIO = true;
+const transformFlags =
+	PropFlags.X |
+	PropFlags.Y |
+	PropFlags.SCALE_X |
+	PropFlags.SCALE_Y |
+	PropFlags.ROTATION |
+	PropFlags.MIRROR_H |
+	PropFlags.MIRROR_V;
 
-	constructor() {
-		super(new Layer(), $('<div class="layerWrapper" />'));
-	}
-	protected constructMain() {
-		//prevent super construction
-		//super.constructMain();
+const finiteNonZero = (value: number, fallback: number = 1): number => {
+	return Number.isFinite(value) && Math.abs(value) > Number.EPSILON ? value : fallback;
+};
 
-		this._data = null;
+const positiveFiniteNonZero = (value: number, fallback: number = 1): number => {
+	return finiteNonZero(Math.abs(value), fallback);
+};
 
-		this.obj.css("z-index", Slide.LAYER_NUM_MAX + 1);
+export const AdjustViewComponent = ({
+	anchorStyle,
+	frameStyle,
+	onAnchorMouseDown,
+	onFrameMouseDown,
+}: AdjustViewComponentProps) => {
+	return (
+		<div className="controls">
+			<div className="frame" style={frameStyle} onMouseDown={onFrameMouseDown} />
+			<div
+				className="anchor ne"
+				style={anchorStyle}
+				onMouseDown={(event) => onAnchorMouseDown("ne", event)}
+			/>
+			<div
+				className="anchor nw"
+				style={anchorStyle}
+				onMouseDown={(event) => onAnchorMouseDown("nw", event)}
+			/>
+			<div
+				className="anchor se"
+				style={anchorStyle}
+				onMouseDown={(event) => onAnchorMouseDown("se", event)}
+			/>
+			<div
+				className="anchor sw"
+				style={anchorStyle}
+				onMouseDown={(event) => onAnchorMouseDown("sw", event)}
+			/>
+		</div>
+	);
+};
 
-		this.controls = $('<div class="controls">');
-		this.frame = $('<div class="frame" />').appendTo(this.controls);
-		this.anchorPoint1 = $('<div class="anchor ne" />').appendTo(this.controls);
-		this.anchorPoint1.on("mousedown.image", (e: any) => {
-			this.startScale(e, "ne");
-			e.stopImmediatePropagation();
-		});
-		this.anchorPoint2 = $('<div class="anchor nw" />').appendTo(this.controls);
-		this.anchorPoint2.on("mousedown.image", (e: any) => {
-			this.startScale(e, "nw");
-			e.stopImmediatePropagation();
-		});
-		this.anchorPoint3 = $('<div class="anchor se" />').appendTo(this.controls);
-		this.anchorPoint3.on("mousedown.image", (e: any) => {
-			this.startScale(e, "se");
-			e.stopImmediatePropagation();
-		});
-		this.anchorPoint4 = $('<div class="anchor sw" />').appendTo(this.controls);
-		this.anchorPoint4.on("mousedown.image", (e: any) => {
-			this.startScale(e, "sw");
-			e.stopImmediatePropagation();
-		});
+export const AdjustView = ({ ref }: AdjustViewProps) => {
+	const baseScaleRef = useRef(1);
+	const targetLayerViewRef = useRef<LayerView | null>(null);
+	const dataRef = useRef<LayerView["data"] | null>(null);
+	const isDragRef = useRef(false);
+	const dragMoveHandlerRef = useRef<((event: MouseEvent) => void) | null>(null);
+	const dragUpHandlerRef = useRef<((event: MouseEvent) => void) | null>(null);
+	const scaleMoveHandlerRef = useRef<((event: MouseEvent) => void) | null>(null);
+	const scaleUpHandlerRef = useRef<((event: MouseEvent) => void) | null>(null);
+	const [anchorStyle, setAnchorStyle] = useState<CSSProperties>({});
+	const [frameStyle, setFrameStyle] = useState<CSSProperties>({});
+	const [wrapperClassName, setWrapperClassName] = useState("layerWrapper");
+	const [wrapperStyle, setWrapperStyle] = useState<CSSProperties>({
+		display: "none",
+		zIndex: Slide.LAYER_NUM_MAX + 1,
+	});
 
-		this.frame.on("mousedown.layer_drag", (e: any) => {
-			this.startDrag(e);
-			e.stopImmediatePropagation();
-		});
+	const clearDragListeners = useCallback(() => {
+		if (dragMoveHandlerRef.current) {
+			document.removeEventListener("mousemove", dragMoveHandlerRef.current);
+			dragMoveHandlerRef.current = null;
+		}
+		if (dragUpHandlerRef.current) {
+			document.removeEventListener("mouseup", dragUpHandlerRef.current);
+			dragUpHandlerRef.current = null;
+		}
+	}, []);
 
-		// this.frame.on("wheel", (e:any) => {
-		// 	if(!this._targetLayerView) return;
+	const clearScaleListeners = useCallback(() => {
+		if (scaleMoveHandlerRef.current) {
+			document.removeEventListener("mousemove", scaleMoveHandlerRef.current);
+			scaleMoveHandlerRef.current = null;
+		}
+		if (scaleUpHandlerRef.current) {
+			document.removeEventListener("mouseup", scaleUpHandlerRef.current);
+			scaleUpHandlerRef.current = null;
+		}
+	}, []);
 
-		// 	var theta:number = (e.originalEvent.deltaY / 20) * (Math.PI / 180);
-		// 	if(KeyboardManager.isDown(16)){
-		// 		theta = (45 * e.originalEvent.deltaY / Math.abs(e.originalEvent.deltaY)) * (Math.PI / 180);
-		// 	}
-		// 	this._targetLayerView.data.rotateBy(theta);
-		// 	e.preventDefault();
-		// 	e.stopImmediatePropagation();
-		// });
+	const setVisible = useCallback((value: boolean) => {
+		setWrapperStyle((current) => ({ ...current, display: value ? "" : "none" }));
+	}, []);
 
-		this.controls.appendTo(this.obj);
-		this.obj.hide();
-	}
+	const updateHostSize = useCallback(() => {
+		const data = targetLayerViewRef.current?.data;
+		if (!data) return;
+		setWrapperStyle((current) => ({
+			...current,
+			width: data.originWidth + "px",
+			height: data.originHeight + "px",
+		}));
+	}, []);
 
-	public startDrag(e: any) {
-		if (!this._data) return;
-		if (this._data.locked) return;
-		//if(this.isDrag) this.stopDrag(e:any);
-		this.isDrag = true;
+	const updateUISize = useCallback(() => {
+		const data = dataRef.current;
+		if (!data) return;
 
-		var mouseX = e.screenX;
-		var mouseY = e.screenY;
+		const scaleX = positiveFiniteNonZero(data.scaleX * baseScaleRef.current);
+		const scaleY = positiveFiniteNonZero(data.scaleY * baseScaleRef.current);
+		const anchorSizeX = 16 / scaleX;
+		const anchorSizeY = 16 / scaleY;
+		setAnchorStyle({ width: anchorSizeX, height: anchorSizeY });
 
-		var layer = this._data;
-		var initPos = { x: layer.x, y: layer.y };
-		var endPos = { x: initPos.x, y: initPos.y };
+		const borderSizeH = 3 / scaleX + "px";
+		const borderSizeV = 3 / scaleY + "px";
+		setFrameStyle({ borderWidth: borderSizeV + " " + borderSizeH });
+	}, []);
 
-		//		$(document).css("pointer-events","none");
-		$(document).off("mousemove.layer_drag");
-		$(document).off("mouseup.layer_drag");
-		$(document).on("mousemove.layer_drag", (e: any) => {
-			if (!this._targetLayerView) return;
-			if (!this.isDrag) return;
+	const updateMatrix = useCallback(() => {
+		const data = dataRef.current;
+		if (!data) return;
 
-			this._data.moveBy(
-				(e.screenX - mouseX) / this._base_scale,
-				(e.screenY - mouseY) / this._base_scale
+		const matrix = data.matrix;
+		setWrapperStyle((current) => ({ ...current, transform: "matrix(" + matrix.join(",") + ")" }));
+		updateUISize();
+	}, [updateUISize]);
+
+	const updateView = useCallback(
+		(flag: number = PropFlags.ALL) => {
+			const data = dataRef.current;
+			if (!data) return;
+
+			setWrapperClassName(
+				["layerWrapper", data.visible ? "" : "invisible", data.locked ? "locked" : ""]
+					.filter(Boolean)
+					.join(" ")
 			);
-			mouseX = e.screenX;
-			mouseY = e.screenY;
-		});
-		$(document).on("mouseup.layer_drag", (e: any) => {
-			if (!this._targetLayerView) return;
-			if (!this.isDrag) return;
 
-			this.isDrag = false;
-			//			$(document).css("pointer-events","auto");
-			$(document).off("mousemove.layer_drag");
-			$(document).off("mouseup.layer_drag");
-
-			endPos.x = layer.x;
-			endPos.y = layer.y;
-			if (initPos.x != endPos.x || initPos.y != endPos.y) {
-				HistoryManager.shared.record(
-					new Command(
-						() => {
-							layer.x = endPos.x;
-							layer.y = endPos.y;
-						},
-						() => {
-							layer.x = initPos.x;
-							layer.y = initPos.y;
-						}
-					)
-				);
+			if (flag & PropFlags.LOCKED) {
+				setVisible(!data.locked);
 			}
-		});
-	}
+			if (flag & PropFlags.IMG_IMAGEID) {
+				updateHostSize();
+				updateMatrix();
+			}
+			if (flag & PropFlags.TXT_TEXT) {
+				setTimeout(() => {
+					if (targetLayerViewRef.current?.data) {
+						updateHostSize();
+						updateUISize();
+					}
+				}, 1);
+			}
+			if (flag & transformFlags) {
+				updateMatrix();
+			}
+		},
+		[setVisible, updateHostSize, updateMatrix, updateUISize]
+	);
 
-	private startScale(e: any, key: string = "") {
-		if (!this._data) return;
-		if (this._data.locked) return;
-		//if(this.isDrag) this.stopScale(e);
-		this.isDrag = true;
+	const onLayerUpdate = useCallback(
+		(event: PropertyEvent) => {
+			updateView(event.propFlags);
+		},
+		[updateView]
+	);
 
-		var mouseX = e.screenX;
-		var mouseY = e.screenY;
+	const setBaseScale = useCallback(
+		(value: number) => {
+			baseScaleRef.current = finiteNonZero(value);
+			updateUISize();
+		},
+		[updateUISize]
+	);
 
-		var controlX = (this._data.originWidth / 2) * this._data.scaleX;
-		var controlY = (this._data.originHeight / 2) * this._data.scaleY;
+	const setTargetLayerView = useCallback(
+		(value: LayerView | null) => {
+			if (isDragRef.current) return;
+			if (dataRef.current) {
+				dataRef.current.removeEventListener(PropertyEvent.UPDATE, onLayerUpdate);
+			}
 
-		var layer = this._data;
-		var initScale = { x: layer.scaleX, y: layer.scaleY };
-		var endScale = { x: initScale.x, y: initScale.y };
+			targetLayerViewRef.current = value;
 
-		//		$(document).css("pointer-events","none");
-		$(document).off("mousemove.layer_scale");
-		$(document).off("mouseup.layer_scale");
-		$(document).on("mousemove.layer_scale", (e: any) => {
-			if (!this.isDrag) return;
-
-			var defX: number, defY: number;
-			defX = e.screenX - mouseX;
-			defY = e.screenY - mouseY;
-			var mat = Matrix4.identity()
-				.scale(1 / this._base_scale, 1 / this._base_scale, 1)
-				.rotateZ((-this._data.rotation * Math.PI) / 180)
-				.translate(defX, defY, 0);
-			var defX2 = mat.values[12];
-			var defY2 = mat.values[13];
-
-			var scaleX: number, scaleY: number;
-			var xDirection: number = 1;
-			var yDirection: number = 1;
-			if (key.indexOf("e") == -1) xDirection *= -1;
-			if (key.indexOf("s") == -1) yDirection *= -1;
-			if (this._data.mirrorH) xDirection *= -1;
-			if (this._data.mirrorV) yDirection *= -1;
-
-			scaleX = (controlX + defX2 * xDirection) / (this._data.originWidth / 2);
-			scaleY = (controlY + defY2 * yDirection) / (this._data.originHeight / 2);
-
-			if (KeyboardManager.isDown(16) || this.ENFORCE_ASPECT_RATIO) {
-				var scale = Math.min(scaleX, scaleY);
-				this._data.scale = scale;
+			if (targetLayerViewRef.current) {
+				dataRef.current = targetLayerViewRef.current.data;
+				dataRef.current.addEventListener(PropertyEvent.UPDATE, onLayerUpdate);
+				updateHostSize();
+				updateView();
+				setVisible(!dataRef.current.locked);
 			} else {
-				this._data.scaleX = scaleX;
-				this._data.scaleY = scaleY;
+				dataRef.current = null;
+				setVisible(false);
 			}
-		});
-		$(document).on("mouseup.layer_scale", (e: any) => {
-			if (!this._data) return;
-			if (this._data.locked) return;
-			if (!this.isDrag) return;
-			this.isDrag = false;
-			//			$(document).css("pointer-events","auto");
-			$(document).off("mousemove.layer_scale");
-			$(document).off("mouseup.layer_scale");
+		},
+		[onLayerUpdate, setVisible, updateHostSize, updateView]
+	);
 
-			endScale.x = layer.scaleX;
-			endScale.y = layer.scaleY;
-			if (initScale.x != endScale.x || initScale.y != endScale.y) {
-				HistoryManager.shared.record(
-					new Command(
-						() => {
-							layer.scaleX = endScale.x;
-							layer.scaleY = endScale.y;
-						},
-						() => {
-							layer.scaleX = initScale.x;
-							layer.scaleY = initScale.y;
-						}
-					)
+	const startDrag = useCallback(
+		(event: MouseEvent) => {
+			const data = dataRef.current;
+			if (!data) return;
+			if (data.locked) return;
+
+			isDragRef.current = true;
+			let mouseX = event.screenX;
+			let mouseY = event.screenY;
+			const layer = data;
+			const initPos = { x: layer.x, y: layer.y };
+			const endPos = { x: initPos.x, y: initPos.y };
+
+			clearDragListeners();
+			dragMoveHandlerRef.current = (moveEvent: MouseEvent) => {
+				if (!targetLayerViewRef.current) return;
+				if (!isDragRef.current) return;
+				const baseScale = finiteNonZero(baseScaleRef.current);
+
+				layer.moveBy(
+					(moveEvent.screenX - mouseX) / baseScale,
+					(moveEvent.screenY - mouseY) / baseScale
 				);
-			}
-		});
-	}
+				mouseX = moveEvent.screenX;
+				mouseY = moveEvent.screenY;
+			};
+			dragUpHandlerRef.current = () => {
+				if (!targetLayerViewRef.current) return;
+				if (!isDragRef.current) return;
 
-	protected updateView(flag: number = PropFlags.ALL) {
-		if (!this._data) return;
+				isDragRef.current = false;
+				clearDragListeners();
 
-		super.updateView(flag);
-
-		if (flag & PropFlags.LOCKED) {
-			if (this._data.locked) {
-				this.obj.hide();
-			} else {
-				this.obj.show();
-			}
-		}
-		if (flag & PropFlags.IMG_IMAGEID) {
-			this.obj.css("width", this._targetLayerView.data.originWidth + "px");
-			this.obj.css("height", this._targetLayerView.data.originHeight + "px");
-			this.updateMatrix();
-		}
-		if (flag & PropFlags.TXT_TEXT) {
-			setTimeout(() => {
-				if (this._targetLayerView.data) {
-					this.obj.css("width", this._targetLayerView.data.originWidth + "px");
-					this.obj.css("height", this._targetLayerView.data.originHeight + "px");
-					this.updateUISize();
+				endPos.x = layer.x;
+				endPos.y = layer.y;
+				if (initPos.x != endPos.x || initPos.y != endPos.y) {
+					HistoryManager.shared.record(
+						new Command(
+							() => {
+								layer.x = endPos.x;
+								layer.y = endPos.y;
+							},
+							() => {
+								layer.x = initPos.x;
+								layer.y = initPos.y;
+							}
+						)
+					);
 				}
-			}, 1);
-		}
-	}
+			};
+			document.addEventListener("mousemove", dragMoveHandlerRef.current);
+			document.addEventListener("mouseup", dragUpHandlerRef.current);
+		},
+		[clearDragListeners]
+	);
 
-	protected updateMatrix() {
-		super.updateMatrix();
-		this.updateUISize();
-	}
+	const startScale = useCallback(
+		(event: MouseEvent, key: AdjustHandleKey) => {
+			const data = dataRef.current;
+			if (!data) return;
+			if (data.locked) return;
 
-	private updateUISize() {
-		if (!this._data) return;
+			isDragRef.current = true;
+			const mouseX = event.screenX;
+			const mouseY = event.screenY;
+			const originHalfWidth = finiteNonZero(data.originWidth / 2);
+			const originHalfHeight = finiteNonZero(data.originHeight / 2);
+			const controlX = originHalfWidth * data.scaleX;
+			const controlY = originHalfHeight * data.scaleY;
+			const layer = data;
+			const initScale = { x: layer.scaleX, y: layer.scaleY };
+			const endScale = { x: initScale.x, y: initScale.y };
 
-		var anchorSizeX = 16 / (this._data.scaleX * this._base_scale);
-		var anchorSizeY = 16 / (this._data.scaleY * this._base_scale);
-		var cssObj = { width: anchorSizeX, height: anchorSizeY };
-		this.anchorPoint1.css(cssObj);
-		this.anchorPoint2.css(cssObj);
-		this.anchorPoint3.css(cssObj);
-		this.anchorPoint4.css(cssObj);
-		var borderSizeH = 3 / (this._data.scaleX * this._base_scale) + "px";
-		var borderSizeV = 3 / (this._data.scaleY * this._base_scale) + "px";
-		this.frame.css("border-width", borderSizeV + " " + borderSizeH);
-	}
+			clearScaleListeners();
+			scaleMoveHandlerRef.current = (moveEvent: MouseEvent) => {
+				if (!isDragRef.current) return;
 
-	//
-	// get set
-	//
-	public set base_scale(value: number) {
-		this._base_scale = value;
-		this.updateUISize();
-	}
+				const defX = moveEvent.screenX - mouseX;
+				const defY = moveEvent.screenY - mouseY;
+				const baseScale = finiteNonZero(baseScaleRef.current);
+				const mat = Matrix4.identity()
+					.scale(1 / baseScale, 1 / baseScale, 1)
+					.rotateZ((-layer.rotation * Math.PI) / 180)
+					.translate(defX, defY, 0);
+				const defX2 = mat.values[12];
+				const defY2 = mat.values[13];
 
-	public set targetLayerView(value: LayerView) {
-		if (this.isDrag) return;
-		if (this._targetLayerView) {
-			this._data.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
-		}
+				let xDirection = 1;
+				let yDirection = 1;
+				if (key.indexOf("e") == -1) xDirection *= -1;
+				if (key.indexOf("s") == -1) yDirection *= -1;
+				if (layer.mirrorH) xDirection *= -1;
+				if (layer.mirrorV) yDirection *= -1;
 
-		this._targetLayerView = value;
+				const scaleX = (controlX + defX2 * xDirection) / originHalfWidth;
+				const scaleY = (controlY + defY2 * yDirection) / originHalfHeight;
 
-		if (this._targetLayerView) {
-			this._data = this._targetLayerView.data;
-			this._data.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
+				if (KeyboardManager.isDown(16) || ENFORCE_ASPECT_RATIO) {
+					layer.scale = finiteNonZero(Math.min(scaleX, scaleY));
+				} else {
+					layer.scaleX = finiteNonZero(scaleX);
+					layer.scaleY = finiteNonZero(scaleY);
+				}
+			};
+			scaleUpHandlerRef.current = () => {
+				if (!dataRef.current) return;
+				if (dataRef.current.locked) return;
+				if (!isDragRef.current) return;
+				isDragRef.current = false;
+				clearScaleListeners();
 
-			this.obj.css("width", this._targetLayerView.data.originWidth + "px");
-			this.obj.css("height", this._targetLayerView.data.originHeight + "px");
-			this.updateView(); //updateView -> updateMatrix -> updateSize
+				endScale.x = layer.scaleX;
+				endScale.y = layer.scaleY;
+				if (initScale.x != endScale.x || initScale.y != endScale.y) {
+					HistoryManager.shared.record(
+						new Command(
+							() => {
+								layer.scaleX = endScale.x;
+								layer.scaleY = endScale.y;
+							},
+							() => {
+								layer.scaleX = initScale.x;
+								layer.scaleY = initScale.y;
+							}
+						)
+					);
+				}
+			};
+			document.addEventListener("mousemove", scaleMoveHandlerRef.current);
+			document.addEventListener("mouseup", scaleUpHandlerRef.current);
+		},
+		[clearScaleListeners]
+	);
 
-			this.obj.show();
-		} else {
-			this._data = null;
-			this.obj.hide();
-		}
-	}
-}
+	const handleAnchorMouseDown = useCallback(
+		(key: AdjustHandleKey, event: ReactMouseEvent<HTMLDivElement>) => {
+			startScale(event.nativeEvent, key);
+			event.stopPropagation();
+			event.nativeEvent.stopImmediatePropagation();
+		},
+		[startScale]
+	);
+
+	const handleFrameMouseDown = useCallback(
+		(event: ReactMouseEvent<HTMLDivElement>) => {
+			startDrag(event.nativeEvent);
+			event.stopPropagation();
+			event.nativeEvent.stopImmediatePropagation();
+		},
+		[startDrag]
+	);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			get isDrag() {
+				return isDragRef.current;
+			},
+			startDrag,
+			get base_scale() {
+				return baseScaleRef.current;
+			},
+			set base_scale(value: number) {
+				setBaseScale(value);
+			},
+			get targetLayerView() {
+				return targetLayerViewRef.current;
+			},
+			set targetLayerView(value: LayerView | null) {
+				setTargetLayerView(value);
+			},
+		}),
+		[startDrag, setBaseScale, setTargetLayerView]
+	);
+
+	useEffect(() => {
+		return () => {
+			if (dataRef.current) {
+				dataRef.current.removeEventListener(PropertyEvent.UPDATE, onLayerUpdate);
+			}
+			clearDragListeners();
+			clearScaleListeners();
+		};
+	}, [clearDragListeners, clearScaleListeners, onLayerUpdate]);
+
+	return (
+		<div className={wrapperClassName} style={wrapperStyle}>
+			<AdjustViewComponent
+				anchorStyle={anchorStyle}
+				frameStyle={frameStyle}
+				onAnchorMouseDown={handleAnchorMouseDown}
+				onFrameMouseDown={handleFrameMouseDown}
+			/>
+		</div>
+	);
+};
