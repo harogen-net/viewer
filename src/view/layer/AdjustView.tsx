@@ -54,6 +54,10 @@ const positiveFiniteNonZero = (value: number, fallback: number = 1): number => {
 	return finiteNonZero(Math.abs(value), fallback);
 };
 
+const positiveFiniteOrZero = (value: number): number => {
+	return Number.isFinite(value) && value > Number.EPSILON ? value : 0;
+};
+
 export const AdjustViewComponent = ({
 	anchorStyle,
 	frameStyle,
@@ -131,13 +135,41 @@ export const AdjustView = ({ ref }: AdjustViewProps) => {
 	}, []);
 
 	const updateHostSize = useCallback(() => {
-		const data = targetLayerViewRef.current?.data;
-		if (!data) return;
+		const targetLayerView = targetLayerViewRef.current;
+		const data = targetLayerView?.data;
+		if (!targetLayerView || !data) return;
+		const width =
+			positiveFiniteOrZero(data.originWidth) ||
+			positiveFiniteOrZero(targetLayerView.width) ||
+			positiveFiniteOrZero(targetLayerView.element.offsetWidth) ||
+			1;
+		const height =
+			positiveFiniteOrZero(data.originHeight) ||
+			positiveFiniteOrZero(targetLayerView.height) ||
+			positiveFiniteOrZero(targetLayerView.element.offsetHeight) ||
+			1;
 		setWrapperStyle((current) => ({
 			...current,
-			width: data.originWidth + "px",
-			height: data.originHeight + "px",
+			width: width + "px",
+			height: height + "px",
 		}));
+	}, []);
+
+	const getScaleOriginSize = useCallback(() => {
+		const targetLayerView = targetLayerViewRef.current;
+		const data = dataRef.current;
+		return {
+			width:
+				positiveFiniteOrZero(data?.originWidth ?? 0) ||
+				positiveFiniteOrZero(targetLayerView?.width ?? 0) ||
+				positiveFiniteOrZero(targetLayerView?.element.offsetWidth ?? 0) ||
+				1,
+			height:
+				positiveFiniteOrZero(data?.originHeight ?? 0) ||
+				positiveFiniteOrZero(targetLayerView?.height ?? 0) ||
+				positiveFiniteOrZero(targetLayerView?.element.offsetHeight ?? 0) ||
+				1,
+		};
 	}, []);
 
 	const updateUISize = useCallback(() => {
@@ -191,6 +223,7 @@ export const AdjustView = ({ ref }: AdjustViewProps) => {
 				}, 1);
 			}
 			if (flag & transformFlags) {
+				if (flag & (PropFlags.SCALE_X | PropFlags.SCALE_Y)) updateHostSize();
 				updateMatrix();
 			}
 		},
@@ -227,6 +260,11 @@ export const AdjustView = ({ ref }: AdjustViewProps) => {
 				updateHostSize();
 				updateView();
 				setVisible(!dataRef.current.locked);
+				requestAnimationFrame(() => {
+					if (targetLayerViewRef.current !== value) return;
+					updateHostSize();
+					updateMatrix();
+				});
 			} else {
 				dataRef.current = null;
 				setVisible(false);
@@ -300,8 +338,9 @@ export const AdjustView = ({ ref }: AdjustViewProps) => {
 			isDragRef.current = true;
 			const mouseX = event.screenX;
 			const mouseY = event.screenY;
-			const originHalfWidth = finiteNonZero(data.originWidth / 2);
-			const originHalfHeight = finiteNonZero(data.originHeight / 2);
+			const originSize = getScaleOriginSize();
+			const originHalfWidth = finiteNonZero(originSize.width / 2);
+			const originHalfHeight = finiteNonZero(originSize.height / 2);
 			const controlX = originHalfWidth * data.scaleX;
 			const controlY = originHalfHeight * data.scaleY;
 			const layer = data;
@@ -366,7 +405,7 @@ export const AdjustView = ({ ref }: AdjustViewProps) => {
 			document.addEventListener("mousemove", scaleMoveHandlerRef.current);
 			document.addEventListener("mouseup", scaleUpHandlerRef.current);
 		},
-		[clearScaleListeners]
+		[clearScaleListeners, getScaleOriginSize]
 	);
 
 	const handleAnchorMouseDown = useCallback(

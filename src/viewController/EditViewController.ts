@@ -1,4 +1,4 @@
-import { createElement, createRef } from "react";
+import { createElement, createRef, type FunctionComponent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { EventDispatcher } from "../events/EventDispatcher";
@@ -15,8 +15,13 @@ import {
 	EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
 	EditableSlideView,
 	type EditableSlideViewHandle,
-} from "../view/slide/EditableSlideViewComponent";
+} from "../view/slide";
 import { ViewerMode } from "../Viewer";
+
+const EditableSlideViewForRender = EditableSlideView as unknown as FunctionComponent<{
+	ref: Ref<EditableSlideViewHandle>;
+	slide: Slide;
+}>;
 
 export class EditViewController extends EventDispatcher {
 	public slideView: EditableSlideViewHandle;
@@ -36,7 +41,7 @@ export class EditViewController extends EventDispatcher {
 		this.slideViewRoot = createRoot(this.slideViewHost);
 		flushSync(() => {
 			this.slideViewRoot.render(
-				createElement(EditableSlideView, {
+				createElement(EditableSlideViewForRender, {
 					ref: this.slideViewRef,
 					slide: new Slide(),
 				})

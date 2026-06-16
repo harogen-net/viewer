@@ -1,5 +1,5 @@
 import $ from "jquery";
-import { createElement, createRef } from "react";
+import { createElement, createRef, type FunctionComponent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { EventDispatcher } from "../events/EventDispatcher";
@@ -8,7 +8,7 @@ import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-import { DOMSlideView, type DOMSlideViewHandle } from "../view/slide/DOMSlideViewComponent";
+import { DOMSlideView, type DOMSlideViewHandle } from "../view/slide";
 
 export type SlideShowPlaybackSettings = {
 	interval: number;
@@ -18,6 +18,11 @@ export type SlideShowPlaybackSettings = {
 type SlideShowSlideView = DOMSlideViewHandle & {
 	unmount: () => void;
 };
+
+const DOMSlideViewForRender = DOMSlideView as unknown as FunctionComponent<{
+	ref: Ref<DOMSlideViewHandle>;
+	slide: Slide;
+}>;
 
 export class SlideShowViewController extends EventDispatcher {
 	private _isRun: boolean;
@@ -498,7 +503,7 @@ export class SlideShowViewController extends EventDispatcher {
 		const ref = createRef<DOMSlideViewHandle>();
 		const root: Root = createRoot(host);
 		flushSync(() => {
-			root.render(createElement(DOMSlideView, { ref, slide }));
+			root.render(createElement(DOMSlideViewForRender, { ref, slide }));
 		});
 		const handle = ref.current as SlideShowSlideView;
 		handle.unmount = () => {
