@@ -8,7 +8,7 @@ import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-import { DOMSlideView, type DOMSlideViewHandle } from "../view/slide/DOMSlideView";
+import { DOMSlideView, type DOMSlideViewHandle } from "../view/slide/DOMSlideViewComponent";
 
 export type SlideShowPlaybackSettings = {
 	interval: number;

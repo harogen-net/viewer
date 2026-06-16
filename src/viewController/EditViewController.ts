@@ -12,10 +12,10 @@ import { ViewerDocument } from "../model/ViewerDocument";
 import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import {
-    EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
-    EditableSlideView,
-    type EditableSlideViewHandle,
-} from "../view/slide/EditableSlideView";
+	EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
+	EditableSlideView,
+	type EditableSlideViewHandle,
+} from "../view/slide/EditableSlideViewComponent";
 import { ViewerMode } from "../Viewer";
 
 export class EditViewController extends EventDispatcher {
