@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Viewer } from "../Viewer";
 import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
+import { viewerDocumentStore } from "../state/viewerDocumentStore";
 import { Layer } from "./Layer";
 import { PropFlags } from "./PropFlags";
 import { ViewerDocument } from "./ViewerDocument";
@@ -111,6 +112,7 @@ export class Slide {
 				layer.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 				layer.parent = this;
 			}
+			viewerDocumentStore.getState().notifyLayersChanged();
 
 			this.dispatchEvent(
 				new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_ADD, { layer: layer })
@@ -137,6 +139,7 @@ export class Slide {
 				layer.parent = null;
 				layer.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 			}
+			viewerDocumentStore.getState().notifyLayersChanged();
 
 			this.dispatchEvent(
 				new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.S_LAYER_REMOVE, { layer: layer })

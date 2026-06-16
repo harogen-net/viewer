@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { viewerDocumentStore } from "../state/viewerDocumentStore";
 import { DataUtil } from "../utils/DataUtil";
 import { DateUtil } from "../utils/DateUtil";
 import { SlideToPNGConverter } from "../utils/SlideToPNGConverter";
@@ -53,6 +54,7 @@ export class ViewerDocument {
 		this.height = height;
 
 		ViewerDocument.shared = this;
+		viewerDocumentStore.getState().setDocument(this);
 	}
 
 	//

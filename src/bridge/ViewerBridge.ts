@@ -8,6 +8,7 @@
  */
 
 import { Slide } from "../model/Slide";
+import { viewerDocumentStore } from "../state/viewerDocumentStore";
 import { SlideTitle } from "../storage/storageTypes";
 
 export type ViewerBridgeEventMap = {
@@ -127,6 +128,15 @@ class ViewerBridgeClass {
 	}
 
 	emit<K extends ViewerBridgeEventType>(type: K, payload: ViewerBridgeEventMap[K]): void {
+		if (type === "slidesChanged") {
+			const slidesPayload = payload as ViewerBridgeEventMap["slidesChanged"];
+			viewerDocumentStore.getState().setSlides(slidesPayload.slides, slidesPayload.selectedIndex);
+		} else if (type === "selectionChanged") {
+			viewerDocumentStore
+				.getState()
+				.setSelectedIndex((payload as ViewerBridgeEventMap["selectionChanged"]).selectedIndex);
+		}
+
 		const set = this.listeners.get(type as string);
 		if (!set) return;
 		for (const fn of set) {

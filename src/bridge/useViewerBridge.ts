@@ -9,7 +9,10 @@
  */
 
 import { useEffect, useState } from "react";
+import { Layer } from "../model/Layer";
 import { Slide } from "../model/Slide";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { SlideTitle } from "../storage/storageTypes";
 import { ViewerBridge, ViewerBridgeEventMap } from "./ViewerBridge";
 
@@ -39,19 +42,18 @@ type SlidesState = {
 };
 
 export function useViewerSlides(): SlidesState {
-	const [value, setValue] = useState<SlidesState>({ slides: [], selectedIndex: -1, revision: 0 });
+	const slides = useViewerDocumentStore((state) => state.slides);
+	const selectedIndex = useViewerDocumentStore((state) => state.selectedIndex);
+	const revision = useViewerDocumentStore((state) => state.revision);
+	return { slides, selectedIndex, revision };
+}
 
-	useEffect(() => {
-		return ViewerBridge.subscribe("slidesChanged", (payload) => {
-			setValue((current) => ({
-				slides: payload.slides,
-				selectedIndex: payload.selectedIndex,
-				revision: current.revision + 1,
-			}));
-		});
-	}, []);
+export function useViewerDocument(): ViewerDocument | null {
+	return useViewerDocumentStore((state) => state.document);
+}
 
-	return value;
+export function useViewerLayers(): readonly Layer[] {
+	return useViewerDocumentStore((state) => state.layers);
 }
 
 export function useViewerImageDeleteRequest(): { imageId: string; name: string } | null {
@@ -96,7 +98,11 @@ export function useViewerStorageProgress(): { percentage: number } {
 	return useBridgeEvent("storageProgressChanged", { percentage: 0 });
 }
 
-export function useViewerNotice(): { id: number; message: string; variant: "error" | "info" } | null {
+export function useViewerNotice(): {
+	id: number;
+	message: string;
+	variant: "error" | "info";
+} | null {
 	return useBridgeEvent("noticeChanged", null);
 }
 
