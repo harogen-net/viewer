@@ -1,4 +1,4 @@
 export interface IDroppable {
-	obj: any;
+	element: HTMLElement | null;
 	isActive: boolean;
 }

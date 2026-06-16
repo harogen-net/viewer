@@ -112,7 +112,7 @@ const MainSlidePreview = ({ slide }: MainSlidePreviewProps) => {
 };
 
 const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
-	const { slides: rawSlides, selectedIndex } = useViewerSlides();
+	const { slides: rawSlides, selectedIndex, revision } = useViewerSlides();
 	const [draggingSlideIndex, setDraggingSlideIndex] = useState<number | null>(null);
 	const [slideDropIndex, setSlideDropIndex] = useState<number | null>(null);
 	const pendingFocusKey = useRef<string | null>(null);
@@ -130,7 +130,7 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 				disabled: Boolean(slide.disabled),
 				durationRatio: typeof slide.durationRatio === "number" ? slide.durationRatio : 1,
 			})),
-		[rawSlides, selectedIndex]
+		[rawSlides, selectedIndex, revision]
 	);
 
 	useEffect(() => {

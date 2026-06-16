@@ -1,316 +1,224 @@
-import $ from "jquery";
-import { createRef } from "react";
-import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
+import { useEffect, useImperativeHandle, useMemo, useRef, type Ref } from "react";
+import { EventDispatcher } from "../../events/EventDispatcher";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { IDroppable } from "../../interface/IDroppable";
 import { Layer, LayerType } from "../../model/Layer";
+import { ImageLayer } from "../../model/layer/ImageLayer";
+import { TextLayer } from "../../model/layer/TextLayer";
 import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
 import { ViewerDocument } from "../../model/ViewerDocument";
-import { ImageLayer } from "../../model/layer/ImageLayer";
-import { TextLayer } from "../../model/layer/TextLayer";
 import { DropHelper } from "../../utils/DropHelper";
 import { Command, HistoryManager, Transaction } from "../../utils/HistoryManager";
+import { AdjustView, type AdjustViewHandle } from "../layer/AdjustView";
 import { LayerView } from "../LayerView";
-import type { AdjustViewHandle } from "../layer/AdjustView";
-import { AdjustView } from "../layer/AdjustView";
-import { TextView } from "../layer/TextView";
-import { DOMSlideView } from "./DOMSlideView";
+import { DOMSlideView, type DOMSlideViewHandle } from "./DOMSlideView";
 
-export class EditableSlideView extends DOMSlideView implements IDroppable {
-	public static SCALE_DEFAULT: number = 0.9;
+export const EDITABLE_SLIDE_VIEW_SCALE_DEFAULT = 0.9;
 
-	public selectedLayerView: LayerView | null = null;
-	private copyedLayer: Layer | null;
-	private copyedTrans: any = null;
+type EditableSlideViewProps = {
+	ref?: Ref<EditableSlideViewHandle>;
+	slide: Slide;
+};
 
-	private adjustViewRoot: Root;
-	private adjustViewHost: HTMLDivElement;
-	private adjustViewRef = createRef<AdjustViewHandle>();
+export type EditableSlideViewHandle = EventDispatcher &
+	IDroppable & {
+		readonly layerViews: LayerView[];
+		readonly canPasteLayer: boolean;
+		readonly canPasteLayerTransform: boolean;
+		selectedLayerView: LayerView | null;
+		isActive: boolean;
+		rectEdit: boolean;
+		scale: number;
+		slide: Slide;
+		readonly selectedLayer: Layer | null;
+		readonly editingLayer: Layer | null;
+		destroy: () => void;
+		updateSize: () => void;
+		selectLayerView: (targetLayerView?: LayerView | null) => void;
+		cut: () => void;
+		copy: () => void;
+		paste: () => void;
+		copyTrans: () => void;
+		pasteTrans: () => void;
+		spreadLayers: (layer: Layer) => void;
+		runWithSharedLayerRemovalConfirmation: <T>(confirmed: boolean, operation: () => T) => T;
+		hasSharedLayerRemovalTargets: (layer: Layer) => boolean;
+	};
 
-	//private shadow:any;
-	private border: any;
+type LayerCleanup = () => void;
 
-	private _isActive: boolean = false;
-	public _rectEdit: boolean = false;
+const getLayerElement = (layerView: LayerView): HTMLElement => {
+	return layerView.element;
+};
 
-	public get canPasteLayer(): boolean {
-		return this.copyedLayer !== null;
-	}
+export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
+	const baseRef = useRef<DOMSlideViewHandle | null>(null);
+	const adjustViewRef = useRef<AdjustViewHandle | null>(null);
+	const borderRef = useRef<HTMLDivElement | null>(null);
+	const selectedLayerViewRef = useRef<LayerView | null>(null);
+	const copiedLayerRef = useRef<Layer | null>(null);
+	const copiedTransformRef = useRef<any>(null);
+	const isActiveRef = useRef(false);
+	const rectEditRef = useRef(false);
+	const lastSelectedIdRef = useRef("");
+	const lastSelectedIndexRef = useRef(-1);
+	const sharedLayersByUUIDRef = useRef<{ [key: string]: Layer[] }>({});
+	const rectLayersRef = useRef<{ [key: string]: Layer[] }>({});
+	const allowSharedLayerRemovalWithoutConfirmRef = useRef(false);
+	const layerCleanupsRef = useRef(new Map<LayerView, LayerCleanup>());
+	const handleRef = useRef<EditableSlideViewHandle | null>(null);
 
-	public get canPasteLayerTransform(): boolean {
-		return this.copyedTrans !== null;
-	}
+	const getBase = () => baseRef.current as DOMSlideViewHandle;
+	const getAdjustView = () => adjustViewRef.current as AdjustViewHandle;
 
-	//
-
-	private lastSelectedId: string = "";
-	private lastSelectedIndex: number = -1;
-	private sharedLayersByUUID: { [key: string]: Layer[] } = {};
-	private rectLayers: { [key: string]: Layer[] } = {};
-	private allowSharedLayerRemovalWithoutConfirm = false;
-	//private rectLayers:Layer[] = [];
-
-	constructor(
-		protected _slide: Slide,
-		public obj: any
-	) {
-		super(_slide, obj);
-
-		this.scale = EditableSlideView.SCALE_DEFAULT;
-
-		this.obj.addClass("editable");
-
-		this.adjustViewHost = document.createElement("div");
-		(this.container[0] as HTMLElement).appendChild(this.adjustViewHost);
-		this.adjustViewRoot = createRoot(this.adjustViewHost);
-		flushSync(() => {
-			this.adjustViewRoot.render(<AdjustView ref={this.adjustViewRef} />);
-		});
-		this.border = $('<div class="border" />').appendTo(this.container);
-
-		//
-
-		if (this.obj.width() == 0 && this.obj.height() == 0) {
-			this.obj.ready(() => {
-				console.log("obj ready at SlideEditable");
-				this.updateSize();
-			});
-		} else {
-			this.updateSize();
+	const selectLayerView = (targetLayerView: LayerView | null = null) => {
+		const handle = handleRef.current as EditableSlideViewHandle;
+		selectedLayerViewRef.current = targetLayerView;
+		if (adjustViewRef.current) {
+			adjustViewRef.current.targetLayerView = selectedLayerViewRef.current;
 		}
+		handle.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, handle, PropFlags.LV_SELECT));
 
-		$(this.obj).on("wheel", (e: any) => {
-			if (!this._isActive) return;
-			var dScale = (0.1 * e.originalEvent.deltaY) / Math.abs(e.originalEvent.deltaY);
-			this.scale /= 1 + dScale;
-
-			this.adjustView.base_scale = this._scale * this.scale_base;
-			e.preventDefault();
-			e.stopImmediatePropagation();
+		getBase().layerViews.forEach((layerView) => {
+			if (layerView !== targetLayerView) layerView.selected = false;
 		});
 
-		this.obj.on("mousedown", (e: any) => {
-			if (!this._isActive) return;
-			this.selectLayerView(null);
-		});
-
-		var dropHelper = new DropHelper(this);
-		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (e: CustomEvent) => {
-			var imageId = e.detail;
-			var layer = new ImageLayer(imageId);
-			if (layer.originHeight > layer.originWidth * 1.2) {
-				layer.rotation -= 90;
+		if (selectedLayerViewRef.current !== null) {
+			if (selectedLayerViewRef.current.type === LayerType.IMAGE) {
+				lastSelectedIdRef.current = (selectedLayerViewRef.current.data as ImageLayer).imageId;
+			} else if (selectedLayerViewRef.current.type === LayerType.TEXT) {
+				lastSelectedIdRef.current = (selectedLayerViewRef.current.data as TextLayer).text;
 			}
+			lastSelectedIndexRef.current = getBase().slide.layers.indexOf(
+				selectedLayerViewRef.current.data
+			);
 
-			HistoryManager.shared
-				.record(
-					new Command(
-						() => {
-							this._slide.addLayer(layer);
-							this.getViewByLayer(layer).selected = true;
-							this._slide.fitLayer(layer);
-						},
-						() => {
-							this._slide.removeLayer(layer);
-							layer.scale = 1;
-						}
-					)
-				)
-				.do();
-		});
+			if (rectEditRef.current) {
+				listRectLayers(selectedLayerViewRef.current.data);
+			}
+		}
+	};
 
-		// KeyboardManager.addEventListener("cut",()=>{
-		// 	this.cut();
-		// });
-		// KeyboardManager.addEventListener("copy",()=>{
-		// 	this.copy();
-		// });
-		// KeyboardManager.addEventListener("paste",()=>{
-		// 	this.paste();
-		// });
+	const onLayerViewUpdate = (event: PropertyEvent) => {
+		if (!isActiveRef.current) return;
+		if (event.propFlags & PropFlags.LV_SELECT && (event.targe as LayerView).selected) {
+			selectLayerView(event.targe as LayerView);
+		}
+	};
 
-		//
-
-		$(window).resize(() => {
-			setTimeout(() => {
-				this.updateSize();
-			}, 50);
-		});
-
-		//
-
-		this.isActive = false;
-	}
-
-	private get adjustView(): AdjustViewHandle {
-		return this.adjustViewRef.current as AdjustViewHandle;
-	}
-
-	public destroy() {
-		this.adjustViewRoot?.unmount();
-		this.adjustViewHost?.remove();
-		super.destroy();
-	}
-
-	//
-
-	protected addLayerView(layer: Layer): LayerView {
-		//console.log("adLayerView at ESV");
-		var layerView = super.addLayerView(layer);
-
+	const setupLayerView = (layerView: LayerView) => {
 		layerView.selected = false;
-		//layerView.addEventListener("select", this.onLayerViewSelect);
-		layerView.addEventListener(PropertyEvent.UPDATE, this.onLayerViewUpdate);
+		layerView.addEventListener(PropertyEvent.UPDATE, onLayerViewUpdate);
+		const element = getLayerElement(layerView);
 
-		layerView.obj.on("mousedown.layer_preselect", (e: any) => {
+		const removePendingMove = () => {
+			element.removeEventListener("mousemove", onMouseMove);
+		};
+		const onMouseMove = (event: MouseEvent) => {
+			removePendingMove();
+			layerView.selected = true;
+			getAdjustView().startDrag(event);
+		};
+		const onMouseDown = (event: MouseEvent) => {
 			if (layerView.selected) return;
 			if (layerView.data.locked) return;
-
-			layerView.obj.off("mousemove.layer_preselect");
-			layerView.obj.on("mousemove.layer_preselect", (e: any) => {
-				layerView.obj.off("mousemove.layer_preselect");
-				layerView.selected = true;
-				this.adjustView.startDrag(e);
-			});
-			e.stopImmediatePropagation();
-		});
-		layerView.obj.on("mouseup.layer_preselect", (e: any) => {
-			layerView.obj.off("mousemove.layer_preselect");
-			if (!layerView.selected && !this.adjustView.isDrag && !layerView.data.locked) {
+			removePendingMove();
+			element.addEventListener("mousemove", onMouseMove);
+			event.stopImmediatePropagation();
+		};
+		const onMouseUp = () => {
+			removePendingMove();
+			if (!layerView.selected && !getAdjustView().isDrag && !layerView.data.locked) {
 				layerView.selected = true;
 			}
+		};
+
+		element.addEventListener("mousedown", onMouseDown);
+		element.addEventListener("mouseup", onMouseUp);
+
+		layerCleanupsRef.current.set(layerView, () => {
+			layerView.removeEventListener(PropertyEvent.UPDATE, onLayerViewUpdate);
+			removePendingMove();
+			element.removeEventListener("mousedown", onMouseDown);
+			element.removeEventListener("mouseup", onMouseUp);
 		});
 
-		//shared
-		if (layer.shared) {
-			this.listSharedLayers(layer);
+		if (layerView.data.shared) {
+			listSharedLayers(layerView.data);
 		}
+	};
 
-		return layerView;
-	}
-	protected removeLayerView(layer: Layer): LayerView {
-		var layerView = super.removeLayerView(layer);
-
-		//layerView.removeEventListener("select", this.onLayerViewSelect);
-		layerView.removeEventListener(PropertyEvent.UPDATE, this.onLayerViewUpdate);
+	const cleanupLayerView = (layerView: LayerView) => {
+		layerCleanupsRef.current.get(layerView)?.();
+		layerCleanupsRef.current.delete(layerView);
 
 		if (layerView.selected) {
-			this.selectLayerView();
+			selectLayerView(null);
 		}
-		layerView.obj.off("dragstart");
-		layerView.obj.off("mousedown.layer_preselect");
-		layerView.obj.off("mousemove.layer_preselect");
-		layerView.obj.off("mouseup.layer_preselect");
-		if (layerView.type == LayerType.TEXT) {
-			var textLayerView = layerView as TextView;
-			if (textLayerView.textObj) {
-				$(textLayerView.textObj).off("focusout.textLayer_edit");
-			}
+		if (sharedLayersByUUIDRef.current[layerView.data.uuid] !== undefined) {
+			delete sharedLayersByUUIDRef.current[layerView.data.uuid];
 		}
+	};
 
-		//share
-		if (this.listSharedLayers[layer.uuid] != undefined) {
-			delete this.listSharedLayers[layer.uuid];
+	const copy = () => {
+		if (!isActiveRef.current) return;
+		if (selectedLayerViewRef.current) {
+			copiedLayerRef.current = selectedLayerViewRef.current.data.clone();
 		}
+	};
 
-		return layerView;
-	}
-
-	//
-
-	selectLayerView(targetLayerView: LayerView | null = null) {
-		this.selectedLayerView = targetLayerView;
-		this.adjustView.targetLayerView = this.selectedLayerView;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.LV_SELECT));
-		//this.dispatchEvent(new Event("select"));
-
-		this.layerViews.forEach((layerView) => {
-			// $.each(this.layerViews, (i:number ,layerView:LayerView) => {
-			if (layerView != targetLayerView) layerView.selected = false;
-		});
-
-		if (this.selectedLayerView !== null) {
-			if (this.selectedLayerView.type == LayerType.IMAGE) {
-				this.lastSelectedId = (this.selectedLayerView.data as ImageLayer).imageId;
-			} else if (this.selectedLayerView.type == LayerType.TEXT) {
-				this.lastSelectedId = (this.selectedLayerView.data as TextLayer).text;
-			}
-			this.lastSelectedIndex = this._slide.layers.indexOf(this.selectedLayerView.data);
-
-			if (this._rectEdit) {
-				this.listRectLayers(this.selectedLayerView.data);
-			}
-		} else {
-			//			this.rectLayers = [];
-		}
-	}
-
-	cut() {
-		if (!this._isActive) return;
-		if (this.selectedLayerView) {
-			this.copy();
-
-			var layer = this.selectedLayerView.data;
-			var index = this._slide.indexOf(layer);
-			HistoryManager.shared
-				.record(
-					new Command(
-						() => {
-							this._slide.removeLayer(layer);
-						},
-						() => {
-							this._slide.addLayer(layer, index);
-						}
-					)
+	const cut = () => {
+		if (!isActiveRef.current) return;
+		if (!selectedLayerViewRef.current) return;
+		copy();
+		const layer = selectedLayerViewRef.current.data;
+		const index = getBase().slide.indexOf(layer);
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						getBase().slide.removeLayer(layer);
+					},
+					() => {
+						getBase().slide.addLayer(layer, index);
+					}
 				)
-				.do();
-		}
-	}
+			)
+			.do();
+	};
 
-	copy() {
-		if (!this._isActive) return;
-		if (this.selectedLayerView) {
-			this.copyedLayer = this.selectedLayerView.data.clone();
-			//面倒くさいので、コピーするレイヤーはsharedをオフにする⇒やっぱめんどい
-			//this.copyedLayer.shared = false;
-		}
-	}
-
-	paste() {
-		if (!this._isActive) return;
-		if (this.copyedLayer) {
-			var layer: Layer = this.copyedLayer.clone();
-
-			HistoryManager.shared
-				.record(
-					new Command(
-						() => {
-							this._slide.addLayer(layer);
-							this.getViewByLayer(layer).selected = true;
-						},
-						() => {
-							this._slide.removeLayer(layer);
-						}
-					)
+	const paste = () => {
+		if (!isActiveRef.current) return;
+		if (!copiedLayerRef.current) return;
+		const layer = copiedLayerRef.current.clone();
+		HistoryManager.shared
+			.record(
+				new Command(
+					() => {
+						getBase().slide.addLayer(layer);
+						const layerView = getBase().getViewByLayer(layer);
+						if (layerView) layerView.selected = true;
+					},
+					() => {
+						getBase().slide.removeLayer(layer);
+					}
 				)
-				.do();
-		}
-	}
+			)
+			.do();
+	};
 
-	copyTrans() {
-		if (!this.selectedLayerView) return;
-		this.copyedTrans = this.selectedLayerView.data.transform;
-	}
+	const copyTrans = () => {
+		if (!selectedLayerViewRef.current) return;
+		copiedTransformRef.current = selectedLayerViewRef.current.data.transform;
+	};
 
-	pasteTrans() {
-		if (!this.selectedLayerView) return;
-		if (!this.copyedTrans) return;
-
-		var layer = this.selectedLayerView.data;
-		var initValue = layer.transform;
-		var endValue = Object.assign({}, this.copyedTrans);
+	const pasteTrans = () => {
+		if (!selectedLayerViewRef.current) return;
+		if (!copiedTransformRef.current) return;
+		const layer = selectedLayerViewRef.current.data;
+		const initValue = layer.transform;
+		const endValue = Object.assign({}, copiedTransformRef.current);
 		HistoryManager.shared
 			.record(
 				new Command(
@@ -323,100 +231,94 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				)
 			)
 			.do();
-	}
+	};
 
-	public updateSize(): void {
-		this.scale_base = Math.min(
-			this.obj.width() / this._slide.width,
-			this.obj.height() / this._slide.height
+	const updateSize = () => {
+		const base = getBase();
+		const element = base.element;
+		if (!element || !base.slide) return;
+		const nextScaleBase = Math.min(
+			element.clientWidth / base.slide.width,
+			element.clientHeight / base.slide.height
 		);
-		this.scale = this._scale;
+		base.setScaleBase(nextScaleBase);
+		if (borderRef.current) {
+			borderRef.current.style.borderWidth = `${6 / base.actualScale}px`;
+		}
+		if (adjustViewRef.current) {
+			adjustViewRef.current.base_scale = base.actualScale;
+		}
+	};
 
-		this.border.css("border-width", 6 / (this._scale * this.scale_base) + "px");
-		this.adjustView.base_scale = this._scale * this.scale_base;
-	}
+	const replaceSlide = (newSlide: Slide) => {
+		const base = getBase();
+		rectEditRef.current = false;
+		selectLayerView(null);
+		sharedLayersByUUIDRef.current = {};
+		rectLayersRef.current = {};
+		base.slide = newSlide;
+		base.scale = EDITABLE_SLIDE_VIEW_SCALE_DEFAULT;
 
-	protected replaceSlide(newSlide: Slide) {
-		this.rectEdit = false;
-		this.selectLayerView(null);
-
-		this.sharedLayersByUUID = {};
-		this.rectLayers = {};
-
-		//
-
-		super.replaceSlide(newSlide);
-		this.scale = EditableSlideView.SCALE_DEFAULT;
-
-		//
-		//autoselect
-		if (this._slide.layers.length > 0) {
-			var autoSelectedLayer: Layer = null;
-
-			if (this.lastSelectedId != "") {
-				this._slide.layers.forEach((layer) => {
-					if (layer.type == LayerType.IMAGE) {
-						if (this.lastSelectedId == (layer as ImageLayer).imageId) {
-							if (!layer.locked && layer.visible) {
-								autoSelectedLayer = layer;
-							}
+		let autoSelectedLayer: Layer | null = null;
+		if (base.slide.layers.length > 0) {
+			if (lastSelectedIdRef.current !== "") {
+				base.slide.layers.forEach((layer) => {
+					if (layer.type === LayerType.IMAGE) {
+						if (lastSelectedIdRef.current === (layer as ImageLayer).imageId) {
+							if (!layer.locked && layer.visible) autoSelectedLayer = layer;
 						}
-					} else if (layer.type == LayerType.TEXT) {
-						if (this.lastSelectedId == (layer as TextLayer).text) {
-							if (!layer.locked && layer.visible) {
-								autoSelectedLayer = layer;
-							}
+					} else if (layer.type === LayerType.TEXT) {
+						if (lastSelectedIdRef.current === (layer as TextLayer).text) {
+							if (!layer.locked && layer.visible) autoSelectedLayer = layer;
 						}
 					}
 				});
 			}
 
 			if (!autoSelectedLayer) {
-				if (this.lastSelectedIndex != -1 && this._slide.layers.length > this.lastSelectedIndex) {
-					if (
-						!this._slide.layers[this.lastSelectedIndex].locked &&
-						this._slide.layers[this.lastSelectedIndex].visible
-					) {
-						autoSelectedLayer = this._slide.layers[this.lastSelectedIndex];
-					}
+				if (
+					lastSelectedIndexRef.current !== -1 &&
+					base.slide.layers.length > lastSelectedIndexRef.current
+				) {
+					const layer = base.slide.layers[lastSelectedIndexRef.current];
+					if (!layer.locked && layer.visible) autoSelectedLayer = layer;
 				}
 			}
 			if (!autoSelectedLayer) {
-				for (var i: number = this._slide.layers.length - 1; i >= 0; i--) {
-					if (!this._slide.layers[i].locked && this._slide.layers[i].visible) {
-						autoSelectedLayer = this._slide.layers[i];
+				for (let index = base.slide.layers.length - 1; index >= 0; index--) {
+					const layer = base.slide.layers[index];
+					if (!layer.locked && layer.visible) {
+						autoSelectedLayer = layer;
 						break;
 					}
 				}
 			}
-
 			if (autoSelectedLayer) {
-				this.getViewByLayer(autoSelectedLayer).selected = true;
+				const layerView = base.getViewByLayer(autoSelectedLayer);
+				if (layerView) layerView.selected = true;
 			}
 		}
-	}
+	};
 
-	private listSharedLayers(layer: Layer) {
+	const listSharedLayers = (layer: Layer) => {
 		if (!layer.shared) return;
-		//		if(this.sharedLayersByUUID[layer.uuid] != undefined) return;
-
-		this.sharedLayersByUUID[layer.uuid] = [];
-		const func = (slide: Slide) => {
-			var find = false;
-			for (var i = 0; i < slide.layers.length; i++) {
-				var tmpLayer: Layer = slide.layers[i];
+		sharedLayersByUUIDRef.current[layer.uuid] = [];
+		const findInSlide = (slide: Slide) => {
+			let find = false;
+			for (let index = 0; index < slide.layers.length; index++) {
+				const tmpLayer = slide.layers[index];
 				if (!tmpLayer.shared) continue;
-				if (tmpLayer.type != layer.type) continue;
-				if (layer.type == LayerType.IMAGE) {
-					if ((layer as ImageLayer).imageId == (tmpLayer as ImageLayer).imageId) {
+				if (tmpLayer.type !== layer.type) continue;
+				if (layer.type === LayerType.IMAGE) {
+					if ((layer as ImageLayer).imageId === (tmpLayer as ImageLayer).imageId) {
 						find = true;
-						this.sharedLayersByUUID[layer.uuid].push(tmpLayer);
+						sharedLayersByUUIDRef.current[layer.uuid].push(tmpLayer);
 						break;
 					}
-				} else if (layer.type == LayerType.TEXT) {
-					if ((layer as TextLayer).text == (tmpLayer as TextLayer).text) {
+				} else if (layer.type === LayerType.TEXT) {
+					if ((layer as TextLayer).text === (tmpLayer as TextLayer).text) {
 						find = true;
-						this.sharedLayersByUUID[layer.uuid].push(tmpLayer);
+						sharedLayersByUUIDRef.current[layer.uuid].push(tmpLayer);
 						break;
 					}
 				}
@@ -424,75 +326,47 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			return find;
 		};
 
-		var slide: Slide;
-		slide = ViewerDocument.shared.getNextSlide(this._slide);
-		while (slide && func(slide)) {
-			slide = ViewerDocument.shared.getNextSlide(slide);
-		}
-		slide = ViewerDocument.shared.getPrevSlide(this._slide);
-		while (slide && func(slide)) {
-			slide = ViewerDocument.shared.getPrevSlide(slide);
-		}
-	}
+		let slide = ViewerDocument.shared.getNextSlide(getBase().slide);
+		while (slide && findInSlide(slide)) slide = ViewerDocument.shared.getNextSlide(slide);
+		slide = ViewerDocument.shared.getPrevSlide(getBase().slide);
+		while (slide && findInSlide(slide)) slide = ViewerDocument.shared.getPrevSlide(slide);
+	};
 
-	private listRectLayers(layer: Layer) {
-		if (layer.type != LayerType.IMAGE) return;
-		//		if(layer.shared) return;
-		//		this.rectLayers = [];
-
-		this.rectLayers[layer.uuid] = [];
-		var func = (slide: Slide) => {
-			var find = false;
-			for (var i = 0; i < slide.layers.length; i++) {
-				var tmpLayer: Layer = slide.layers[i];
-				if (tmpLayer.uuid == layer.uuid) continue; //自分自身意外
-				if (tmpLayer.type != layer.type) continue;
-				if (layer.type == LayerType.IMAGE) {
-					if (layer.x != tmpLayer.x) continue;
-					if (layer.y != tmpLayer.y) continue;
-					if (layer.originWidth != tmpLayer.originWidth) continue;
-					if (layer.originHeight != tmpLayer.originHeight) continue;
-					if (layer.scaleX != tmpLayer.scaleX) continue;
-					if (layer.scaleY != tmpLayer.scaleY) continue;
-					if (layer.mirrorH != tmpLayer.mirrorH) continue;
-					if (layer.mirrorV != tmpLayer.mirrorV) continue;
-					find = true;
-					this.rectLayers[layer.uuid].push(tmpLayer);
-					//break;	//複数枚OK
-				}
-			}
-			return true;
-			//return find;
+	const listRectLayers = (layer: Layer) => {
+		if (layer.type !== LayerType.IMAGE) return;
+		rectLayersRef.current[layer.uuid] = [];
+		const collect = (slide: Slide) => {
+			slide.layers.forEach((tmpLayer) => {
+				if (tmpLayer.uuid === layer.uuid) return;
+				if (tmpLayer.type !== layer.type) return;
+				if (layer.x !== tmpLayer.x) return;
+				if (layer.y !== tmpLayer.y) return;
+				if (layer.originWidth !== tmpLayer.originWidth) return;
+				if (layer.originHeight !== tmpLayer.originHeight) return;
+				if (layer.scaleX !== tmpLayer.scaleX) return;
+				if (layer.scaleY !== tmpLayer.scaleY) return;
+				if (layer.mirrorH !== tmpLayer.mirrorH) return;
+				if (layer.mirrorV !== tmpLayer.mirrorV) return;
+				rectLayersRef.current[layer.uuid].push(tmpLayer);
+			});
 		};
-		var slide: Slide;
-		//自分自身のSlide
-		func(this._slide);
-		//前方向Slide
-		slide = ViewerDocument.shared.getNextSlide(this._slide);
+
+		collect(getBase().slide);
+		let slide = ViewerDocument.shared.getNextSlide(getBase().slide);
 		while (slide) {
-			func(slide);
+			collect(slide);
 			slide = ViewerDocument.shared.getNextSlide(slide);
 		}
-
-		//後方向Slide
-		slide = ViewerDocument.shared.getPrevSlide(this._slide);
+		slide = ViewerDocument.shared.getPrevSlide(getBase().slide);
 		while (slide) {
-			func(slide);
+			collect(slide);
 			slide = ViewerDocument.shared.getPrevSlide(slide);
 		}
+	};
 
-		console.log(this.rectLayers[layer.uuid]);
-	}
-
-	private multipleLayerOperation(layer, layers: Layer[], flag: number) {
-		if (!layer) return;
-		if (!layers) return;
-		if (layers.length == 0) return;
-		if (flag == 0) return;
-
-		//苦肉の策：無限ループに陥るので同時操作は非活性にする
-		this._isActive = false;
-
+	const multipleLayerOperation = (layer: Layer, layers: Layer[], flag: number) => {
+		if (!layer || !layers || layers.length === 0 || flag === 0) return;
+		isActiveRef.current = false;
 		layers.forEach((tmpLayer) => {
 			if (
 				flag &
@@ -506,60 +380,43 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 			) {
 				tmpLayer.transform = layer.transform;
 			}
-			if (flag & PropFlags.VISIBLE) {
-				tmpLayer.visible = layer.visible;
-			}
-			if (flag & PropFlags.LOCKED) {
-				tmpLayer.locked = layer.locked;
-			}
-			if (flag & PropFlags.OPACITY) {
-				tmpLayer.opacity = layer.opacity;
-			}
-
-			if (layer.type == LayerType.IMAGE) {
-				if (flag & PropFlags.IMG_IMAGEID) {
+			if (flag & PropFlags.VISIBLE) tmpLayer.visible = layer.visible;
+			if (flag & PropFlags.LOCKED) tmpLayer.locked = layer.locked;
+			if (flag & PropFlags.OPACITY) tmpLayer.opacity = layer.opacity;
+			if (layer.type === LayerType.IMAGE) {
+				if (flag & PropFlags.IMG_IMAGEID)
 					(tmpLayer as ImageLayer).imageId = (layer as ImageLayer).imageId;
-				}
-				if (flag & PropFlags.IMG_CLIP) {
+				if (flag & PropFlags.IMG_CLIP)
 					(tmpLayer as ImageLayer).clipRect = (layer as ImageLayer).clipRect;
-				}
-				if (flag & PropFlags.IMG_TEXT) {
+				if (flag & PropFlags.IMG_TEXT)
 					(tmpLayer as ImageLayer).isText = (layer as ImageLayer).isText;
-				}
 			}
-			if (layer.type == LayerType.TEXT) {
-				if (flag & PropFlags.TXT_TEXT) {
-					(tmpLayer as TextLayer).text = (layer as TextLayer).text;
-				}
+			if (layer.type === LayerType.TEXT && flag & PropFlags.TXT_TEXT) {
+				(tmpLayer as TextLayer).text = (layer as TextLayer).text;
 			}
 		});
+		isActiveRef.current = true;
+	};
 
-		//苦肉の策：無限ループに陥るので同時操作は非活性にする
-		this._isActive = true;
-	}
-
-	public spreadLayers(layer: Layer) {
+	const spreadLayers = (layer: Layer) => {
 		if (!layer) return;
-		if (!this._slide.contains(layer)) return;
-		//if(!layer.shared) return;
+		if (!getBase().slide.contains(layer)) return;
 		if (!layer.shared) layer.shared = true;
-
-		var index = this._slide.indexOf(layer);
-		var transaction = new Transaction();
-
-		var func = (slide: Slide) => {
-			var continueToNext = true;
-			var find = false;
-			for (var i = 0; i < slide.layers.length; i++) {
-				var tmpLayer: Layer = slide.layers[i];
-				if (tmpLayer.type != layer.type) continue;
-				if (layer.type == LayerType.IMAGE) {
-					if ((layer as ImageLayer).imageId == (tmpLayer as ImageLayer).imageId) {
+		const index = getBase().slide.indexOf(layer);
+		const transaction = new Transaction();
+		const applyToSlide = (slide: Slide) => {
+			let continueToNext = true;
+			let find = false;
+			for (let i = 0; i < slide.layers.length; i++) {
+				const tmpLayer = slide.layers[i];
+				if (tmpLayer.type !== layer.type) continue;
+				if (layer.type === LayerType.IMAGE) {
+					if ((layer as ImageLayer).imageId === (tmpLayer as ImageLayer).imageId) {
 						find = true;
 						if (tmpLayer.shared) {
 							continueToNext = false;
 						} else {
-							var targetLayer = tmpLayer;
+							const targetLayer = tmpLayer;
 							transaction.record(
 								() => {
 									targetLayer.shared = true;
@@ -571,13 +428,13 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 						}
 						break;
 					}
-				} else if (layer.type == LayerType.TEXT) {
-					if ((layer as TextLayer).text == (tmpLayer as TextLayer).text) {
+				} else if (layer.type === LayerType.TEXT) {
+					if ((layer as TextLayer).text === (tmpLayer as TextLayer).text) {
 						find = true;
 						if (tmpLayer.shared) {
 							continueToNext = false;
 						} else {
-							var targetLayer = tmpLayer;
+							const targetLayer = tmpLayer;
 							transaction.record(
 								() => {
 									targetLayer.shared = true;
@@ -592,7 +449,7 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 				}
 			}
 			if (!find) {
-				var newLayer: Layer = layer.clone();
+				const newLayer = layer.clone();
 				transaction.record(
 					() => {
 						slide.addLayer(newLayer, index);
@@ -602,141 +459,170 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 					}
 				);
 			}
-
 			return continueToNext;
 		};
 
-		var slide: Slide;
-		slide = ViewerDocument.shared.getNextSlide(this._slide);
-		while (slide && func(slide)) {
-			slide = ViewerDocument.shared.getNextSlide(slide);
-		}
-		slide = ViewerDocument.shared.getPrevSlide(this._slide);
-		while (slide && func(slide)) {
-			slide = ViewerDocument.shared.getPrevSlide(slide);
-		}
+		let slide = ViewerDocument.shared.getNextSlide(getBase().slide);
+		while (slide && applyToSlide(slide)) slide = ViewerDocument.shared.getNextSlide(slide);
+		slide = ViewerDocument.shared.getPrevSlide(getBase().slide);
+		while (slide && applyToSlide(slide)) slide = ViewerDocument.shared.getPrevSlide(slide);
 
 		if (transaction.length > 0) {
 			HistoryManager.shared.record(transaction).do();
-			this.listSharedLayers(layer);
-		}
-	}
-
-	//
-	// get set
-	//
-	get isActive(): boolean {
-		return this._isActive;
-	}
-	set isActive(value: boolean) {
-		this._isActive = value;
-		if (this._isActive) {
-			this.obj.removeClass("passive");
-			setTimeout(() => {
-				this.updateSize();
-			}, 300);
-		} else {
-			this.obj.addClass("passive");
-			this.obj.removeClass("fileOver");
-		}
-	}
-
-	public get selectedLayer(): Layer {
-		if (this.selectedLayerView) {
-			return this.selectedLayerView.data;
-		} else {
-			return null;
-		}
-	}
-	public get editingLayer(): Layer {
-		if (!this.selectLayerView && this.selectedLayer.locked && !this.selectedLayer.visible)
-			return null;
-		return this.selectedLayer;
-	}
-
-	public get rectEdit(): boolean {
-		return this._rectEdit;
-	}
-	public set rectEdit(value: boolean) {
-		if (this._rectEdit == value) return;
-		this._rectEdit = value;
-		if (this._rectEdit && this.selectedLayerView) {
-			this.listRectLayers(this.selectedLayerView.data);
-		}
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.ESV_RECT));
-	}
-
-	public runWithSharedLayerRemovalConfirmation<T>(confirmed: boolean, operation: () => T): T {
-		const previous = this.allowSharedLayerRemovalWithoutConfirm;
-		this.allowSharedLayerRemovalWithoutConfirm = confirmed;
-		try {
-			return operation();
-		} finally {
-			this.allowSharedLayerRemovalWithoutConfirm = previous;
-		}
-	}
-
-	public hasSharedLayerRemovalTargets(layer: Layer): boolean {
-		return Boolean(layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined);
-	}
-
-	//
-	// event handlers
-	//
-	private onLayerViewUpdate = (pe: PropertyEvent) => {
-		if (!this.isActive) return;
-		if (pe.propFlags & PropFlags.LV_SELECT && (pe.targe as LayerView).selected) {
-			this.selectLayerView(pe.targe as LayerView);
+			listSharedLayers(layer);
 		}
 	};
 
-	protected onSlideUpdate(pe: PropertyEvent) {
-		if (!this._isActive) return;
-		var flag = pe.propFlags;
-
-		if (flag & PropFlags.S_LAYER) {
-			var layer: Layer = pe.options.layer;
-
-			if (flag & PropFlags.SHARED) {
-				if (!layer.shared) {
-					delete this.sharedLayersByUUID[layer.uuid];
-				}
-			} else {
-				if (layer.shared) {
-					if (this.sharedLayersByUUID[layer.uuid] == undefined) {
-						this.listSharedLayers(layer);
+	const handle = useMemo(() => {
+		const dispatcher = new EventDispatcher() as EditableSlideViewHandle;
+		Object.defineProperties(dispatcher, {
+			element: {
+				get: () => baseRef.current?.element ?? null,
+			},
+			layerViews: {
+				get: () => baseRef.current?.layerViews ?? [],
+			},
+			selectedLayerView: {
+				get: () => selectedLayerViewRef.current,
+				set: (value: LayerView | null) => {
+					selectedLayerViewRef.current = value;
+				},
+			},
+			canPasteLayer: {
+				get: () => copiedLayerRef.current !== null,
+			},
+			canPasteLayerTransform: {
+				get: () => copiedTransformRef.current !== null,
+			},
+			isActive: {
+				get: () => isActiveRef.current,
+				set: (value: boolean) => {
+					isActiveRef.current = value;
+					const element = baseRef.current?.element;
+					if (isActiveRef.current) {
+						element?.classList.remove("passive");
+						setTimeout(() => updateSize(), 300);
+					} else {
+						element?.classList.add("passive");
+						element?.classList.remove("fileOver");
 					}
-					this.multipleLayerOperation(layer, this.sharedLayersByUUID[layer.uuid], flag);
-
-					if (flag & PropFlags.IMG_IMAGEID) {
-						delete this.sharedLayersByUUID[layer.uuid];
-						this.listSharedLayers(layer);
+				},
+			},
+			rectEdit: {
+				get: () => rectEditRef.current,
+				set: (value: boolean) => {
+					if (rectEditRef.current === value) return;
+					rectEditRef.current = value;
+					if (rectEditRef.current && selectedLayerViewRef.current) {
+						listRectLayers(selectedLayerViewRef.current.data);
 					}
-				} else if (this._rectEdit) {
-					var flagForRect =
-						flag &
-						(PropFlags.X |
-							PropFlags.Y |
-							PropFlags.SCALE_X |
-							PropFlags.SCALE_Y |
-							PropFlags.MIRROR_H |
-							PropFlags.MIRROR_V |
-							PropFlags.ROTATION);
-					if (flagForRect) {
-						this.multipleLayerOperation(layer, this.rectLayers[layer.uuid], flagForRect);
-					}
-				}
+					dispatcher.dispatchEvent(
+						new PropertyEvent(PropertyEvent.UPDATE, dispatcher, PropFlags.ESV_RECT)
+					);
+				},
+			},
+			scale: {
+				get: () => baseRef.current?.scale ?? EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
+				set: (value: number) => {
+					if (!baseRef.current) return;
+					baseRef.current.scale = value;
+					dispatcher.dispatchEvent(
+						new PropertyEvent(PropertyEvent.UPDATE, dispatcher, PropFlags.DSV_SCALE)
+					);
+				},
+			},
+			slide: {
+				get: () => baseRef.current?.slide,
+				set: (value: Slide) => replaceSlide(value),
+			},
+			selectedLayer: {
+				get: () => selectedLayerViewRef.current?.data ?? null,
+			},
+			editingLayer: {
+				get: () => {
+					const selectedLayer = selectedLayerViewRef.current?.data ?? null;
+					if (selectedLayer && selectedLayer.locked && !selectedLayer.visible) return null;
+					return selectedLayer;
+				},
+			},
+		});
+		dispatcher.destroy = () => {
+			layerCleanupsRef.current.forEach((cleanup) => cleanup());
+			layerCleanupsRef.current.clear();
+			baseRef.current?.destroy();
+			dispatcher.clearEventListener();
+		};
+		dispatcher.updateSize = updateSize;
+		dispatcher.selectLayerView = selectLayerView;
+		dispatcher.cut = cut;
+		dispatcher.copy = copy;
+		dispatcher.paste = paste;
+		dispatcher.copyTrans = copyTrans;
+		dispatcher.pasteTrans = pasteTrans;
+		dispatcher.spreadLayers = spreadLayers;
+		dispatcher.runWithSharedLayerRemovalConfirmation = <T,>(
+			confirmed: boolean,
+			operation: () => T
+		): T => {
+			const previous = allowSharedLayerRemovalWithoutConfirmRef.current;
+			allowSharedLayerRemovalWithoutConfirmRef.current = confirmed;
+			try {
+				return operation();
+			} finally {
+				allowSharedLayerRemovalWithoutConfirmRef.current = previous;
 			}
-		} else {
-			if (flag & PropFlags.S_LAYER_REMOVE) {
-				var layer: Layer = pe.options.layer;
-				if (layer.shared && this.sharedLayersByUUID[layer.uuid] != undefined) {
-					if (this.allowSharedLayerRemovalWithoutConfirm) {
-						var transaction = new Transaction();
+		};
+		dispatcher.hasSharedLayerRemovalTargets = (layer: Layer): boolean => {
+			return Boolean(layer.shared && sharedLayersByUUIDRef.current[layer.uuid] !== undefined);
+		};
+		return dispatcher;
+	}, []);
 
-						this.sharedLayersByUUID[layer.uuid].forEach((tmpLayer) => {
-							var slide = tmpLayer.parent;
-							var index = slide.indexOf(tmpLayer);
+	handleRef.current = handle;
+	useImperativeHandle(ref, () => handle);
+
+	const handleOptions = useMemo(
+		() => ({
+			onLayerViewAdded: (layerView: LayerView) => setupLayerView(layerView),
+			onLayerViewRemoving: (layerView: LayerView) => cleanupLayerView(layerView),
+			onSlideUpdate: (event: PropertyEvent) => {
+				if (!isActiveRef.current) return false;
+				const flag = event.propFlags;
+				if (flag & PropFlags.S_LAYER) {
+					const layer: Layer = event.options.layer;
+					if (flag & PropFlags.SHARED) {
+						if (!layer.shared) delete sharedLayersByUUIDRef.current[layer.uuid];
+					} else if (layer.shared) {
+						if (sharedLayersByUUIDRef.current[layer.uuid] === undefined) listSharedLayers(layer);
+						multipleLayerOperation(layer, sharedLayersByUUIDRef.current[layer.uuid], flag);
+						if (flag & PropFlags.IMG_IMAGEID) {
+							delete sharedLayersByUUIDRef.current[layer.uuid];
+							listSharedLayers(layer);
+						}
+					} else if (rectEditRef.current) {
+						const flagForRect =
+							flag &
+							(PropFlags.X |
+								PropFlags.Y |
+								PropFlags.SCALE_X |
+								PropFlags.SCALE_Y |
+								PropFlags.MIRROR_H |
+								PropFlags.MIRROR_V |
+								PropFlags.ROTATION);
+						if (flagForRect)
+							multipleLayerOperation(layer, rectLayersRef.current[layer.uuid], flagForRect);
+					}
+				} else if (flag & PropFlags.S_LAYER_REMOVE) {
+					const layer: Layer = event.options.layer;
+					if (
+						layer.shared &&
+						sharedLayersByUUIDRef.current[layer.uuid] !== undefined &&
+						allowSharedLayerRemovalWithoutConfirmRef.current
+					) {
+						const transaction = new Transaction();
+						sharedLayersByUUIDRef.current[layer.uuid].forEach((tmpLayer) => {
+							const slide = tmpLayer.parent;
+							const index = slide.indexOf(tmpLayer);
 							transaction.record(
 								() => {
 									slide.removeLayer(tmpLayer);
@@ -746,15 +632,78 @@ export class EditableSlideView extends DOMSlideView implements IDroppable {
 								}
 							);
 						});
-
-						delete this.sharedLayersByUUID[layer.uuid];
-						if (transaction.length) {
-							HistoryManager.shared.record(transaction).do();
-						}
+						delete sharedLayersByUUIDRef.current[layer.uuid];
+						if (transaction.length) HistoryManager.shared.record(transaction).do();
 					}
 				}
-			}
-			super.onSlideUpdate(pe);
+				return false;
+			},
+		}),
+		[]
+	);
+
+	useEffect(() => {
+		const base = getBase();
+		base.scale = EDITABLE_SLIDE_VIEW_SCALE_DEFAULT;
+		base.element?.classList.add("editable");
+		handle.isActive = false;
+		const dropHelper = new DropHelper(handle);
+		dropHelper.addEventListener(DropHelper.EVENT_DROP_COMPLETE, (event: CustomEvent) => {
+			const imageId = event.detail;
+			const layer = new ImageLayer(imageId);
+			if (layer.originHeight > layer.originWidth * 1.2) layer.rotation -= 90;
+			HistoryManager.shared
+				.record(
+					new Command(
+						() => {
+							base.slide.addLayer(layer);
+							const layerView = base.getViewByLayer(layer);
+							if (layerView) layerView.selected = true;
+							base.slide.fitLayer(layer);
+						},
+						() => {
+							base.slide.removeLayer(layer);
+							layer.scale = 1;
+						}
+					)
+				)
+				.do();
+		});
+		const onWheel = (event: WheelEvent) => {
+			if (!isActiveRef.current) return;
+			const dScale = (0.1 * event.deltaY) / Math.abs(event.deltaY);
+			handle.scale = handle.scale / (1 + dScale);
+			if (adjustViewRef.current) adjustViewRef.current.base_scale = base.actualScale;
+			event.preventDefault();
+			event.stopPropagation();
+		};
+		const onMouseDown = () => {
+			if (!isActiveRef.current) return;
+			selectLayerView(null);
+		};
+		const onResize = () => {
+			setTimeout(() => updateSize(), 50);
+		};
+		base.element?.addEventListener("wheel", onWheel);
+		base.element?.addEventListener("mousedown", onMouseDown);
+		window.addEventListener("resize", onResize);
+		if (base.element?.clientWidth === 0 && base.element?.clientHeight === 0) {
+			requestAnimationFrame(() => updateSize());
+		} else {
+			updateSize();
 		}
-	}
-}
+		return () => {
+			base.element?.removeEventListener("wheel", onWheel);
+			base.element?.removeEventListener("mousedown", onMouseDown);
+			window.removeEventListener("resize", onResize);
+			dropHelper.clearEventListener();
+		};
+	}, []);
+
+	return (
+		<DOMSlideView ref={baseRef} slide={slide} className="editable" handleOptions={handleOptions}>
+			<AdjustView ref={adjustViewRef} />
+			<div ref={borderRef} className="border" />
+		</DOMSlideView>
+	);
+};

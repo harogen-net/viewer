@@ -81,6 +81,9 @@ export class LayerView extends EventDispatcher {
 	public get data(): Layer {
 		return this._data;
 	}
+	public get element(): HTMLElement {
+		return this.obj[0] as HTMLElement;
+	}
 	public get type(): LayerType {
 		return this._data.type;
 	}

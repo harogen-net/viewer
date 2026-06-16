@@ -165,7 +165,7 @@ function RuntimeNotice({ notice }: { notice: RuntimeNoticePayload }) {
 }
 
 export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
-	const { slides: rawSlides, selectedIndex } = useViewerSlides();
+	const { slides: rawSlides, selectedIndex, revision } = useViewerSlides();
 	const { titles } = useViewerStorage();
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();
@@ -404,7 +404,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				disabled: Boolean(slide.disabled),
 				durationRatio: typeof slide.durationRatio === "number" ? slide.durationRatio : 1,
 			})),
-		[rawSlides, selectedIndex]
+		[rawSlides, selectedIndex, revision]
 	);
 
 	const selectedRawSlide = useMemo(

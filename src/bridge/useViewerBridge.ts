@@ -35,10 +35,23 @@ function useBridgeEvent<K extends keyof ViewerBridgeEventMap>(
 type SlidesState = {
 	slides: readonly Slide[];
 	selectedIndex: number;
+	revision: number;
 };
 
 export function useViewerSlides(): SlidesState {
-	return useBridgeEvent("slidesChanged", { slides: [], selectedIndex: -1 });
+	const [value, setValue] = useState<SlidesState>({ slides: [], selectedIndex: -1, revision: 0 });
+
+	useEffect(() => {
+		return ViewerBridge.subscribe("slidesChanged", (payload) => {
+			setValue((current) => ({
+				slides: payload.slides,
+				selectedIndex: payload.selectedIndex,
+				revision: current.revision + 1,
+			}));
+		});
+	}, []);
+
+	return value;
 }
 
 export function useViewerImageDeleteRequest(): { imageId: string; name: string } | null {

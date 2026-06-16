@@ -1,16 +1,22 @@
 import $ from "jquery";
+import { createElement, createRef } from "react";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-import { DOMSlideView } from "../view/slide/DOMSlideView";
-import { SlideView } from "../view/SlideView";
+import { DOMSlideView, type DOMSlideViewHandle } from "../view/slide/DOMSlideView";
 
 export type SlideShowPlaybackSettings = {
 	interval: number;
 	duration: number;
+};
+
+type SlideShowSlideView = DOMSlideViewHandle & {
+	unmount: () => void;
 };
 
 export class SlideShowViewController extends EventDispatcher {
@@ -22,12 +28,12 @@ export class SlideShowViewController extends EventDispatcher {
 
 	private slideContainer: any;
 
-	private slides: SlideView[] = [];
+	private slides: SlideShowSlideView[] = [];
 	private data: any[];
 	private index: number;
 	private isInit: boolean;
 	private timer: any;
-	private history: SlideView[];
+	private history: SlideShowSlideView[];
 	private mouseMoveTimer: any;
 
 	private interval: number;
@@ -76,20 +82,15 @@ export class SlideShowViewController extends EventDispatcher {
 			return !value.disabled;
 		});
 
-		var slideIndex: number = 0;
-		var lastSlide: Slide = undefined;
 		for (var i: number = 0; i < targetSlides.length; i++) {
 			var slide: Slide = targetSlides[i];
 			var lastSlide: Slide = i == 0 ? targetSlides[targetSlides.length - 1] : targetSlides[i - 1];
 
-			var newObj: any = $("<div />");
 			var slideForSS: Slide = slide.clone();
-			var slideViewForSS: DOMSlideView = new DOMSlideView(slide.clone(), newObj);
 			slideForSS.id = slide.id;
 			slideForSS.durationRatio = slide.durationRatio;
 			slideForSS.joining = slide.joining;
 			slideForSS.disabled = slide.disabled;
-			slideViewForSS.obj.hide();
 
 			var datum: any = {};
 
@@ -97,10 +98,10 @@ export class SlideShowViewController extends EventDispatcher {
 				datum.keep = true;
 				datum.index = this.slides.length - 1;
 			} else {
+				var slideViewForSS = this.createSlideView(slideForSS);
+				slideViewForSS.hide();
 				datum.index = this.slides.length;
 				this.slides.push(slideViewForSS);
-				//this.obj.append(slideForSS.obj);
-				this.slideContainer.append(slideViewForSS.obj);
 			}
 			datum.transforms = [];
 			for (var j: number = 0; j < slide.layers.length; j++) {
@@ -119,16 +120,14 @@ export class SlideShowViewController extends EventDispatcher {
 		if (this.slides.length == 0) {
 			//var slideForSS:SlideView = slides[0].clone();
 
-			var newObj: any = $("<div />");
 			var slideForSS: Slide = slide.clone();
-			var slideViewForSS: DOMSlideView = new DOMSlideView(slideForSS, newObj);
 			slideForSS.id = targetSlides[0].id;
 			slideForSS.durationRatio = targetSlides[0].durationRatio;
 			slideForSS.joining = targetSlides[0].joining;
 			slideForSS.disabled = targetSlides[0].disabled;
+			var slideViewForSS = this.createSlideView(slideForSS);
 
 			this.slides.push(slideViewForSS);
-			this.slideContainer.append(slideViewForSS.obj);
 		}
 
 		//index:-1を解決
@@ -166,7 +165,7 @@ export class SlideShowViewController extends EventDispatcher {
 
 		if (this.slides) {
 			while (this.slides.length > 0) {
-				this.slides.pop().destroy();
+				this.slides.pop().unmount();
 			}
 		}
 
@@ -192,11 +191,10 @@ export class SlideShowViewController extends EventDispatcher {
 
 		if (this.data.length == 1) {
 			this.slides.forEach((slide) => {
-				// $.each(this.slides, (index:number, slide:SlideView) =>{
-				slide.obj.css("opacity", 0);
+				slide.setOpacity(0);
 				//				slide.updateSize();
-				slide.obj.show();
-				slide.obj.animate({ opacity: 1 }, 1000);
+				slide.show();
+				slide.animateOpacity(1, 1000);
 
 				for (var i: number = 0; i < slide.slide.layers.length; i++) {
 					var layer = slide.slide.layers[i];
@@ -216,8 +214,7 @@ export class SlideShowViewController extends EventDispatcher {
 		}
 
 		this.slides.forEach((slide) => {
-			// $.each(this.slides, (index:number, slide:SlideView) =>{
-			slide.obj.css("opacity", 0);
+			slide.setOpacity(0);
 			//slide.updateSize();
 		});
 
@@ -248,12 +245,10 @@ export class SlideShowViewController extends EventDispatcher {
 
 		clearInterval(this.timer);
 		this.slides.forEach((slide) => {
-			// $.each(this.slides, (index:number, slide:SlideView) =>{
-			slide.obj.stop().css({
-				"z-index": 0,
-				opacity: 1,
-			});
-			slide.obj.find(".layerWrapper").css("transition", "");
+			slide.stopAnimation();
+			slide.setZIndex(0);
+			slide.setOpacity(1);
+			slide.setLayerWrapperTransition("");
 		});
 
 		this.stopCursorAutoHide();
@@ -336,38 +331,33 @@ export class SlideShowViewController extends EventDispatcher {
 		this.elapsed = 0;
 
 		var datum: any = this.data[this.index % this.data.length];
-		var slide: SlideView = this.slides[datum.index];
+		var slide: SlideShowSlideView = this.slides[datum.index];
 
 		this.slideDuration = this.interval * datum.durationRatio;
 
 		if (datum.keep && !this.isInit) {
-			slide.obj.stop().css({ opacity: 1 });
+			slide.stopAnimation();
+			slide.setOpacity(1);
 			var keepDurationOffset: number = Math.min(
 				this.slideDuration * 0.2,
 				this.interval - this.duration
 			);
 			var transitionDuration = (this.slideDuration - keepDurationOffset) / 1000;
 			var bezierStr = "cubic-bezier(.4,0,.7,1)";
-			slide.obj
-				.find(".layerWrapper")
-				.css("transition", "transform " + transitionDuration + "s " + bezierStr);
+			slide.setLayerWrapperTransition("transform " + transitionDuration + "s " + bezierStr);
 
 			var imgTransitions: string[] = [];
 			imgTransitions.push("opacity " + transitionDuration + "s linear");
 			imgTransitions.push("clip-path " + transitionDuration + "s " + bezierStr);
 			imgTransitions.push("-webkit-clip-path " + transitionDuration + "s " + bezierStr);
-			slide.obj.find("img").css("transition", imgTransitions.join(", "));
-			//slide.obj.find("img").css("transition", "all " + transitionDuration + "s linear");
-			//slide.obj.find(".layerWrapper").css("transition", "transform " + (this.duration / 1000) + "s cubic-bezier(.4,0,.7,1)");
+			slide.setImageTransition(imgTransitions.join(", "));
 		} else {
-			slide.obj.find(".layerWrapper").css("transition", "");
-			slide.obj.find("img").css("transition", "");
-			slide.obj.show();
-			slide.obj.css({
-				"z-index": this.index + 100,
-				opacity: 0,
-			});
-			slide.obj.animate({ opacity: 1 }, Math.min(this.duration, this.slideDuration));
+			slide.setLayerWrapperTransition("");
+			slide.setImageTransition("");
+			slide.show();
+			slide.setZIndex(this.index + 100);
+			slide.setOpacity(0);
+			slide.animateOpacity(1, Math.min(this.duration, this.slideDuration));
 
 			if (this.history.indexOf(slide) != -1) {
 				this.history.splice(this.history.indexOf(slide), 1);
@@ -399,7 +389,7 @@ export class SlideShowViewController extends EventDispatcher {
 		this.index++;
 
 		if (this.history.length > 2) {
-			this.history.shift().obj.hide();
+			this.history.shift().hide();
 		}
 		this.isInit = false;
 	}
@@ -493,14 +483,30 @@ export class SlideShowViewController extends EventDispatcher {
 		let offsetX = (dispWidth - ViewerDocument.shared.width) / 2;
 		let offsetY = (dispHeight - ViewerDocument.shared.height) / 2;
 
-		this.slideContainer.find(".slide").each((i, elem) => {
-			$(elem).css(
-				"transform",
-				"translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")"
+		this.slides.forEach((slide) => {
+			slide.setDisplayTransform(
+				"translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")",
+				ViewerDocument.shared.width,
+				ViewerDocument.shared.height
 			);
-			$(elem).css("width", ViewerDocument.shared.width + "px");
-			$(elem).css("height", ViewerDocument.shared.height + "px");
 		});
+	}
+
+	private createSlideView(slide: Slide): SlideShowSlideView {
+		const host = document.createElement("div");
+		this.slideContainer[0].appendChild(host);
+		const ref = createRef<DOMSlideViewHandle>();
+		const root: Root = createRoot(host);
+		flushSync(() => {
+			root.render(createElement(DOMSlideView, { ref, slide }));
+		});
+		const handle = ref.current as SlideShowSlideView;
+		handle.unmount = () => {
+			handle.destroy();
+			root.unmount();
+			host.remove();
+		};
+		return handle;
 	}
 
 	//スライドの構造が同じかどうかを調べる

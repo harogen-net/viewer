@@ -1,4 +1,6 @@
-import $ from "jquery";
+import { createElement, createRef } from "react";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
@@ -9,18 +11,38 @@ import { Direction, Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
 import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
-import { EditableSlideView } from "../view/slide/EditableSlideView";
+import {
+    EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
+    EditableSlideView,
+    type EditableSlideViewHandle,
+} from "../view/slide/EditableSlideView";
 import { ViewerMode } from "../Viewer";
 
 export class EditViewController extends EventDispatcher {
-	public slideView: EditableSlideView;
+	public slideView: EditableSlideViewHandle;
 	private observedLayer: Layer | null = null;
+	private readonly slideViewRoot: Root;
+	private readonly slideViewHost: HTMLDivElement;
+	private readonly slideViewRef = createRef<EditableSlideViewHandle>();
 
 	constructor(public obj: any) {
 		super();
 		this.obj.addClass("slideCanvas");
 
-		this.slideView = new EditableSlideView(new Slide(), $("<div />").appendTo(this.obj));
+		this.slideViewHost = document.createElement("div");
+		this.slideViewHost.style.width = "100%";
+		this.slideViewHost.style.height = "100%";
+		this.obj[0].appendChild(this.slideViewHost);
+		this.slideViewRoot = createRoot(this.slideViewHost);
+		flushSync(() => {
+			this.slideViewRoot.render(
+				createElement(EditableSlideView, {
+					ref: this.slideViewRef,
+					slide: new Slide(),
+				})
+			);
+		});
+		this.slideView = this.slideViewRef.current as EditableSlideViewHandle;
 
 		this.slideView.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			if (pe.propFlags & PropFlags.LV_SELECT) {
@@ -530,7 +552,12 @@ export class EditViewController extends EventDispatcher {
 		const layer = this.slideView.editingLayer;
 		if (!layer) return false;
 		const fromIndex = this.slide.indexOf(layer);
-		if (fromIndex === -1 || toIndex < 0 || toIndex >= this.slide.layers.length || fromIndex === toIndex) {
+		if (
+			fromIndex === -1 ||
+			toIndex < 0 ||
+			toIndex >= this.slide.layers.length ||
+			fromIndex === toIndex
+		) {
 			return false;
 		}
 		HistoryManager.shared
@@ -918,12 +945,7 @@ export class EditViewController extends EventDispatcher {
 		return true;
 	}
 
-	public setSelectedImageClip(
-		top: number,
-		right: number,
-		bottom: number,
-		left: number
-	): boolean {
+	public setSelectedImageClip(top: number, right: number, bottom: number, left: number): boolean {
 		const layer = this.slideView.editingLayer;
 		if (!layer || layer.type != LayerType.IMAGE) return false;
 		const values = [top, right, bottom, left];
@@ -979,7 +1001,7 @@ export class EditViewController extends EventDispatcher {
 	}
 
 	public resetCanvasZoom(): void {
-		this.setCanvasScale(EditableSlideView.SCALE_DEFAULT);
+		this.setCanvasScale(EDITABLE_SLIDE_VIEW_SCALE_DEFAULT);
 	}
 
 	public setCanvasScale(scale: number): boolean {

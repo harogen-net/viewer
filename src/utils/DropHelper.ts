@@ -1,7 +1,7 @@
+import naturalCompare from "natural-compare";
 import { EventDispatcher } from "../events/EventDispatcher";
 import { IDroppable } from "../interface/IDroppable";
 import { ImageManager } from "./ImageManager";
-import naturalCompare from "natural-compare";
 
 export class DropHelper extends EventDispatcher {
 	public static readonly EVENT_DROP_COMPLETE: string = "DropHelper.EVENT_DROP_COMPLETE";
@@ -10,28 +10,28 @@ export class DropHelper extends EventDispatcher {
 	constructor(target: IDroppable) {
 		super();
 
-		var obj: any = target.obj;
+		const getElement = () => target.element;
 
-		obj.on("dragover.dropManager", (e: any) => {
+		getElement()?.addEventListener("dragover", (e: DragEvent) => {
 			if (!target.isActive) return;
 
 			e.preventDefault();
-			e.stopImmediatePropagation();
-			obj.addClass("fileOver");
+			e.stopPropagation();
+			getElement()?.classList.add("fileOver");
 		});
-		obj.on("dragleave.dropManager", (e: any) => {
+		getElement()?.addEventListener("dragleave", () => {
 			if (!target.isActive) return;
 
-			obj.removeClass("fileOver");
+			getElement()?.classList.remove("fileOver");
 		});
-		obj.on("drop.dropManager", async (e: any) => {
+		getElement()?.addEventListener("drop", async (e: DragEvent) => {
 			if (!target.isActive) return;
 
 			e.preventDefault();
-			e.stopImmediatePropagation();
-			obj.removeClass("fileOver");
+			e.stopPropagation();
+			getElement()?.classList.remove("fileOver");
 
-			var droppedImageId: string = e.originalEvent.dataTransfer.getData("imageId");
+			var droppedImageId: string = e.dataTransfer?.getData("imageId") ?? "";
 			if (droppedImageId && droppedImageId.length > 0) {
 				var ce: CustomEvent = new CustomEvent(DropHelper.EVENT_DROP_COMPLETE, {
 					detail: droppedImageId,
@@ -42,12 +42,7 @@ export class DropHelper extends EventDispatcher {
 
 			// var files:File[] = [];
 			// //e.originalEvent.dataTransfer.files.forEach(file=>{
-			// $.each(e.originalEvent.dataTransfer.files, (index:number, file:File) => {
-			// 	files.push(file);
-			// 	console.log(file);
-			// });
-
-			var files: File[] = Array.from(e.originalEvent.dataTransfer.files) as File[];
+			var files: File[] = Array.from(e.dataTransfer?.files ?? []) as File[];
 
 			if (files.length > 1) {
 				var dic: any = {};
