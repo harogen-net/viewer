@@ -1,4 +1,4 @@
-import { ViewerDocument } from "../model/ViewerDocument";
+import type { ViewerDocument } from "../model/ViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
 import {
 	createStorageOperationError,
@@ -78,10 +78,8 @@ export class DocumentStorageUseCase {
 			return Promise.resolve(this.fail(StorageAction.DELETE, StorageErrorCode.INVALID_ARGUMENT));
 		}
 
-		return this.executeAsyncResult(
-			StorageAction.DELETE,
-			this.canDeleteSavedData(),
-			() => this.performDelete(recordId)
+		return this.executeAsyncResult(StorageAction.DELETE, this.canDeleteSavedData(), () =>
+			this.performDelete(recordId)
 		);
 	}
 
@@ -178,10 +176,8 @@ export class DocumentStorageUseCase {
 	}
 
 	private performLoad(recordId: StorageRecordId): Promise<void> {
-		return this.waitForStorageCompletion(
-			StorageEventType.LOADED,
-			"load operation timed out",
-			() => this.storage.load(recordId)
+		return this.waitForStorageCompletion(StorageEventType.LOADED, "load operation timed out", () =>
+			this.storage.load(recordId)
 		);
 	}
 
@@ -261,7 +257,9 @@ export class DocumentStorageUseCase {
 		if (error && typeof error == "object" && "code" in error) {
 			const code = (error as { code?: unknown }).code;
 			if (typeof code == "string") {
-				const matched = (Object.values(StorageErrorCode) as string[]).find((value) => value == code);
+				const matched = (Object.values(StorageErrorCode) as string[]).find(
+					(value) => value == code
+				);
 				if (matched) {
 					return matched as StorageErrorCode;
 				}

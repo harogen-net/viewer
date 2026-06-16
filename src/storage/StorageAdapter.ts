@@ -1,4 +1,4 @@
-import { ViewerDocument } from "../model/ViewerDocument";
+import type { ViewerDocument } from "../model/ViewerDocument";
 import { HVDataType, SlideTitle } from "./storageTypes";
 
 export type StorageRecordId = string;

@@ -4,11 +4,11 @@ import { LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
-import { ViewerDocument } from "../model/ViewerDocument";
+import { createViewerDocument, type ViewerDocument } from "../model/ViewerDocument";
 import {
-    createStorageOperationError,
-    StorageErrorCode,
-    type StorageExportOptions,
+	createStorageOperationError,
+	StorageErrorCode,
+	type StorageExportOptions,
 } from "../storage/StorageAdapter";
 import { HVDataType, SlideTitle } from "../storage/storageTypes";
 import { Viewer } from "../Viewer";
@@ -99,7 +99,7 @@ export class SlideStorage {
 	save(doc: ViewerDocument, isOverride: boolean = false): Promise<void> {
 		console.log("save at SlideStorage,", doc, isOverride);
 
-		let title = isOverride ? doc.title : DateUtil.getDateString();
+		let title = doc.title;
 		let id = this.idByTitle[title];
 
 		let jsonStr: string = this.stringifyData(doc);
@@ -131,7 +131,6 @@ export class SlideStorage {
 			const dataPutReq = this.dataStore.put({ title: title, data: jsonStr });
 			dataPutReq.onerror = onRequestError;
 			dataPutReq.onsuccess = () => {
-				doc.title = title; //新データとなるのでタイトルを変更
 				this.updateTitleMenu();
 				resolve();
 			};
@@ -332,11 +331,6 @@ export class SlideStorage {
 	//
 
 	private stringifyData(doc: ViewerDocument): string {
-		//MARK : 更新時間上書き
-		doc.editTime = new Date().getTime();
-
-		//
-
 		//console.log("stringifyData start ------------");
 
 		let json: any = {};
@@ -384,6 +378,10 @@ export class SlideStorage {
 	private async parseData(jsonStr: string, options?: any) {
 		let slides: Slide[] = [];
 		options = options || {};
+		options.title = options.title || DateUtil.getDateString();
+		options.bgColor = options.bgColor || "#000000";
+		options.createTime = options.createTime || new Date().getTime();
+		options.editTime = options.editTime || options.createTime;
 
 		let json: any = JSON.parse(jsonStr);
 
@@ -522,7 +520,7 @@ export class SlideStorage {
 			if (json.createTime) options.createTime = json.createTime;
 			if (json.editTime) options.editTime = json.editTime;
 
-			return new ViewerDocument(slides, options);
+			return createViewerDocument(slides, options);
 		}
 	}
 	//

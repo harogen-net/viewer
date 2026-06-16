@@ -1,7 +1,7 @@
 import * as StackBlur from "stackblur-canvas";
 import { LayerType } from "../model/Layer";
 import { Slide } from "../model/Slide";
-import { ViewerDocument } from "../model/ViewerDocument";
+import type { ViewerDocument } from "../model/ViewerDocument";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { ImageManager } from "./ImageManager";
 

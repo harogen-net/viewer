@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { Layer } from "../model/Layer";
 import { Slide } from "../model/Slide";
-import { ViewerDocument } from "../model/ViewerDocument";
+import type { ViewerDocument } from "../model/ViewerDocument";
 import {
 	type EditCanvasState,
 	type EditLayerListItem,
