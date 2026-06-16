@@ -323,6 +323,9 @@ CI実行時のレポート収集:
 - 2026-06-16: React RuntimeShell のスライド一覧と重複していた legacy サムネイルDOMを削除し、`ListViewController` をスライド配列・選択状態の管理だけに縮小。`ThumbSlideView` / `CanvasSlideView`、旧 `.slideList` CSSを削除し、`.list` host は React `MainShell` の表示用スライドリストとして復旧。編集キャンバスの表示CSSは Viewer が付与する `body` の mode class に合わせて整理。DOMなし削除時の選択保持を usecase テストで追加確認。
 - 確認: `npm run test:usecase`
 - 結果: 58 tests / 58 pass。
+- 2026-06-16: `src/view` 配下の残存 view クラスファイル（LayerView / SlideView / DOMSlideView / EditableSlideView / AdjustView / ImageView / TextView）を React 移行準備として `.tsx` へ変更。現段階では既存DOM viewクラスを維持し、今後コンポーネント化するものは `export const XxxComponent = () => { return <></>; }` 形式で追加する方針に統一。
+- 確認: `npm run test:usecase`
+- 結果: 58 tests / 58 pass。
 
 ## 7. 非機能テスト
 - 初期表示時間

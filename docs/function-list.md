@@ -261,7 +261,7 @@
 - src/viewController/ListViewController.ts
 - src/viewController/EditViewController.ts
 - src/viewController/SlideShowViewController.ts
-- src/view/slide/EditableSlideView.ts
+- src/view/slide/EditableSlideView.tsx
 - src/utils/SlideStorage.ts
 - src/utils/ImageManager.ts
 - src/viewController/file/FileSelector.ts
