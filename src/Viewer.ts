@@ -18,8 +18,8 @@ import { Command, HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { EditViewController } from "./viewController/EditViewController";
 import {
-	SlideShowPlaybackSettings,
-	SlideShowViewController,
+    SlideShowPlaybackSettings,
+    SlideShowViewController,
 } from "./viewController/SlideShowViewController";
 
 export const ViewerMode = {
@@ -271,8 +271,8 @@ export class Viewer {
 		var slides: Slide[] = [];
 		var startIndex: number = 0;
 
-		for (var i: number = 0; i < this.viewerDocument.slides.length; i++) {
-			var slide: Slide = this.viewerDocument.slides[i];
+		for (var i: number = 0; i < this.slides.length; i++) {
+			var slide: Slide = this.slides[i];
 			if (slide.disabled) continue;
 			slides.push(slide.clone());
 			if (i == this.selectedSlideIndex) startIndex = slides.length - 1;
@@ -492,7 +492,7 @@ export class Viewer {
 		window.addEventListener(
 			"beforeunload",
 			(e) => {
-				if (this.viewerDocument.slides.length > 0 || !Viewer.isStrictMode) {
+				if (this.slides.length > 0 || !Viewer.isStrictMode) {
 					e.returnValue = "ページを離れます。よろしいですか？";
 				}
 			},
@@ -535,6 +535,7 @@ export class Viewer {
 
 	//priate methods
 	private newDocument(nextDocument?: ViewerDocument) {
+		const nextSlides = nextDocument ? nextDocument.getStoredSlides() : null;
 		if (this.viewerDocument) {
 			this.viewerDocument = null;
 
@@ -552,12 +553,13 @@ export class Viewer {
 			ImageManager.shared.initialize();
 			nextDocument = new ViewerDocument();
 		}
+		const slidesToBind = nextSlides ?? nextDocument.getStoredSlides();
 		this.viewerDocument = nextDocument;
 		this.slideShowBgColor = this.viewerDocument.bgColor;
 		this.slideShowVC.fullscreen = this.slideShowFullscreen;
 		this.slideShowVC.mirrorH = this.slideShowMirrorH;
 		this.slideShowVC.mirrorV = this.slideShowMirrorV;
-		this.setSlides(this.viewerDocument.slides);
+		this.setSlides(slidesToBind);
 		this.IsDocumentModified = false;
 		this.emitHistoryState();
 		this.emitEditSelectionState();
@@ -946,7 +948,7 @@ export class Viewer {
 		this._slideMetaUnsubscribers = [];
 		if (!this.viewerDocument) return;
 		const handler = () => this.emitCurrentSlides();
-		for (const slide of this.viewerDocument.slides) {
+		for (const slide of this.slides) {
 			slide.addEventListener(PropertyEvent.UPDATE, handler);
 			this._slideMetaUnsubscribers.push(() =>
 				slide.removeEventListener(PropertyEvent.UPDATE, handler)
@@ -992,7 +994,7 @@ export class Viewer {
 
 	public commandNewDocument(confirmed = false): void {
 		if (!this.ensureAllowed(this.canEdit(), "新規作成")) return;
-		if (this.viewerDocument.slides.length == 0) return;
+		if (this.slides.length == 0) return;
 		if (
 			!confirmed &&
 			this.IsDocumentModified &&

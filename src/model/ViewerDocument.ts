@@ -12,9 +12,11 @@ export class ViewerDocument {
 	public static shared: ViewerDocument = null;
 
 	private readonly BG_COLOR_INIT: string = "#000000";
+	private _slides: Slide[];
 
 	constructor(slides?: Slide[], options?: any) {
 		console.log("const at vdoc", slides, options);
+		this._slides = slides || [];
 
 		var bgColor: string | undefined = this.BG_COLOR_INIT;
 		var createTime: number | undefined = new Date().getTime();
@@ -46,7 +48,7 @@ export class ViewerDocument {
 			width,
 			height,
 			bgColor,
-			slides: slides || [],
+			slides: this._slides,
 		});
 	}
 
@@ -61,6 +63,9 @@ export class ViewerDocument {
 	}
 	public getNextSlide(slide: Slide): Slide | null {
 		return slideStore.getState().getNextSlide(slide);
+	}
+	public getStoredSlides(): Slide[] {
+		return [...this._slides];
 	}
 	//FileIO
 	public downloadImage(targetIndex: number = -1) {
@@ -113,10 +118,16 @@ export class ViewerDocument {
 	// get set
 	//
 	public get slides(): Slide[] {
-		return slideStore.getState().slides as Slide[];
+		if (viewerDocumentStore.getState().document === this) {
+			return slideStore.getState().slides as Slide[];
+		}
+		return this._slides;
 	}
 	public set slides(value: Slide[]) {
-		slideStore.getState().setSlides(value || []);
+		this._slides = value || [];
+		if (viewerDocumentStore.getState().document === this) {
+			slideStore.getState().setSlides(this._slides);
+		}
 	}
 
 	public get duration(): number | undefined {
