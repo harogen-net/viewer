@@ -1,7 +1,7 @@
 import { createElement, createRef, type FunctionComponent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
@@ -23,7 +23,15 @@ const EditableSlideViewForRender = EditableSlideView as unknown as FunctionCompo
 	slide: Slide;
 }>;
 
-export class EditViewController extends EventDispatcher {
+export class EditViewController {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	public slideView: EditableSlideViewHandle;
 	private observedLayer: Layer | null = null;
 	private readonly slideViewRoot: Root;
@@ -31,7 +39,7 @@ export class EditViewController extends EventDispatcher {
 	private readonly slideViewRef = createRef<EditableSlideViewHandle>();
 
 	constructor(public obj: any) {
-		super();
+		attachEventDispatcher(this);
 		this.obj.addClass("slideCanvas");
 
 		this.slideViewHost = document.createElement("div");

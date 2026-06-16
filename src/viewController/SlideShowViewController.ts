@@ -2,7 +2,7 @@ import $ from "jquery";
 import { createElement, createRef, type FunctionComponent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
@@ -24,7 +24,15 @@ const DOMSlideViewForRender = DOMSlideView as unknown as FunctionComponent<{
 	slide: Slide;
 }>;
 
-export class SlideShowViewController extends EventDispatcher {
+export class SlideShowViewController {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	private _isRun: boolean;
 	private _isPause: boolean;
 	private _fullscreen: boolean;
@@ -52,7 +60,7 @@ export class SlideShowViewController extends EventDispatcher {
 	//private readonly RUN_IN_WINDOW:boolean = true;
 
 	constructor(public obj: any) {
-		super();
+		attachEventDispatcher(this);
 
 		obj.addClass("slideShow");
 		document.addEventListener("webkitfullscreenchange", () => {

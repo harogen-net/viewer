@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
@@ -18,7 +18,15 @@ import { ImageManager } from "./ImageManager";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
 
-export class SlideStorage extends EventDispatcher {
+export class SlideStorage {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	private static instance: SlideStorage;
 
 	public static getInstance(): SlideStorage {
@@ -38,8 +46,13 @@ export class SlideStorage extends EventDispatcher {
 
 	private embedder: PNGEmbedder;
 
-	private dispatchStorageError(message: string, code: StorageErrorCode = StorageErrorCode.STORAGE_IO_ERROR) {
-		this.dispatchEvent(new CustomEvent("error", { detail: createStorageOperationError(code, message) }));
+	private dispatchStorageError(
+		message: string,
+		code: StorageErrorCode = StorageErrorCode.STORAGE_IO_ERROR
+	) {
+		this.dispatchEvent(
+			new CustomEvent("error", { detail: createStorageOperationError(code, message) })
+		);
 	}
 
 	public titles: SlideTitle[] = [];
@@ -47,7 +60,7 @@ export class SlideStorage extends EventDispatcher {
 	public idByTitle: { [key: string]: number } = {};
 
 	private constructor() {
-		super();
+		attachEventDispatcher(this);
 
 		let create = () => {
 			let openReq = indexedDB.open(SlideStorage.DBNAME);
@@ -104,7 +117,11 @@ export class SlideStorage extends EventDispatcher {
 			};
 
 			if (id) {
-				const titlePutReq = this.titleStore.put({ id: id, title: title, update: new Date().getTime() });
+				const titlePutReq = this.titleStore.put({
+					id: id,
+					title: title,
+					update: new Date().getTime(),
+				});
 				titlePutReq.onerror = onRequestError;
 			} else {
 				const titleAddReq = this.titleStore.add({ title: title, update: new Date().getTime() });
@@ -121,7 +138,11 @@ export class SlideStorage extends EventDispatcher {
 		});
 	}
 
-	public export(doc: ViewerDocument, type: HVDataType, options?: StorageExportOptions): Promise<void> {
+	public export(
+		doc: ViewerDocument,
+		type: HVDataType,
+		options?: StorageExportOptions
+	): Promise<void> {
 		let jsonStr: string = this.stringifyData(doc);
 
 		//
@@ -129,28 +150,26 @@ export class SlideStorage extends EventDispatcher {
 		switch (type) {
 			case HVDataType.PNG:
 				return new Promise<void>((resolve, reject) => {
-				let pages: number[] = options ? options.pages || [] : [];
-				let thumbPng = new SlideToPNGConverter().convert(doc, pages, false);
-				var zip = new JSZip();
-				zip.file("data.hvd", jsonStr);
-				zip.generateAsync({ type: "uint8array", compression: "DEFLATE" })
-					.then((u8a) => {
-						this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL: string) => {
-							DataUtil.downloadBlob(
-								DataUtil.dataURItoBlob(embeddedPngDataURL),
-								SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png"
+					let pages: number[] = options ? options.pages || [] : [];
+					let thumbPng = new SlideToPNGConverter().convert(doc, pages, false);
+					var zip = new JSZip();
+					zip.file("data.hvd", jsonStr);
+					zip
+						.generateAsync({ type: "uint8array", compression: "DEFLATE" })
+						.then((u8a) => {
+							this.embedder.embed(thumbPng, u8a, (embeddedPngDataURL: string) => {
+								DataUtil.downloadBlob(
+									DataUtil.dataURItoBlob(embeddedPngDataURL),
+									SlideStorage.PNG_DATA_FILE_PREFIX + doc.title + ".png"
+								);
+								resolve();
+							});
+						})
+						.catch(() => {
+							reject(
+								createStorageOperationError(StorageErrorCode.STORAGE_IO_ERROR, "png export failed")
 							);
-							resolve();
 						});
-					})
-					.catch(() => {
-						reject(
-							createStorageOperationError(
-								StorageErrorCode.STORAGE_IO_ERROR,
-								"png export failed"
-							)
-						);
-					});
 				});
 			case HVDataType.HVD:
 				let blob = new Blob([jsonStr], { type: "text/plain" });
@@ -158,28 +177,23 @@ export class SlideStorage extends EventDispatcher {
 				return Promise.resolve();
 			case HVDataType.HVZ:
 				return new Promise<void>((resolve, reject) => {
-				var zip = new JSZip();
-				zip.file(doc.title + ".hvd", jsonStr);
-				zip.generateAsync({ type: "blob", compression: "DEFLATE" })
-					.then((blob) => {
-						DataUtil.downloadBlob(blob, doc.title + ".hvz");
-						resolve();
-					})
-					.catch(() => {
-						reject(
-							createStorageOperationError(
-								StorageErrorCode.STORAGE_IO_ERROR,
-								"hvz export failed"
-							)
-						);
-					});
+					var zip = new JSZip();
+					zip.file(doc.title + ".hvd", jsonStr);
+					zip
+						.generateAsync({ type: "blob", compression: "DEFLATE" })
+						.then((blob) => {
+							DataUtil.downloadBlob(blob, doc.title + ".hvz");
+							resolve();
+						})
+						.catch(() => {
+							reject(
+								createStorageOperationError(StorageErrorCode.STORAGE_IO_ERROR, "hvz export failed")
+							);
+						});
 				});
 			default:
 				return Promise.reject(
-					createStorageOperationError(
-					StorageErrorCode.INVALID_ARGUMENT,
-					"unsupported export type"
-					)
+					createStorageOperationError(StorageErrorCode.INVALID_ARGUMENT, "unsupported export type")
 				);
 		}
 	}
@@ -249,10 +263,7 @@ export class SlideStorage extends EventDispatcher {
 			let obj = await dataFile.async("uint8array");
 			let jsonStr: string = new TextDecoder().decode(obj);
 			if (!jsonStr) {
-				throw createStorageOperationError(
-					StorageErrorCode.PARSE_ERROR,
-					"embedded data is empty"
-				);
+				throw createStorageOperationError(StorageErrorCode.PARSE_ERROR, "embedded data is empty");
 			}
 			let title: string = file.name.split(".png")[0].split(SlideStorage.PNG_DATA_FILE_PREFIX)[1];
 			this.dispatchEvent(
@@ -380,10 +391,7 @@ export class SlideStorage extends EventDispatcher {
 
 		//ver1
 		if (json.version == 1 || json.version == undefined) {
-			throw createStorageOperationError(
-				StorageErrorCode.UNSUPPORTED_VERSION,
-				"too old version"
-			);
+			throw createStorageOperationError(StorageErrorCode.UNSUPPORTED_VERSION, "too old version");
 		}
 
 		//ver2
@@ -421,10 +429,7 @@ export class SlideStorage extends EventDispatcher {
 
 				let imageId = imageIds[i];
 				if (json.imageData[imageId] == undefined) {
-					throw createStorageOperationError(
-						StorageErrorCode.MISSING_ASSET,
-						"missing image asset"
-					);
+					throw createStorageOperationError(StorageErrorCode.MISSING_ASSET, "missing image asset");
 				}
 				await ImageManager.shared.registImageData(imageId, json.imageData[imageId]);
 			}

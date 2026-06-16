@@ -1,5 +1,9 @@
 import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from "react";
-import { EventDispatcher } from "../../events/EventDispatcher";
+import {
+	useEventDispatcher,
+	type EventDispatcher,
+	type EventListenerMap,
+} from "../../events/EventDispatcher";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { Layer } from "../../model/Layer";
 import { PropFlags } from "../../model/PropFlags";
@@ -55,6 +59,7 @@ const clampScale = (value: number, min: number, max: number) => {
 export const createDOMSlideViewHandle = (
 	elementRef: React.RefObject<HTMLDivElement | null>,
 	containerRef: React.RefObject<HTMLDivElement | null>,
+	eventDispatcher: EventDispatcher,
 	options: DOMSlideViewHandleOptions = {}
 ): DOMSlideViewHandle => {
 	let slideValue: Slide | null = null;
@@ -64,7 +69,7 @@ export const createDOMSlideViewHandle = (
 	const scaleMin = 0.2;
 	const scaleMax = 5;
 	const layerViews: LayerView[] = [];
-	const dispatcher = new EventDispatcher() as DOMSlideViewHandle;
+	const dispatcher = eventDispatcher as DOMSlideViewHandle;
 
 	const getElement = () => elementRef.current;
 	const getContainer = () => containerRef.current;
@@ -279,10 +284,33 @@ export const DOMSlideView = ({
 }: DOMSlideViewProps) => {
 	const elementRef = useRef<HTMLDivElement | null>(null);
 	const containerRef = useRef<HTMLDivElement | null>(null);
+	const listenersRef = useRef<EventListenerMap>({});
+	const {
+		listeners,
+		dispatchEvent,
+		addEventListener,
+		removeEventListener,
+		clearEventListener,
+		containEventListener,
+		hasEventListener,
+	} = useEventDispatcher(listenersRef);
 	const handleRef = useRef<DOMSlideViewHandle | null>(null);
 
 	if (!handleRef.current) {
-		handleRef.current = createDOMSlideViewHandle(elementRef, containerRef, handleOptions);
+		handleRef.current = createDOMSlideViewHandle(
+			elementRef,
+			containerRef,
+			{
+				listeners,
+				dispatchEvent,
+				addEventListener,
+				removeEventListener,
+				clearEventListener,
+				containEventListener,
+				hasEventListener,
+			},
+			handleOptions
+		);
 	}
 
 	useImperativeHandle(ref, () => handleRef.current as DOMSlideViewHandle);

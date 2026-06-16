@@ -1,6 +1,14 @@
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 
-export class KeyboardManager extends EventDispatcher {
+export class KeyboardManager {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	private static _instance: KeyboardManager;
 
 	/** インスタンスの取得 */
@@ -35,7 +43,7 @@ export class KeyboardManager extends EventDispatcher {
 	private readonly xKey: number = 88;
 
 	private constructor() {
-		super();
+		attachEventDispatcher(this);
 		this.input_key_buffer = [];
 
 		document.onkeydown = (e) => {

@@ -7,7 +7,11 @@ import {
 	type ReactNode,
 	type Ref,
 } from "react";
-import { EventDispatcher } from "../../events/EventDispatcher";
+import {
+	useEventDispatcher,
+	type EventDispatcher,
+	type EventListenerMap,
+} from "../../events/EventDispatcher";
 import { PropertyEvent } from "../../events/PropertyEvent";
 import { IDroppable } from "../../interface/IDroppable";
 import { Layer, LayerType } from "../../model/Layer";
@@ -96,6 +100,16 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 	const allowSharedLayerRemovalWithoutConfirmRef = useRef(false);
 	const layerCleanupsRef = useRef(new Map<LayerView, LayerCleanup>());
 	const handleRef = useRef<EditableSlideViewHandle | null>(null);
+	const listenersRef = useRef<EventListenerMap>({});
+	const {
+		listeners,
+		dispatchEvent,
+		addEventListener,
+		removeEventListener,
+		clearEventListener,
+		containEventListener,
+		hasEventListener,
+	} = useEventDispatcher(listenersRef);
 
 	const getBase = () => baseRef.current as DOMSlideViewHandle;
 	const getAdjustView = () => adjustViewRef.current as AdjustViewHandle;
@@ -505,7 +519,15 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 	};
 
 	const handle = useMemo(() => {
-		const dispatcher = new EventDispatcher() as EditableSlideViewHandle;
+		const dispatcher = {
+			listeners,
+			dispatchEvent,
+			addEventListener,
+			removeEventListener,
+			clearEventListener,
+			containEventListener,
+			hasEventListener,
+		} as EditableSlideViewHandle;
 		Object.defineProperties(dispatcher, {
 			element: {
 				get: () => baseRef.current?.element ?? null,
@@ -607,7 +629,15 @@ export const EditableSlideView = ({ ref, slide }: EditableSlideViewProps) => {
 			return Boolean(layer.shared && sharedLayersByUUIDRef.current[layer.uuid] !== undefined);
 		};
 		return dispatcher;
-	}, []);
+	}, [
+		addEventListener,
+		clearEventListener,
+		containEventListener,
+		dispatchEvent,
+		hasEventListener,
+		listeners,
+		removeEventListener,
+	]);
 
 	handleRef.current = handle;
 	useImperativeHandle(ref, () => handle);

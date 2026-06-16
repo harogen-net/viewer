@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { Viewer } from "../Viewer";
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer } from "./Layer";
 import { PropFlags } from "./PropFlags";
@@ -15,7 +15,15 @@ export const Direction = {
 
 export type Direction = (typeof Direction)[keyof typeof Direction];
 
-export class Slide extends EventDispatcher {
+export class Slide {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	static readonly LAYER_NUM_MAX: number = 20;
 
 	//
@@ -34,7 +42,7 @@ export class Slide extends EventDispatcher {
 		height: number = 0,
 		protected _layers: Layer[] = []
 	) {
-		super();
+		attachEventDispatcher(this);
 
 		this._uuid = uuidv4();
 		this._width =

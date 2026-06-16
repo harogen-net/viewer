@@ -1,14 +1,22 @@
 import naturalCompare from "natural-compare";
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { IDroppable } from "../interface/IDroppable";
 import { ImageManager } from "./ImageManager";
 
-export class DropHelper extends EventDispatcher {
+export class DropHelper {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	public static readonly EVENT_DROP_COMPLETE: string = "DropHelper.EVENT_DROP_COMPLETE";
 	public static readonly EVENT_DROP_SLIDEDATA: string = "DropHelper.EVENT_DROP_SLIDEDATA";
 
 	constructor(target: IDroppable) {
-		super();
+		attachEventDispatcher(this);
 
 		const getElement = () => target.element;
 

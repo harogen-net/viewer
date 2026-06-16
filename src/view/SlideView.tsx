@@ -1,28 +1,20 @@
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
+import {
+	useEventDispatcher,
+	type EventDispatcher,
+	type EventListenerMap,
+} from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
 import { Slide } from "../model/Slide";
 
-type ListenerEntry = {
-	type: string;
-	handler: Function;
-	priolity: number;
-};
-
-export type SlideViewHandle = {
-	readonly listeners: Record<string, ListenerEntry[]>;
+export type SlideViewHandle = EventDispatcher & {
 	readonly element: HTMLDivElement | null;
 	readonly selected: boolean;
 	setSelected: (value: boolean) => void;
 	readonly slide: Slide | null;
 	setSlide: (value: Slide | null) => void;
 	destroy: () => void;
-	dispatchEvent: (event: Event) => void;
-	addEventListener: (type: string, callback: Function, priolity?: number) => void;
-	removeEventListener: (type: string, callback: Function) => void;
-	clearEventListener: () => void;
-	containEventListener: (type: string) => boolean;
-	hasEventListener: (type: string, callback: Function) => boolean;
 };
 
 export type SlideView = SlideViewHandle;
@@ -36,10 +28,6 @@ type SlideViewProps = {
 	onSlideUpdate?: (event: PropertyEvent) => void;
 };
 
-const sortListeners = (listeners: ListenerEntry[]) => {
-	listeners.sort((listener1, listener2) => listener2.priolity - listener1.priolity);
-};
-
 export const SlideView = ({
 	ref,
 	slide: initialSlide,
@@ -49,58 +37,22 @@ export const SlideView = ({
 	onSlideUpdate,
 }: SlideViewProps) => {
 	const elementRef = useRef<HTMLDivElement | null>(null);
-	const listenersRef = useRef<Record<string, ListenerEntry[]>>({});
+	const listenersRef = useRef<EventListenerMap>({});
+	const {
+		listeners,
+		dispatchEvent,
+		addEventListener,
+		removeEventListener,
+		clearEventListener,
+		containEventListener,
+		hasEventListener,
+	} = useEventDispatcher(listenersRef);
 	const slideRef = useRef<Slide | null>(null);
 	const onSlideUpdateRef = useRef(onSlideUpdate);
 	const [selected, setSelectedState] = useState(initialSelected);
 	const [renderedSlide, setRenderedSlide] = useState<Slide | null>(initialSlide);
 	const selectedRef = useRef(initialSelected);
 	const handleRef = useRef<SlideViewHandle | null>(null);
-
-	const dispatchEvent = (event: Event): void => {
-		const entries = listenersRef.current[event.type];
-		if (!entries) return;
-
-		entries.slice().forEach((listener) => {
-			try {
-				listener.handler(event);
-			} catch (error) {
-				if (window.console) {
-					console.error((error as Error).stack);
-				}
-			}
-		});
-	};
-
-	const addEventListener = (type: string, callback: Function, priolity = 0): void => {
-		if (listenersRef.current[type] == null) {
-			listenersRef.current[type] = [];
-		}
-		listenersRef.current[type].push({ type, handler: callback, priolity });
-		sortListeners(listenersRef.current[type]);
-	};
-
-	const hasEventListener = (type: string, callback: Function): boolean => {
-		const entries = listenersRef.current[type];
-		if (!entries) return false;
-		return entries.some((listener) => listener.type === type && listener.handler === callback);
-	};
-
-	const removeEventListener = (type: string, callback: Function): void => {
-		const entries = listenersRef.current[type];
-		if (!entries) return;
-		listenersRef.current[type] = entries.filter(
-			(listener) => !(listener.type === type && listener.handler === callback)
-		);
-	};
-
-	const clearEventListener = (): void => {
-		listenersRef.current = {};
-	};
-
-	const containEventListener = (type: string): boolean => {
-		return Boolean(listenersRef.current[type]?.length);
-	};
 
 	const setSelected = (value: boolean): void => {
 		if (value === selectedRef.current) return;
@@ -130,8 +82,14 @@ export const SlideView = ({
 
 	handleRef.current = {
 		get listeners() {
-			return listenersRef.current;
+			return listeners;
 		},
+		dispatchEvent,
+		addEventListener,
+		removeEventListener,
+		clearEventListener,
+		containEventListener,
+		hasEventListener,
 		get element() {
 			return elementRef.current;
 		},
@@ -144,12 +102,6 @@ export const SlideView = ({
 		},
 		setSlide,
 		destroy,
-		dispatchEvent,
-		addEventListener,
-		removeEventListener,
-		clearEventListener,
-		containEventListener,
-		hasEventListener,
 	};
 
 	useImperativeHandle(ref, () => handleRef.current as SlideViewHandle);

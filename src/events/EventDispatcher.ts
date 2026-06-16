@@ -1,98 +1,110 @@
-export class EventDispatcher {
-	listeners: any = {};
+import { useRef } from "react";
 
-	dispatchEvent(event: Event): void {
-		var e: any;
-		var type: string;
-		/*            if (event instanceof Event) {
-                type = event.type;
-                e = event;
-            } else {
-                type = event;
-                e = new Event(type);
-            }*/
-		type = event.type;
-		e = event;
+export type EventListenerEntry = {
+	type: string;
+	handler: Function;
+	priolity: number;
+};
 
-		if (this.listeners[type] != null) {
-			//e.currentTarget = this;
-			for (var i: number = 0; i < this.listeners[type].length; i++) {
-				var listener: EventListener = this.listeners[type][i];
+export type EventListenerMap = Record<string, EventListenerEntry[]>;
+
+export type EventDispatcherListenersRef = {
+	current: EventListenerMap;
+};
+
+export interface EventDispatcher {
+	listeners: EventListenerMap;
+	dispatchEvent: (event: Event) => void;
+	addEventListener: (type: string, callback: Function, priolity?: number) => void;
+	removeEventListener: (type: string, callback: Function) => void;
+	clearEventListener: () => void;
+	containEventListener: (type: string) => boolean;
+	hasEventListener: (type: string, callback: Function) => boolean;
+}
+
+const sortListeners = (listeners: EventListenerEntry[]) => {
+	listeners.sort((listener1, listener2) => listener2.priolity - listener1.priolity);
+};
+
+export const createEventDispatcher = (
+	listenersRef: EventDispatcherListenersRef = { current: {} }
+): EventDispatcher => {
+	const dispatcher: EventDispatcher = {
+		get listeners() {
+			return listenersRef.current;
+		},
+		set listeners(value: EventListenerMap) {
+			listenersRef.current = value;
+		},
+		dispatchEvent: (event: Event): void => {
+			const entries = listenersRef.current[event.type];
+			if (!entries) return;
+
+			entries.slice().forEach((listener) => {
 				try {
-					listener.handler(e);
+					listener.handler(event);
 				} catch (error) {
 					if (window.console) {
-						console.error(error.stack);
+						console.error((error as Error).stack);
 					}
 				}
+			});
+		},
+		addEventListener: (type: string, callback: Function, priolity: number = 0): void => {
+			if (listenersRef.current[type] == null) {
+				listenersRef.current[type] = [];
 			}
-		}
+			listenersRef.current[type].push({ type, handler: callback, priolity });
+			sortListeners(listenersRef.current[type]);
+		},
+		removeEventListener: (type: string, callback: Function): void => {
+			if (!dispatcher.hasEventListener(type, callback)) return;
+			listenersRef.current[type] = listenersRef.current[type].filter(
+				(listener) => !(listener.type === type && listener.handler === callback)
+			);
+		},
+		clearEventListener: (): void => {
+			Object.keys(listenersRef.current).forEach((type) => {
+				delete listenersRef.current[type];
+			});
+		},
+		containEventListener: (type: string): boolean => {
+			return Boolean(listenersRef.current[type]?.length);
+		},
+		hasEventListener: (type: string, callback: Function): boolean => {
+			const entries = listenersRef.current[type];
+			if (!entries) return false;
+			return entries.some((listener) => listener.type === type && listener.handler === callback);
+		},
+	};
+
+	return dispatcher;
+};
+
+export const attachEventDispatcher = <T extends object>(target: T): T & EventDispatcher => {
+	const dispatcher = createEventDispatcher();
+	Object.defineProperties(target, {
+		listeners: {
+			get: () => dispatcher.listeners,
+			set: (value: EventListenerMap) => {
+				dispatcher.listeners = value;
+			},
+			configurable: true,
+		},
+		dispatchEvent: { value: dispatcher.dispatchEvent, configurable: true },
+		addEventListener: { value: dispatcher.addEventListener, configurable: true },
+		removeEventListener: { value: dispatcher.removeEventListener, configurable: true },
+		clearEventListener: { value: dispatcher.clearEventListener, configurable: true },
+		containEventListener: { value: dispatcher.containEventListener, configurable: true },
+		hasEventListener: { value: dispatcher.hasEventListener, configurable: true },
+	});
+	return target as T & EventDispatcher;
+};
+
+export const useEventDispatcher = (listenersRef: EventDispatcherListenersRef): EventDispatcher => {
+	const dispatcherRef = useRef<EventDispatcher | null>(null);
+	if (!dispatcherRef.current) {
+		dispatcherRef.current = createEventDispatcher(listenersRef);
 	}
-
-	addEventListener(type: string, callback: Function, priolity: number = 0): void {
-		if (this.listeners[type] == null) {
-			this.listeners[type] = [];
-		}
-
-		this.listeners[type].push(new EventListener(type, callback, priolity));
-		this.listeners[type].sort(function (listener1: EventListener, listener2: EventListener) {
-			return listener2.priolity - listener1.priolity;
-		});
-	}
-
-	removeEventListener(type: string, callback: Function): void {
-		if (this.hasEventListener(type, callback)) {
-			for (var i: number = 0; i < this.listeners[type].length; i++) {
-				var listener: EventListener = this.listeners[type][i];
-				if (listener.equalCurrentListener(type, callback)) {
-					listener.handler = null;
-					this.listeners[type].splice(i, 1);
-					return;
-				}
-			}
-		}
-	}
-
-	clearEventListener(): void {
-		this.listeners = {};
-	}
-
-	containEventListener(type: string): boolean {
-		if (this.listeners[type] == null) return false;
-		return this.listeners[type].length > 0;
-	}
-
-	hasEventListener(type: string, callback: Function): boolean {
-		if (this.listeners[type] == null) return false;
-		for (var i: number = 0; i < this.listeners[type].length; i++) {
-			var listener: EventListener = this.listeners[type][i];
-			if (listener.equalCurrentListener(type, callback)) {
-				return true;
-			}
-		}
-		return false;
-	}
-}
-
-class EventListener {
-	constructor(
-		public type: string = null,
-		public handler: Function = null,
-		public priolity: number = 0
-	) {}
-	equalCurrentListener(type: string, handler: Function): boolean {
-		if (this.type == type && this.handler == handler) {
-			return true;
-		}
-		return false;
-	}
-}
-
-/*    export class Event {
-        currentTarget:any;
-        static COMPLETE: string = "complete";
-        static CHANGE_PROPERTY:string ="changeProperty";
-        constructor(public type: string = null, public value: any = null) {
-
-        }
-    }*/
+	return dispatcherRef.current;
+};

@@ -1,6 +1,6 @@
 import { Matrix4 } from "matrixgl";
 import { v4 as uuidv4 } from "uuid";
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "./PropFlags";
 import { Slide } from "./Slide";
@@ -14,7 +14,15 @@ export const LayerType = {
 
 export type LayerType = (typeof LayerType)[keyof typeof LayerType];
 
-export class Layer extends EventDispatcher {
+export class Layer {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	protected _type: LayerType = LayerType.LAYER;
 
 	protected _id: number;
@@ -50,7 +58,7 @@ export class Layer extends EventDispatcher {
 	//
 
 	constructor(transform: any = null, id: number = -1) {
-		super();
+		attachEventDispatcher(this);
 		this._uuid = uuidv4();
 
 		if (id == -1) {

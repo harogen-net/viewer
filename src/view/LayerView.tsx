@@ -1,9 +1,17 @@
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
 import { PropFlags } from "../model/PropFlags";
 
-export class LayerView extends EventDispatcher {
+export class LayerView {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	protected _selected: boolean = false;
 	protected opacityObj: HTMLElement | null = null;
 
@@ -11,7 +19,7 @@ export class LayerView extends EventDispatcher {
 		protected _data: Layer,
 		public obj: any
 	) {
-		super();
+		attachEventDispatcher(this);
 		if (_data == null || obj == null || obj.length != 1) throw new Error("");
 		this.constructMain();
 		this.updateView();

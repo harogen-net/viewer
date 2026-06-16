@@ -1,13 +1,21 @@
 import { ViewerBridge } from "../bridge/ViewerBridge";
-import { EventDispatcher } from "../events/EventDispatcher";
+import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import type { Slide } from "../model/Slide";
 
-export class ListViewController extends EventDispatcher {
+export class ListViewController {
+	declare listeners: EventDispatcher["listeners"];
+	declare dispatchEvent: EventDispatcher["dispatchEvent"];
+	declare addEventListener: EventDispatcher["addEventListener"];
+	declare removeEventListener: EventDispatcher["removeEventListener"];
+	declare clearEventListener: EventDispatcher["clearEventListener"];
+	declare containEventListener: EventDispatcher["containEventListener"];
+	declare hasEventListener: EventDispatcher["hasEventListener"];
+
 	private _slides: Slide[];
 	private _selectedSlide: Slide;
 
 	constructor(private readonly canEdit: boolean = true) {
-		super();
+		attachEventDispatcher(this);
 
 		this._slides = [];
 	}
@@ -26,7 +34,10 @@ export class ListViewController extends EventDispatcher {
 			this._slides.push(slide);
 		}
 
-		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
+		ViewerBridge.emit("slidesChanged", {
+			slides: this._slides,
+			selectedIndex: this.selectedSlideIndex,
+		});
 		return slide;
 	}
 
@@ -51,7 +62,10 @@ export class ListViewController extends EventDispatcher {
 		this._slides.splice(clampedToIndex, 0, slide);
 
 		this.selectSlide(slide);
-		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
+		ViewerBridge.emit("slidesChanged", {
+			slides: this._slides,
+			selectedIndex: this.selectedSlideIndex,
+		});
 		return true;
 	}
 
@@ -100,7 +114,10 @@ export class ListViewController extends EventDispatcher {
 			this._selectedSlide = null;
 			this.dispatchEvent(new Event("close"));
 		}
-		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
+		ViewerBridge.emit("slidesChanged", {
+			slides: this._slides,
+			selectedIndex: this.selectedSlideIndex,
+		});
 
 		return slide;
 	}
@@ -136,7 +153,10 @@ export class ListViewController extends EventDispatcher {
 		this.initialize();
 
 		this._slides = value;
-		ViewerBridge.emit("slidesChanged", { slides: this._slides, selectedIndex: this.selectedSlideIndex });
+		ViewerBridge.emit("slidesChanged", {
+			slides: this._slides,
+			selectedIndex: this.selectedSlideIndex,
+		});
 	}
 	public get slides(): Slide[] {
 		return this._slides;

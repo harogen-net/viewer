@@ -1,4 +1,4 @@
-import { EventDispatcher } from "./EventDispatcher";
+import type { EventDispatcher } from "./EventDispatcher";
 
 export class PropertyEvent extends Event {
 	static readonly UPDATE: string = "PropertyEvent.UPDATE";
