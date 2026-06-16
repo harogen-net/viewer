@@ -19,6 +19,7 @@ type SlideActions = {
 	getSlideByOffset: (slide: Slide, offset: number) => Slide | null;
 	getPrevSlide: (slide: Slide) => Slide | null;
 	getNextSlide: (slide: Slide) => Slide | null;
+	notifySlidesChanged: () => void;
 	notifyLayersChanged: () => void;
 	reset: () => void;
 };
@@ -111,6 +112,11 @@ export const useSlideStore = create<SlideStore>((set, get) => ({
 	},
 	getNextSlide: (slide) => {
 		return get().getSlideByOffset(slide, 1);
+	},
+	notifySlidesChanged: () => {
+		set((state) => ({
+			revision: state.revision + 1,
+		}));
 	},
 	notifyLayersChanged: () => {
 		const slides = get().slides;

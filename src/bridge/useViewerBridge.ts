@@ -12,7 +12,12 @@ import { useEffect, useState } from "react";
 import { Layer } from "../model/Layer";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-import { useLayerStore } from "../state/layerStore";
+import {
+	type EditCanvasState,
+	type EditLayerListItem,
+	type EditLayerState,
+	useLayerStore,
+} from "../state/layerStore";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { SlideTitle } from "../storage/storageTypes";
@@ -189,75 +194,19 @@ export function useViewerHistory(): { canUndo: boolean; canRedo: boolean } {
 }
 
 export function useViewerEditSelection(): { hasSelection: boolean } {
-	return useBridgeEvent("editSelectionChanged", { hasSelection: false });
+	const hasSelection = useLayerStore((state) => state.editLayerState.hasSelection);
+	return { hasSelection };
 }
 
-export function useViewerEditCanvasState(): { scale: number; rectEdit: boolean } {
-	return useBridgeEvent("editCanvasStateChanged", {
-		scale: 1,
-		rectEdit: false,
-	});
+export function useViewerEditCanvasState(): EditCanvasState {
+	return useLayerStore((state) => state.editCanvasState);
 }
 
-export function useViewerEditLayers(): {
-	layers: readonly {
-		index: number;
-		id: number;
-		name: string;
-		type: string;
-		locked: boolean;
-		visible: boolean;
-		shared: boolean;
-		selected: boolean;
-	}[];
-} {
-	return useBridgeEvent("editLayersChanged", { layers: [] });
+export function useViewerEditLayers(): { layers: readonly EditLayerListItem[] } {
+	const layers = useLayerStore((state) => state.editLayers);
+	return { layers };
 }
 
-export function useViewerEditLayerState(): {
-	hasSelection: boolean;
-	canPasteLayer: boolean;
-	canPasteLayerTransform: boolean;
-	name: string | null;
-	visible: boolean | null;
-	locked: boolean | null;
-	shared: boolean | null;
-	x: number | null;
-	y: number | null;
-	scale: number | null;
-	rotation: number | null;
-	opacity: number | null;
-	layerType: string | null;
-	mirrorH: boolean | null;
-	mirrorV: boolean | null;
-	isText: boolean | null;
-	textContent: string | null;
-	clipTop: number | null;
-	clipRight: number | null;
-	clipBottom: number | null;
-	clipLeft: number | null;
-} {
-	return useBridgeEvent("editLayerStateChanged", {
-		hasSelection: false,
-		canPasteLayer: false,
-		canPasteLayerTransform: false,
-		name: null,
-		visible: null,
-		locked: null,
-		shared: null,
-		x: null,
-		y: null,
-		scale: null,
-		rotation: null,
-		opacity: null,
-		layerType: null,
-		mirrorH: null,
-		mirrorV: null,
-		isText: null,
-		textContent: null,
-		clipTop: null,
-		clipRight: null,
-		clipBottom: null,
-		clipLeft: null,
-	});
+export function useViewerEditLayerState(): EditLayerState {
+	return useLayerStore((state) => state.editLayerState);
 }

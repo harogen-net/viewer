@@ -7,6 +7,8 @@ import { ViewerDocument } from "./model/ViewerDocument";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { getSaveFormat } from "./runtime/reactDomRegistry";
+import { layerStore } from "./state/layerStore";
+import { slideStore } from "./state/slideStore";
 import { viewerDocumentStore } from "./state/viewerDocumentStore";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
@@ -15,10 +17,9 @@ import { handleStorageActionResult } from "./useCase/storageActionResult";
 import { Command, HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 import { EditViewController } from "./viewController/EditViewController";
-import { ListViewController } from "./viewController/ListViewController";
 import {
-    SlideShowPlaybackSettings,
-    SlideShowViewController,
+	SlideShowPlaybackSettings,
+	SlideShowViewController,
 } from "./viewController/SlideShowViewController";
 
 export const ViewerMode = {
@@ -46,7 +47,6 @@ export class Viewer {
 	public static readonly SCREEN_HEIGHT = Math.min(window.screen.width, window.screen.height);
 
 	private editVC: EditViewController;
-	private listVC: ListViewController;
 	private slideShowVC: SlideShowViewController;
 	private documentStorage: DocumentStorageUseCase;
 
@@ -202,12 +202,9 @@ export class Viewer {
 			this._mode != ViewerMode.EDIT ||
 			!this.editVC
 		) {
-			ViewerBridge.emit("editSelectionChanged", { hasSelection: false });
+			layerStore.getState().clearEditLayerState();
 			return;
 		}
-		ViewerBridge.emit("editSelectionChanged", {
-			hasSelection: this.editVC.hasSelectedLayer(),
-		});
 	}
 
 	private emitCurrentEditState(): void {
@@ -278,7 +275,7 @@ export class Viewer {
 			var slide: Slide = this.viewerDocument.slides[i];
 			if (slide.disabled) continue;
 			slides.push(slide.clone());
-			if (i == this.listVC.selectedSlideIndex) startIndex = slides.length - 1;
+			if (i == this.selectedSlideIndex) startIndex = slides.length - 1;
 		}
 
 		return { slides, startIndex };
@@ -347,66 +344,100 @@ export class Viewer {
 		this.emitHistoryState();
 
 		this.editVC = new EditViewController(this.obj.find(".canvas"));
-		this.editVC.addEventListener("selectionChanged", () => {
-			this.emitEditSelectionState();
-		});
-		this.editVC.addEventListener("canvasStateChanged", (e: CustomEvent) => {
-			ViewerBridge.emit("editCanvasStateChanged", {
-				scale: typeof e.detail?.scale == "number" ? e.detail.scale : 1,
-				rectEdit: Boolean(e.detail?.rectEdit),
-			});
-		});
-		this.editVC.addEventListener("layerListChanged", (e: CustomEvent) => {
-			ViewerBridge.emit("editLayersChanged", {
-				layers: Array.isArray(e.detail?.layers) ? e.detail.layers : [],
-			});
-		});
-		this.editVC.addEventListener("selectedLayerStateChanged", (e: CustomEvent) => {
-			ViewerBridge.emit("editLayerStateChanged", {
-				hasSelection: Boolean(e.detail?.hasSelection),
-				canPasteLayer: Boolean(e.detail?.canPasteLayer),
-				canPasteLayerTransform: Boolean(e.detail?.canPasteLayerTransform),
-				name: typeof e.detail?.name == "string" ? e.detail.name : null,
-				visible: typeof e.detail?.visible == "boolean" ? e.detail.visible : null,
-				locked: typeof e.detail?.locked == "boolean" ? e.detail.locked : null,
-				shared: typeof e.detail?.shared == "boolean" ? e.detail.shared : null,
-				x: typeof e.detail?.x == "number" ? e.detail.x : null,
-				y: typeof e.detail?.y == "number" ? e.detail.y : null,
-				scale: typeof e.detail?.scale == "number" ? e.detail.scale : null,
-				rotation: typeof e.detail?.rotation == "number" ? e.detail.rotation : null,
-				opacity: typeof e.detail?.opacity == "number" ? e.detail.opacity : null,
-				layerType: typeof e.detail?.layerType == "string" ? e.detail.layerType : null,
-				mirrorH: typeof e.detail?.mirrorH == "boolean" ? e.detail.mirrorH : null,
-				mirrorV: typeof e.detail?.mirrorV == "boolean" ? e.detail.mirrorV : null,
-				isText: typeof e.detail?.isText == "boolean" ? e.detail.isText : null,
-				textContent: typeof e.detail?.textContent == "string" ? e.detail.textContent : null,
-				clipTop: typeof e.detail?.clipTop == "number" ? e.detail.clipTop : null,
-				clipRight: typeof e.detail?.clipRight == "number" ? e.detail.clipRight : null,
-				clipBottom: typeof e.detail?.clipBottom == "number" ? e.detail.clipBottom : null,
-				clipLeft: typeof e.detail?.clipLeft == "number" ? e.detail.clipLeft : null,
-			});
-		});
+	}
 
-		this.listVC.addEventListener("select", () => {
-			ViewerBridge.emit("selectionChanged", { selectedIndex: this.listVC.selectedSlideIndex });
-			ViewerBridge.emit("slidesChanged", {
-				slides: this.viewerDocument?.slides ?? [],
-				selectedIndex: this.listVC.selectedSlideIndex,
-			});
-			if (this._mode == ViewerMode.SELECT) {
-			} else if (this._mode == ViewerMode.EDIT) {
-				if (this.listVC.selectedSlide) {
-					this.editVC.setSlide(this.listVC.selectedSlide);
-				} else {
-					this.editVC.initialize();
-				}
-			}
-		});
-		this.listVC.addEventListener("close", () => {
+	private handleSlideSelectionChanged(): void {
+		if (!this.editVC || this._mode != ViewerMode.EDIT) return;
+		if (this.selectedSlide) {
+			this.editVC.setSlide(this.selectedSlide);
+		} else {
 			this.editVC.initialize();
-			this.setMode(ViewerMode.SELECT);
-			this.emitEditSelectionState();
-		});
+		}
+	}
+
+	private handleSlideSelectionClosed(): void {
+		if (this.editVC) {
+			this.editVC.initialize();
+		}
+		this.setMode(ViewerMode.SELECT);
+		this.emitEditSelectionState();
+	}
+
+	private get slides(): Slide[] {
+		return slideStore.getState().slides as Slide[];
+	}
+
+	private get selectedSlide(): Slide | null {
+		return slideStore.getState().selectedSlide;
+	}
+
+	private get selectedSlideIndex(): number {
+		return slideStore.getState().selectedIndex;
+	}
+
+	private setSlides(slides: Slide[], selectedIndex = -1): void {
+		slideStore.getState().setSlides(slides, selectedIndex);
+	}
+
+	private addSlide(slide: Slide, index = -1): Slide {
+		slideStore.getState().addSlide(slide, index);
+		return slide;
+	}
+
+	private removeSlide(slide: Slide, destroySlide = true): Slide {
+		const index = this.slides.indexOf(slide);
+		if (index === -1) return slide;
+		const wasSelected = slide === this.selectedSlide;
+		const nextSlide = wasSelected
+			? index < this.slides.length - 1
+				? this.slides[index + 1]
+				: index > 0
+					? this.slides[index - 1]
+					: null
+			: null;
+
+		slideStore.getState().removeSlide(slide);
+		if (destroySlide) {
+			slide.removeAllLayers();
+			slide.clearEventListener();
+		}
+		if (nextSlide) {
+			this.selectSlideInstance(nextSlide);
+		} else if (wasSelected) {
+			slideStore.getState().setSelectedIndex(-1);
+			this.handleSlideSelectionClosed();
+		}
+		return slide;
+	}
+
+	private selectSlideInstance(slide: Slide | null): void {
+		if (slide && this.slides.indexOf(slide) === -1) return;
+		slideStore.getState().setSelectedSlide(slide);
+		this.handleSlideSelectionChanged();
+	}
+
+	private selectSlideByIndex(index: number): void {
+		if (index < 0 || index >= this.slides.length) return;
+		this.selectSlideInstance(this.slides[index]);
+	}
+
+	private selectSlideByOffset(offset: number): void {
+		if (offset === 0 || this.selectedSlideIndex === -1) return;
+		const index = Math.max(0, Math.min(this.slides.length - 1, this.selectedSlideIndex + offset));
+		if (index === this.selectedSlideIndex) return;
+		this.selectSlideByIndex(index);
+	}
+
+	private moveSelectedSlideToIndex(toIndex: number): boolean {
+		if (!Number.isInteger(toIndex)) return false;
+		if (!slideStore.getState().moveSelectedSlideToIndex(toIndex)) return false;
+		this.handleSlideSelectionChanged();
+		return true;
+	}
+
+	private moveSelectedSlideByOffset(offset: number): boolean {
+		if (!Number.isInteger(offset) || offset === 0 || this.selectedSlideIndex === -1) return false;
+		return this.moveSelectedSlideToIndex(this.selectedSlideIndex + offset);
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
@@ -423,7 +454,6 @@ export class Viewer {
 	}
 
 	private initializeControllers(startUpMode: ViewerStartUpMode): void {
-		this.listVC = new ListViewController(this.canEdit());
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(this.obj));
 		this.slideShowVC.addEventListener("settingsChanged", (e: CustomEvent) => {
 			const detail = e.detail || {};
@@ -508,7 +538,7 @@ export class Viewer {
 		if (this.viewerDocument) {
 			this.viewerDocument = null;
 
-			this.listVC.initialize();
+			this.setSlides([], -1);
 			if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 				this.setMode(ViewerMode.SELECT);
 				this.editVC.initialize();
@@ -527,16 +557,12 @@ export class Viewer {
 		this.slideShowVC.fullscreen = this.slideShowFullscreen;
 		this.slideShowVC.mirrorH = this.slideShowMirrorH;
 		this.slideShowVC.mirrorV = this.slideShowMirrorV;
-		this.listVC.slides = this.viewerDocument.slides;
+		this.setSlides(this.viewerDocument.slides);
 		this.IsDocumentModified = false;
 		this.emitHistoryState();
 		this.emitEditSelectionState();
 		this.emitSlideShowSettings();
 		this.rebindSlideMetaListeners();
-		ViewerBridge.emit("slidesChanged", {
-			slides: this.viewerDocument.slides,
-			selectedIndex: this.listVC.selectedSlideIndex,
-		});
 		ViewerBridge.emit("savedFilesChanged", {
 			titles: this.documentStorage.getTitles(),
 		});
@@ -586,22 +612,22 @@ export class Viewer {
 		if (!this.ensureAllowed(this.canEdit(), "スライド追加")) return;
 		const { width, height } = viewerDocumentStore.getState();
 		const slide = new Slide(width, height);
-		const index = this.listVC.slides.length;
-		const previousLastSlide = this.listVC.slides[index - 1] ?? null;
+		const index = this.slides.length;
+		const previousLastSlide = this.slides[index - 1] ?? null;
 		const previousLastJoining = previousLastSlide?.joining ?? false;
 		this.recordSlideHistoryCommand(
 			() => {
 				if (previousLastSlide) {
 					previousLastSlide.joining = false;
 				}
-				this.listVC.addSlide(slide, index);
-				this.listVC.selectSlideInstance(slide);
+				this.addSlide(slide, index);
+				this.selectSlideInstance(slide);
 			},
 			() => {
-				this.listVC.removeSlide(slide, false, false);
+				this.removeSlide(slide, false);
 				if (previousLastSlide) {
 					previousLastSlide.joining = previousLastJoining;
-					this.listVC.selectSlideInstance(previousLastSlide);
+					this.selectSlideInstance(previousLastSlide);
 				}
 			},
 			true
@@ -610,22 +636,22 @@ export class Viewer {
 
 	public commandCloneSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド複製")) return;
-		const sourceSlide = this.listVC.selectedSlide;
+		const sourceSlide = this.selectedSlide;
 		if (!sourceSlide) return;
 		const clonedSlide = sourceSlide.clone();
 		const sourceJoining = sourceSlide.joining;
 		this.recordSlideHistoryCommand(
 			() => {
-				const sourceIndex = this.listVC.slides.indexOf(sourceSlide);
+				const sourceIndex = this.slides.indexOf(sourceSlide);
 				if (sourceIndex === -1) return;
 				sourceSlide.joining = true;
-				this.listVC.addSlide(clonedSlide, sourceIndex + 1);
-				this.listVC.selectSlideInstance(clonedSlide);
+				this.addSlide(clonedSlide, sourceIndex + 1);
+				this.selectSlideInstance(clonedSlide);
 			},
 			() => {
-				this.listVC.removeSlide(clonedSlide, false, false);
+				this.removeSlide(clonedSlide, false);
 				sourceSlide.joining = sourceJoining;
-				this.listVC.selectSlideInstance(sourceSlide);
+				this.selectSlideInstance(sourceSlide);
 			},
 			true
 		);
@@ -642,16 +668,16 @@ export class Viewer {
 		const slide = new Slide(null, null, [layer]);
 		slide.fitLayer(layer);
 		const insertIndex = Number.isInteger(toIndex)
-			? Math.max(0, Math.min(this.listVC.slides.length, toIndex))
+			? Math.max(0, Math.min(this.slides.length, toIndex))
 			: -1;
 
 		this.recordSlideHistoryCommand(
 			() => {
-				this.listVC.addSlide(slide, insertIndex);
-				this.listVC.selectSlideInstance(slide);
+				this.addSlide(slide, insertIndex);
+				this.selectSlideInstance(slide);
 			},
 			() => {
-				this.listVC.removeSlide(slide, false, false);
+				this.removeSlide(slide, false);
 			},
 			true
 		);
@@ -659,17 +685,17 @@ export class Viewer {
 
 	public commandDeleteSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
-		const slide = this.listVC.selectedSlide;
+		const slide = this.selectedSlide;
 		if (!slide) return;
-		const index = this.listVC.slides.indexOf(slide);
+		const index = this.slides.indexOf(slide);
 		this.recordSlideHistoryCommand(
 			() => {
-				this.listVC.selectSlideInstance(slide);
-				this.listVC.removeSlide(slide, false, false);
+				this.selectSlideInstance(slide);
+				this.removeSlide(slide, false);
 			},
 			() => {
-				this.listVC.addSlide(slide, index);
-				this.listVC.selectSlideInstance(slide);
+				this.addSlide(slide, index);
+				this.selectSlideInstance(slide);
 			},
 			true
 		);
@@ -677,60 +703,60 @@ export class Viewer {
 
 	public commandMoveSelectedSlideBackward(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
-		const slide = this.listVC.selectedSlide;
-		if (!slide || this.listVC.slides.indexOf(slide) <= 0) return;
+		const slide = this.selectedSlide;
+		if (!slide || this.slides.indexOf(slide) <= 0) return;
 		this.recordSlideHistoryCommand(
 			() => {
-				this.listVC.selectSlideInstance(slide);
-				this.listVC.moveSelectedSlideByOffset(-1);
+				this.selectSlideInstance(slide);
+				this.moveSelectedSlideByOffset(-1);
 			},
 			() => {
-				this.listVC.selectSlideInstance(slide);
-				this.listVC.moveSelectedSlideByOffset(1);
+				this.selectSlideInstance(slide);
+				this.moveSelectedSlideByOffset(1);
 			}
 		);
 	}
 
 	public commandMoveSelectedSlideForward(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
-		const slide = this.listVC.selectedSlide;
-		const index = slide ? this.listVC.slides.indexOf(slide) : -1;
-		if (!slide || index === -1 || index >= this.listVC.slides.length - 1) return;
+		const slide = this.selectedSlide;
+		const index = slide ? this.slides.indexOf(slide) : -1;
+		if (!slide || index === -1 || index >= this.slides.length - 1) return;
 		this.recordSlideHistoryCommand(
 			() => {
-				this.listVC.selectSlideInstance(slide);
-				this.listVC.moveSelectedSlideByOffset(1);
+				this.selectSlideInstance(slide);
+				this.moveSelectedSlideByOffset(1);
 			},
 			() => {
-				this.listVC.selectSlideInstance(slide);
-				this.listVC.moveSelectedSlideByOffset(-1);
+				this.selectSlideInstance(slide);
+				this.moveSelectedSlideByOffset(-1);
 			}
 		);
 	}
 
 	public commandMoveSelectedSlideToIndex(toIndex: number): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
-		const slide = this.listVC.selectedSlide;
-		const fromIndex = slide ? this.listVC.slides.indexOf(slide) : -1;
+		const slide = this.selectedSlide;
+		const fromIndex = slide ? this.slides.indexOf(slide) : -1;
 		if (!slide || fromIndex === -1 || !Number.isInteger(toIndex)) return;
-		const clampedToIndex = Math.max(0, Math.min(this.listVC.slides.length - 1, toIndex));
+		const clampedToIndex = Math.max(0, Math.min(this.slides.length - 1, toIndex));
 		if (fromIndex === clampedToIndex) return;
 
 		this.recordSlideHistoryCommand(
 			() => {
-				this.listVC.selectSlideInstance(slide);
-				this.listVC.moveSelectedSlideToIndex(clampedToIndex);
+				this.selectSlideInstance(slide);
+				this.moveSelectedSlideToIndex(clampedToIndex);
 			},
 			() => {
-				this.listVC.selectSlideInstance(slide);
-				this.listVC.moveSelectedSlideToIndex(fromIndex);
+				this.selectSlideInstance(slide);
+				this.moveSelectedSlideToIndex(fromIndex);
 			}
 		);
 	}
 
 	public commandToggleSelectedSlideJoining(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド結合切替")) return;
-		const slide = this.listVC.selectedSlide;
+		const slide = this.selectedSlide;
 		if (!slide) return;
 		const oldJoining = slide.joining;
 		this.recordSlideHistoryCommand(
@@ -745,7 +771,7 @@ export class Viewer {
 
 	public commandToggleAllSlidesJoining(): void {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド結合切替")) return;
-		const slides = this.listVC.slides;
+		const slides = this.slides;
 		if (slides.length === 0) return;
 		const previousStates = slides.map((slide) => ({
 			slide,
@@ -771,7 +797,7 @@ export class Viewer {
 
 	public commandUnjoinAllSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド結合解除")) return;
-		const slides = this.listVC.slides;
+		const slides = this.slides;
 		if (!slides.some((slide) => slide.joining || slide.durationRatio !== 1)) return;
 		const previousStates = slides.map((slide) => ({
 			slide,
@@ -796,7 +822,7 @@ export class Viewer {
 
 	public commandToggleSelectedSlideDisabled(): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド有効切替")) return;
-		const slide = this.listVC.selectedSlide;
+		const slide = this.selectedSlide;
 		if (!slide) return;
 		const oldDisabled = slide.disabled;
 		this.recordSlideHistoryCommand(
@@ -811,8 +837,8 @@ export class Viewer {
 
 	public commandEnableAllSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド有効化")) return;
-		if (!this.listVC.slides.some((slide) => slide.disabled)) return;
-		const previousStates = this.listVC.slides.map((slide) => ({ slide, disabled: slide.disabled }));
+		if (!this.slides.some((slide) => slide.disabled)) return;
+		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
 		this.recordSlideHistoryCommand(
 			() => {
 				previousStates.forEach(({ slide }) => {
@@ -829,8 +855,8 @@ export class Viewer {
 
 	public commandDisableAllSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド無効化")) return;
-		if (!this.listVC.slides.some((slide) => !slide.disabled)) return;
-		const previousStates = this.listVC.slides.map((slide) => ({ slide, disabled: slide.disabled }));
+		if (!this.slides.some((slide) => !slide.disabled)) return;
+		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
 		this.recordSlideHistoryCommand(
 			() => {
 				previousStates.forEach(({ slide }) => {
@@ -847,13 +873,11 @@ export class Viewer {
 
 	public commandEnableOnlySelectedSlide(): void {
 		if (!this.ensureAllowed(this.canEdit(), "選択スライドのみ有効化")) return;
-		const selectedSlide = this.listVC.selectedSlide;
+		const selectedSlide = this.selectedSlide;
 		if (!selectedSlide) return;
-		const hasChange = this.listVC.slides.some(
-			(slide) => slide.disabled !== (slide !== selectedSlide)
-		);
+		const hasChange = this.slides.some((slide) => slide.disabled !== (slide !== selectedSlide));
 		if (!hasChange) return;
-		const previousStates = this.listVC.slides.map((slide) => ({ slide, disabled: slide.disabled }));
+		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
 		this.recordSlideHistoryCommand(
 			() => {
 				previousStates.forEach(({ slide }) => {
@@ -870,23 +894,23 @@ export class Viewer {
 
 	public commandDeleteDisabledSlides(): void {
 		if (!this.ensureAllowed(this.canEdit(), "無効スライド削除")) return;
-		const disabledSlides = this.listVC.slides
+		const disabledSlides = this.slides
 			.map((slide, index) => ({ slide, index }))
 			.filter(({ slide }) => slide.disabled);
 		if (disabledSlides.length === 0) return;
-		const selectedSlide = this.listVC.selectedSlide;
+		const selectedSlide = this.selectedSlide;
 		this.recordSlideHistoryCommand(
 			() => {
 				disabledSlides.forEach(({ slide }) => {
-					this.listVC.removeSlide(slide, false, false);
+					this.removeSlide(slide, false);
 				});
 			},
 			() => {
 				disabledSlides.forEach(({ slide, index }) => {
-					this.listVC.addSlide(slide, index);
+					this.addSlide(slide, index);
 				});
 				if (selectedSlide) {
-					this.listVC.selectSlideInstance(selectedSlide);
+					this.selectSlideInstance(selectedSlide);
 				}
 			},
 			true
@@ -896,7 +920,7 @@ export class Viewer {
 	public commandSetSelectedSlideDurationRatio(ratio: number): void {
 		if (!this.ensureAllowed(this.canEdit(), "スライド長変更")) return;
 		if (!isFinite(ratio) || ratio <= 0) return;
-		const slide = this.listVC.selectedSlide;
+		const slide = this.selectedSlide;
 		if (!slide) return;
 		const oldRatio = slide.durationRatio;
 		const nextRatio = Math.max(ratio, 0.2);
@@ -912,10 +936,7 @@ export class Viewer {
 	}
 
 	private emitCurrentSlides(): void {
-		ViewerBridge.emit("slidesChanged", {
-			slides: this.viewerDocument?.slides ?? [],
-			selectedIndex: this.listVC.selectedSlideIndex,
-		});
+		slideStore.getState().notifySlidesChanged();
 	}
 
 	private rebindSlideMetaListeners(): void {
@@ -934,15 +955,15 @@ export class Viewer {
 	}
 
 	public commandSelectPreviousSlide(): void {
-		this.listVC.selectPreviousSlide();
+		this.selectSlideByOffset(-1);
 	}
 
 	public commandSelectNextSlide(): void {
-		this.listVC.selectNextSlide();
+		this.selectSlideByOffset(1);
 	}
 
 	public commandSelectSlideByIndex(index: number): void {
-		this.listVC.selectSlideByIndex(index);
+		this.selectSlideByIndex(index);
 	}
 
 	public commandEnterSelectMode(): void {
@@ -961,12 +982,12 @@ export class Viewer {
 		if (!this.canEnterEditMode("編集モード切替")) {
 			return;
 		}
-		if (!this.listVC.selectedSlide) {
+		if (!this.selectedSlide) {
 			showNotice("編集対象のスライドを選択してください。");
 			return;
 		}
 		this.setMode(ViewerMode.EDIT);
-		this.editVC.setSlide(this.listVC.selectedSlide);
+		this.editVC.setSlide(this.selectedSlide);
 	}
 
 	public commandNewDocument(confirmed = false): void {
@@ -988,7 +1009,7 @@ export class Viewer {
 
 	public commandSaveDocument(override?: boolean): void {
 		if (!this.ensureAllowed(this.canSave(), "保存")) return;
-		if (this.listVC.slides.length == 0) return;
+		if (this.slides.length == 0) return;
 		if (override == null && ViewerBridge.hasListeners("saveChoiceRequested")) {
 			ViewerBridge.emit("saveChoiceRequested", { open: true });
 			return;
@@ -999,12 +1020,12 @@ export class Viewer {
 
 	public commandExportDocument(): void {
 		if (!this.ensureAllowed(this.canExport(), "書き出し")) return;
-		if (this.listVC.slides.length == 0) return;
+		if (this.slides.length == 0) return;
 		const fmt = getSaveFormat();
 		const type = fmt === "hvz" ? HVDataType.HVZ : fmt === "hvd" ? HVDataType.HVD : HVDataType.PNG;
 
 		const result = this.documentStorage.exportResult(this.viewerDocument, type, {
-			pages: this.listVC.selectedSlideIndex != -1 ? [this.listVC.selectedSlideIndex] : undefined,
+			pages: this.selectedSlideIndex != -1 ? [this.selectedSlideIndex] : undefined,
 		});
 		this.handleStorageResult(result);
 	}
@@ -1091,11 +1112,11 @@ export class Viewer {
 
 	public commandDownloadSelectedSlide(): void {
 		if (!this.ensureAllowed(this.canExport(), "画像出力")) return;
-		if (this.listVC.selectedSlideIndex === -1 && this.viewerDocument.disabled) {
+		if (this.selectedSlideIndex === -1 && this.viewerDocument.disabled) {
 			showNotice("有効なスライドがありません。");
 			return;
 		}
-		this.viewerDocument.downloadImage(this.listVC.selectedSlideIndex);
+		this.viewerDocument.downloadImage(this.selectedSlideIndex);
 	}
 
 	public commandSetSlideShowDuration(duration: number): void {

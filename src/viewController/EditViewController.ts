@@ -1,14 +1,13 @@
 import { createElement, createRef, type FunctionComponent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
 import { Direction, Slide } from "../model/Slide";
-import { layerStore } from "../state/layerStore";
+import { layerStore, type EditLayerState } from "../state/layerStore";
 import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
 import {
@@ -24,14 +23,6 @@ const EditableSlideViewForRender = EditableSlideView as unknown as FunctionCompo
 }>;
 
 export class EditViewController {
-	declare listeners: EventDispatcher["listeners"];
-	declare dispatchEvent: EventDispatcher["dispatchEvent"];
-	declare addEventListener: EventDispatcher["addEventListener"];
-	declare removeEventListener: EventDispatcher["removeEventListener"];
-	declare clearEventListener: EventDispatcher["clearEventListener"];
-	declare containEventListener: EventDispatcher["containEventListener"];
-	declare hasEventListener: EventDispatcher["hasEventListener"];
-
 	public slideView: EditableSlideViewHandle;
 	private observedLayer: Layer | null = null;
 	private readonly slideViewRoot: Root;
@@ -39,7 +30,6 @@ export class EditViewController {
 	private readonly slideViewRef = createRef<EditableSlideViewHandle>();
 
 	constructor(public obj: any) {
-		attachEventDispatcher(this);
 		this.obj.addClass("slideCanvas");
 
 		this.slideViewHost = document.createElement("div");
@@ -59,14 +49,6 @@ export class EditViewController {
 
 		this.slideView.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			if (pe.propFlags & PropFlags.LV_SELECT) {
-				this.dispatchEvent(
-					new CustomEvent("selectionChanged", {
-						detail: {
-							hasSelection: this.hasSelectedLayer(),
-							layerType: this.selectedLayer?.type ?? null,
-						},
-					})
-				);
 				this.watchSelectedLayer();
 				this.emitSelectedLayerState();
 				this.emitLayerListState();
@@ -108,28 +90,16 @@ export class EditViewController {
 			this.slide.addEventListener(PropertyEvent.UPDATE, this.onSlideUpdate);
 		}
 		this.watchSelectedLayer();
-		this.dispatchEvent(
-			new CustomEvent("selectionChanged", {
-				detail: {
-					hasSelection: this.hasSelectedLayer(),
-					layerType: this.selectedLayer?.type ?? null,
-				},
-			})
-		);
 		this.emitSelectedLayerState();
 		this.emitLayerListState();
 		this.emitCanvasState();
 	}
 
 	private emitCanvasState(): void {
-		this.dispatchEvent(
-			new CustomEvent("canvasStateChanged", {
-				detail: {
-					scale: this.slideView.scale,
-					rectEdit: this.slideView.rectEdit,
-				},
-			})
-		);
+		layerStore.getState().setEditCanvasState({
+			scale: this.slideView.scale,
+			rectEdit: this.slideView.rectEdit,
+		});
 	}
 
 	private emitLayerListState(): void {
@@ -144,13 +114,7 @@ export class EditViewController {
 			shared: Boolean(layer.shared),
 			selected: selected === layer,
 		}));
-		this.dispatchEvent(
-			new CustomEvent("layerListChanged", {
-				detail: {
-					layers,
-				},
-			})
-		);
+		layerStore.getState().setEditLayers(layers);
 	}
 
 	private watchSelectedLayer(): void {
@@ -177,65 +141,61 @@ export class EditViewController {
 	private emitSelectedLayerState(): void {
 		const layer = this.slideView.editingLayer;
 		if (!layer) {
-			this.dispatchEvent(
-				new CustomEvent("selectedLayerStateChanged", {
-					detail: {
-						hasSelection: false,
-						canPasteLayer: this.slideView.canPasteLayer,
-						canPasteLayerTransform: this.slideView.canPasteLayerTransform,
-						name: null,
-						visible: null,
-						locked: null,
-						shared: null,
-						clipTop: null,
-						clipRight: null,
-						clipBottom: null,
-						clipLeft: null,
-					},
-				})
-			);
+			const detail: EditLayerState = {
+				hasSelection: false,
+				canPasteLayer: this.slideView.canPasteLayer,
+				canPasteLayerTransform: this.slideView.canPasteLayerTransform,
+				name: null,
+				visible: null,
+				locked: null,
+				shared: null,
+				x: null,
+				y: null,
+				scale: null,
+				rotation: null,
+				opacity: null,
+				layerType: null,
+				mirrorH: null,
+				mirrorV: null,
+				isText: null,
+				textContent: null,
+				clipTop: null,
+				clipRight: null,
+				clipBottom: null,
+				clipLeft: null,
+			};
+			layerStore.getState().setEditLayerState(detail);
 			return;
 		}
 		const imageLayer = layer.type == LayerType.IMAGE ? (layer as ImageLayer) : null;
-		this.dispatchEvent(
-			new CustomEvent("selectedLayerStateChanged", {
-				detail: {
-					hasSelection: true,
-					canPasteLayer: this.slideView.canPasteLayer,
-					canPasteLayerTransform: this.slideView.canPasteLayerTransform,
-					name: layer.name,
-					visible: layer.visible,
-					locked: layer.locked,
-					shared: layer.shared,
-					layerType: layer.type,
-					x: layer.x,
-					y: layer.y,
-					scale: layer.scale,
-					rotation: layer.rotation,
-					opacity: layer.opacity,
-					mirrorH: layer.mirrorH,
-					mirrorV: layer.mirrorV,
-					isText: imageLayer ? imageLayer.isText : null,
-					textContent: layer.type === LayerType.TEXT ? (layer as TextLayer).text : null,
-					clipTop: imageLayer ? imageLayer.clipT : null,
-					clipRight: imageLayer ? imageLayer.clipR : null,
-					clipBottom: imageLayer ? imageLayer.clipB : null,
-					clipLeft: imageLayer ? imageLayer.clipL : null,
-				},
-			})
-		);
+		const detail: EditLayerState = {
+			hasSelection: true,
+			canPasteLayer: this.slideView.canPasteLayer,
+			canPasteLayerTransform: this.slideView.canPasteLayerTransform,
+			name: layer.name,
+			visible: layer.visible,
+			locked: layer.locked,
+			shared: layer.shared,
+			layerType: layer.type,
+			x: layer.x,
+			y: layer.y,
+			scale: layer.scale,
+			rotation: layer.rotation,
+			opacity: layer.opacity,
+			mirrorH: layer.mirrorH,
+			mirrorV: layer.mirrorV,
+			isText: imageLayer ? imageLayer.isText : null,
+			textContent: layer.type === LayerType.TEXT ? (layer as TextLayer).text : null,
+			clipTop: imageLayer ? imageLayer.clipT : null,
+			clipRight: imageLayer ? imageLayer.clipR : null,
+			clipBottom: imageLayer ? imageLayer.clipB : null,
+			clipLeft: imageLayer ? imageLayer.clipL : null,
+		};
+		layerStore.getState().setEditLayerState(detail);
 	}
 
 	public emitCurrentState(): void {
 		this.watchSelectedLayer();
-		this.dispatchEvent(
-			new CustomEvent("selectionChanged", {
-				detail: {
-					hasSelection: this.hasSelectedLayer(),
-					layerType: this.selectedLayer?.type ?? null,
-				},
-			})
-		);
 		this.emitSelectedLayerState();
 		this.emitLayerListState();
 		this.emitCanvasState();

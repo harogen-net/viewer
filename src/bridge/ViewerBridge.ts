@@ -7,15 +7,9 @@
  *  - No DOM dependency; no React import needed here.
  */
 
-import { Slide } from "../model/Slide";
-import { slideStore } from "../state/slideStore";
 import { SlideTitle } from "../storage/storageTypes";
 
 export type ViewerBridgeEventMap = {
-	/** Slide list changed (added / removed / reordered) */
-	slidesChanged: { slides: readonly Slide[]; selectedIndex: number };
-	/** Selected slide index changed */
-	selectionChanged: { selectedIndex: number };
 	/** Image deletion requested from the images panel */
 	imageDeleteRequested: { imageId: string; name: string } | null;
 	/** Registered image library changed */
@@ -67,47 +61,6 @@ export type ViewerBridgeEventMap = {
 	modeChanged: { mode: "select" | "edit" | "slideshow" };
 	/** Undo/Redo availability changed */
 	historyChanged: { canUndo: boolean; canRedo: boolean };
-	/** Edit layer selection state changed */
-	editSelectionChanged: { hasSelection: boolean };
-	/** Edit canvas state changed */
-	editCanvasStateChanged: { scale: number; rectEdit: boolean };
-	/** Edit layer list changed */
-	editLayersChanged: {
-		layers: readonly {
-			index: number;
-			id: number;
-			name: string;
-			type: string;
-			locked: boolean;
-			visible: boolean;
-			shared: boolean;
-			selected: boolean;
-		}[];
-	};
-	/** Selected edit layer properties changed */
-	editLayerStateChanged: {
-		hasSelection: boolean;
-		canPasteLayer: boolean;
-		canPasteLayerTransform: boolean;
-		name: string | null;
-		visible: boolean | null;
-		locked: boolean | null;
-		shared: boolean | null;
-		x: number | null;
-		y: number | null;
-		scale: number | null;
-		rotation: number | null;
-		opacity: number | null;
-		layerType: string | null;
-		mirrorH: boolean | null;
-		mirrorV: boolean | null;
-		isText: boolean | null;
-		textContent: string | null;
-		clipTop: number | null;
-		clipRight: number | null;
-		clipBottom: number | null;
-		clipLeft: number | null;
-	};
 };
 
 export type ViewerBridgeEventType = keyof ViewerBridgeEventMap;
@@ -128,15 +81,6 @@ class ViewerBridgeClass {
 	}
 
 	emit<K extends ViewerBridgeEventType>(type: K, payload: ViewerBridgeEventMap[K]): void {
-		if (type === "slidesChanged") {
-			const slidesPayload = payload as ViewerBridgeEventMap["slidesChanged"];
-			slideStore.getState().setSlides(slidesPayload.slides, slidesPayload.selectedIndex);
-		} else if (type === "selectionChanged") {
-			slideStore
-				.getState()
-				.setSelectedIndex((payload as ViewerBridgeEventMap["selectionChanged"]).selectedIndex);
-		}
-
 		const set = this.listeners.get(type as string);
 		if (!set) return;
 		for (const fn of set) {
