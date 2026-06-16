@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import type { Layer } from "../model/Layer";
 import type { Slide } from "../model/Slide";
+import { toLayerSnapshot, type LayerSnapshot } from "../model/snapshot";
 
 type LayerStateSnapshot = {
 	layers: readonly Layer[];
+	layerSnapshots: readonly LayerSnapshot[];
 	editLayers: readonly EditLayerListItem[];
 	editLayerState: EditLayerState;
 	editCanvasState: EditCanvasState;
@@ -69,6 +71,7 @@ const getLayersFromSlides = (slides: readonly Slide[]): readonly Layer[] => {
 
 const initialLayerState = {
 	layers: [] as readonly Layer[],
+	layerSnapshots: [] as readonly LayerSnapshot[],
 	editLayers: [] as readonly EditLayerListItem[],
 	editLayerState: {
 		hasSelection: false,
@@ -105,6 +108,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
 	setLayers: (layers) => {
 		set((state) => ({
 			layers,
+			layerSnapshots: layers.map(toLayerSnapshot),
 			revision: state.revision + 1,
 		}));
 	},

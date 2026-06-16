@@ -18,9 +18,9 @@ import {
     useViewerSaveChoiceRequest,
     useViewerSavedFileSelection,
     useViewerSharedLayerRemovalRequest,
-    useViewerSlides,
     useViewerSlideshowPlayback,
     useViewerSlideshowSettings,
+    useViewerSlideSnapshots,
     useViewerSpreadLayerRequest,
     useViewerStorage,
     useViewerStorageProgress,
@@ -165,7 +165,7 @@ function RuntimeNotice({ notice }: { notice: RuntimeNoticePayload }) {
 }
 
 export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
-	const { slides: rawSlides, selectedIndex, revision } = useViewerSlides();
+	const { slides: rawSlides, selectedIndex, revision } = useViewerSlideSnapshots();
 	const { titles } = useViewerStorage();
 	const { selectedId: bridgedSelectedFileId } = useViewerSavedFileSelection();
 	const slideShowSettings = useViewerSlideshowSettings();

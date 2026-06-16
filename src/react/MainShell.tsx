@@ -3,13 +3,10 @@ import {
     useViewerEditLayerState,
     useViewerHistory,
     useViewerMode,
-    useViewerSlides,
+    useViewerSlideSnapshots,
 } from "../bridge/useViewerBridge";
 import { ViewerCommands } from "../bridge/ViewerCommands";
-import { Layer, LayerType } from "../model/Layer";
-import { ImageLayer } from "../model/layer/ImageLayer";
-import { TextLayer } from "../model/layer/TextLayer";
-import { Slide } from "../model/Slide";
+import type { LayerSnapshot, SlideSnapshot } from "../model/snapshot";
 import { FeatureGate, getFeatureGate } from "../runtime/featureGate";
 import { ImageManager } from "../utils/ImageManager";
 import { getMainShellKeyboardAction } from "./mainShellKeyboard";
@@ -25,10 +22,10 @@ type MainShellProps = {
 	gate?: FeatureGate;
 };
 
-type MainSlideSnapshot = {
+type MainSlideListItem = {
 	key: string;
 	index: number;
-	slide: Slide;
+	slide: SlideSnapshot;
 	label: string;
 	selected: boolean;
 	joining: boolean;
@@ -37,10 +34,10 @@ type MainSlideSnapshot = {
 };
 
 type MainSlidePreviewProps = {
-	slide: Slide;
+	slide: SlideSnapshot;
 };
 
-const getLayerPreviewStyle = (layer: Layer): CSSProperties => {
+const getLayerPreviewStyle = (layer: LayerSnapshot): CSSProperties => {
 	const style: CSSProperties = {
 		position: "absolute",
 		left: 0,
@@ -60,10 +57,9 @@ const getLayerPreviewStyle = (layer: Layer): CSSProperties => {
 	return style;
 };
 
-const MainSlidePreviewLayer = ({ layer }: { layer: Layer }) => {
-	if (layer.type === LayerType.IMAGE) {
-		const imageLayer = layer as ImageLayer;
-		const src = ImageManager.instance?.getSrcById(imageLayer.imageId);
+const MainSlidePreviewLayer = ({ layer }: { layer: LayerSnapshot }) => {
+	if (layer.type === "image") {
+		const src = ImageManager.instance?.getSrcById(layer.imageId);
 		if (!src) return null;
 		return (
 			<img
@@ -75,11 +71,10 @@ const MainSlidePreviewLayer = ({ layer }: { layer: Layer }) => {
 		);
 	}
 
-	if (layer.type === LayerType.TEXT) {
-		const textLayer = layer as TextLayer;
+	if (layer.type === "text") {
 		return (
 			<span className="mainSlideList-previewText" style={getLayerPreviewStyle(layer)}>
-				{textLayer.text}
+				{layer.text}
 			</span>
 		);
 	}
@@ -112,13 +107,13 @@ const MainSlidePreview = ({ slide }: MainSlidePreviewProps) => {
 };
 
 const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
-	const { slides: rawSlides, selectedIndex, revision } = useViewerSlides();
+	const { slides: rawSlides, selectedIndex, revision } = useViewerSlideSnapshots();
 	const [draggingSlideIndex, setDraggingSlideIndex] = useState<number | null>(null);
 	const [slideDropIndex, setSlideDropIndex] = useState<number | null>(null);
 	const pendingFocusKey = useRef<string | null>(null);
 	const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
-	const slides = useMemo<MainSlideSnapshot[]>(
+	const slides = useMemo<MainSlideListItem[]>(
 		() =>
 			rawSlides.map((slide, index) => ({
 				key: slide.uuid || String(slide.id),
@@ -150,7 +145,7 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 	};
 
 	const handleSlideKeyDown = (
-		slide: MainSlideSnapshot,
+		slide: MainSlideListItem,
 		event: React.KeyboardEvent<HTMLButtonElement>
 	) => {
 		const action = getSlideListKeyboardAction({
@@ -186,7 +181,7 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 	};
 
 	const handleSlideDragStart = (
-		slide: MainSlideSnapshot,
+		slide: MainSlideListItem,
 		event: React.DragEvent<HTMLButtonElement>
 	) => {
 		if (!gate.canEdit || slides.length < 2) return;
@@ -197,7 +192,7 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 	};
 
 	const handleSlideDragOver = (
-		slide: MainSlideSnapshot,
+		slide: MainSlideListItem,
 		event: React.DragEvent<HTMLButtonElement>
 	) => {
 		if (gate.canEdit && hasDroppedImage(event)) {
@@ -220,7 +215,7 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 		}
 	};
 
-	const handleSlideDrop = (slide: MainSlideSnapshot, event: React.DragEvent<HTMLButtonElement>) => {
+	const handleSlideDrop = (slide: MainSlideListItem, event: React.DragEvent<HTMLButtonElement>) => {
 		const droppedImageId = event.dataTransfer.getData("imageId");
 		if (gate.canEdit && droppedImageId) {
 			event.preventDefault();

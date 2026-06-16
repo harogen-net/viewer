@@ -2,16 +2,15 @@
  * React hooks for consuming ViewerBridge events.
  *
  * Usage:
- *   const { slides, selectedIndex } = useViewerSlides();
+ *   const { slides, selectedIndex } = useViewerSlideSnapshots();
  *   const { titles } = useViewerStorage();
  *   const { modified } = useViewerModified();
  *   const { mode } = useViewerMode();
  */
 
 import { useEffect, useState } from "react";
-import { Layer } from "../model/Layer";
-import { Slide } from "../model/Slide";
 import type { ViewerDocument } from "../model/ViewerDocument";
+import type { LayerSnapshot, SlideSnapshot } from "../model/snapshot";
 import {
 	type EditCanvasState,
 	type EditLayerListItem,
@@ -41,19 +40,6 @@ function useBridgeEvent<K extends keyof ViewerBridgeEventMap>(
 }
 
 // ─── Slide list ───────────────────────────────────────────────────────────────
-
-type SlidesState = {
-	slides: readonly Slide[];
-	selectedIndex: number;
-	revision: number;
-};
-
-export function useViewerSlides(): SlidesState {
-	const slides = useSlideStore((state) => state.slides);
-	const selectedIndex = useSlideStore((state) => state.selectedIndex);
-	const revision = useSlideStore((state) => state.revision);
-	return { slides, selectedIndex, revision };
-}
 
 export function useViewerDocument(): ViewerDocument | null {
 	return useViewerDocumentStore((state) => state.document);
@@ -87,8 +73,19 @@ export function useViewerDocumentState() {
 	};
 }
 
-export function useViewerLayers(): readonly Layer[] {
-	return useLayerStore((state) => state.layers);
+export function useViewerSlideSnapshots(): {
+	slides: readonly SlideSnapshot[];
+	selectedIndex: number;
+	revision: number;
+} {
+	const slides = useSlideStore((state) => state.slideSnapshots);
+	const selectedIndex = useSlideStore((state) => state.selectedIndex);
+	const revision = useSlideStore((state) => state.revision);
+	return { slides, selectedIndex, revision };
+}
+
+export function useViewerLayerSnapshots(): readonly LayerSnapshot[] {
+	return useLayerStore((state) => state.layerSnapshots);
 }
 
 export function useViewerImageDeleteRequest(): { imageId: string; name: string } | null {
