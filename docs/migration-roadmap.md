@@ -1,206 +1,303 @@
-# React 移行ロードマップ（段階計画）
+# React 移行ロードマップ（再構築版 / 合理化計画）
 
-## 目的
-本ドキュメントは、現行 jQuery アプリを React へ段階的に移行する際の実行順序、完了条件、ロールバック方針を定義する。
-機能の棚卸しは [docs/function-list.md](docs/function-list.md) を参照する。
+> 本ドキュメントは旧ロードマップ（[docs/migration-roadmap.archived.md](migration-roadmap.archived.md)）を
+> 実コード精査の結果にもとづいて再構築したものである。旧計画は「同一 HTML 上でブリッジを介した
+> 段階移行」を採った結果、状態管理が多重化し神クラス化した。本版はその構造的負債の解消を主目的とする。
 
-## 機能保持ゲート（必須）
-マイグレーション時は、以下を満たさない変更を完了扱いにしない。
+## 0. なぜ再構築するか（旧計画の失敗の総括）
 
-1. 変更対象機能の事前特定
-  - 影響する機能を `docs/function-list.md` で明示する。
-2. 実装後の機能保持確認
-  - 最低限、該当機能の正常系を手動または自動で確認する。
-  - 失敗時は次の移行へ進まず、先に修正する。
-3. 結果の記録
-  - 何を確認し、何が通ったかは `docs/test-plan.md` に記録する。
-4. 回帰の扱い
-  - 既存機能を落とした場合は「移行進捗」ではなく「不具合修正」を優先する。
+旧計画はフェーズ進行そのものは前進したが、**移行戦略が「縮小」ではなく「並存」を生んだ**。
+ブリッジ層と互換層を残したまま React を足したため、同じ状態を複数経路が更新する構造になった。
+
+### 根本原因：Single Source of Truth（SSoT）の不在
+状態が次の 4 系統に分裂し、同期がイベント経由の自動／手動の混在で行われている。
+
+| 系統 | 実体 | 役割 | 問題 |
+|------|------|------|------|
+| モデル層 | `Layer`/`Slide` の `EventDispatcher` + `PropertyEvent` | 変更通知 | 旧 MVC のイベント機構が現役 |
+| ストア層 | Zustand `layerStore`/`slideStore`/`viewerDocumentStore` | React 連携 | 部分的にしか自動同期しない |
+| ブリッジ層 | `ViewerBridge`（pub/sub 19 イベント） | jQuery↔React 通信 | `Viewer.ts` から 18 箇所 emit |
+| シングルトン | `Viewer.shared`（static） | コマンド委譲先 | `ViewerCommands` 全メソッドが依存 |
+
+### 実測される構造的負債（2026-06 時点）
+
+| 指標 | 実測 | 評価 |
+|------|------|------|
+| `src/react/RuntimeShell.tsx` | **2,413 行**（useState 25+、useEffect 15+） | 神コンポーネント |
+| `src/Viewer.ts` | **1,700 行**（public メソッド 80+） | 神クラス／static singleton |
+| `src/useCase/EditLayerMutationUseCase.ts` | 820 行 | 肥大ユースケース |
+| `src/runtime/SlideShowRuntime.ts` | 595 行（`any` 多用、jQuery 依存） | 未 React 化 |
+| `src/view/slide/EditableSlideView.tsx` | 560 行（内部で命令的 DOMSlideView を管理） | ハイブリッド |
+| jQuery 依存ファイル | 4（`index.ts` / `Viewer.ts` / `SlideShowRuntime.ts` / `utils/LayerViewFactory.ts`） | 撤去対象 |
+| `Viewer.shared` 参照 | `Viewer.ts` / `ViewerCommands.ts` | 撤去対象 |
+| `innerHTML` 直書き | `src/view/layer/TextView.tsx`（XSS リスク） | 即時是正 |
+| ダイアログ状態の過剰分割 | `*Request.ts`/`*Gate.ts`/`*Choice.ts` 6 ファイル（各 6–12 行） | 集約対象 |
+| 命令的 View 層 | `LayerView`/`ImageView`/`TextView`（class + DOM 直操作） | React FC 化 |
+| 二重 React root | `#wrapper`(AppShell) と `#react-runtime-shell`(RuntimeShell) | 単一化 |
+
+健全性評価：**3/10**。健全な資産は Zustand ストア構造と Storage Adapter 抽象。
+負債は神ファイル・jQuery 混在・二重実装・状態多重化。
+
+---
+
+## 1. 目的（再定義）
+
+### 1.1 アーキテクチャ転換の到達点
+本移行は**「ロジックを持つクラス + EventDispatcher + 更新メソッド」から
+「型・関数ベース + カスタムフックでのロジック提供」へのモダン React アーキテクチャ化**である。
+
+| 旧（撤去対象） | 新（到達点） |
+|----------------|--------------|
+| ロジック内包クラス（`LayerView`/`ImageView`/`TextView`/`Viewer`） | 純データ型 + 純粋関数 + カスタムフック |
+| `EventDispatcher` / `PropertyEvent` による変更通知 | Zustand ストアの購読（selector）＋ React 再レンダリング |
+| `updateView()` 等の命令的更新メソッド | props/state からの宣言的レンダリング |
+| jQuery（`$`）・`obj: any` | 型付き React 要素・ref |
+
+### 1.2 目的一覧（優先度順）
+1. **【最優先】jQuery（`$` / `obj: any`）と `EventDispatcher` を排除する**。これがクラス＋命令更新の中核であり、最初に断つ。
+2. **状態管理を Zustand に一元化**し、SSoT を確立する（`EventDispatcher` の代替）。
+3. **ブリッジ／シングルトン（`ViewerBridge` / `Viewer.shared`）を撤去**する。
+4. **ロジック内包クラスを型・関数 + カスタムフックへ転換**し、View 層を React FC へ統一する。
+5. **神ファイルを責務分割**し、UI を単一責務コンポーネントへ分散する（`Viewer.ts` / `RuntimeShell.tsx`）。
+6. 上記を通じて**実行経路を React/TSX 側へ移し切る**。
+
+機能の棚卸しは [docs/function-list.md](function-list.md) を参照する。
+
+---
+
+## 2. 合理化の設計原則（旧方針からの転換）
+
+| # | 旧方針 | 新方針 |
+|---|--------|--------|
+| P1 | ブリッジ経由で両層を並存 | **片方向の縮小**：レガシー経路は移行と同時に削除する（並存期間を最小化） |
+| P2 | モデル `EventDispatcher` を温存 | **SSoT は Zustand**。モデルは純データ型に限定し、`EventDispatcher`/`PropertyEvent` を撤去する（温存しない） |
+| P3 | `Viewer.shared` 経由でコマンド委譲 | **コマンドはストア action / カスタムフック**として公開。singleton 禁止 |
+| P4 | 機能単位で UI を肥大化 | **UI はコンポーネントへ分散**。単一責務に分割し、神ファイルは着手前に解体する |
+| P5 | jQuery を暫定容認 | **jQuery（`$` / `obj: any`）は最優先で排除**。新規禁止かつ既存も先行除去する |
+| P6 | （新設）ロジックの置き場 | **ロジックは純粋関数 + カスタムフックに置く**。ファットな一時退避サービス（巨大 `XxxService`/`XxxManager` クラスへの暫定移植）は作らない |
+| P7 | （新設）UI の見た目 | **当初の UI を Mantine で再現**。raw CSS の段階置換を前提に、見た目・操作性の同等性を保つ |
+
+### 不変条件（機能保持ゲート）— 旧計画から継承
+1. 変更対象機能を [docs/function-list.md](function-list.md) で事前特定する。
+2. 実装後に該当機能の正常系を手動／自動で確認する。失敗時は次へ進まず先に修正する。
+3. 確認結果は [docs/test-plan.md](test-plan.md) に記録する。
+4. 既存機能を落とした場合は「進捗」ではなく「不具合修正」を最優先する。
+5. 各フェーズ完了判定に**「実行経路が React/TSX 側へ移ったこと」**を含める。
+
+---
+
+## 3. 現状から完了形への構造遷移（目標アーキテクチャ）
+
+```
+[現状] 4 系統が相互更新                 [目標] 単方向データフロー
+                                         
+ Viewer.shared ─┐                        React (TSX components)
+ ViewerBridge ──┼─▶ 同じ状態を              │  ▲
+ Zustand ───────┤   多重更新                │  │ selector
+ Model Event ───┘                         action │  state
+                                            ▼  │
+                                        Zustand stores (SSoT)
+                                            │  ▲
+                                       useCase / command 関数
+                                            │  │
+                                        Model (純データ + 最小副作用)
+                                            │
+                                        StorageAdapter（既存・維持）
+```
+
+詳細は [docs/state-management-design.md](state-management-design.md) に追補する。
+
+---
+
+## 4. 再構築フェーズ（R0–R6）
+
+旧フェーズ番号との混同を避けるため `R`（Rebuild）系で付番する。
+**順序は「土台の一本化 → 神ファイル解体 → レガシー撤去」を厳守**する（先に撤去すると回帰が制御不能になる）。
+
+### R0: ベースライン固定と安全網（着手前提）
+**目的**：撤去を安全に進めるための回帰検知基盤を先に作る。
+- 主要ユースケースの現状動作を [docs/test-plan.md](test-plan.md) にスナップショット化。
+- `npm run test:usecase` の対象を保存／読込・編集コアまで拡張（最小回帰セット）。
+- `tsconfig` を厳格化（`noImplicitAny` 方針確認）。`any` 残存箇所（`SlideShowRuntime`/`EditCanvasRuntime`）を棚卸し。
+
+**完了条件**：回帰最小セットが緑。撤去対象一覧（jQuery 4 / singleton / bridge 19 イベント）が確定。
+**ロールバック**：安全網が無い状態で R2 以降の撤去に進まない。
+
+### R1: 状態の SSoT 化（Zustand 一元化）
+**目的**：4 系統を Zustand へ収束させ、二重管理を解消する。
+- `ViewerDocument` を含むメタ状態をストアへ統合（プレーンオブジェクトの同期漏れを解消）。
+- `EditLayerState` を **UI 状態（hasSelection 等）とモデル由来状態（x/y/scale 等）に分離**。
+- `notifyLayersChanged()` の手動呼び出しを廃し、配列変更を action 内に閉じる。
+- Undo/Redo（`HistoryManager`）をストア更新と**同一トランザクション**に統合し、失敗時の不整合を排除。
+
+**完了条件**：状態更新経路がストア action に一本化。`PropertyEvent` 依存が UI 同期から外れている。
+**ロールバック**：特定操作で不整合が出た場合、その操作のみ旧経路に退避し原因修正を優先。
+
+### R2: ブリッジ／シングルトン撤去
+**目的**：`ViewerBridge` と `Viewer.shared` を排除し、密結合を断つ。
+- `ViewerBridge.emit`（`Viewer.ts` 18 箇所）を、対応するストア action 呼び出しへ置換。
+- `ViewerCommands` を **store action / useCase 関数の薄い re-export** に置換し、`Viewer.shared` 参照を削除。
+- `useViewerBridge` 系 hook を `useXxxStore` セレクタへ移行。
+
+**完了条件**：`ViewerBridge` と `Viewer.shared` への参照がゼロ。React は store からのみ状態取得。
+**ロールバック**：イベント欠落が出た機能は、当該イベントのみ一時的に復活し差分を埋める。
+
+### R3: `Viewer.ts` 神クラスの解体
+**目的**：1,700 行を責務単位の useCase / store action へ分解する。
+- スライド管理・レイヤー管理・スライドショー・ストレージ・ダイアログ制御を**機能ドメインごとに切り出し**。
+- 各 `command*` メソッドを対応 useCase へ移設（呼び出し側は R2 で既に store/useCase 参照）。
+- `Viewer` は最終的に**起動オーケストレーションの薄いブートストラップ**に縮小。
+
+**完了条件**：`Viewer.ts` が 300 行未満。ドメインロジックが useCase / store に移管済み。
+**ロールバック**：分割で回帰した操作カテゴリは、当該カテゴリ単位で旧実装に退避。
+
+### R4: View 層の React FC 化 + jQuery 撤去
+**目的**：命令的 View とハイブリッド構造を解消する。
+- `LayerView` / `ImageView` / `TextView`（class + DOM 直操作）を React FC へ再実装。
+  - `TextView` の `innerHTML` を**テキストノード描画へ即時是正**（XSS 是正）。
+- `DOMSlideView` の `Object.defineProperties` ベース命令的 handle を、props/state ベースへ置換。
+- `EditableSlideView` のレイヤー個別 `addEventListener` を**イベント委譲**へ。
+- jQuery 4 ファイル（`index.ts` / `Viewer.ts` / `SlideShowRuntime.ts` / `utils/LayerViewFactory.ts`）から `import $` を除去。
+- `classList`/`style` 直操作・`document`/`window` グローバルリスナーを React 管理下（Context / hooks）へ。
+
+**完了条件**：jQuery 依存ゼロ。編集・スライドショーの描画経路が React のみ。
+**ロールバック**：描画破綻が出た View は当該レイヤー種別のみ旧実装に退避。
+
+### R5: `RuntimeShell.tsx` 分割 + ダイアログ状態集約
+**目的**：2,413 行の神コンポーネントを再レンダリング境界ごとに分割する。
+- `SlideListPanel` / `EditOpsPanel` / `LayerListPanel` / `ModalContainer` 等へ分離。
+- 過剰分割の `*Request.ts`/`*Gate.ts`/`*Choice.ts` 6 ファイルを `dialogState.ts` に集約（命名の概念混在を解消）。
+- `*Keyboard.ts` 群を `useXxxKeyboard` hooks へ。グローバル `document` keydown を単一管理化。
+- 二重 React root（`#wrapper`/`#react-runtime-shell`）を単一ツリーへ統合し Provider 重複を解消。
+
+**完了条件**：単一コンポーネント 400 行未満を目安。Provider が単一。
+**ロールバック**：分割で操作不全が出たパネルのみ旧構成へ一時退避。
+
+### R6: 仕上げ・フォルダ整理・撤去確認・最適化
+**目的**：運用可能なコードベースへ収束させる。
+- `SlideShowRuntime` の `any` 一掃と React 化完了確認。
+- デッドコード（空 `viewController/`、未使用 util）撤去。
+- **フォルダ構成を第 8 章の目標レイアウトへ整理**（`react/` 等の不明瞭な命名を廃止し、一般的な React プロジェクト命名へ統一）。
+- CSS と Mantine の二重管理整理（[css/](../css/) を Mantine スタイルへ収束し、当初 UI を Mantine で再現した状態に統一）。
+- 回帰テストとドキュメント最終更新。
+
+**完了条件**：主要ユースケースが React 実装のみで成立し、旧実装なしでリリース判断可能。フォルダ構成が第 8 章に準拠。
+**ロールバック**：本番相当テストで重大回帰が出た撤去対象のみ延期。
+
+> 注：フォルダ移動は R1–R5 の各フェーズでファイルを触る際に**逐次寄せていく**（ボーイスカウト・ルール）。R6 は最終収束と位置づけ、大規模一斉移動だけに頼らない。
+
+---
+
+## 5. マイルストーン
+
+| ID | 完了フェーズ | 到達状態 |
+|----|------------|---------|
+| RM0 | R0 | 回帰最小セット整備・撤去対象確定 |
+| RM1 | R1 | 状態 SSoT 化（Zustand 一元化） |
+| RM2 | R2 | ブリッジ／シングルトン撤去 |
+| RM3 | R3 | `Viewer.ts` 解体（<300 行） |
+| RM4 | R4 | View 層 React 化・jQuery 撤去 |
+| RM5 | R5 | `RuntimeShell` 分割・ダイアログ集約 |
+| RM6 | R6 | 完全移行・フォルダ整理・最適化 |
+
+> **Phase 4 への関門**：RM0–RM6 がすべて完了したときに限り、既存 [Phase 4（センシティブモード）](migration-roadmap.archived.md) への進行を許可する。
+> **センシティブモード・PWA 最適化は当分先の話**であり、本ロードマップのスコープ外として扱う。合理化（jQuery/EventDispatcher 排除、SSoT 化、神ファイル解体、フォルダ整理）が未完了のうちは着手しない。
+
+---
+
+## 6. 撤去対象トラッキング（KPI）
+
+合理化の進捗は「行数」ではなく**負債の消滅数**で測る。
+
+| 指標 | 現状 | 目標 |
+|------|------|------|
+| jQuery 依存ファイル数 | 4 | 0 |
+| `Viewer.shared` 参照ファイル数 | 2 | 0 |
+| `ViewerBridge` イベント種別 | 19 | 0（store action へ） |
+| `RuntimeShell.tsx` 行数 | 2,413 | < 400/コンポーネント |
+| `Viewer.ts` 行数 | 1,700 | < 300 |
+| `innerHTML` 直書き | 1 | 0 |
+| 命令的 View クラス | 3 | 0 |
+| 二重 React root | 2 | 1 |
+
+---
+
+## 7. リスクと対策
+
+| リスク | 影響 | 対策 |
+|--------|------|------|
+| 撤去先行で回帰が制御不能化 | 高 | R0 の回帰最小セットを前提とし、R1→R2→… の順序を厳守 |
+| 状態一元化中の二重更新残存 | 高 | R1 完了判定で `PropertyEvent` の UI 同期経路ゼロを確認 |
+| 神ファイル分割時の機能欠落 | 中 | 操作カテゴリ単位で移行・退避できる粒度に分割 |
+| jQuery 撤去でスライドショー破綻 | 中 | `SlideShowRuntime` は R4 でまとめて React 化し、退避経路を一時保持 |
+| センシティブ／互換の退行 | 中 | データ互換テスト（hvd/hvz/png）を撤去フェーズの都度実行 |
+
+---
+
+## 8. 目標フォルダ構成（命名規約の是正）
+
+現状は `src/react/`・`src/runtime/`・`src/view/`・`src/viewController/`・`src/viewModel/` が
+役割の重複・意味不明な命名（`react/` に hooks/ロジック/コンポーネントが混在）で分かれている。
+一般的な React プロジェクトの命名へ寄せ、**層ではなく役割で分類**する。
+
+### 是正方針
+- `react/` という曖昧な括りを廃止する（React 化が前提のため層名にならない）。
+- UI は `components/`（再利用部品）と `features/`（機能単位の画面）に分ける。
+- ロジックは `hooks/`（カスタムフック）と `stores/`（Zustand）と `usecases/` に分ける。
+- 旧 `view/`・`viewController/`・`viewModel/`・`runtime/` は解体し、上記へ吸収する。
+- `EventDispatcher`/`PropertyEvent`/`LayerView` 等は撤去対象のため移設しない（消す）。
+
+### 目標レイアウト（案）
+```
+src/
+  main.tsx                  # エントリ（旧 index.ts、jQuery 起動を撤去）
+  App.tsx                   # ルートコンポーネント（単一 React root）
+  components/               # 汎用・再利用 UI（プレゼンテーション）
+    slide/                  # SlideView / LayerView を React FC 化したもの
+    layer/                  # ImageLayerView / TextLayerView（旧 ImageView/TextView）
+    dialogs/                # 旧 *Request.ts/*Choice.ts を集約したモーダル群
+  features/                 # 機能単位の画面（コンテナ）
+    editor/                 # 編集シェル（旧 RuntimeShell を分割）
+      EditorShell.tsx
+      SlideListPanel.tsx
+      EditOpsPanel.tsx
+      LayerListPanel.tsx
+    slideshow/              # スライドショー（旧 SlideShowRuntime を React 化）
+    viewer/                 # 閲覧シェル（旧 AppShell/MainShell）
+  hooks/                    # カスタムフック（旧 *Keyboard.ts / useViewerBridge 等）
+  stores/                   # Zustand（旧 state/。SSoT）
+    layerStore.ts
+    slideStore.ts
+    documentStore.ts
+  usecases/                 # アプリケーションロジック（旧 useCase/）
+  domain/                   # 純データ型と純粋関数（旧 model/。クラス→型へ）
+    layer.ts
+    slide.ts
+    document.ts
+  storage/                  # 永続化アダプタ（現状維持・良資産）
+  lib/                      # 汎用ユーティリティ（旧 utils/。Manager クラスは関数化）
+  styles/                   # Mantine theme + 残余スタイル（旧 css/ を吸収）
+```
+
+> マッピング例：`src/react/RuntimeShell.tsx` → `src/features/editor/*`、
+> `src/view/layer/TextView.tsx` → `src/components/layer/TextLayerView.tsx`、
+> `src/state/` → `src/stores/`、`src/model/` → `src/domain/`、`src/utils/` → `src/lib/`。
+
+**原則**：移動は各 R フェーズで該当ファイルを触る際に随伴して行い、R6 で最終整合する。
+import パスの一括置換のみを目的とした巨大コミットは避け、機能単位で移す。
+
+---
+
+## 9. 横断タスク（全フェーズ共通）
+- [docs/function-list.md](function-list.md) とのギャップ管理。
+- 回帰テスト（`npm run test:usecase` + 手動正常系）の都度更新。
+- パフォーマンス計測（初期表示・編集応答・スライドショー遷移）。
+- 撤去対象トラッキング（第 6 章 KPI）の更新。
 
 ## 関連仕様
-- docs/mode-spec.md
-- docs/state-management-design.md
-- docs/sensitive-mode-spec.md
-- docs/data-compatibility-spec.md
-- docs/test-plan.md
-- docs/phase2-kickoff-checklist.md
-- docs/phase2-risk-control.md
-
-## 前提
-- 段階移行とし、各フェーズで動作する成果物を維持する
-- 原則は同一 HTML（同一エントリ）で実装する
-- UI/CSS ライブラリは Mantine を採用する
-
-## 実装原則（TSX 優先）
-- 本移行の目的は「jQuery を Vanilla JS へ置換すること」ではなく、React/TSX へ移行することとする
-- 新規 UI 実装は React コンポーネント（TSX）を第一選択とし、DOM 直接操作は暫定対応または互換維持に限定する
-- jQuery/独自 View 層はブリッジ経由の暫定層として扱い、段階的に縮小・撤去する
-- フェーズ完了判定では、機能同等性に加えて「実行経路が React/TSX 側へ移っていること」を確認対象に含める
-
-- モード要件:
-  - PC ブラウザ: browser mode（編集可）
-  - スマホ PWA: mobile pwa mode（基本閲覧のみ）
-- スマホ PWA は横画面 UX を前提とする（縦起動時フォールバック含む）
-- センシティブモード（ドキュメント単位 ON/OFF）を最終的に実装対象とする
-
-## スコープ
-- In:
-  - UI レイヤの React 化
-  - モード判定と機能ゲート
-  - 既存データ互換を維持した保存/読込
-  - スライドショー・閲覧機能の維持
-  - 編集機能の段階移行
-- Out（本ロードマップでは実装しない）:
-  - 大規模な機能追加
-  - 既存フォーマットの破壊的変更
-
-## フェーズ構成
-
-## Phase 0: 設計固定
-### 目的
-実装前に仕様ブレを止める。
-
-### 作業
-- モード仕様（browser/mobile pwa）の確定
-- 画面向き仕様（横固定 + transform フォールバック）の確定
-- センシティブモード仕様の詳細化（認証・暗号化・復号・失敗時挙動）
-- 状態管理方針（Document/Slide/Layer/History）確定
-
-### 完了条件
-- 設計ドキュメントがレビュー承認済み
-- 実装フェーズごとの受け入れ条件が定義済み
-
-### ロールバック条件
-- 仕様未確定項目が残る場合は実装開始しない
-
-## Phase 1: App シェル + 閲覧基盤 React 化
-### 目的
-最小の React アプリとして閲覧できる状態を作る。
-
-### 作業
-- React エントリを追加し、既存 UI を段階置換できる構造を作る
-- Mantine の ThemeProvider とデザイントークン（色、余白、タイポ）を導入する
-- browser/mobile pwa の起動判定を実装
-- モードに応じた feature gate（編集系 UI を無効化）を導入
-- スライド一覧の閲覧 UI を React 化
-- スライドショー起動導線を維持
-
-### 完了条件
-- PC ブラウザで一覧表示とスライドショー起動が可能
-- スマホ PWA で閲覧のみが有効
-- 既存 jQuery 画面と機能差分が明文化されている
-
-### ロールバック条件
-- 閲覧が破綻した場合、旧エントリへ切替できる
-
-## Phase 2: データ層・永続化の分離
-### 目的
-UI とデータ処理を分離し、以降の移行を安全化する。
-
-### 作業
-- 既存保存読込処理を抽象化（Storage Adapter）
-- IndexedDB / import / export を React 側から利用可能にする
-- 互換性テストを追加（既存 hvd/hvz/png 埋め込み）
-
-### 完了条件
-- 既存データの保存/読込/入出力が維持される
-- UI 層の差し替えに影響されないデータ API が整備される
-
-### ロールバック条件
-- 既存データを読み込めない事象が出た場合は旧ストレージ実装へ戻す
-
-## Phase 3: 編集機能の段階移行（コア）
-### 目的
-編集機能の中核を React 化する。
-
-### 作業
-- 編集キャンバス移行（選択・移動・拡縮・回転・反転）
-- レイヤーリストとプロパティ編集 UI 移行
-- Undo/Redo（Command 履歴）を独立ストアとして移植
-- クリップ、整列、順序変更、コピー系操作の移行
-- React UI（TSX）から編集操作を完結できる実行経路へ移行（legacy 呼び出し依存の縮小）
-
-### 完了条件
-- 主要編集操作が browser mode で既存同等
-- mobile pwa mode では編集操作が確実に無効
-
-### ロールバック条件
-- 主要編集でデータ破損のリスクがある場合は、該当操作のみ旧 UI へフォールバック
-
-## Phase 4: センシティブモード実装
-### 目的
-ドキュメント単位の保護機能を実運用可能にする。
-
-### 作業
-- `isSensitive` メタの保存/読込
-- パスワード入力フロー実装
-- 画像データの暗号化保存と復号表示
-- 認証失敗時の非表示制御
-
-### 完了条件
-- センシティブ ON 文書は認証成功時のみ表示
-- 非センシティブ文書との互換が維持される
-
-### ロールバック条件
-- 復号失敗や表示誤りが出た場合、センシティブ文書の読込を保護モードで停止
-
-## Phase 5: スマホ PWA 体験の最適化
-### 目的
-スマホ PWA の閲覧体験を安定させる。
-
-### 作業
-- 横画面固定の試行（Orientation API）
-- 縦起動時の transform 回転フォールバック
-- セーフエリア、タップ座標、レイアウト再計算の最適化
-
-### 完了条件
-- 縦起動でも横 UX が成立
-- 一覧とスライドショーが安定動作
-
-### ロールバック条件
-- 端末依存で操作不全が出る場合、機種条件でフォールバック戦略を分岐
-
-## Phase 6: 仕上げ・旧実装撤去
-### 目的
-移行完了後の運用可能なコードベースへ収束させる。
-
-### 作業
-- 旧 jQuery 依存コードの段階的撤去
-- 不要 CSS/アセット整理
-- 回帰テストとドキュメント最終更新
-- React/TSX 実装へ未移行の画面・操作を棚卸しし、残存する DOM 直接操作経路を解消
-
-### 完了条件
-- 主要ユースケースが React 実装のみで成立
-- 旧実装なしでリリース判断が可能
-
-### ロールバック条件
-- 本番相当テストで重大回帰が出る場合、撤去対象を限定して延期
-
-## マイルストーン
-- M1: Phase 1 完了（閲覧基盤 React 化）
-- M2: Phase 2 完了（データ層分離）
-- M3: Phase 3 完了（編集コア移行）
-- M4: Phase 4 完了（センシティブ対応）
-- M5: Phase 5 完了（スマホ PWA 最適化）
-- M6: Phase 6 完了（完全移行）
-
-## 横断タスク（全フェーズ共通）
-- 既存機能とのギャップ管理
-- 回帰テスト更新
-- パフォーマンス計測（初期表示、編集応答、スライドショー遷移）
-- 不具合トリアージと優先度運用
-
-## 受け入れ基準（全体）
-- browser mode で既存の編集体験を維持
-- mobile pwa mode で閲覧体験を維持
-- データ互換を破壊しない
-- センシティブ文書の保護要件を満たす
-
-## リスクと対策（初版）
-- リスク: 編集機能の同等性不足
-  - 対策: 編集機能は操作カテゴリごとに段階移行し、旧 UI フォールバック経路を残す
-- リスク: 端末差異による画面向き不整合
-  - 対策: API ロック失敗時の transform 回転を標準経路として設計
-- リスク: センシティブ処理の互換不整合
-  - 対策: メタデータ version を明示し、復号失敗時は安全側で表示停止
+- [docs/mode-spec.md](mode-spec.md)
+- [docs/state-management-design.md](state-management-design.md)
+- [docs/sensitive-mode-spec.md](sensitive-mode-spec.md)
+- [docs/data-compatibility-spec.md](data-compatibility-spec.md)
+- [docs/test-plan.md](test-plan.md)
+- [docs/migration-roadmap.archived.md](migration-roadmap.archived.md)（旧計画・参照用）
