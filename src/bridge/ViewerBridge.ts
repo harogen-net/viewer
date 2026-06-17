@@ -1,5 +1,11 @@
 /**
- * ViewerBridge – typed event bus between legacy jQuery/Viewer and React components.
+ * ViewerBridge – typed event bus for one-shot UI request prompts.
+ *
+ * Persistent state (mode, modified flag, history availability, slideshow
+ * settings/playback, storage titles/selection/progress, image library) lives
+ * in Zustand stores (see `state/uiStore.ts`). This bus now only carries
+ * request-style events (dialogs, notices) that do not have a meaningful
+ * "current value" and are scheduled for further reduction in later steps.
  *
  * Rules:
  *  - Viewer (jQuery side) calls ViewerBridge.emit(...)
@@ -7,21 +13,9 @@
  *  - No DOM dependency; no React import needed here.
  */
 
-import { SlideTitle } from "../storage/storageTypes";
-
 export type ViewerBridgeEventMap = {
 	/** Image deletion requested from the images panel */
 	imageDeleteRequested: { imageId: string; name: string } | null;
-	/** Registered image library changed */
-	imageLibraryChanged: {
-		images: readonly {
-			id: string;
-			name: string;
-			width: number;
-			height: number;
-			src: string;
-		}[];
-	};
 	/** Shared layer removal requested from an edit command */
 	sharedLayerRemovalRequested: { layerName: string } | null;
 	/** Spread selected layer requested from an edit command */
@@ -36,31 +30,8 @@ export type ViewerBridgeEventMap = {
 	importFileDialogRequested: { open: boolean } | null;
 	/** Save destination choice requested from a command */
 	saveChoiceRequested: { open: boolean } | null;
-	/** Storage loading progress changed */
-	storageProgressChanged: { percentage: number };
 	/** Runtime notice requested */
 	noticeChanged: { id: number; message: string; variant: "error" | "info" } | null;
-	/** Saved file titles in storage changed */
-	savedFilesChanged: { titles: readonly SlideTitle[] };
-	/** Selected saved file changed */
-	savedFileSelectionChanged: { selectedId: string | null };
-	/** Slideshow-related settings changed */
-	slideshowSettingsChanged: {
-		duration: number;
-		interval: number;
-		bgColor: string;
-		fullscreen: boolean;
-		mirrorH: boolean;
-		mirrorV: boolean;
-	};
-	/** Slideshow playback state changed */
-	slideshowPlaybackChanged: { isRun: boolean; isPause: boolean };
-	/** Document modified status changed */
-	modifiedChanged: { modified: boolean };
-	/** Viewer mode changed */
-	modeChanged: { mode: "select" | "edit" | "slideshow" };
-	/** Undo/Redo availability changed */
-	historyChanged: { canUndo: boolean; canRedo: boolean };
 };
 
 export type ViewerBridgeEventType = keyof ViewerBridgeEventMap;

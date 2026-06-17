@@ -19,6 +19,7 @@ import {
 	useLayerStore,
 } from "../state/layerStore";
 import { useSlideStore } from "../state/slideStore";
+import { useUiStore } from "../state/uiStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { SlideTitle } from "../storage/storageTypes";
 import { ViewerBridge, ViewerBridgeEventMap } from "./ViewerBridge";
@@ -96,7 +97,8 @@ export function useViewerImageDeleteRequest(): { imageId: string; name: string }
 export function useViewerImages(): {
 	images: readonly { id: string; name: string; width: number; height: number; src: string }[];
 } {
-	return useBridgeEvent("imageLibraryChanged", { images: [] });
+	const images = useUiStore((state) => state.imageLibrary);
+	return { images };
 }
 
 export function useViewerSharedLayerRemovalRequest(): { layerName: string } | null {
@@ -128,7 +130,8 @@ export function useViewerSaveChoiceRequest(): { open: boolean } | null {
 }
 
 export function useViewerStorageProgress(): { percentage: number } {
-	return useBridgeEvent("storageProgressChanged", { percentage: 0 });
+	const percentage = useUiStore((state) => state.storage.progress);
+	return { percentage };
 }
 
 export function useViewerNotice(): {
@@ -146,11 +149,13 @@ type StorageState = {
 };
 
 export function useViewerStorage(): StorageState {
-	return useBridgeEvent("savedFilesChanged", { titles: [] });
+	const titles = useUiStore((state) => state.storage.titles);
+	return { titles };
 }
 
 export function useViewerSavedFileSelection(): { selectedId: string | null } {
-	return useBridgeEvent("savedFileSelectionChanged", { selectedId: null });
+	const selectedId = useUiStore((state) => state.storage.selectedId);
+	return { selectedId };
 }
 
 export function useViewerSlideshowSettings(): {
@@ -161,34 +166,29 @@ export function useViewerSlideshowSettings(): {
 	mirrorH: boolean;
 	mirrorV: boolean;
 } {
-	return useBridgeEvent("slideshowSettingsChanged", {
-		duration: 2000,
-		interval: 6000,
-		bgColor: "#999999",
-		fullscreen: false,
-		mirrorH: false,
-		mirrorV: false,
-	});
+	return useUiStore((state) => state.slideshowSettings);
 }
 
 export function useViewerSlideshowPlayback(): { isRun: boolean; isPause: boolean } {
-	return useBridgeEvent("slideshowPlaybackChanged", { isRun: false, isPause: false });
+	return useUiStore((state) => state.slideshowPlayback);
 }
 
 // ─── Modified flag ────────────────────────────────────────────────────────────
 
 export function useViewerModified(): { modified: boolean } {
-	return useBridgeEvent("modifiedChanged", { modified: false });
+	const modified = useUiStore((state) => state.modified);
+	return { modified };
 }
 
-// ─── Viewer mode ──────────────────────────────────────────────────────────────
+// ─── Viewer mode ──────────────────────────────────────────────────────────
 
 export function useViewerMode(): { mode: "select" | "edit" | "slideshow" } {
-	return useBridgeEvent("modeChanged", { mode: "select" });
+	const mode = useUiStore((state) => state.mode);
+	return { mode };
 }
 
 export function useViewerHistory(): { canUndo: boolean; canRedo: boolean } {
-	return useBridgeEvent("historyChanged", { canUndo: false, canRedo: false });
+	return useUiStore((state) => state.history);
 }
 
 export function useViewerEditSelection(): EditLayerSelectionState {

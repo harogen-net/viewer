@@ -2,7 +2,7 @@ import type { Layer } from "../model/Layer";
 import type { ImageLayer } from "../model/layer/ImageLayer";
 import type { TextLayer } from "../model/layer/TextLayer";
 import type { Direction } from "../model/Slide";
-import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
+import { Command, HistoryManager, type ICommand, Transaction } from "../utils/HistoryManager";
 
 export type LayerMutationRenderScope = "selection" | "current";
 
@@ -140,9 +140,33 @@ export function createEditLayerMutationUseCase(
 		render: LayerMutationRenderScope = "selection",
 		includeLayerList = false
 	): boolean {
-		HistoryManager.shared.record(new Command(apply, revert)).do();
-		options.emitAfterMutation(render, includeLayerList);
+		recordCommittedCommand(new Command(apply, revert), render, includeLayerList);
 		return true;
+	}
+
+	/**
+	 * Record a command/transaction with the snapshot republish (`emitAfterMutation`)
+	 * folded into its `fwd`/`rev`. This keeps model mutation and snapshot update in
+	 * the same history transaction, so undo/redo republish atomically and there is
+	 * no separate post-commit emit to drift out of sync.
+	 */
+	function recordCommittedCommand(
+		command: ICommand,
+		render: LayerMutationRenderScope,
+		includeLayerList: boolean
+	): void {
+		const commit = () => options.emitAfterMutation(render, includeLayerList);
+		const committed = new Command(
+			() => {
+				command.fwd();
+				commit();
+			},
+			() => {
+				command.rev();
+				commit();
+			}
+		);
+		HistoryManager.shared.record(committed).do();
 	}
 
 	function mutateSelectedLayer<TLayer extends Layer>(
@@ -364,9 +388,8 @@ export function createEditLayerMutationUseCase(
 		while (slide && applyToSlide(slide)) slide = getPrevSlide(slide);
 
 		if (transaction.length === 0) return true;
-		HistoryManager.shared.record(transaction).do();
 		options.trackSharedLayer?.(context.layer);
-		options.emitAfterMutation("current", true);
+		recordCommittedCommand(transaction, "current", true);
 		return true;
 	}
 
@@ -573,8 +596,7 @@ export function createEditLayerMutationUseCase(
 			);
 		});
 
-		HistoryManager.shared.record(transaction).do();
-		options.emitAfterMutation("current", false);
+		recordCommittedCommand(transaction, "current", false);
 		return true;
 	}
 
@@ -643,9 +665,10 @@ export function createEditLayerMutationUseCase(
 				);
 			});
 			if (transaction.length > 0) {
-				HistoryManager.shared.record(transaction).do();
+				recordCommittedCommand(transaction, "selection", false);
+			} else {
+				options.emitAfterMutation("selection", false);
 			}
-			options.emitAfterMutation("selection", false);
 			return true;
 		}
 

@@ -1,9 +1,9 @@
 import CryptoJS from "crypto-js";
-import { ViewerBridge } from "../bridge/ViewerBridge";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { Slide } from "../model/Slide";
 import { layerStore } from "../state/layerStore";
+import { uiStore } from "../state/uiStore";
 import { HistoryManager } from "./HistoryManager";
 
 type ImageRecord = {
@@ -131,18 +131,17 @@ export class ImageManager {
 	}
 
 	private emitImageLibraryChanged(): void {
-		ViewerBridge.emit("imageLibraryChanged", {
-			images: Object.keys(this._imageById).map((id) => {
-				const image = this._imageById[id];
-				return {
-					id,
-					name: image?.name ?? "",
-					width: image?.width ?? 0,
-					height: image?.height ?? 0,
-					src: image?.element.src ?? "",
-				};
-			}),
+		const images = Object.keys(this._imageById).map((id) => {
+			const image = this._imageById[id];
+			return {
+				id,
+				name: image?.name ?? "",
+				width: image?.width ?? 0,
+				height: image?.height ?? 0,
+				src: image?.element.src ?? "",
+			};
 		});
+		uiStore.getState().setImageLibrary(images);
 	}
 
 	public getImagePropsById(id: string): { width: number; height: number; name: string } {

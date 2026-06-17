@@ -3,7 +3,6 @@ import JSZip from "jszip";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
 import { createImageLayer } from "./model/layer/ImageLayer";
-import { PropFlags } from "./model/PropFlags";
 import { createSlide, Direction, getScreenSlideSize, Slide } from "./model/Slide";
 import { createViewerDocument, type ViewerDocument } from "./model/ViewerDocument";
 import { EditCanvasRuntime } from "./runtime/EditCanvasRuntime";
@@ -14,6 +13,7 @@ import { SlideShowPlaybackSettings, SlideShowRuntime } from "./runtime/SlideShow
 import { ViewerMode, ViewerStartUpMode } from "./runtime/viewerMode";
 import { layerStore } from "./state/layerStore";
 import { slideStore } from "./state/slideStore";
+import { uiStore } from "./state/uiStore";
 import { viewerDocumentStore } from "./state/viewerDocumentStore";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
@@ -54,7 +54,7 @@ export class Viewer {
 	}
 	set IsDocumentModified(value: boolean) {
 		this._isDocumentModified = value;
-		ViewerBridge.emit("modifiedChanged", { modified: value });
+		uiStore.getState().setModified(value);
 	}
 
 	private handleStorageResult(resultPromise: Promise<StorageActionResult>) {
@@ -104,16 +104,14 @@ export class Viewer {
 	private initializeDocumentStorage(): void {
 		this.documentStorage = new DocumentStorageUseCase(createStorageAdapter(), this.featureGate);
 		this.documentStorage.onLoading((percentage) => {
-			ViewerBridge.emit("storageProgressChanged", { percentage });
+			uiStore.getState().setStorageProgress(percentage);
 		});
 		this.documentStorage.onLoaded((doc) => {
 			this.newDocument(doc);
 		});
 		this.documentStorage.onUpdated(() => {
 			const titles = this.documentStorage.getTitles();
-			ViewerBridge.emit("savedFilesChanged", {
-				titles,
-			});
+			uiStore.getState().setStorageTitles(titles);
 			if (this.findSavedFileIndex(this.selectedSavedFileId) === -1) {
 				this.setSavedFileSelection(titles.length > 0 ? String(titles[0].id) : null);
 			}
@@ -124,14 +122,15 @@ export class Viewer {
 	}
 
 	private emitSlideShowSettings(): void {
-		ViewerBridge.emit("slideshowSettingsChanged", {
+		const settings = {
 			duration: this.slideShowDuration,
 			interval: this.slideShowInterval,
 			bgColor: this.slideShowBgColor,
 			fullscreen: this.slideShowFullscreen,
 			mirrorH: this.slideShowMirrorH,
 			mirrorV: this.slideShowMirrorV,
-		});
+		};
+		uiStore.getState().setSlideshowSettings(settings);
 	}
 
 	private getSlideShowPlaybackSettings(): SlideShowPlaybackSettings {
@@ -143,10 +142,10 @@ export class Viewer {
 
 	private emitHistoryState(): void {
 		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) {
-			ViewerBridge.emit("historyChanged", { canUndo: false, canRedo: false });
+			uiStore.getState().setHistory({ canUndo: false, canRedo: false });
 			return;
 		}
-		ViewerBridge.emit("historyChanged", {
+		uiStore.getState().setHistory({
 			canUndo: HistoryManager.shared.canUndo,
 			canRedo: HistoryManager.shared.canRedo,
 		});
@@ -274,7 +273,7 @@ export class Viewer {
 	}
 
 	private updateSlideshowPlaybackState(isRun: boolean, isPause: boolean): void {
-		ViewerBridge.emit("slideshowPlaybackChanged", { isRun, isPause });
+		uiStore.getState().setSlideshowPlayback({ isRun, isPause });
 		if (isRun) {
 			if (this._mode !== ViewerMode.SLIDESHOW) {
 				this.modeBeforeSlideshow = this._mode ?? ViewerMode.SELECT;
@@ -291,7 +290,7 @@ export class Viewer {
 	private setSavedFileSelection(fileId: string | null): void {
 		const nextId = fileId == null || fileId === "-1" ? null : String(fileId);
 		this.selectedSavedFileId = nextId;
-		ViewerBridge.emit("savedFileSelectionChanged", { selectedId: nextId });
+		uiStore.getState().setStorageSelection(nextId);
 	}
 
 	private findSavedFileIndex(selectedId: string | null): number {
@@ -630,9 +629,7 @@ export class Viewer {
 		this.emitEditSelectionState();
 		this.emitSlideShowSettings();
 		this.rebindSlideMetaListeners();
-		ViewerBridge.emit("savedFilesChanged", {
-			titles: this.documentStorage.getTitles(),
-		});
+		uiStore.getState().setStorageTitles(this.documentStorage.getTitles());
 		const titles = this.documentStorage.getTitles();
 		const currentSelectionExists = this.findSavedFileIndex(this.selectedSavedFileId) !== -1;
 		if (currentSelectionExists) {
@@ -671,7 +668,7 @@ export class Viewer {
 				: this._mode === ViewerMode.SLIDESHOW
 					? "slideshow"
 					: "select";
-		ViewerBridge.emit("modeChanged", { mode: bridgeMode });
+		uiStore.getState().setMode(bridgeMode);
 		this.emitEditSelectionState();
 	}
 
@@ -1017,13 +1014,8 @@ export class Viewer {
 		}
 		this._slideMetaUnsubscribers = [];
 		if (!this.viewerDocument) return;
-		const layerChangeFlags =
-			PropFlags.S_LAYER |
-			PropFlags.S_LAYER_ADD |
-			PropFlags.S_LAYER_REMOVE |
-			PropFlags.S_LAYER_ORDER;
-		const handler = (event: PropertyEvent) => {
-			this.emitCurrentSlides(Boolean(event.propFlags & layerChangeFlags));
+		const handler = () => {
+			this.emitCurrentSlides();
 		};
 		for (const slide of this.slides) {
 			slide.addEventListener(PropertyEvent.UPDATE, handler);
@@ -1673,7 +1665,7 @@ export class Viewer {
 		if (!confirmed) return;
 		ImageManager.shared.deleteImageById(imageId);
 		this.IsDocumentModified = true;
-		this.emitCurrentSlides();
+		this.emitCurrentSlides(true);
 		this.emitCurrentEditState();
 		this.emitHistoryState();
 	}
