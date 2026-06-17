@@ -1,5 +1,4 @@
 import $ from "jquery";
-import JSZip from "jszip";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
 import { createImageLayer } from "./model/layer/ImageLayer";
@@ -9,7 +8,7 @@ import { EditCanvasRuntime } from "./runtime/EditCanvasRuntime";
 import { FeatureGate } from "./runtime/featureGate";
 import { showNotice } from "./runtime/notice";
 import { getSaveFormat } from "./runtime/reactDomRegistry";
-import { SlideShowPlaybackSettings, SlideShowRuntime } from "./runtime/SlideShowRuntime";
+import { SlideShowRuntime } from "./runtime/SlideShowRuntime";
 import { ViewerMode, ViewerStartUpMode } from "./runtime/viewerMode";
 import { layerStore } from "./state/layerStore";
 import { slideStore } from "./state/slideStore";
@@ -18,12 +17,24 @@ import { viewerDocumentStore } from "./state/viewerDocumentStore";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
 import { HVDataType } from "./storage/storageTypes";
 import { DocumentStorageUseCase, type StorageActionResult } from "./useCase/DocumentStorageUseCase";
+import {
+	downloadAllSlidesAsZip,
+	downloadSlideAsPNG,
+	type ImageExportContext,
+} from "./useCase/ImageExportUseCase";
+import {
+	createSavedFileNavigationUseCase,
+	type SavedFileNavigationUseCase,
+} from "./useCase/SavedFileNavigationUseCase";
+import {
+	createSlideHistoryUseCase,
+	type SlideHistoryUseCase,
+} from "./useCase/SlideHistoryUseCase";
+import { createSlideshowUseCase, type SlideshowUseCase } from "./useCase/SlideshowUseCase";
 import { handleStorageActionResult } from "./useCase/storageActionResult";
-import { DataUtil } from "./utils/DataUtil";
 import { DateUtil } from "./utils/DateUtil";
-import { Command, HistoryManager } from "./utils/HistoryManager";
+import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
-import { SlideToPNGConverter } from "./utils/SlideToPNGConverter";
 
 export class Viewer {
 	public static shared: Viewer;
@@ -32,17 +43,15 @@ export class Viewer {
 
 	private editCanvasRuntime: EditCanvasRuntime;
 	private slideShowRuntime: SlideShowRuntime;
+	private slideshowUseCase: SlideshowUseCase;
 	private documentStorage: DocumentStorageUseCase;
+	private savedFileNav: SavedFileNavigationUseCase;
+	private slideHistory: SlideHistoryUseCase = createSlideHistoryUseCase({
+		getStartUpMode: () => Viewer.startUpMode,
+		rebindSlideMetaListeners: () => this.rebindSlideMetaListeners(),
+	});
 
 	private _mode: ViewerMode;
-	private selectedSavedFileId: string | null = null;
-	private slideShowDuration = 2000;
-	private slideShowInterval = 6000;
-	private slideShowBgColor = "#999999";
-	private slideShowFullscreen = false;
-	private slideShowMirrorH = false;
-	private slideShowMirrorV = false;
-	private modeBeforeSlideshow: ViewerMode | null = null;
 
 	private viewerDocument: ViewerDocument;
 	private _isDocumentModified = false;
@@ -103,6 +112,7 @@ export class Viewer {
 
 	private initializeDocumentStorage(): void {
 		this.documentStorage = new DocumentStorageUseCase(createStorageAdapter(), this.featureGate);
+		this.savedFileNav = createSavedFileNavigationUseCase(this.documentStorage);
 		this.documentStorage.onLoading((percentage) => {
 			uiStore.getState().setStorageProgress(percentage);
 		});
@@ -112,71 +122,13 @@ export class Viewer {
 		this.documentStorage.onUpdated(() => {
 			const titles = this.documentStorage.getTitles();
 			uiStore.getState().setStorageTitles(titles);
-			if (this.findSavedFileIndex(this.selectedSavedFileId) === -1) {
-				this.setSavedFileSelection(titles.length > 0 ? String(titles[0].id) : null);
+			if (this.savedFileNav.findIndex(this.savedFileNav.getSelectedId()) === -1) {
+				this.savedFileNav.setSelection(titles.length > 0 ? String(titles[0].id) : null);
 			}
 		});
 		this.documentStorage.onError((error) => {
 			showNotice(this.documentStorage.getErrorNoticeMessage(error));
 		});
-	}
-
-	private emitSlideShowSettings(): void {
-		const settings = {
-			duration: this.slideShowDuration,
-			interval: this.slideShowInterval,
-			bgColor: this.slideShowBgColor,
-			fullscreen: this.slideShowFullscreen,
-			mirrorH: this.slideShowMirrorH,
-			mirrorV: this.slideShowMirrorV,
-		};
-		uiStore.getState().setSlideshowSettings(settings);
-	}
-
-	private getSlideShowPlaybackSettings(): SlideShowPlaybackSettings {
-		return {
-			duration: this.slideShowDuration,
-			interval: this.slideShowInterval,
-		};
-	}
-
-	private emitHistoryState(): void {
-		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) {
-			uiStore.getState().setHistory({ canUndo: false, canRedo: false });
-			return;
-		}
-		uiStore.getState().setHistory({
-			canUndo: HistoryManager.shared.canUndo,
-			canRedo: HistoryManager.shared.canRedo,
-		});
-	}
-
-	private emitSlideHistoryMutation(rebindSlides: boolean = false): void {
-		if (rebindSlides) {
-			this.rebindSlideMetaListeners();
-		}
-		this.emitCurrentSlides();
-	}
-
-	private recordSlideHistoryCommand(
-		fwd: () => void,
-		rev: () => void,
-		rebindSlides: boolean = false
-	): void {
-		HistoryManager.shared
-			.record(
-				new Command(
-					() => {
-						fwd();
-						this.emitSlideHistoryMutation(rebindSlides);
-					},
-					() => {
-						rev();
-						this.emitSlideHistoryMutation(rebindSlides);
-					}
-				)
-			)
-			.do();
 	}
 
 	private emitEditSelectionState(): void {
@@ -250,69 +202,6 @@ export class Viewer {
 		this.emitEditSelectionState();
 	}
 
-	private buildSlideShowSlides(): { slides: Slide[]; startIndex: number } {
-		var slides: Slide[] = [];
-		var startIndex: number = 0;
-
-		for (var i: number = 0; i < this.slides.length; i++) {
-			var slide: Slide = this.slides[i];
-			if (slide.disabled) continue;
-			slides.push(slide.clone());
-			if (i == this.selectedSlideIndex) startIndex = slides.length - 1;
-		}
-
-		return { slides, startIndex };
-	}
-
-	private startSlideShowFromSelection(): void {
-		const { slides, startIndex } = this.buildSlideShowSlides();
-		if (slides.length == 0) return;
-
-		this.slideShowRuntime.setUp(slides, this.getSlideShowPlaybackSettings());
-		this.slideShowRuntime.run(startIndex);
-	}
-
-	private updateSlideshowPlaybackState(isRun: boolean, isPause: boolean): void {
-		uiStore.getState().setSlideshowPlayback({ isRun, isPause });
-		if (isRun) {
-			if (this._mode !== ViewerMode.SLIDESHOW) {
-				this.modeBeforeSlideshow = this._mode ?? ViewerMode.SELECT;
-				this.setMode(ViewerMode.SLIDESHOW);
-			}
-			return;
-		}
-		if (this._mode === ViewerMode.SLIDESHOW) {
-			this.setMode(this.modeBeforeSlideshow ?? ViewerMode.SELECT);
-		}
-		this.modeBeforeSlideshow = null;
-	}
-
-	private setSavedFileSelection(fileId: string | null): void {
-		const nextId = fileId == null || fileId === "-1" ? null : String(fileId);
-		this.selectedSavedFileId = nextId;
-		uiStore.getState().setStorageSelection(nextId);
-	}
-
-	private findSavedFileIndex(selectedId: string | null): number {
-		if (!selectedId) return -1;
-		const titles = this.documentStorage.getTitles();
-		return titles.findIndex((t) => String(t.id) === selectedId);
-	}
-
-	private ensureSelectedSavedFileId(): string | null {
-		if (this.selectedSavedFileId && this.findSavedFileIndex(this.selectedSavedFileId) !== -1) {
-			return this.selectedSavedFileId;
-		}
-		const titles = this.documentStorage.getTitles();
-		if (titles.length === 0) {
-			this.setSavedFileSelection(null);
-			return null;
-		}
-		const firstId = String(titles[0].id);
-		this.setSavedFileSelection(firstId);
-		return firstId;
-	}
-
 	private initializeEditModeFeatures(startUpMode: ViewerStartUpMode): void {
 		if (startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) {
 			return;
@@ -321,10 +210,10 @@ export class Viewer {
 		HistoryManager.init();
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			this.IsDocumentModified = HistoryManager.shared.canUndo;
-			this.emitHistoryState();
+			this.slideHistory.publishHistoryState();
 			this.emitCurrentEditState();
 		});
-		this.emitHistoryState();
+		this.slideHistory.publishHistoryState();
 
 		this.editCanvasRuntime = new EditCanvasRuntime(this.obj.find(".canvas"));
 	}
@@ -409,45 +298,9 @@ export class Viewer {
 		return this.slides.some((slide) => !slide.disabled);
 	}
 
-	private downloadDocumentImages(targetIndex: number = -1): void {
-		const isTransparent = false;
+	private getImageExportContext(): ImageExportContext {
 		const { title, width, height, bgColor } = viewerDocumentStore.getState();
-		const converter = new SlideToPNGConverter();
-
-		if (targetIndex != -1) {
-			const slide = this.slides[targetIndex];
-			if (!slide) {
-				throw new Error("invalid index.");
-			}
-			const canvas = converter.slide2canvas(
-				slide,
-				width,
-				height,
-				1,
-				isTransparent ? undefined : bgColor
-			);
-			DataUtil.downloadBlob(
-				DataUtil.dataURItoBlob(canvas.toDataURL()),
-				title + "_" + (targetIndex + 1) + ".png"
-			);
-			return;
-		}
-
-		const zip = new JSZip();
-		this.slides.forEach((slide, index) => {
-			if (slide.disabled) return;
-			const canvas = converter.slide2canvas(
-				slide,
-				width,
-				height,
-				1,
-				isTransparent ? undefined : bgColor
-			);
-			zip.file(title + "_" + (index + 1) + ".png", DataUtil.dataURItoBlob(canvas.toDataURL()));
-		});
-		zip.generateAsync({ type: "blob", compression: "DEFLATE" }).then((blob) => {
-			DataUtil.downloadBlob(blob, title + ".zip");
-		});
+		return { title, width, height, bgColor };
 	}
 
 	private setSlides(slides: Slide[], selectedIndex = -1): void {
@@ -531,8 +384,15 @@ export class Viewer {
 	private initializeRuntimes(startUpMode: ViewerStartUpMode): void {
 		this.slideShowRuntime = new SlideShowRuntime($("<div />").appendTo(this.obj), {
 			onPlaybackChanged: ({ isRun, isPause }) => {
-				this.updateSlideshowPlaybackState(isRun, isPause);
+				this.slideshowUseCase?.handlePlaybackChanged(isRun, isPause);
 			},
+		});
+		this.slideshowUseCase = createSlideshowUseCase({
+			runtime: this.slideShowRuntime,
+			getSlides: () => this.slides,
+			getSelectedSlideIndex: () => this.selectedSlideIndex,
+			getMode: () => this._mode,
+			setMode: (mode) => this.setMode(mode),
 		});
 		this.initializeDocumentStorage();
 		this.initializeEditModeFeatures(startUpMode);
@@ -619,23 +479,24 @@ export class Viewer {
 		}
 		const slidesToBind = nextSlides ?? [...nextDocument.slides];
 		this.viewerDocument = nextDocument;
-		this.slideShowBgColor = this.viewerDocument.bgColor;
-		this.slideShowRuntime.fullscreen = this.slideShowFullscreen;
-		this.slideShowRuntime.mirrorH = this.slideShowMirrorH;
-		this.slideShowRuntime.mirrorV = this.slideShowMirrorV;
+		uiStore.getState().setSlideshowSettings({
+			...uiStore.getState().slideshowSettings,
+			bgColor: this.viewerDocument.bgColor,
+		});
+		this.slideshowUseCase.syncRuntimeFlags();
 		this.bindViewerDocument(this.viewerDocument, slidesToBind);
 		this.IsDocumentModified = false;
-		this.emitHistoryState();
+		this.slideHistory.publishHistoryState();
 		this.emitEditSelectionState();
-		this.emitSlideShowSettings();
 		this.rebindSlideMetaListeners();
 		uiStore.getState().setStorageTitles(this.documentStorage.getTitles());
 		const titles = this.documentStorage.getTitles();
-		const currentSelectionExists = this.findSavedFileIndex(this.selectedSavedFileId) !== -1;
+		const currentId = this.savedFileNav.getSelectedId();
+		const currentSelectionExists = this.savedFileNav.findIndex(currentId) !== -1;
 		if (currentSelectionExists) {
-			this.setSavedFileSelection(this.selectedSavedFileId);
+			this.savedFileNav.setSelection(currentId);
 		} else {
-			this.setSavedFileSelection(titles.length > 0 ? String(titles[0].id) : null);
+			this.savedFileNav.setSelection(titles.length > 0 ? String(titles[0].id) : null);
 		}
 	}
 
@@ -679,7 +540,7 @@ export class Viewer {
 		const index = this.slides.length;
 		const previousLastSlide = this.slides[index - 1] ?? null;
 		const previousLastJoining = previousLastSlide?.joining ?? false;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				if (previousLastSlide) {
 					previousLastSlide.joining = false;
@@ -704,7 +565,7 @@ export class Viewer {
 		if (!sourceSlide) return;
 		const clonedSlide = sourceSlide.clone();
 		const sourceJoining = sourceSlide.joining;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				const sourceIndex = this.slides.indexOf(sourceSlide);
 				if (sourceIndex === -1) return;
@@ -736,7 +597,7 @@ export class Viewer {
 			? Math.max(0, Math.min(this.slides.length, toIndex))
 			: -1;
 
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				this.addSlide(slide, insertIndex);
 				this.selectSlideInstance(slide);
@@ -753,7 +614,7 @@ export class Viewer {
 		const slide = this.selectedSlide;
 		if (!slide) return;
 		const index = this.slides.indexOf(slide);
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				this.selectSlideInstance(slide);
 				this.removeSlide(slide, false);
@@ -770,7 +631,7 @@ export class Viewer {
 		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
 		const slide = this.selectedSlide;
 		if (!slide || this.slides.indexOf(slide) <= 0) return;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				this.selectSlideInstance(slide);
 				this.moveSelectedSlideByOffset(-1);
@@ -787,7 +648,7 @@ export class Viewer {
 		const slide = this.selectedSlide;
 		const index = slide ? this.slides.indexOf(slide) : -1;
 		if (!slide || index === -1 || index >= this.slides.length - 1) return;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				this.selectSlideInstance(slide);
 				this.moveSelectedSlideByOffset(1);
@@ -807,7 +668,7 @@ export class Viewer {
 		const clampedToIndex = Math.max(0, Math.min(this.slides.length - 1, toIndex));
 		if (fromIndex === clampedToIndex) return;
 
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				this.selectSlideInstance(slide);
 				this.moveSelectedSlideToIndex(clampedToIndex);
@@ -824,7 +685,7 @@ export class Viewer {
 		const slide = this.selectedSlide;
 		if (!slide) return;
 		const oldJoining = slide.joining;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				slide.joining = !oldJoining;
 			},
@@ -844,7 +705,7 @@ export class Viewer {
 			durationRatio: slide.durationRatio,
 		}));
 		const nextJoining = !slides.every((slide) => slide.joining);
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				previousStates.forEach(({ slide }) => {
 					slide.joining = nextJoining;
@@ -869,7 +730,7 @@ export class Viewer {
 			joining: slide.joining,
 			durationRatio: slide.durationRatio,
 		}));
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				previousStates.forEach(({ slide }) => {
 					slide.joining = false;
@@ -890,7 +751,7 @@ export class Viewer {
 		const slide = this.selectedSlide;
 		if (!slide) return;
 		const oldDisabled = slide.disabled;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				slide.disabled = !oldDisabled;
 			},
@@ -904,7 +765,7 @@ export class Viewer {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド有効化")) return;
 		if (!this.slides.some((slide) => slide.disabled)) return;
 		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				previousStates.forEach(({ slide }) => {
 					slide.disabled = false;
@@ -922,7 +783,7 @@ export class Viewer {
 		if (!this.ensureAllowed(this.canEdit(), "全スライド無効化")) return;
 		if (!this.slides.some((slide) => !slide.disabled)) return;
 		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				previousStates.forEach(({ slide }) => {
 					slide.disabled = true;
@@ -943,7 +804,7 @@ export class Viewer {
 		const hasChange = this.slides.some((slide) => slide.disabled !== (slide !== selectedSlide));
 		if (!hasChange) return;
 		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				previousStates.forEach(({ slide }) => {
 					slide.disabled = slide !== selectedSlide;
@@ -964,7 +825,7 @@ export class Viewer {
 			.filter(({ slide }) => slide.disabled);
 		if (disabledSlides.length === 0) return;
 		const selectedSlide = this.selectedSlide;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				disabledSlides.forEach(({ slide }) => {
 					this.removeSlide(slide, false);
@@ -990,7 +851,7 @@ export class Viewer {
 		const oldRatio = slide.durationRatio;
 		const nextRatio = Math.max(ratio, 0.2);
 		if (oldRatio === nextRatio) return;
-		this.recordSlideHistoryCommand(
+		this.slideHistory.record(
 			() => {
 				slide.durationRatio = nextRatio;
 			},
@@ -1000,14 +861,6 @@ export class Viewer {
 		);
 	}
 
-	private emitCurrentSlides(syncLayers: boolean = false): void {
-		if (syncLayers) {
-			slideStore.getState().notifyLayersChanged();
-			return;
-		}
-		slideStore.getState().notifySlidesChanged();
-	}
-
 	private rebindSlideMetaListeners(): void {
 		for (const unsub of this._slideMetaUnsubscribers) {
 			unsub();
@@ -1015,7 +868,7 @@ export class Viewer {
 		this._slideMetaUnsubscribers = [];
 		if (!this.viewerDocument) return;
 		const handler = () => {
-			this.emitCurrentSlides();
+			this.slideHistory.publishSlides();
 		};
 		for (const slide of this.slides) {
 			slide.addEventListener(PropertyEvent.UPDATE, handler);
@@ -1113,48 +966,37 @@ export class Viewer {
 	public commandDeleteSavedFile(fileId: string): void {
 		if (!this.ensureAllowed(this.getPermissionPolicy().canDeleteSavedData, "保存データ削除"))
 			return;
-		if (fileId == null || fileId === "-1") return;
-		this.setSavedFileSelection(fileId);
-		this.handleStorageResult(this.documentStorage.deleteResult(fileId));
+		const result = this.savedFileNav.deleteById(fileId);
+		if (result) this.handleStorageResult(result);
 	}
 
 	public commandLoadSavedFile(fileId: string): void {
-		if (fileId == null || fileId === "-1") return;
-		this.setSavedFileSelection(fileId);
-		this.handleStorageResult(this.documentStorage.loadResult(fileId));
+		const result = this.savedFileNav.loadById(fileId);
+		if (result) this.handleStorageResult(result);
 	}
 
 	public commandSelectSavedFile(fileId: string | null): void {
-		this.setSavedFileSelection(fileId);
+		this.savedFileNav.setSelection(fileId);
 	}
 
 	public commandLoadSelectedSavedFile(): void {
-		const targetId = this.ensureSelectedSavedFileId();
-		if (!targetId) return;
-		this.handleStorageResult(this.documentStorage.loadResult(targetId));
+		const result = this.savedFileNav.loadSelected();
+		if (result) this.handleStorageResult(result);
 	}
 
 	public commandDeleteSelectedSavedFile(): void {
-		if (!this.selectedSavedFileId) return;
-		this.commandDeleteSavedFile(this.selectedSavedFileId);
+		if (!this.ensureAllowed(this.getPermissionPolicy().canDeleteSavedData, "保存データ削除"))
+			return;
+		const result = this.savedFileNav.deleteSelected();
+		if (result) this.handleStorageResult(result);
 	}
 
 	public commandSelectNextSavedFile(): void {
-		const titles = this.documentStorage.getTitles();
-		if (titles.length === 0) return;
-		let selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
-		if (selectedIndex === -1) selectedIndex = 0;
-		const nextIndex = Math.min(selectedIndex + 1, titles.length - 1);
-		this.setSavedFileSelection(String(titles[nextIndex].id));
+		this.savedFileNav.selectNext();
 	}
 
 	public commandSelectPreviousSavedFile(): void {
-		const titles = this.documentStorage.getTitles();
-		if (titles.length === 0) return;
-		let selectedIndex = this.findSavedFileIndex(this.selectedSavedFileId);
-		if (selectedIndex === -1) selectedIndex = 0;
-		const nextIndex = Math.max(selectedIndex - 1, 0);
-		this.setSavedFileSelection(String(titles[nextIndex].id));
+		this.savedFileNav.selectPrevious();
 	}
 
 	public commandOpenImportDialog(confirmed = false): void {
@@ -1187,7 +1029,7 @@ export class Viewer {
 			showNotice("有効なスライドがありません。");
 			return;
 		}
-		this.downloadDocumentImages();
+		downloadAllSlidesAsZip(this.slides, this.getImageExportContext());
 	}
 
 	public commandDownloadSelectedSlide(): void {
@@ -1196,62 +1038,55 @@ export class Viewer {
 			showNotice("有効なスライドがありません。");
 			return;
 		}
-		this.downloadDocumentImages(this.selectedSlideIndex);
+		const index = this.selectedSlideIndex;
+		const slide = this.slides[index];
+		if (!slide) throw new Error("invalid index.");
+		downloadSlideAsPNG(slide, index, this.getImageExportContext());
 	}
 
 	public commandSetSlideShowDuration(duration: number): void {
-		this.slideShowDuration = duration;
-		this.emitSlideShowSettings();
+		this.slideshowUseCase.setDuration(duration);
 	}
 
 	public commandSetSlideShowInterval(interval: number): void {
-		this.slideShowInterval = interval;
-		this.emitSlideShowSettings();
+		this.slideshowUseCase.setInterval(interval);
 	}
 
 	public commandSetBackgroundColor(color: string): void {
 		if (!this.ensureAllowed(this.canEdit(), "背景色変更")) return;
-		this.slideShowBgColor = color;
-		viewerDocumentStore.getState().setDocumentMeta({ bgColor: color });
-		this.emitSlideShowSettings();
+		this.slideshowUseCase.setBgColor(color);
 	}
 
 	public commandSetFullscreen(enabled: boolean): void {
-		this.slideShowFullscreen = enabled;
-		this.slideShowRuntime.fullscreen = enabled;
-		this.emitSlideShowSettings();
+		this.slideshowUseCase.setFullscreen(enabled);
 	}
 
 	public commandSetMirrorH(enabled: boolean): void {
-		this.slideShowMirrorH = enabled;
-		this.slideShowRuntime.mirrorH = enabled;
-		this.emitSlideShowSettings();
+		this.slideshowUseCase.setMirrorH(enabled);
 	}
 
 	public commandSetMirrorV(enabled: boolean): void {
-		this.slideShowMirrorV = enabled;
-		this.slideShowRuntime.mirrorV = enabled;
-		this.emitSlideShowSettings();
+		this.slideshowUseCase.setMirrorV(enabled);
 	}
 
 	public commandStartSlideshow(): void {
-		this.startSlideShowFromSelection();
+		this.slideshowUseCase.start();
 	}
 
 	public commandStopSlideshow(): void {
-		this.slideShowRuntime.close();
+		this.slideshowUseCase.stop();
 	}
 
 	public commandToggleSlideshowPause(): void {
-		this.slideShowRuntime.togglePause();
+		this.slideshowUseCase.togglePause();
 	}
 
 	public commandShowPreviousSlide(): void {
-		this.slideShowRuntime.showPrevious();
+		this.slideshowUseCase.showPrevious();
 	}
 
 	public commandShowNextSlide(): void {
-		this.slideShowRuntime.showNext();
+		this.slideshowUseCase.showNext();
 	}
 
 	public commandUndo(): void {
@@ -1665,9 +1500,9 @@ export class Viewer {
 		if (!confirmed) return;
 		ImageManager.shared.deleteImageById(imageId);
 		this.IsDocumentModified = true;
-		this.emitCurrentSlides(true);
+		this.slideHistory.publishSlides(true);
 		this.emitCurrentEditState();
-		this.emitHistoryState();
+		this.slideHistory.publishHistoryState();
 	}
 
 	public getSavedFileTitles() {
