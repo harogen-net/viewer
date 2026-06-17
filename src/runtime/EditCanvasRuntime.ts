@@ -7,7 +7,7 @@ import { createImageLayer, ImageLayer } from "../model/layer/ImageLayer";
 import { createTextLayer, TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
 import { createSlide, SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
-import { layerStore, type EditLayerState } from "../state/layerStore";
+import { layerStore, type EditLayerValues } from "../state/layerStore";
 import { slideStore } from "../state/slideStore";
 import {
 	createEditLayerMutationUseCase,
@@ -167,11 +167,15 @@ export class EditCanvasRuntime {
 
 	private emitSelectedLayerState(): void {
 		const layer = this.slideView.editingLayer;
+		const canPasteLayer = this.layerMutations.canPasteLayer();
+		const canPasteLayerTransform = this.layerMutations.canPasteLayerTransform();
 		if (!layer) {
-			const detail: EditLayerState = {
+			layerStore.getState().setEditSelection({
 				hasSelection: false,
-				canPasteLayer: this.layerMutations.canPasteLayer(),
-				canPasteLayerTransform: this.layerMutations.canPasteLayerTransform(),
+				canPasteLayer,
+				canPasteLayerTransform,
+			});
+			const values: EditLayerValues = {
 				name: null,
 				visible: null,
 				locked: null,
@@ -191,14 +195,16 @@ export class EditCanvasRuntime {
 				clipBottom: null,
 				clipLeft: null,
 			};
-			layerStore.getState().setEditLayerState(detail);
+			layerStore.getState().setEditValues(values);
 			return;
 		}
 		const imageLayer = layer.type == LayerType.IMAGE ? (layer as ImageLayer) : null;
-		const detail: EditLayerState = {
+		layerStore.getState().setEditSelection({
 			hasSelection: true,
-			canPasteLayer: this.layerMutations.canPasteLayer(),
-			canPasteLayerTransform: this.layerMutations.canPasteLayerTransform(),
+			canPasteLayer,
+			canPasteLayerTransform,
+		});
+		const values: EditLayerValues = {
 			name: layer.name,
 			visible: layer.visible,
 			locked: layer.locked,
@@ -218,7 +224,7 @@ export class EditCanvasRuntime {
 			clipBottom: imageLayer ? imageLayer.clipB : null,
 			clipLeft: imageLayer ? imageLayer.clipL : null,
 		};
-		layerStore.getState().setEditLayerState(detail);
+		layerStore.getState().setEditValues(values);
 	}
 
 	public emitCurrentState(): void {
@@ -228,7 +234,18 @@ export class EditCanvasRuntime {
 		this.emitCanvasState();
 	}
 
+	/**
+	 * Republish the layer/slide plain-data snapshots from the current model
+	 * state. Invoked as part of the layer-mutation commit so that model updates
+	 * and snapshot updates happen in the same transaction, without depending on
+	 * `PropertyEvent` UI synchronization.
+	 */
+	private republishSlideSnapshots(): void {
+		slideStore.getState().notifyLayersChanged();
+	}
+
 	private emitAfterLayerMutation(render: LayerMutationRenderScope, includeLayerList = false): void {
+		this.republishSlideSnapshots();
 		if (render === "current") {
 			this.emitCurrentState();
 			return;

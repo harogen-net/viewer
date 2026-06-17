@@ -186,7 +186,7 @@ export class Viewer {
 			this._mode != ViewerMode.EDIT ||
 			!this.editCanvasRuntime
 		) {
-			layerStore.getState().clearEditLayerState();
+			layerStore.getState().clearEditState();
 			return;
 		}
 	}

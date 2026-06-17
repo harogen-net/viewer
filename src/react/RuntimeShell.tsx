@@ -4,8 +4,8 @@ import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
     useViewerEditCanvasState,
     useViewerEditLayers,
-    useViewerEditLayerState,
     useViewerEditSelection,
+    useViewerEditValues,
     useViewerHistory,
     useViewerImageDeleteRequest,
     useViewerImages,
@@ -185,9 +185,9 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { modified } = useViewerModified();
 	const { mode: viewerMode } = useViewerMode();
 	const editCanvasState = useViewerEditCanvasState();
-	const { hasSelection } = useViewerEditSelection();
+	const { hasSelection, canPasteLayer, canPasteLayerTransform } = useViewerEditSelection();
 	const { layers: editLayers } = useViewerEditLayers();
-	const editLayerState = useViewerEditLayerState();
+	const editLayerState = useViewerEditValues();
 
 	const [slideCollapsed, setSlideCollapsed] = useState(false);
 	const [fileCollapsed, setFileCollapsed] = useState(false);
@@ -1465,7 +1465,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.pasteLayer()}
-									disabled={!gate.canEdit || !isEditMode || !editLayerState.canPasteLayer}>
+									disabled={!gate.canEdit || !isEditMode || !canPasteLayer}>
 									Paste
 								</Button>
 							</Group>
@@ -1481,7 +1481,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									variant="default"
 									onClick={() => ViewerCommands.pasteLayerTransform()}
-									disabled={!gate.canEdit || !isEditMode || !hasSelection || !editLayerState.canPasteLayerTransform}>
+									disabled={!gate.canEdit || !isEditMode || !hasSelection || !canPasteLayerTransform}>
 									Paste T
 								</Button>
 								<Button

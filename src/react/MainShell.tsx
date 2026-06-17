@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
-    useViewerEditLayerState,
+    useViewerEditSelection,
     useViewerHistory,
     useViewerMode,
     useViewerSlideSnapshots,
@@ -298,7 +298,7 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 
 export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) {
 	const { mode } = useViewerMode();
-	const { hasSelection, canPasteLayer } = useViewerEditLayerState();
+	const { hasSelection, canPasteLayer } = useViewerEditSelection();
 	const { canUndo, canRedo } = useViewerHistory();
 	const canEdit = gate.canEdit;
 

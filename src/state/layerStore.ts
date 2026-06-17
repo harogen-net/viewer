@@ -7,7 +7,8 @@ type LayerStateSnapshot = {
 	layers: readonly Layer[];
 	layerSnapshots: readonly LayerSnapshot[];
 	editLayers: readonly EditLayerListItem[];
-	editLayerState: EditLayerState;
+	editSelection: EditLayerSelectionState;
+	editValues: EditLayerValues;
 	editCanvasState: EditCanvasState;
 	revision: number;
 };
@@ -16,8 +17,9 @@ type LayerActions = {
 	setLayers: (layers: readonly Layer[]) => void;
 	setLayersFromSlides: (slides: readonly Slide[]) => void;
 	setEditLayers: (editLayers: readonly EditLayerListItem[]) => void;
-	setEditLayerState: (editLayerState: EditLayerState) => void;
-	clearEditLayerState: () => void;
+	setEditSelection: (editSelection: EditLayerSelectionState) => void;
+	setEditValues: (editValues: EditLayerValues) => void;
+	clearEditState: () => void;
 	setEditCanvasState: (editCanvasState: EditCanvasState) => void;
 	notifyLayersChanged: (slides: readonly Slide[]) => void;
 	reset: () => void;
@@ -36,10 +38,22 @@ export type EditLayerListItem = {
 	selected: boolean;
 };
 
-export type EditLayerState = {
+/**
+ * UI-only selection state for the edit panel. Independent of any model values
+ * so that paste availability and selection presence can update without
+ * re-publishing per-layer numeric values.
+ */
+export type EditLayerSelectionState = {
 	hasSelection: boolean;
 	canPasteLayer: boolean;
 	canPasteLayerTransform: boolean;
+};
+
+/**
+ * Model-derived values of the currently selected layer. `null` when there is
+ * no selection (or the field does not apply to the selected layer type).
+ */
+export type EditLayerValues = {
 	name: string | null;
 	visible: boolean | null;
 	locked: boolean | null;
@@ -69,33 +83,39 @@ const getLayersFromSlides = (slides: readonly Slide[]): readonly Layer[] => {
 	return slides.flatMap((slide) => slide.layers);
 };
 
+const initialEditSelection: EditLayerSelectionState = {
+	hasSelection: false,
+	canPasteLayer: false,
+	canPasteLayerTransform: false,
+};
+
+const initialEditValues: EditLayerValues = {
+	name: null,
+	visible: null,
+	locked: null,
+	shared: null,
+	x: null,
+	y: null,
+	scale: null,
+	rotation: null,
+	opacity: null,
+	layerType: null,
+	mirrorH: null,
+	mirrorV: null,
+	isText: null,
+	textContent: null,
+	clipTop: null,
+	clipRight: null,
+	clipBottom: null,
+	clipLeft: null,
+};
+
 const initialLayerState = {
 	layers: [] as readonly Layer[],
 	layerSnapshots: [] as readonly LayerSnapshot[],
 	editLayers: [] as readonly EditLayerListItem[],
-	editLayerState: {
-		hasSelection: false,
-		canPasteLayer: false,
-		canPasteLayerTransform: false,
-		name: null,
-		visible: null,
-		locked: null,
-		shared: null,
-		x: null,
-		y: null,
-		scale: null,
-		rotation: null,
-		opacity: null,
-		layerType: null,
-		mirrorH: null,
-		mirrorV: null,
-		isText: null,
-		textContent: null,
-		clipTop: null,
-		clipRight: null,
-		clipBottom: null,
-		clipLeft: null,
-	} satisfies EditLayerState,
+	editSelection: initialEditSelection,
+	editValues: initialEditValues,
 	editCanvasState: {
 		scale: 1,
 		rectEdit: false,
@@ -121,15 +141,22 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
 			revision: state.revision + 1,
 		}));
 	},
-	setEditLayerState: (editLayerState) => {
+	setEditSelection: (editSelection) => {
 		set((state) => ({
-			editLayerState,
+			editSelection,
 			revision: state.revision + 1,
 		}));
 	},
-	clearEditLayerState: () => {
+	setEditValues: (editValues) => {
 		set((state) => ({
-			editLayerState: initialLayerState.editLayerState,
+			editValues,
+			revision: state.revision + 1,
+		}));
+	},
+	clearEditState: () => {
+		set((state) => ({
+			editSelection: initialEditSelection,
+			editValues: initialEditValues,
 			revision: state.revision + 1,
 		}));
 	},

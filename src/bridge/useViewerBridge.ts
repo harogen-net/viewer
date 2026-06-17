@@ -14,7 +14,8 @@ import type { LayerSnapshot, SlideSnapshot } from "../model/snapshot";
 import {
 	type EditCanvasState,
 	type EditLayerListItem,
-	type EditLayerState,
+	type EditLayerSelectionState,
+	type EditLayerValues,
 	useLayerStore,
 } from "../state/layerStore";
 import { useSlideStore } from "../state/slideStore";
@@ -190,9 +191,8 @@ export function useViewerHistory(): { canUndo: boolean; canRedo: boolean } {
 	return useBridgeEvent("historyChanged", { canUndo: false, canRedo: false });
 }
 
-export function useViewerEditSelection(): { hasSelection: boolean } {
-	const hasSelection = useLayerStore((state) => state.editLayerState.hasSelection);
-	return { hasSelection };
+export function useViewerEditSelection(): EditLayerSelectionState {
+	return useLayerStore((state) => state.editSelection);
 }
 
 export function useViewerEditCanvasState(): EditCanvasState {
@@ -204,6 +204,6 @@ export function useViewerEditLayers(): { layers: readonly EditLayerListItem[] } 
 	return { layers };
 }
 
-export function useViewerEditLayerState(): EditLayerState {
-	return useLayerStore((state) => state.editLayerState);
+export function useViewerEditValues(): EditLayerValues {
+	return useLayerStore((state) => state.editValues);
 }
