@@ -1,7 +1,23 @@
 import { create } from "zustand";
 import type { Slide } from "../model/Slide";
 import type { ViewerDocument } from "../model/ViewerDocument";
+import type { DocumentStorageUseCase } from "../useCase/DocumentStorageUseCase";
+import type { SavedFileNavigationUseCase } from "../useCase/SavedFileNavigationUseCase";
+import type { SlideHistoryUseCase } from "../useCase/SlideHistoryUseCase";
+import type { SlideshowUseCase } from "../useCase/SlideshowUseCase";
 import { slideStore } from "./slideStore";
+
+/**
+ * R3.7: viewerDocumentStore に注入するドメインコマンド群。
+ * R3.10 で useViewerDocument フックがこれを束ねて公開し、各 useCase は
+ * 段階的に store action へ吸収される。
+ */
+export type ViewerDocumentCommands = {
+	storage: DocumentStorageUseCase;
+	savedFileNav: SavedFileNavigationUseCase;
+	slideshow: SlideshowUseCase;
+	history: SlideHistoryUseCase;
+};
 
 type ViewerDocumentStateSnapshot = {
 	document: ViewerDocument | null;
@@ -14,6 +30,7 @@ type ViewerDocumentStateSnapshot = {
 	width: number;
 	height: number;
 	bgColor: string;
+	commands: ViewerDocumentCommands | null;
 	revision: number;
 };
 
@@ -49,6 +66,7 @@ type ViewerDocumentActions = {
 			>
 		>
 	) => void;
+	bindCommands: (commands: ViewerDocumentCommands) => void;
 	reset: () => void;
 };
 
@@ -74,6 +92,7 @@ const initialDocumentState = {
 
 export const useViewerDocumentStore = create<ViewerDocumentStore>((set, get) => ({
 	...initialDocumentState,
+	commands: null,
 	revision: 0,
 	setDocument: (input, selectedIndex = -1) => {
 		if (!input) {
@@ -102,6 +121,12 @@ export const useViewerDocumentStore = create<ViewerDocumentStore>((set, get) => 
 		}
 		set((state) => ({
 			...patch,
+			revision: state.revision + 1,
+		}));
+	},
+	bindCommands: (commands) => {
+		set((state) => ({
+			commands,
 			revision: state.revision + 1,
 		}));
 	},

@@ -3,6 +3,74 @@ import type { Layer } from "../model/Layer";
 import type { Slide } from "../model/Slide";
 import { toLayerSnapshot, type LayerSnapshot } from "../model/snapshot";
 
+/**
+ * R3.8c: 後方互換のためのエイリアス。`LayerCommandsUseCase` という名は
+ * 保持しつつ実装は `src/state/layerActions.ts` の `createLayerActions` が提供する。
+ */
+export type LayerCommandsUseCase = {
+	rotateLeft(): void;
+	rotateRight(): void;
+	toggleMirrorH(): void;
+	toggleMirrorV(): void;
+	toggleIsText(): void;
+	spread(confirmed?: boolean): void;
+	fit(): void;
+	arrangeTop(): void;
+	arrangeRight(): void;
+	arrangeBottom(): void;
+	arrangeLeft(): void;
+	moveUp(): void;
+	moveDown(): void;
+	moveToTop(): void;
+	moveToBottom(): void;
+	moveToIndex(toIndex: number): void;
+	copyLayer(): void;
+	cutLayer(): void;
+	pasteLayer(): void;
+	addTextLayer(text: string): void;
+	requestTextLayerInput(): void;
+	copyTransform(): void;
+	pasteTransform(): void;
+	remove(confirmedSharedRemoval?: boolean): void;
+	nudgeLeft(): void;
+	nudgeRight(): void;
+	nudgeUp(): void;
+	nudgeDown(): void;
+	scaleUp(): void;
+	scaleDown(): void;
+	adjustRotationLeft(): void;
+	adjustRotationRight(): void;
+	resetRotation(): void;
+	decreaseOpacity(): void;
+	increaseOpacity(): void;
+	resetOpacity(): void;
+	setPosition(x: number, y: number): void;
+	setScale(scale: number): void;
+	setRotation(rotation: number): void;
+	setOpacity(opacity: number): void;
+	setImageClip(top: number, right: number, bottom: number, left: number): void;
+	resetImageClip(): void;
+	selectByIndex(index: number): void;
+	toggleVisible(): void;
+	toggleLocked(): void;
+	toggleShared(): void;
+	setName(name: string): void;
+	setText(text: string): void;
+	zoomInCanvas(): void;
+	zoomOutCanvas(): void;
+	resetCanvasZoom(): void;
+	setCanvasScale(scale: number): void;
+	toggleRectEdit(): void;
+	setRectEdit(enabled: boolean): void;
+	replaceImage(file: File, applyAllReferences: boolean): Promise<void>;
+	downloadImage(): void;
+	deleteImageById(imageId: string, confirmed?: boolean): void;
+	undo(): void;
+	redo(): void;
+	publishEditSelectionState(): void;
+	publishCurrentEditState(): void;
+};
+
 type LayerStateSnapshot = {
 	layers: readonly Layer[];
 	layerSnapshots: readonly LayerSnapshot[];
@@ -10,6 +78,7 @@ type LayerStateSnapshot = {
 	editSelection: EditLayerSelectionState;
 	editValues: EditLayerValues;
 	editCanvasState: EditCanvasState;
+	commands: LayerCommandsUseCase | null;
 	revision: number;
 };
 
@@ -22,6 +91,8 @@ type LayerActions = {
 	clearEditState: () => void;
 	setEditCanvasState: (editCanvasState: EditCanvasState) => void;
 	notifyLayersChanged: (slides: readonly Slide[]) => void;
+	/** R3.7/R3.8c: Viewer が `createLayerActions(deps)` の結果を注入する。 */
+	bindCommands: (commands: LayerCommandsUseCase) => void;
 	reset: () => void;
 };
 
@@ -124,6 +195,7 @@ const initialLayerState = {
 
 export const useLayerStore = create<LayerStore>((set, get) => ({
 	...initialLayerState,
+	commands: null,
 	revision: 0,
 	setLayers: (layers) => {
 		set((state) => ({
@@ -168,6 +240,12 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
 	},
 	notifyLayersChanged: (slides) => {
 		get().setLayersFromSlides(slides);
+	},
+	bindCommands: (commands) => {
+		set((state) => ({
+			commands,
+			revision: state.revision + 1,
+		}));
 	},
 	reset: () => {
 		set((state) => ({

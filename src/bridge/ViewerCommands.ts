@@ -1,3 +1,4 @@
+import { getLayerActions } from "../hooks/useLayer";
 import { SlideTitle } from "../storage/storageTypes";
 import { getActiveViewer } from "./activeViewer";
 
@@ -148,178 +149,178 @@ export const ViewerCommands = {
 		getViewer()?.commandShowNextSlide();
 	},
 	undo(): void {
-		getViewer()?.commandUndo();
+		getLayerActions()?.undo();
 	},
 	redo(): void {
-		getViewer()?.commandRedo();
+		getLayerActions()?.redo();
 	},
 	rotateSelectedLayerLeft(): void {
-		getViewer()?.commandRotateSelectedLayerLeft();
+		getLayerActions()?.rotateLeft();
 	},
 	rotateSelectedLayerRight(): void {
-		getViewer()?.commandRotateSelectedLayerRight();
+		getLayerActions()?.rotateRight();
 	},
 	toggleSelectedLayerMirrorH(): void {
-		getViewer()?.commandToggleSelectedLayerMirrorH();
+		getLayerActions()?.toggleMirrorH();
 	},
 	toggleSelectedLayerMirrorV(): void {
-		getViewer()?.commandToggleSelectedLayerMirrorV();
+		getLayerActions()?.toggleMirrorV();
 	},
 	toggleSelectedLayerIsText(): void {
-		getViewer()?.commandToggleSelectedLayerIsText();
+		getLayerActions()?.toggleIsText();
 	},
 	spreadSelectedLayer(confirmed = false): void {
-		getViewer()?.commandSpreadSelectedLayer(confirmed);
+		getLayerActions()?.spread(confirmed);
 	},
 	fitSelectedLayer(): void {
-		getViewer()?.commandFitSelectedLayer();
+		getLayerActions()?.fit();
 	},
 	arrangeSelectedLayerTop(): void {
-		getViewer()?.commandArrangeSelectedLayerTop();
+		getLayerActions()?.arrangeTop();
 	},
 	arrangeSelectedLayerRight(): void {
-		getViewer()?.commandArrangeSelectedLayerRight();
+		getLayerActions()?.arrangeRight();
 	},
 	arrangeSelectedLayerBottom(): void {
-		getViewer()?.commandArrangeSelectedLayerBottom();
+		getLayerActions()?.arrangeBottom();
 	},
 	arrangeSelectedLayerLeft(): void {
-		getViewer()?.commandArrangeSelectedLayerLeft();
+		getLayerActions()?.arrangeLeft();
 	},
 	moveSelectedLayerUp(): void {
-		getViewer()?.commandMoveSelectedLayerUp();
+		getLayerActions()?.moveUp();
 	},
 	moveSelectedLayerDown(): void {
-		getViewer()?.commandMoveSelectedLayerDown();
+		getLayerActions()?.moveDown();
 	},
 	moveSelectedLayerToTop(): void {
-		getViewer()?.commandMoveSelectedLayerToTop();
+		getLayerActions()?.moveToTop();
 	},
 	moveSelectedLayerToBottom(): void {
-		getViewer()?.commandMoveSelectedLayerToBottom();
+		getLayerActions()?.moveToBottom();
 	},
 	moveSelectedLayerToIndex(toIndex: number): void {
-		getViewer()?.commandMoveSelectedLayerToIndex(toIndex);
+		getLayerActions()?.moveToIndex(toIndex);
 	},
 	copySelectedLayer(): void {
-		getViewer()?.commandCopySelectedLayer();
+		getLayerActions()?.copyLayer();
 	},
 	cutSelectedLayer(): void {
-		getViewer()?.commandCutSelectedLayer();
+		getLayerActions()?.cutLayer();
 	},
 	pasteLayer(): void {
-		getViewer()?.commandPasteLayer();
+		getLayerActions()?.pasteLayer();
 	},
 	addTextLayer(text: string): void {
-		getViewer()?.commandAddTextLayer(text);
+		getLayerActions()?.addTextLayer(text);
 	},
 	copySelectedLayerTransform(): void {
-		getViewer()?.commandCopySelectedLayerTransform();
+		getLayerActions()?.copyTransform();
 	},
 	pasteLayerTransform(): void {
-		getViewer()?.commandPasteLayerTransform();
+		getLayerActions()?.pasteTransform();
 	},
 	removeSelectedLayer(confirmedSharedRemoval = false): void {
-		getViewer()?.commandRemoveSelectedLayer(confirmedSharedRemoval);
+		getLayerActions()?.remove(confirmedSharedRemoval);
 	},
 	nudgeSelectedLayerLeft(): void {
-		getViewer()?.commandNudgeSelectedLayerLeft();
+		getLayerActions()?.nudgeLeft();
 	},
 	nudgeSelectedLayerRight(): void {
-		getViewer()?.commandNudgeSelectedLayerRight();
+		getLayerActions()?.nudgeRight();
 	},
 	nudgeSelectedLayerUp(): void {
-		getViewer()?.commandNudgeSelectedLayerUp();
+		getLayerActions()?.nudgeUp();
 	},
 	nudgeSelectedLayerDown(): void {
-		getViewer()?.commandNudgeSelectedLayerDown();
+		getLayerActions()?.nudgeDown();
 	},
 	scaleSelectedLayerUp(): void {
-		getViewer()?.commandScaleSelectedLayerUp();
+		getLayerActions()?.scaleUp();
 	},
 	scaleSelectedLayerDown(): void {
-		getViewer()?.commandScaleSelectedLayerDown();
+		getLayerActions()?.scaleDown();
 	},
 	adjustSelectedLayerRotationLeft(): void {
-		getViewer()?.commandAdjustSelectedLayerRotationLeft();
+		getLayerActions()?.adjustRotationLeft();
 	},
 	adjustSelectedLayerRotationRight(): void {
-		getViewer()?.commandAdjustSelectedLayerRotationRight();
+		getLayerActions()?.adjustRotationRight();
 	},
 	resetSelectedLayerRotation(): void {
-		getViewer()?.commandResetSelectedLayerRotation();
+		getLayerActions()?.resetRotation();
 	},
 	increaseSelectedLayerOpacity(): void {
-		getViewer()?.commandIncreaseSelectedLayerOpacity();
+		getLayerActions()?.increaseOpacity();
 	},
 	decreaseSelectedLayerOpacity(): void {
-		getViewer()?.commandDecreaseSelectedLayerOpacity();
+		getLayerActions()?.decreaseOpacity();
 	},
 	resetSelectedLayerOpacity(): void {
-		getViewer()?.commandResetSelectedLayerOpacity();
+		getLayerActions()?.resetOpacity();
 	},
 	setSelectedLayerPosition(x: number, y: number): void {
-		getViewer()?.commandSetSelectedLayerPosition(x, y);
+		getLayerActions()?.setPosition(x, y);
 	},
 	setSelectedLayerScale(scale: number): void {
-		getViewer()?.commandSetSelectedLayerScale(scale);
+		getLayerActions()?.setScale(scale);
 	},
 	setSelectedLayerRotation(rotation: number): void {
-		getViewer()?.commandSetSelectedLayerRotation(rotation);
+		getLayerActions()?.setRotation(rotation);
 	},
 	setSelectedLayerOpacity(opacity: number): void {
-		getViewer()?.commandSetSelectedLayerOpacity(opacity);
+		getLayerActions()?.setOpacity(opacity);
 	},
 	setSelectedImageClip(top: number, right: number, bottom: number, left: number): void {
-		getViewer()?.commandSetSelectedImageClip(top, right, bottom, left);
+		getLayerActions()?.setImageClip(top, right, bottom, left);
 	},
 	resetSelectedImageClip(): void {
-		getViewer()?.commandResetSelectedImageClip();
+		getLayerActions()?.resetImageClip();
 	},
 	selectEditLayerByIndex(index: number): void {
-		getViewer()?.commandSelectEditLayerByIndex(index);
+		getLayerActions()?.selectByIndex(index);
 	},
 	toggleSelectedLayerVisible(): void {
-		getViewer()?.commandToggleSelectedLayerVisible();
+		getLayerActions()?.toggleVisible();
 	},
 	toggleSelectedLayerLocked(): void {
-		getViewer()?.commandToggleSelectedLayerLocked();
+		getLayerActions()?.toggleLocked();
 	},
 	toggleSelectedLayerShared(): void {
-		getViewer()?.commandToggleSelectedLayerShared();
+		getLayerActions()?.toggleShared();
 	},
 	setSelectedLayerName(name: string): void {
-		getViewer()?.commandSetSelectedLayerName(name);
+		getLayerActions()?.setName(name);
 	},
 	setSelectedLayerText(text: string): void {
-		getViewer()?.commandSetSelectedLayerText(text);
+		getLayerActions()?.setText(text);
 	},
 	zoomInCanvas(): void {
-		getViewer()?.commandZoomInCanvas();
+		getLayerActions()?.zoomInCanvas();
 	},
 	zoomOutCanvas(): void {
-		getViewer()?.commandZoomOutCanvas();
+		getLayerActions()?.zoomOutCanvas();
 	},
 	resetCanvasZoom(): void {
-		getViewer()?.commandResetCanvasZoom();
+		getLayerActions()?.resetCanvasZoom();
 	},
 	setCanvasScale(scale: number): void {
-		getViewer()?.commandSetCanvasScale(scale);
+		getLayerActions()?.setCanvasScale(scale);
 	},
 	toggleRectEdit(): void {
-		getViewer()?.commandToggleRectEdit();
+		getLayerActions()?.toggleRectEdit();
 	},
 	setRectEdit(enabled: boolean): void {
-		getViewer()?.commandSetRectEdit(enabled);
+		getLayerActions()?.setRectEdit(enabled);
 	},
 	replaceSelectedImage(file: File, applyAllReferences: boolean): void {
-		void getViewer()?.commandReplaceSelectedImage(file, applyAllReferences);
+		void getLayerActions()?.replaceImage(file, applyAllReferences);
 	},
 	downloadSelectedImage(): void {
-		getViewer()?.commandDownloadSelectedImage();
+		getLayerActions()?.downloadImage();
 	},
 	deleteImageById(imageId: string, confirmed = false): void {
-		getViewer()?.commandDeleteImageById(imageId, confirmed);
+		getLayerActions()?.deleteImageById(imageId, confirmed);
 	},
 	getSavedFileTitles(): readonly SlideTitle[] {
 		return getViewer()?.getSavedFileTitles() ?? [];

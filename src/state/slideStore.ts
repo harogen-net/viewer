@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Slide } from "../model/Slide";
 import { toSlideSnapshot, type SlideSnapshot } from "../model/snapshot";
+import type { SlideCommandsUseCase } from "../useCase/SlideCommandsUseCase";
 import { layerStore } from "./layerStore";
 
 type SlideStateSnapshot = {
@@ -8,6 +9,7 @@ type SlideStateSnapshot = {
 	slideSnapshots: readonly SlideSnapshot[];
 	selectedIndex: number;
 	selectedSlide: Slide | null;
+	commands: SlideCommandsUseCase | null;
 	revision: number;
 };
 
@@ -23,6 +25,7 @@ type SlideActions = {
 	getNextSlide: (slide: Slide) => Slide | null;
 	notifySlidesChanged: () => void;
 	notifyLayersChanged: () => void;
+	bindCommands: (commands: SlideCommandsUseCase) => void;
 	reset: () => void;
 };
 
@@ -49,6 +52,7 @@ const initialSlideState = {
 
 export const useSlideStore = create<SlideStore>((set, get) => ({
 	...initialSlideState,
+	commands: null,
 	revision: 0,
 	setSlides: (slides, selectedIndex = get().selectedIndex) => {
 		const nextSelectedIndex = clampSelectedIndex(slides, selectedIndex);
@@ -132,6 +136,12 @@ export const useSlideStore = create<SlideStore>((set, get) => ({
 		layerStore.getState().notifyLayersChanged(slides);
 		set((state) => ({
 			slideSnapshots: computeSlideSnapshots(state.slides),
+			revision: state.revision + 1,
+		}));
+	},
+	bindCommands: (commands) => {
+		set((state) => ({
+			commands,
 			revision: state.revision + 1,
 		}));
 	},

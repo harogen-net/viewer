@@ -1,12 +1,18 @@
+/**
+ * R3.8c: 旧 `LayerCommandsUseCase.ts` から移送した layer command 群の実装。
+ *
+ * `layerStore.ts` から runtime / 重量依存（`HistoryManager`, `ImageManager`,
+ * `EditCanvasRuntime` 等）を切り離すために物理ファイルを分けている。
+ * 公開 API の型は `layerStore` 側にあり、本ファイルはその実装ファクトリ。
+ */
 import { ViewerBridge } from "../bridge/ViewerBridge";
 import { Direction } from "../model/Slide";
 import { EditCanvasRuntime } from "../runtime/EditCanvasRuntime";
-import { showNotice } from "../runtime/notice";
 import { ViewerMode, ViewerStartUpMode } from "../runtime/viewerMode";
-import { layerStore } from "../state/layerStore";
-import { HistoryManager } from "../utils/HistoryManager";
-import { ImageManager } from "../utils/ImageManager";
-import type { SlideHistoryUseCase } from "./SlideHistoryUseCase";
+import type { SlideHistoryUseCase } from "../useCase/SlideHistoryUseCase";
+import type { HistoryManager } from "../utils/HistoryManager";
+import type { ImageManager } from "../utils/ImageManager";
+import { layerStore, type LayerCommandsUseCase } from "./layerStore";
 
 export type LayerCommandsDeps = {
 	getStartUpMode: () => ViewerStartUpMode;
@@ -17,75 +23,15 @@ export type LayerCommandsDeps = {
 	ensureAllowed: (canExecute: boolean, actionLabel: string) => boolean;
 	setDocumentModified: (value: boolean) => void;
 	slideHistory: SlideHistoryUseCase;
+	/** R3.7: notice 表示の deps。Viewer 構築時に `showNotice` を渡す。 */
+	notice: (message: string) => void;
+	/** R3.7: HistoryManager 連携の deps。`HistoryManager.shared` を渡す。 */
+	historyManager: HistoryManager;
+	/** R3.7: ImageManager 連携の deps。`ImageManager.shared` を渡す。 */
+	imageManager: ImageManager;
 };
 
-export type LayerCommandsUseCase = {
-	rotateLeft(): void;
-	rotateRight(): void;
-	toggleMirrorH(): void;
-	toggleMirrorV(): void;
-	toggleIsText(): void;
-	spread(confirmed?: boolean): void;
-	fit(): void;
-	arrangeTop(): void;
-	arrangeRight(): void;
-	arrangeBottom(): void;
-	arrangeLeft(): void;
-	moveUp(): void;
-	moveDown(): void;
-	moveToTop(): void;
-	moveToBottom(): void;
-	moveToIndex(toIndex: number): void;
-	copyLayer(): void;
-	cutLayer(): void;
-	pasteLayer(): void;
-	addTextLayer(text: string): void;
-	requestTextLayerInput(): void;
-	copyTransform(): void;
-	pasteTransform(): void;
-	remove(confirmedSharedRemoval?: boolean): void;
-	nudgeLeft(): void;
-	nudgeRight(): void;
-	nudgeUp(): void;
-	nudgeDown(): void;
-	scaleUp(): void;
-	scaleDown(): void;
-	adjustRotationLeft(): void;
-	adjustRotationRight(): void;
-	resetRotation(): void;
-	decreaseOpacity(): void;
-	increaseOpacity(): void;
-	resetOpacity(): void;
-	setPosition(x: number, y: number): void;
-	setScale(scale: number): void;
-	setRotation(rotation: number): void;
-	setOpacity(opacity: number): void;
-	setImageClip(top: number, right: number, bottom: number, left: number): void;
-	resetImageClip(): void;
-	selectByIndex(index: number): void;
-	toggleVisible(): void;
-	toggleLocked(): void;
-	toggleShared(): void;
-	setName(name: string): void;
-	setText(text: string): void;
-	zoomInCanvas(): void;
-	zoomOutCanvas(): void;
-	resetCanvasZoom(): void;
-	setCanvasScale(scale: number): void;
-	toggleRectEdit(): void;
-	setRectEdit(enabled: boolean): void;
-	replaceImage(file: File, applyAllReferences: boolean): Promise<void>;
-	downloadImage(): void;
-	deleteImageById(imageId: string, confirmed?: boolean): void;
-	undo(): void;
-	redo(): void;
-	/** Refresh selection-derived layerStore slice (used by Viewer when mode changes). */
-	publishEditSelectionState(): void;
-	/** Re-emit canvas state when edit mode is entered. */
-	publishCurrentEditState(): void;
-};
-
-export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerCommandsUseCase {
+export function createLayerActions(deps: LayerCommandsDeps): LayerCommandsUseCase {
 	const {
 		getStartUpMode,
 		getMode,
@@ -95,6 +41,9 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 		ensureAllowed,
 		setDocumentModified,
 		slideHistory,
+		notice,
+		historyManager,
+		imageManager,
 	} = deps;
 
 	const inEditMode = (): boolean =>
@@ -123,7 +72,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 		if (!ensureAllowed(canEdit(), actionLabel)) return false;
 		if (getStartUpMode() !== ViewerStartUpMode.VIEW_AND_EDIT) return false;
 		if (getMode() !== ViewerMode.EDIT) {
-			showNotice("編集モードで操作してください。");
+			notice("編集モードで操作してください。");
 			return false;
 		}
 		return true;
@@ -132,7 +81,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 	const runSelection = (actionLabel: string, operation: () => boolean): void => {
 		if (!canRunEditOperations(actionLabel)) return;
 		if (!operation()) {
-			showNotice("レイヤーを選択してください。");
+			notice("レイヤーを選択してください。");
 		}
 		publishEditSelectionState();
 	};
@@ -155,7 +104,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 		return r;
 	};
 
-	const useCase: LayerCommandsUseCase = {
+	return {
 		rotateLeft() {
 			runSelection("レイヤー回転", () => runtime().rotateSelectedLayer(-90));
 		},
@@ -175,7 +124,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 			if (!canRunEditOperations("全スライド展開")) return;
 			const request = runtime().getSelectedLayerRemovalRequest();
 			if (!request) {
-				showNotice("レイヤーを選択してください。");
+				notice("レイヤーを選択してください。");
 				publishEditSelectionState();
 				return;
 			}
@@ -186,7 +135,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 			if (!confirmed) return;
 			const ok = runtime().spreadSelectedLayer();
 			if (!ok) {
-				showNotice("レイヤーを選択してください。");
+				notice("レイヤーを選択してください。");
 			}
 		},
 		fit() {
@@ -251,7 +200,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 			if (!canRunEditOperations("レイヤー削除")) return;
 			const request = runtime().getSelectedLayerRemovalRequest();
 			if (!request) {
-				showNotice("レイヤーを選択してください。");
+				notice("レイヤーを選択してください。");
 				publishEditSelectionState();
 				return;
 			}
@@ -325,7 +274,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 		selectByIndex(index) {
 			if (!canRunEditOperations("レイヤー選択")) return;
 			if (!runtime().selectEditLayerByIndex(index)) {
-				showNotice("対象レイヤーが見つかりません。");
+				notice("対象レイヤーが見つかりません。");
 			}
 			publishEditSelectionState();
 		},
@@ -380,7 +329,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 			if (!file) return;
 			const ok = await runtime().replaceSelectedImage(file, applyAllReferences);
 			if (!ok) {
-				showNotice("画像レイヤーを選択してください。");
+				notice("画像レイヤーを選択してください。");
 			}
 			publishEditSelectionState();
 		},
@@ -392,7 +341,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 			if (!ensureAllowed(canEdit(), "画像削除")) return;
 			if (!imageId) return;
 			if (!confirmed && ViewerBridge.hasListeners("imageDeleteRequested")) {
-				const imageProps = ImageManager.shared.getImagePropsById(imageId);
+				const imageProps = imageManager.getImagePropsById(imageId);
 				ViewerBridge.emit("imageDeleteRequested", {
 					imageId,
 					name: imageProps?.name || imageId,
@@ -400,7 +349,7 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 				return;
 			}
 			if (!confirmed) return;
-			ImageManager.shared.deleteImageById(imageId);
+			imageManager.deleteImageById(imageId);
 			setDocumentModified(true);
 			slideHistory.publishSlides(true);
 			publishCurrentEditState();
@@ -409,16 +358,14 @@ export function createLayerCommandsUseCase(deps: LayerCommandsDeps): LayerComman
 		undo() {
 			if (!ensureAllowed(canEdit(), "Undo")) return;
 			if (getStartUpMode() !== ViewerStartUpMode.VIEW_AND_EDIT) return;
-			HistoryManager.shared.undo();
+			historyManager.undo();
 		},
 		redo() {
 			if (!ensureAllowed(canEdit(), "Redo")) return;
 			if (getStartUpMode() !== ViewerStartUpMode.VIEW_AND_EDIT) return;
-			HistoryManager.shared.redo();
+			historyManager.redo();
 		},
 		publishEditSelectionState,
 		publishCurrentEditState,
 	};
-
-	return useCase;
 }

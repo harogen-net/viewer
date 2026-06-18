@@ -10,6 +10,8 @@ import { showNotice } from "./runtime/notice";
 import { getSaveFormat } from "./runtime/reactDomRegistry";
 import { SlideShowRuntime } from "./runtime/SlideShowRuntime";
 import { ViewerMode, ViewerStartUpMode } from "./runtime/viewerMode";
+import { createLayerActions } from "./state/layerActions";
+import { layerStore } from "./state/layerStore";
 import { slideStore } from "./state/slideStore";
 import { uiStore } from "./state/uiStore";
 import { viewerDocumentStore } from "./state/viewerDocumentStore";
@@ -21,10 +23,6 @@ import {
 	downloadSlideAsPNG,
 	type ImageExportContext,
 } from "./useCase/ImageExportUseCase";
-import {
-	createLayerCommandsUseCase,
-	type LayerCommandsUseCase,
-} from "./useCase/LayerCommandsUseCase";
 import {
 	createSavedFileNavigationUseCase,
 	type SavedFileNavigationUseCase,
@@ -56,18 +54,6 @@ export class Viewer {
 		getStartUpMode: () => Viewer.startUpMode,
 		rebindSlideMetaListeners: () => this.rebindSlideMetaListeners(),
 	});
-	private layerCommands: LayerCommandsUseCase = createLayerCommandsUseCase({
-		getStartUpMode: () => Viewer.startUpMode,
-		getMode: () => this._mode,
-		getEditCanvasRuntime: () => this.editCanvasRuntime,
-		canEdit: () => this.canEdit(),
-		canExport: () => this.canExport(),
-		ensureAllowed: (canExecute, label) => this.ensureAllowed(canExecute, label),
-		setDocumentModified: (value) => {
-			this.IsDocumentModified = value;
-		},
-		slideHistory: this.slideHistory,
-	});
 	private slideCommands: SlideCommandsUseCase = createSlideCommandsUseCase({
 		getSlides: () => this.slides,
 		getSelectedSlide: () => this.selectedSlide,
@@ -89,7 +75,7 @@ export class Viewer {
 		moveSelectedSlideToIndex: (toIndex) => this.moveSelectedSlideToIndex(toIndex),
 		setMode: (mode) => this.setMode(mode),
 		getEditCanvasRuntime: () => this.editCanvasRuntime,
-		publishEditSelectionState: () => this.layerCommands.publishEditSelectionState(),
+		publishEditSelectionState: () => layerStore.getState().commands?.publishEditSelectionState(),
 	});
 
 	private _mode: ViewerMode;
@@ -188,7 +174,7 @@ export class Viewer {
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			this.IsDocumentModified = HistoryManager.shared.canUndo;
 			this.slideHistory.publishHistoryState();
-			this.layerCommands.publishCurrentEditState();
+			layerStore.getState().commands?.publishCurrentEditState();
 		});
 		this.slideHistory.publishHistoryState();
 
@@ -209,7 +195,7 @@ export class Viewer {
 			this.editCanvasRuntime.initialize();
 		}
 		this.setMode(ViewerMode.SELECT);
-		this.layerCommands.publishEditSelectionState();
+		layerStore.getState().commands?.publishEditSelectionState();
 	}
 
 	private get slides(): Slide[] {
@@ -431,6 +417,33 @@ export class Viewer {
 		this.initializeRuntimes(startUpMode);
 		this.initializeBindings();
 
+		// R3.7/R3.8c: ストアにドメインコマンドを注入。layer は `state/layerActions` の
+		// ファクトリで生成した instance を bindCommands で渡す（store は state slot のみ持つ）。
+		layerStore.getState().bindCommands(
+			createLayerActions({
+				getStartUpMode: () => Viewer.startUpMode,
+				getMode: () => this._mode,
+				getEditCanvasRuntime: () => this.editCanvasRuntime,
+				canEdit: () => this.canEdit(),
+				canExport: () => this.canExport(),
+				ensureAllowed: (canExecute, label) => this.ensureAllowed(canExecute, label),
+				setDocumentModified: (value) => {
+					this.IsDocumentModified = value;
+				},
+				slideHistory: this.slideHistory,
+				notice: showNotice,
+				historyManager: HistoryManager.shared,
+				imageManager: ImageManager.shared,
+			})
+		);
+		slideStore.getState().bindCommands(this.slideCommands);
+		viewerDocumentStore.getState().bindCommands({
+			storage: this.documentStorage,
+			savedFileNav: this.savedFileNav,
+			slideshow: this.slideshowUseCase,
+			history: this.slideHistory,
+		});
+
 		this.newDocument();
 	}
 
@@ -464,7 +477,7 @@ export class Viewer {
 		this.bindViewerDocument(this.viewerDocument, slidesToBind);
 		this.IsDocumentModified = false;
 		this.slideHistory.publishHistoryState();
-		this.layerCommands.publishEditSelectionState();
+		layerStore.getState().commands?.publishEditSelectionState();
 		this.rebindSlideMetaListeners();
 		uiStore.getState().setStorageTitles(this.documentStorage.getTitles());
 		const titles = this.documentStorage.getTitles();
@@ -507,7 +520,7 @@ export class Viewer {
 					? "slideshow"
 					: "select";
 		uiStore.getState().setMode(bridgeMode);
-		this.layerCommands.publishEditSelectionState();
+		layerStore.getState().commands?.publishEditSelectionState();
 	}
 
 	public commandNewSlide(): void {
@@ -788,247 +801,6 @@ export class Viewer {
 
 	public commandShowNextSlide(): void {
 		this.slideshowUseCase.showNext();
-	}
-
-	public commandUndo(): void {
-		this.layerCommands.undo();
-	}
-
-	public commandRedo(): void {
-		this.layerCommands.redo();
-	}
-
-	public commandRotateSelectedLayerLeft(): void {
-		this.layerCommands.rotateLeft();
-	}
-
-	public commandRotateSelectedLayerRight(): void {
-		this.layerCommands.rotateRight();
-	}
-
-	public commandToggleSelectedLayerMirrorH(): void {
-		this.layerCommands.toggleMirrorH();
-	}
-
-	public commandToggleSelectedLayerMirrorV(): void {
-		this.layerCommands.toggleMirrorV();
-	}
-
-	public commandToggleSelectedLayerIsText(): void {
-		this.layerCommands.toggleIsText();
-	}
-
-	public commandSpreadSelectedLayer(confirmed = false): void {
-		this.layerCommands.spread(confirmed);
-	}
-
-	public commandFitSelectedLayer(): void {
-		this.layerCommands.fit();
-	}
-
-	public commandArrangeSelectedLayerTop(): void {
-		this.layerCommands.arrangeTop();
-	}
-
-	public commandArrangeSelectedLayerRight(): void {
-		this.layerCommands.arrangeRight();
-	}
-
-	public commandArrangeSelectedLayerBottom(): void {
-		this.layerCommands.arrangeBottom();
-	}
-
-	public commandArrangeSelectedLayerLeft(): void {
-		this.layerCommands.arrangeLeft();
-	}
-
-	public commandMoveSelectedLayerUp(): void {
-		this.layerCommands.moveUp();
-	}
-
-	public commandMoveSelectedLayerDown(): void {
-		this.layerCommands.moveDown();
-	}
-
-	public commandMoveSelectedLayerToTop(): void {
-		this.layerCommands.moveToTop();
-	}
-
-	public commandMoveSelectedLayerToBottom(): void {
-		this.layerCommands.moveToBottom();
-	}
-
-	public commandMoveSelectedLayerToIndex(toIndex: number): void {
-		this.layerCommands.moveToIndex(toIndex);
-	}
-
-	public commandCopySelectedLayer(): void {
-		this.layerCommands.copyLayer();
-	}
-
-	public commandCutSelectedLayer(): void {
-		this.layerCommands.cutLayer();
-	}
-
-	public commandPasteLayer(): void {
-		this.layerCommands.pasteLayer();
-	}
-
-	public commandAddTextLayer(text: string): void {
-		this.layerCommands.addTextLayer(text);
-	}
-
-	public commandRequestTextLayerInput(): void {
-		this.layerCommands.requestTextLayerInput();
-	}
-
-	public commandCopySelectedLayerTransform(): void {
-		this.layerCommands.copyTransform();
-	}
-
-	public commandPasteLayerTransform(): void {
-		this.layerCommands.pasteTransform();
-	}
-
-	public commandRemoveSelectedLayer(confirmedSharedRemoval = false): void {
-		this.layerCommands.remove(confirmedSharedRemoval);
-	}
-
-	public commandNudgeSelectedLayerLeft(): void {
-		this.layerCommands.nudgeLeft();
-	}
-
-	public commandNudgeSelectedLayerRight(): void {
-		this.layerCommands.nudgeRight();
-	}
-
-	public commandNudgeSelectedLayerUp(): void {
-		this.layerCommands.nudgeUp();
-	}
-
-	public commandNudgeSelectedLayerDown(): void {
-		this.layerCommands.nudgeDown();
-	}
-
-	public commandScaleSelectedLayerUp(): void {
-		this.layerCommands.scaleUp();
-	}
-
-	public commandScaleSelectedLayerDown(): void {
-		this.layerCommands.scaleDown();
-	}
-
-	public commandAdjustSelectedLayerRotationLeft(): void {
-		this.layerCommands.adjustRotationLeft();
-	}
-
-	public commandAdjustSelectedLayerRotationRight(): void {
-		this.layerCommands.adjustRotationRight();
-	}
-
-	public commandResetSelectedLayerRotation(): void {
-		this.layerCommands.resetRotation();
-	}
-
-	public commandDecreaseSelectedLayerOpacity(): void {
-		this.layerCommands.decreaseOpacity();
-	}
-
-	public commandIncreaseSelectedLayerOpacity(): void {
-		this.layerCommands.increaseOpacity();
-	}
-
-	public commandResetSelectedLayerOpacity(): void {
-		this.layerCommands.resetOpacity();
-	}
-
-	public commandSetSelectedLayerPosition(x: number, y: number): void {
-		this.layerCommands.setPosition(x, y);
-	}
-
-	public commandSetSelectedLayerScale(scale: number): void {
-		this.layerCommands.setScale(scale);
-	}
-
-	public commandSetSelectedLayerRotation(rotation: number): void {
-		this.layerCommands.setRotation(rotation);
-	}
-
-	public commandSetSelectedLayerOpacity(opacity: number): void {
-		this.layerCommands.setOpacity(opacity);
-	}
-
-	public commandSetSelectedImageClip(
-		top: number,
-		right: number,
-		bottom: number,
-		left: number
-	): void {
-		this.layerCommands.setImageClip(top, right, bottom, left);
-	}
-
-	public commandResetSelectedImageClip(): void {
-		this.layerCommands.resetImageClip();
-	}
-
-	public commandSelectEditLayerByIndex(index: number): void {
-		this.layerCommands.selectByIndex(index);
-	}
-
-	public commandToggleSelectedLayerVisible(): void {
-		this.layerCommands.toggleVisible();
-	}
-
-	public commandToggleSelectedLayerLocked(): void {
-		this.layerCommands.toggleLocked();
-	}
-
-	public commandToggleSelectedLayerShared(): void {
-		this.layerCommands.toggleShared();
-	}
-
-	public commandSetSelectedLayerName(name: string): void {
-		this.layerCommands.setName(name);
-	}
-
-	public commandSetSelectedLayerText(text: string): void {
-		this.layerCommands.setText(text);
-	}
-
-	public commandZoomInCanvas(): void {
-		this.layerCommands.zoomInCanvas();
-	}
-
-	public commandZoomOutCanvas(): void {
-		this.layerCommands.zoomOutCanvas();
-	}
-
-	public commandResetCanvasZoom(): void {
-		this.layerCommands.resetCanvasZoom();
-	}
-
-	public commandSetCanvasScale(scale: number): void {
-		this.layerCommands.setCanvasScale(scale);
-	}
-
-	public commandToggleRectEdit(): void {
-		this.layerCommands.toggleRectEdit();
-	}
-
-	public commandSetRectEdit(enabled: boolean): void {
-		this.layerCommands.setRectEdit(enabled);
-	}
-
-	public commandReplaceSelectedImage(file: File, applyAllReferences: boolean): Promise<void> {
-		return this.layerCommands.replaceImage(file, applyAllReferences);
-	}
-
-	public commandDownloadSelectedImage(): void {
-		this.layerCommands.downloadImage();
-	}
-
-	public commandDeleteImageById(imageId: string, confirmed = false): void {
-		this.layerCommands.deleteImageById(imageId, confirmed);
 	}
 
 	public getSavedFileTitles() {

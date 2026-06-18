@@ -193,41 +193,53 @@
 #### R3.6: スライド操作コマンド useCase 切り出し（実施済）
 - `SlideCommandsUseCase` を新設し、スライド追加・複製・削除・並び替え・結合・有効/無効・長さ比率変更・選択遷移・モード切替 22 メソッドを移設。
 
-#### R3.7: `ViewerCommands` を useCase 直呼びの薄い re-export に書き換え
-- `Viewer.command*` 経由の delegating を廃止し、`ViewerCommands` から各 useCase（`layerCommands` / `slideCommands` / `slideshowUseCase` / `savedFileNav` / `ImageExportUseCase` 関数）を直接呼ぶ。
-- ドキュメント生成・保存・インポート・エクスポート系（`commandNewDocument` / `commandSaveDocument` / `commandExportDocument` / `commandOpenImportDialog` / `commandImportFile`）は R3.12 完了まで暫定的に Viewer 経由を残す。
+#### R3.7: ストア action 基盤の拡張
+- `layerStore` / `slideStore` / `viewerDocumentStore` / `uiStore` に **mutating action スロット**を設置（現在の単純 setter から `add` / `remove` / `select` / `move` / `mutate` 等のドメイン action へ拡張）。
+- HistoryManager 連携、PermissionPolicy 注入、notice 表示、ImageManager 連携の **deps コンテナ**（store factory 引数または `bindXxxStore(deps)` 初期化関数）を設計し、Viewer 構築時に各ストアへ注入する。
+- 既存 `*UseCase`（R3.1〜R3.6 で抽出済み）は本ステップでは温存し、store action の内部実装として呼び出す形に組み替える（fan-in を準備）。
 
-#### R3.8: `Viewer.shared` 撤去（実施済）
-- `Viewer.shared` 静的フィールドを削除し、`bridge/activeViewer.ts`（`setActiveViewer` / `getActiveViewer`）に singleton を隔離。`ViewerCommands` および将来の useCase registry がこの一点経由で Viewer を参照する。
+#### R3.8: `useLayer` フック新設
+- `useLayer()` を新設し、選択状態（`hasSelection` / `canPaste*`）・値（`x` / `y` / `scale` / `rotation` / `opacity` / `clip` / `text` 等）・操作（`rotate` / `mirror` / `arrange` / `move` / `nudge` / `scale` / `opacity` / `copy` / `cut` / `paste` / `remove` / `setText` / `setName` / `toggleVisible` / `toggleLocked` / `toggleShared` / `replaceImage` / `deleteImage` / `zoomCanvas` / `setRectEdit` / `undo` / `redo` ほか）を返却。
+- 内部は `layerStore` selector + 同ストアの action を呼ぶ。`LayerCommandsUseCase` のロジックを `layerStore` action へ吸収し、useCase ファイルは削除（-424 行）。
+- 既存呼び出し（RuntimeShell / keyboard handlers / EditCanvas / ViewerCommands 経由消費者 / Viewer.ts 内 layer 命令）を hook 経由（React 内）または `layerStore.getState().<action>()` 直呼び（React 外）に書き換え。
 
-#### R3.9: `command*` 薄ラッパ全削除
-- R3.7 の `ViewerCommands` 改修が完了次第、`Viewer` の `command*` メソッド群（slide / layer / slideshow / savedFile / image-export 系）を一括削除（約 540 行削減）。
-- 残置するのはドキュメント・モード制御の高位コマンドのみ。
+#### R3.9: `useSlide` フック新設
+- `useSlide()` を新設し、スライド一覧／選択／追加・複製・削除・並び替え・結合・有効/無効・長さ比率・選択遷移・モード切替（enter/closeEditMode / enterSelectMode）を提供。
+- 内部は `slideStore` action 直叩き。`SlideCommandsUseCase` のロジックを `slideStore` action へ吸収し、useCase ファイルは削除（-449 行）。
+- Viewer.ts 内のスライドストアヘルパ（`addSlide` / `removeSlide` / `selectSlideInstance` / `selectSlideByIndex` / `selectSlideByOffset` / `moveSelectedSlideToIndex` / `moveSelectedSlideByOffset` / `setSlides` / `handleSlideSelectionChanged` / `handleSlideSelectionClosed`）は action に消滅。
 
-#### R3.10: スライドストアヘルパーの store action 化
-- `addSlide` / `removeSlide` / `selectSlideInstance` / `selectSlideByIndex` / `selectSlideByOffset` / `moveSelectedSlideToIndex` / `moveSelectedSlideByOffset` / `setSlides` を `slideStore` action または `SlideCommandsUseCase` 内部関数に吸収。
-- `handleSlideSelectionChanged` / `handleSlideSelectionClosed` は `SlideCommandsUseCase` または `ModeController` に移設。
+#### R3.10: `useViewerDocument` フック新設
+- `useViewerDocument()` を新設し、ドキュメント生成・バインド・保存・読み込み・インポート・エクスポート（ドキュメント / 画像 / ZIP）・保存ファイルナビ（一覧 / 選択 / 前後遷移 / 読込 / 削除）・スライドショー設定・履歴公開を提供。
+- 内部は `viewerDocumentStore` action + `uiStore.storage` / `uiStore.slideshowSettings` 連携。
+- `DocumentStorageUseCase` / `SavedFileNavigationUseCase` / `SlideHistoryUseCase` / `SlideshowUseCase` / `ImageExportUseCase` を store action に取り込み、useCase ファイルは削除（またはストア内部関数として隔離）。
+- Viewer.ts の document/slideshow/savedFile/image-export 系 command*（約 30 メソッド）と `getImageExportContext` / `createDocumentSnapshot` / `createDefaultViewerDocument` / `hasEnabledSlides` / `shouldOverrideSave` / `handleStorageResult` / `rebindSlideMetaListeners` / `bindViewerDocument` / `newDocument` を action へ移送。
 
-#### R3.11: ドキュメントライフサイクル useCase 切り出し
-- `DocumentLifecycleUseCase` を新設し、`newDocument` / `bindViewerDocument` / `createDocumentSnapshot` / `createDefaultViewerDocument` / `hasEnabledSlides` / `getImageExportContext` / `shouldOverrideSave` / `handleStorageResult` / `rebindSlideMetaListeners` を移設。
-- 残存する `commandNewDocument` / `commandSaveDocument` / `commandExportDocument` / `commandOpenImportDialog` / `commandImportFile` も本 useCase に移設し、`ViewerCommands` から直接呼ぶ形に。
+#### R3.11: `ViewerCommands` を hook/store action ベースの薄橋渡しへ
+- `ViewerCommands` から Viewer 経由の呼び出しを全廃。
+- React 文脈外（旧 keydown ハンドラ・bridge 互換層）は `xxxStore.getState().<action>()` 直呼び。
+- React コンポーネントは `ViewerCommands` を使わず `useViewerDocument()` / `useSlide()` / `useLayer()` 経由で完結。
+- `Viewer.command*` 薄ラッパ全削除（約 540 行削減）。最終的に `ViewerCommands` 自体も deprecated とし、残置するのは bridge 互換が必要な外部呼び出し口のみ。
 
-#### R3.12: 起動・モード制御の分離
-- `ViewerBootstrap`（`initializeRuntime` / `initializeRuntimes` / `initializeBindings` / `initializeEditModeFeatures` / `initializeDocumentStorage` / `registerBeforeUnloadWarning`）と `ModeController`（`setMode` / `applySelectMode` / `applyEditMode` / `canEnterEditMode`）を切り出し。
-- `Viewer` のコンストラクタは bootstrap 呼び出しのみへ縮小。
+#### R3.12: ランタイム解体
+- `SlideShowRuntime` / `EditCanvasRuntime` のロジックを `useSlideshow` / `useEditCanvas` に分解。
+- Viewer.ts の runtime 連携箇所を hook 化したコンポーネント側へ移し、Viewer は runtime インスタンス生成のみへ縮小。
+- `applyFeatureGate` / `mobileOrientation` 等のランタイム雑務も対応する hook（または `useEffect` 内ロジック）へ移送。
 
-#### R3.13: パーミッション useCase 切り出し
-- `PermissionUseCase`（`ensureAllowed` / `canProceedWithDiscard` / `getPermissionPolicy` / `canEdit` / `canSave` / `canExport` / `canImport` / `showGateDenied`）として切り出し、各 useCase の deps へ注入する形に統一。
+#### R3.13: パーミッション + 起動の分離
+- `PermissionUseCase`（`ensureAllowed` / `canEdit` / `canSave` / `canExport` / `canImport` / `canProceedWithDiscard` / `showGateDenied` / `getPermissionPolicy`）を独立化し、R3.7 で設計した deps コンテナ経由で各ストアに注入。
+- `ViewerBootstrap`（runtime 生成 + store 初期化 + deps 注入）と `ModeController`（`setMode` / `applySelectMode` / `applyEditMode` / `canEnterEditMode`）を抽出。
+- Viewer は bootstrap 呼び出しのみへ縮小。
 
 #### R3 ゲート再判定
 - `Viewer.ts` 行数 < 300 を計測で確認。
 - ドメインロジック残存ゼロ（純粋に起動オーケストレーションのみ）を確認。
+- 公開 API：`useViewerDocument` / `useSlide` / `useLayer` の 3 hook（+ 必要に応じ `useSlideshow` / `useEditCanvas`）と Zustand store action に集約済み。
 - 79 useCase テスト緑、typecheck エラー 0 を確認。
 
-**完了条件**：`Viewer.ts` が 300 行未満。ドメインロジックが useCase / store に移管済み。
+**完了条件**：`Viewer.ts` が 300 行未満。全ドメインロジックが store action / hook に移管済み。`*UseCase` クラスは撤去または store 内部関数化。
 **ロールバック**：分割で回帰した操作カテゴリは、当該カテゴリ単位で旧実装に退避。
 
-> 進捗注記（2026-06-18 時点）：R3.1〜R3.6 / R3.8 は実施済み（`Viewer.shared` 撤去、`Viewer.ts` 1692→1053 行）。R3.7 は activeViewer 経由の delegating に留まっており「useCase 直呼びの薄い re-export」までは未到達。R3.9〜R3.13 が残作業であり、これらを通過するまで R3 完了条件（< 300 行）は満たさない。
+> 進捗注記（2026-06-18 時点・方針再設定）：R3.1〜R3.6 で抽出した `*UseCase` 群は経過実装。R3.7 以降は **`useViewerDocument` / `useSlide` / `useLayer` の 3 hook が公開 API、Zustand store action が SSoT** という設計に転換する。既存 `*UseCase` のロジックは順次 store action に吸収し、useCase ファイルは削除する。前提作業として `Viewer.shared` は撤去済み・`bridge/activeViewer.ts`（`setActiveViewer`/`getActiveViewer`）に隔離済み。`Viewer.ts` は現在 1053 行で、R3.13 完了までに < 300 行まで縮小する。
 
 ### R4: View 層の React FC 化 + jQuery 撤去
 **目的**：命令的 View とハイブリッド構造を解消する。

@@ -26,6 +26,7 @@ import {
     useViewerStorageProgress,
     useViewerTextLayerInputRequest,
 } from "../bridge/useViewerBridge";
+import { useLayer } from "../hooks/useLayer";
 import { FeatureGate } from "../runtime/featureGate";
 import { AppRuntimeMode } from "../runtime/mode";
 import { getSaveFormat, setSaveFormat } from "../runtime/reactDomRegistry";
@@ -188,6 +189,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { hasSelection, canPasteLayer, canPasteLayerTransform } = useViewerEditSelection();
 	const { layers: editLayers } = useViewerEditLayers();
 	const editLayerState = useViewerEditValues();
+	const { actions: layerActions } = useLayer();
 
 	const [slideCollapsed, setSlideCollapsed] = useState(false);
 	const [fileCollapsed, setFileCollapsed] = useState(false);
@@ -618,7 +620,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		const imageId = imageDeleteRequest?.imageId;
 		setImageDeleteRequest(null);
 		if (!imageId) return;
-		ViewerCommands.deleteImageById(imageId, true);
+		layerActions.deleteImageById(imageId, true);
 	};
 
 	const requestImageDelete = (image: (typeof images)[number]) => {
@@ -632,7 +634,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const confirmSharedLayerRemoval = () => {
 		setSharedLayerRemovalRequest(null);
-		ViewerCommands.removeSelectedLayer(true);
+		layerActions.remove(true);
 	};
 
 	const applyPosition = () => {
@@ -640,7 +642,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		const x = Number(posXInput);
 		const y = Number(posYInput);
 		if (!isFinite(x) || !isFinite(y)) return;
-		ViewerCommands.setSelectedLayerPosition(x, y);
+		layerActions.setPosition(x, y);
 	};
 
 	const adjustPositionX = (delta: number) => {
@@ -649,7 +651,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		const y = Number(posYInput);
 		const nextY = Number.isFinite(y) ? y : editLayerState.y ?? 0;
 		setPosXInput(String(nextX));
-		ViewerCommands.setSelectedLayerPosition(nextX, nextY);
+		layerActions.setPosition(nextX, nextY);
 	};
 
 	const adjustPositionY = (delta: number) => {
@@ -658,49 +660,49 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		const x = Number(posXInput);
 		const nextX = Number.isFinite(x) ? x : editLayerState.x ?? 0;
 		setPosYInput(String(nextY));
-		ViewerCommands.setSelectedLayerPosition(nextX, nextY);
+		layerActions.setPosition(nextX, nextY);
 	};
 
 	const applyScale = () => {
 		if (!canEditSelectedLayer) return;
 		const scale = Number(scaleInput);
 		if (!isFinite(scale) || scale <= 0) return;
-		ViewerCommands.setSelectedLayerScale(scale);
+		layerActions.setScale(scale);
 	};
 
 	const adjustScale = (delta: number) => {
 		if (!canEditSelectedLayer) return;
 		const scale = getAdjustedNumericValue(scaleInput, editLayerState.scale ?? 1, delta, { min: 0.01 });
 		setScaleInput(String(scale));
-		ViewerCommands.setSelectedLayerScale(scale);
+		layerActions.setScale(scale);
 	};
 
 	const applyRotation = () => {
 		if (!canEditSelectedLayer) return;
 		const rotation = Number(rotationInput);
 		if (!isFinite(rotation)) return;
-		ViewerCommands.setSelectedLayerRotation(rotation);
+		layerActions.setRotation(rotation);
 	};
 
 	const adjustRotation = (delta: number) => {
 		if (!canEditSelectedLayer) return;
 		const rotation = getAdjustedNumericValue(rotationInput, editLayerState.rotation ?? 0, delta);
 		setRotationInput(String(rotation));
-		ViewerCommands.setSelectedLayerRotation(rotation);
+		layerActions.setRotation(rotation);
 	};
 
 	const applyOpacity = () => {
 		if (!canEditSelectedLayer) return;
 		const opacity = Number(opacityInput);
 		if (!isFinite(opacity)) return;
-		ViewerCommands.setSelectedLayerOpacity(opacity);
+		layerActions.setOpacity(opacity);
 	};
 
 	const adjustOpacity = (delta: number) => {
 		if (!canEditSelectedLayer) return;
 		const opacity = getAdjustedNumericValue(opacityInput, editLayerState.opacity ?? 1, delta, { min: 0, max: 1 });
 		setOpacityInput(String(opacity));
-		ViewerCommands.setSelectedLayerOpacity(opacity);
+		layerActions.setOpacity(opacity);
 	};
 
 	const applyClip = () => {
@@ -712,7 +714,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			left: clipLeftInput,
 		});
 		if (!next) return;
-		ViewerCommands.setSelectedImageClip(next.top, next.right, next.bottom, next.left);
+		layerActions.setImageClip(next.top, next.right, next.bottom, next.left);
 	};
 
 	const adjustClip = (side: ClipSide, delta: number) => {
@@ -737,14 +739,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		setClipRightInput(String(next.right));
 		setClipBottomInput(String(next.bottom));
 		setClipLeftInput(String(next.left));
-		ViewerCommands.setSelectedImageClip(next.top, next.right, next.bottom, next.left);
+		layerActions.setImageClip(next.top, next.right, next.bottom, next.left);
 	};
 
 	const addTextLayer = () => {
 		if (!gate.canEdit || !isEditMode) return;
 		const text = textLayerInput.trim();
 		if (!text) return;
-		ViewerCommands.addTextLayer(text);
+		layerActions.addTextLayer(text);
 		setTextLayerInput("");
 	};
 
@@ -752,20 +754,20 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		if (!canEditSelectedLayer) return;
 		setSpreadConfirmOpen(false);
 		setSpreadLayerRequest(null);
-		ViewerCommands.spreadSelectedLayer(true);
+		layerActions.spread(true);
 	};
 
 	const applyLayerName = () => {
 		if (!canEditSelectedLayer) return;
 		const name = layerNameInput.trim();
 		if (!name) return;
-		ViewerCommands.setSelectedLayerName(name);
+		layerActions.setName(name);
 	};
 
 	const startLayerRename = (layer: (typeof sortedEditLayers)[number]) => {
 		if (!gate.canEdit || !isEditMode) return;
 		renameCanceledRef.current = false;
-		ViewerCommands.selectEditLayerByIndex(layer.index);
+		layerActions.selectByIndex(layer.index);
 		setRenamingLayerId(layer.id);
 		setRenameLayerInput(layer.name);
 	};
@@ -779,8 +781,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		if (renamingLayerId === null) return;
 		const layer = sortedEditLayers.find((l) => l.id === renamingLayerId);
 		if (layer) {
-			ViewerCommands.selectEditLayerByIndex(layer.index);
-			ViewerCommands.setSelectedLayerName(renameLayerInput);
+			layerActions.selectByIndex(layer.index);
+			layerActions.setName(renameLayerInput);
 			focusLayerAfterRender(getLayerKey(layer));
 		}
 		setRenamingLayerId(null);
@@ -808,7 +810,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				const nextLayer = sortedEditLayers[action.position];
 				if (!nextLayer) return;
 				focusLayerAfterRender(getLayerKey(nextLayer));
-				ViewerCommands.selectEditLayerByIndex(nextLayer.index);
+				layerActions.selectByIndex(nextLayer.index);
 				break;
 			}
 			case "rename":
@@ -816,19 +818,19 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 				break;
 			case "move":
 				focusLayerAfterRender(getLayerKey(layer));
-				ViewerCommands.selectEditLayerByIndex(layer.index);
+				layerActions.selectByIndex(layer.index);
 				if (action.direction < 0) {
-					ViewerCommands.moveSelectedLayerUp();
+					layerActions.moveUp();
 				} else {
-					ViewerCommands.moveSelectedLayerDown();
+					layerActions.moveDown();
 				}
 				break;
 			case "delete": {
 				const nextLayer =
 					sortedEditLayers[action.position + 1] ?? sortedEditLayers[action.position - 1];
 				focusLayerAfterRender(nextLayer ? getLayerKey(nextLayer) : undefined);
-				ViewerCommands.selectEditLayerByIndex(layer.index);
-				ViewerCommands.removeSelectedLayer();
+				layerActions.selectByIndex(layer.index);
+				layerActions.remove();
 				break;
 			}
 		}
@@ -880,8 +882,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		const toLayer = sortedEditLayers[action.toPosition];
 		if (!fromLayer || !toLayer) return;
 		focusLayerAfterRender(getLayerKey(fromLayer));
-		ViewerCommands.selectEditLayerByIndex(fromLayer.index);
-		ViewerCommands.moveSelectedLayerToIndex(toLayer.index);
+		layerActions.selectByIndex(fromLayer.index);
+		layerActions.moveToIndex(toLayer.index);
 	};
 
 	const handleLayerDragEnd = () => {
@@ -891,12 +893,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const applyTextContent = () => {
 		if (!canEditSelectedLayer || editLayerState.layerType !== "text") return;
-		ViewerCommands.setSelectedLayerText(textContentInput);
+		layerActions.setText(textContentInput);
 	};
 
 	const replaceSelectedImage = (file: File | null) => {
 		if (file) {
-			ViewerCommands.replaceSelectedImage(file, replaceImageForAll);
+			void layerActions.replaceImage(file, replaceImageForAll);
 		}
 		resetImageReplacePickerRef.current?.();
 	};
@@ -905,7 +907,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		if (!gate.canEdit || !isEditMode) return;
 		const zoomPercent = Number(zoomInput);
 		if (!isFinite(zoomPercent) || zoomPercent <= 0) return;
-		ViewerCommands.setCanvasScale(zoomPercent / 100);
+		layerActions.setCanvasScale(zoomPercent / 100);
 	};
 
 	const adjustCanvasZoom = (delta: number) => {
@@ -915,7 +917,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			max: 2000,
 		});
 		setZoomInput(String(nextZoom));
-		ViewerCommands.setCanvasScale(nextZoom / 100);
+		layerActions.setCanvasScale(nextZoom / 100);
 	};
 
 	const adjustDurationRatio = (delta: number) => {
@@ -1298,14 +1300,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.undo()}
+									onClick={() => layerActions.undo()}
 									disabled={!gate.canEdit || !history.canUndo}>
 									Undo
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.redo()}
+									onClick={() => layerActions.redo()}
 									disabled={!gate.canEdit || !history.canRedo}>
 									Redo
 								</Button>
@@ -1321,7 +1323,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									label="Rect Edit"
 									checked={editCanvasState.rectEdit}
-									onChange={(e) => ViewerCommands.setRectEdit(e.currentTarget.checked)}
+									onChange={(e) => layerActions.setRectEdit(e.currentTarget.checked)}
 									disabled={!gate.canEdit || !isEditMode}
 								/>
 							</Group>
@@ -1351,21 +1353,21 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.rotateSelectedLayerLeft()}
+									onClick={() => layerActions.rotateLeft()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Rot L
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.rotateSelectedLayerRight()}
+									onClick={() => layerActions.rotateRight()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Rot R
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.fitSelectedLayer()}
+									onClick={() => layerActions.fit()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Fit
 								</Button>
@@ -1375,14 +1377,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									label="Mirror H"
 									checked={Boolean(editLayerState.mirrorH)}
-									onChange={() => ViewerCommands.toggleSelectedLayerMirrorH()}
+									onChange={() => layerActions.toggleMirrorH()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}
 								/>
 								<Switch
 									size="xs"
 									label="Mirror V"
 									checked={Boolean(editLayerState.mirrorV)}
-									onChange={() => ViewerCommands.toggleSelectedLayerMirrorV()}
+									onChange={() => layerActions.toggleMirrorV()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}
 								/>
 							</Group>
@@ -1390,28 +1392,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.arrangeSelectedLayerTop()}
+									onClick={() => layerActions.arrangeTop()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Align T
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.arrangeSelectedLayerRight()}
+									onClick={() => layerActions.arrangeRight()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Align R
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.arrangeSelectedLayerBottom()}
+									onClick={() => layerActions.arrangeBottom()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Align B
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.arrangeSelectedLayerLeft()}
+									onClick={() => layerActions.arrangeLeft()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Align L
 								</Button>
@@ -1420,28 +1422,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.moveSelectedLayerDown()}
+									onClick={() => layerActions.moveDown()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Back 1
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.moveSelectedLayerUp()}
+									onClick={() => layerActions.moveUp()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Front 1
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.moveSelectedLayerToBottom()}
+									onClick={() => layerActions.moveToBottom()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Back All
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.moveSelectedLayerToTop()}
+									onClick={() => layerActions.moveToTop()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Front All
 								</Button>
@@ -1450,21 +1452,21 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.cutSelectedLayer()}
+									onClick={() => layerActions.cutLayer()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Cut
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.copySelectedLayer()}
+									onClick={() => layerActions.copyLayer()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Copy
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.pasteLayer()}
+									onClick={() => layerActions.pasteLayer()}
 									disabled={!gate.canEdit || !isEditMode || !canPasteLayer}>
 									Paste
 								</Button>
@@ -1473,14 +1475,14 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.copySelectedLayerTransform()}
+									onClick={() => layerActions.copyTransform()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Copy T
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.pasteLayerTransform()}
+									onClick={() => layerActions.pasteTransform()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection || !canPasteLayerTransform}>
 									Paste T
 								</Button>
@@ -1488,7 +1490,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									color="red"
 									variant="light"
-									onClick={() => ViewerCommands.removeSelectedLayer()}
+									onClick={() => layerActions.remove()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Remove
 								</Button>
@@ -1571,21 +1573,21 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									label="Visible"
 									checked={editLayerState.visible !== false}
-									onChange={() => ViewerCommands.toggleSelectedLayerVisible()}
+									onChange={() => layerActions.toggleVisible()}
 									disabled={!canEditSelectedLayer}
 								/>
 								<Switch
 									size="xs"
 									label="Locked"
 									checked={Boolean(editLayerState.locked)}
-									onChange={() => ViewerCommands.toggleSelectedLayerLocked()}
+									onChange={() => layerActions.toggleLocked()}
 									disabled={!canEditSelectedLayer}
 								/>
 								<Switch
 									size="xs"
 									label="Shared"
 									checked={Boolean(editLayerState.shared)}
-									onChange={() => ViewerCommands.toggleSelectedLayerShared()}
+									onChange={() => layerActions.toggleShared()}
 									disabled={!canEditSelectedLayer}
 								/>
 							</Group>
@@ -1608,7 +1610,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									label="Image Text"
 									checked={Boolean(editLayerState.isText)}
-									onChange={() => ViewerCommands.toggleSelectedLayerIsText()}
+									onChange={() => layerActions.toggleIsText()}
 									disabled={!canEditSelectedLayer || !isImageLayer}
 								/>
 								<Button
@@ -1763,7 +1765,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.resetSelectedImageClip()}
+									onClick={() => layerActions.resetImageClip()}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									Reset Clip
 								</Button>
@@ -1787,7 +1789,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.downloadSelectedImage()}
+									onClick={() => layerActions.downloadImage()}
 									disabled={!canEditSelectedLayer || !isImageLayer}>
 									Download Img
 								</Button>
@@ -1819,7 +1821,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 														else layerRowRefs.current.delete(layerKey);
 													}}
 													tabIndex={gate.canEdit && isEditMode ? 0 : -1}
-													onClick={() => ViewerCommands.selectEditLayerByIndex(layer.index)}
+													onClick={() => layerActions.selectByIndex(layer.index)}
 													onKeyDown={(e) => handleLayerKeyDown(layer, position, e)}
 													onDoubleClick={() => startLayerRename(layer)}
 													draggable={gate.canEdit && isEditMode && sortedEditLayers.length > 1}
@@ -1962,28 +1964,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.nudgeSelectedLayerLeft()}
+									onClick={() => layerActions.nudgeLeft()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									X-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.nudgeSelectedLayerRight()}
+									onClick={() => layerActions.nudgeRight()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									X+
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.nudgeSelectedLayerUp()}
+									onClick={() => layerActions.nudgeUp()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Y-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.nudgeSelectedLayerDown()}
+									onClick={() => layerActions.nudgeDown()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Y+
 								</Button>
@@ -1992,28 +1994,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.scaleSelectedLayerDown()}
+									onClick={() => layerActions.scaleDown()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Scale-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.scaleSelectedLayerUp()}
+									onClick={() => layerActions.scaleUp()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Scale+
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedLayerRotationLeft()}
+									onClick={() => layerActions.adjustRotationLeft()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Rot-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.adjustSelectedLayerRotationRight()}
+									onClick={() => layerActions.adjustRotationRight()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Rot+
 								</Button>
@@ -2022,28 +2024,28 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.decreaseSelectedLayerOpacity()}
+									onClick={() => layerActions.decreaseOpacity()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Op-
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.increaseSelectedLayerOpacity()}
+									onClick={() => layerActions.increaseOpacity()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Op+
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.resetSelectedLayerRotation()}
+									onClick={() => layerActions.resetRotation()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Rot 0
 								</Button>
 								<Button
 									size="xs"
 									variant="default"
-									onClick={() => ViewerCommands.resetSelectedLayerOpacity()}
+									onClick={() => layerActions.resetOpacity()}
 									disabled={!gate.canEdit || !isEditMode || !hasSelection}>
 									Op 1
 								</Button>

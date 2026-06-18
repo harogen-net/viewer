@@ -6,6 +6,7 @@ import {
     useViewerSlideSnapshots,
 } from "../bridge/useViewerBridge";
 import { ViewerCommands } from "../bridge/ViewerCommands";
+import { getLayerActions } from "../hooks/useLayer";
 import type { LayerSnapshot, SlideSnapshot } from "../model/snapshot";
 import { FeatureGate, getFeatureGate } from "../runtime/featureGate";
 import { ImageManager } from "../utils/ImageManager";
@@ -321,37 +322,37 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 
 			switch (action.type) {
 				case "copy":
-					ViewerCommands.copySelectedLayer();
+					getLayerActions()?.copyLayer();
 					break;
 				case "cut":
-					ViewerCommands.cutSelectedLayer();
+					getLayerActions()?.cutLayer();
 					break;
 				case "paste":
-					ViewerCommands.pasteLayer();
+					getLayerActions()?.pasteLayer();
 					break;
 				case "undo":
-					ViewerCommands.undo();
+					getLayerActions()?.undo();
 					break;
 				case "redo":
-					ViewerCommands.redo();
+					getLayerActions()?.redo();
 					break;
 				case "enterSelectMode":
 					ViewerCommands.enterSelectMode();
 					break;
 				case "removeSelectedLayer":
-					ViewerCommands.removeSelectedLayer();
+					getLayerActions()?.remove();
 					break;
 				case "nudgeLeft":
-					ViewerCommands.nudgeSelectedLayerLeft();
+					getLayerActions()?.nudgeLeft();
 					break;
 				case "nudgeRight":
-					ViewerCommands.nudgeSelectedLayerRight();
+					getLayerActions()?.nudgeRight();
 					break;
 				case "nudgeUp":
-					ViewerCommands.nudgeSelectedLayerUp();
+					getLayerActions()?.nudgeUp();
 					break;
 				case "nudgeDown":
-					ViewerCommands.nudgeSelectedLayerDown();
+					getLayerActions()?.nudgeDown();
 					break;
 			}
 		};
