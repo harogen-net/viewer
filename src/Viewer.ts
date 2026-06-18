@@ -1,8 +1,7 @@
 import $ from "jquery";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
-import { createImageLayer } from "./model/layer/ImageLayer";
-import { createSlide, getScreenSlideSize, Slide } from "./model/Slide";
+import { getScreenSlideSize, Slide } from "./model/Slide";
 import { createViewerDocument, type ViewerDocument } from "./model/ViewerDocument";
 import { EditCanvasRuntime } from "./runtime/EditCanvasRuntime";
 import { FeatureGate } from "./runtime/featureGate";
@@ -29,6 +28,10 @@ import {
 	createSavedFileNavigationUseCase,
 	type SavedFileNavigationUseCase,
 } from "./useCase/SavedFileNavigationUseCase";
+import {
+	createSlideCommandsUseCase,
+	type SlideCommandsUseCase,
+} from "./useCase/SlideCommandsUseCase";
 import {
 	createSlideHistoryUseCase,
 	type SlideHistoryUseCase,
@@ -64,6 +67,29 @@ export class Viewer {
 			this.IsDocumentModified = value;
 		},
 		slideHistory: this.slideHistory,
+	});
+	private slideCommands: SlideCommandsUseCase = createSlideCommandsUseCase({
+		getSlides: () => this.slides,
+		getSelectedSlide: () => this.selectedSlide,
+		getSelectedSlideIndex: () => this.selectedSlideIndex,
+		getViewerDocumentSize: () => {
+			const { width, height } = viewerDocumentStore.getState();
+			return { width, height };
+		},
+		ensureAllowed: (canExecute, label) => this.ensureAllowed(canExecute, label),
+		canEdit: () => this.canEdit(),
+		canEnterEditMode: (label) => this.canEnterEditMode(label),
+		slideHistory: this.slideHistory,
+		addSlide: (slide, index) => this.addSlide(slide, index),
+		removeSlide: (slide, destroy) => this.removeSlide(slide, destroy),
+		selectSlideInstance: (slide) => this.selectSlideInstance(slide),
+		selectSlideByIndex: (index) => this.selectSlideByIndex(index),
+		selectSlideByOffset: (offset) => this.selectSlideByOffset(offset),
+		moveSelectedSlideByOffset: (offset) => this.moveSelectedSlideByOffset(offset),
+		moveSelectedSlideToIndex: (toIndex) => this.moveSelectedSlideToIndex(toIndex),
+		setMode: (mode) => this.setMode(mode),
+		getEditCanvasRuntime: () => this.editCanvasRuntime,
+		publishEditSelectionState: () => this.layerCommands.publishEditSelectionState(),
 	});
 
 	private _mode: ViewerMode;
@@ -485,331 +511,67 @@ export class Viewer {
 	}
 
 	public commandNewSlide(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド追加")) return;
-		const { width, height } = viewerDocumentStore.getState();
-		const slide = createSlide(width, height);
-		const index = this.slides.length;
-		const previousLastSlide = this.slides[index - 1] ?? null;
-		const previousLastJoining = previousLastSlide?.joining ?? false;
-		this.slideHistory.record(
-			() => {
-				if (previousLastSlide) {
-					previousLastSlide.joining = false;
-				}
-				this.addSlide(slide, index);
-				this.selectSlideInstance(slide);
-			},
-			() => {
-				this.removeSlide(slide, false);
-				if (previousLastSlide) {
-					previousLastSlide.joining = previousLastJoining;
-					this.selectSlideInstance(previousLastSlide);
-				}
-			},
-			true
-		);
+		this.slideCommands.newSlide();
 	}
 
 	public commandCloneSelectedSlide(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド複製")) return;
-		const sourceSlide = this.selectedSlide;
-		if (!sourceSlide) return;
-		const clonedSlide = sourceSlide.clone();
-		const sourceJoining = sourceSlide.joining;
-		this.slideHistory.record(
-			() => {
-				const sourceIndex = this.slides.indexOf(sourceSlide);
-				if (sourceIndex === -1) return;
-				sourceSlide.joining = true;
-				this.addSlide(clonedSlide, sourceIndex + 1);
-				this.selectSlideInstance(clonedSlide);
-			},
-			() => {
-				this.removeSlide(clonedSlide, false);
-				sourceSlide.joining = sourceJoining;
-				this.selectSlideInstance(sourceSlide);
-			},
-			true
-		);
+		this.slideCommands.cloneSelected();
 	}
 
 	public commandAddImageSlide(imageId: string, toIndex: number = -1): void {
-		if (!this.ensureAllowed(this.canEdit(), "画像スライド追加")) return;
-		if (!imageId || !ImageManager.shared.getImagePropsById(imageId)) return;
-
-		const layer = createImageLayer(imageId);
-		if (layer.originHeight > layer.originWidth * 1.2) {
-			layer.rotation -= 90;
-		}
-		const { width, height } = viewerDocumentStore.getState();
-		const slide = createSlide(width, height, [layer]);
-		slide.fitLayer(layer);
-		const insertIndex = Number.isInteger(toIndex)
-			? Math.max(0, Math.min(this.slides.length, toIndex))
-			: -1;
-
-		this.slideHistory.record(
-			() => {
-				this.addSlide(slide, insertIndex);
-				this.selectSlideInstance(slide);
-			},
-			() => {
-				this.removeSlide(slide, false);
-			},
-			true
-		);
+		this.slideCommands.addImageSlide(imageId, toIndex);
 	}
 
 	public commandDeleteSelectedSlide(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド削除")) return;
-		const slide = this.selectedSlide;
-		if (!slide) return;
-		const index = this.slides.indexOf(slide);
-		this.slideHistory.record(
-			() => {
-				this.selectSlideInstance(slide);
-				this.removeSlide(slide, false);
-			},
-			() => {
-				this.addSlide(slide, index);
-				this.selectSlideInstance(slide);
-			},
-			true
-		);
+		this.slideCommands.deleteSelected();
 	}
 
 	public commandMoveSelectedSlideBackward(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
-		const slide = this.selectedSlide;
-		if (!slide || this.slides.indexOf(slide) <= 0) return;
-		this.slideHistory.record(
-			() => {
-				this.selectSlideInstance(slide);
-				this.moveSelectedSlideByOffset(-1);
-			},
-			() => {
-				this.selectSlideInstance(slide);
-				this.moveSelectedSlideByOffset(1);
-			}
-		);
+		this.slideCommands.moveSelectedBackward();
 	}
 
 	public commandMoveSelectedSlideForward(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
-		const slide = this.selectedSlide;
-		const index = slide ? this.slides.indexOf(slide) : -1;
-		if (!slide || index === -1 || index >= this.slides.length - 1) return;
-		this.slideHistory.record(
-			() => {
-				this.selectSlideInstance(slide);
-				this.moveSelectedSlideByOffset(1);
-			},
-			() => {
-				this.selectSlideInstance(slide);
-				this.moveSelectedSlideByOffset(-1);
-			}
-		);
+		this.slideCommands.moveSelectedForward();
 	}
 
 	public commandMoveSelectedSlideToIndex(toIndex: number): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド並び替え")) return;
-		const slide = this.selectedSlide;
-		const fromIndex = slide ? this.slides.indexOf(slide) : -1;
-		if (!slide || fromIndex === -1 || !Number.isInteger(toIndex)) return;
-		const clampedToIndex = Math.max(0, Math.min(this.slides.length - 1, toIndex));
-		if (fromIndex === clampedToIndex) return;
-
-		this.slideHistory.record(
-			() => {
-				this.selectSlideInstance(slide);
-				this.moveSelectedSlideToIndex(clampedToIndex);
-			},
-			() => {
-				this.selectSlideInstance(slide);
-				this.moveSelectedSlideToIndex(fromIndex);
-			}
-		);
+		this.slideCommands.moveSelectedToIndex(toIndex);
 	}
 
 	public commandToggleSelectedSlideJoining(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド結合切替")) return;
-		const slide = this.selectedSlide;
-		if (!slide) return;
-		const oldJoining = slide.joining;
-		this.slideHistory.record(
-			() => {
-				slide.joining = !oldJoining;
-			},
-			() => {
-				slide.joining = oldJoining;
-			}
-		);
+		this.slideCommands.toggleSelectedJoining();
 	}
 
 	public commandToggleAllSlidesJoining(): void {
-		if (!this.ensureAllowed(this.canEdit(), "全スライド結合切替")) return;
-		const slides = this.slides;
-		if (slides.length === 0) return;
-		const previousStates = slides.map((slide) => ({
-			slide,
-			joining: slide.joining,
-			durationRatio: slide.durationRatio,
-		}));
-		const nextJoining = !slides.every((slide) => slide.joining);
-		this.slideHistory.record(
-			() => {
-				previousStates.forEach(({ slide }) => {
-					slide.joining = nextJoining;
-					slide.durationRatio = 1;
-				});
-			},
-			() => {
-				previousStates.forEach(({ slide, joining, durationRatio }) => {
-					slide.joining = joining;
-					slide.durationRatio = durationRatio;
-				});
-			}
-		);
+		this.slideCommands.toggleAllJoining();
 	}
 
 	public commandUnjoinAllSlides(): void {
-		if (!this.ensureAllowed(this.canEdit(), "全スライド結合解除")) return;
-		const slides = this.slides;
-		if (!slides.some((slide) => slide.joining || slide.durationRatio !== 1)) return;
-		const previousStates = slides.map((slide) => ({
-			slide,
-			joining: slide.joining,
-			durationRatio: slide.durationRatio,
-		}));
-		this.slideHistory.record(
-			() => {
-				previousStates.forEach(({ slide }) => {
-					slide.joining = false;
-					slide.durationRatio = 1;
-				});
-			},
-			() => {
-				previousStates.forEach(({ slide, joining, durationRatio }) => {
-					slide.joining = joining;
-					slide.durationRatio = durationRatio;
-				});
-			}
-		);
+		this.slideCommands.unjoinAll();
 	}
 
 	public commandToggleSelectedSlideDisabled(): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド有効切替")) return;
-		const slide = this.selectedSlide;
-		if (!slide) return;
-		const oldDisabled = slide.disabled;
-		this.slideHistory.record(
-			() => {
-				slide.disabled = !oldDisabled;
-			},
-			() => {
-				slide.disabled = oldDisabled;
-			}
-		);
+		this.slideCommands.toggleSelectedDisabled();
 	}
 
 	public commandEnableAllSlides(): void {
-		if (!this.ensureAllowed(this.canEdit(), "全スライド有効化")) return;
-		if (!this.slides.some((slide) => slide.disabled)) return;
-		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
-		this.slideHistory.record(
-			() => {
-				previousStates.forEach(({ slide }) => {
-					slide.disabled = false;
-				});
-			},
-			() => {
-				previousStates.forEach(({ slide, disabled }) => {
-					slide.disabled = disabled;
-				});
-			}
-		);
+		this.slideCommands.enableAll();
 	}
 
 	public commandDisableAllSlides(): void {
-		if (!this.ensureAllowed(this.canEdit(), "全スライド無効化")) return;
-		if (!this.slides.some((slide) => !slide.disabled)) return;
-		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
-		this.slideHistory.record(
-			() => {
-				previousStates.forEach(({ slide }) => {
-					slide.disabled = true;
-				});
-			},
-			() => {
-				previousStates.forEach(({ slide, disabled }) => {
-					slide.disabled = disabled;
-				});
-			}
-		);
+		this.slideCommands.disableAll();
 	}
 
 	public commandEnableOnlySelectedSlide(): void {
-		if (!this.ensureAllowed(this.canEdit(), "選択スライドのみ有効化")) return;
-		const selectedSlide = this.selectedSlide;
-		if (!selectedSlide) return;
-		const hasChange = this.slides.some((slide) => slide.disabled !== (slide !== selectedSlide));
-		if (!hasChange) return;
-		const previousStates = this.slides.map((slide) => ({ slide, disabled: slide.disabled }));
-		this.slideHistory.record(
-			() => {
-				previousStates.forEach(({ slide }) => {
-					slide.disabled = slide !== selectedSlide;
-				});
-			},
-			() => {
-				previousStates.forEach(({ slide, disabled }) => {
-					slide.disabled = disabled;
-				});
-			}
-		);
+		this.slideCommands.enableOnlySelected();
 	}
 
 	public commandDeleteDisabledSlides(): void {
-		if (!this.ensureAllowed(this.canEdit(), "無効スライド削除")) return;
-		const disabledSlides = this.slides
-			.map((slide, index) => ({ slide, index }))
-			.filter(({ slide }) => slide.disabled);
-		if (disabledSlides.length === 0) return;
-		const selectedSlide = this.selectedSlide;
-		this.slideHistory.record(
-			() => {
-				disabledSlides.forEach(({ slide }) => {
-					this.removeSlide(slide, false);
-				});
-			},
-			() => {
-				disabledSlides.forEach(({ slide, index }) => {
-					this.addSlide(slide, index);
-				});
-				if (selectedSlide) {
-					this.selectSlideInstance(selectedSlide);
-				}
-			},
-			true
-		);
+		this.slideCommands.deleteDisabled();
 	}
 
 	public commandSetSelectedSlideDurationRatio(ratio: number): void {
-		if (!this.ensureAllowed(this.canEdit(), "スライド長変更")) return;
-		if (!isFinite(ratio) || ratio <= 0) return;
-		const slide = this.selectedSlide;
-		if (!slide) return;
-		const oldRatio = slide.durationRatio;
-		const nextRatio = Math.max(ratio, 0.2);
-		if (oldRatio === nextRatio) return;
-		this.slideHistory.record(
-			() => {
-				slide.durationRatio = nextRatio;
-			},
-			() => {
-				slide.durationRatio = oldRatio;
-			}
-		);
+		this.slideCommands.setSelectedDurationRatio(ratio);
 	}
 
 	private rebindSlideMetaListeners(): void {
@@ -830,39 +592,27 @@ export class Viewer {
 	}
 
 	public commandSelectPreviousSlide(): void {
-		this.selectSlideByOffset(-1);
+		this.slideCommands.selectPrevious();
 	}
 
 	public commandSelectNextSlide(): void {
-		this.selectSlideByOffset(1);
+		this.slideCommands.selectNext();
 	}
 
 	public commandSelectSlideByIndex(index: number): void {
-		this.selectSlideByIndex(index);
+		this.slideCommands.selectByIndex(index);
 	}
 
 	public commandEnterSelectMode(): void {
-		this.setMode(ViewerMode.SELECT);
+		this.slideCommands.enterSelectMode();
 	}
 
 	public commandCloseEditMode(): void {
-		this.setMode(ViewerMode.SELECT);
-		setTimeout(() => {
-			this.editCanvasRuntime.initialize();
-			this.layerCommands.publishEditSelectionState();
-		}, 301);
+		this.slideCommands.closeEditMode();
 	}
 
 	public commandEnterEditMode(): void {
-		if (!this.canEnterEditMode("編集モード切替")) {
-			return;
-		}
-		if (!this.selectedSlide) {
-			showNotice("編集対象のスライドを選択してください。");
-			return;
-		}
-		this.setMode(ViewerMode.EDIT);
-		this.editCanvasRuntime.setSlide(this.selectedSlide);
+		this.slideCommands.enterEditMode();
 	}
 
 	public commandNewDocument(confirmed = false): void {
