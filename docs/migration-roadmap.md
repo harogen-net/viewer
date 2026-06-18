@@ -221,9 +221,8 @@
 - `Viewer.command*` 薄ラッパ全削除（約 540 行削減）。最終的に `ViewerCommands` 自体も deprecated とし、残置するのは bridge 互換が必要な外部呼び出し口のみ。
 
 #### R3.12: ランタイム解体
-- `SlideShowRuntime` / `EditCanvasRuntime` のロジックを `useSlideshow` / `useEditCanvas` に分解。
-- Viewer.ts の runtime 連携箇所を hook 化したコンポーネント側へ移し、Viewer は runtime インスタンス生成のみへ縮小。
-- `applyFeatureGate` / `mobileOrientation` 等のランタイム雑務も対応する hook（または `useEffect` 内ロジック）へ移送。
+- `SlideShowRuntime` / `EditCanvasRuntime` の操作 API を `useSlideshow` / `useEditCanvas` に集約し、React コンポーネントから命令的な Runtime インスタンスへ直接触れない構造へ。Runtime クラス内部の状態 SSoT 化・DOM 更新の React 化は R4（View 層 React FC 化）と一体で実施するため本フェーズでは扱わない。
+- Viewer.ts のランタイム雑務（`drop`/`dragover` 抑止・`beforeunload` 警告・`applyFeatureGate` / `mobileOrientation`）を `RuntimeShell` の `useEffect` へ移送。Runtime インスタンス生成・bindCommands・mode 連動 callback / HistoryManager listener / DocumentStorage listener の剥離は R3.13 の `ModeController` / `ViewerBootstrap` 抽出と一体で実施する。
 
 #### R3.13: パーミッション + 起動の分離
 - `PermissionUseCase`（`ensureAllowed` / `canEdit` / `canSave` / `canExport` / `canImport` / `canProceedWithDiscard` / `showGateDenied` / `getPermissionPolicy`）を独立化し、R3.7 で設計した deps コンテナ経由で各ストアに注入。
@@ -240,6 +239,8 @@
 **ロールバック**：分割で回帰した操作カテゴリは、当該カテゴリ単位で旧実装に退避。
 
 > 進捗注記（2026-06-18 時点・方針再設定）：R3.1〜R3.6 で抽出した `*UseCase` 群は経過実装。R3.7 以降は **`useViewerDocument` / `useSlide` / `useLayer` の 3 hook が公開 API、Zustand store action が SSoT** という設計に転換する。既存 `*UseCase` のロジックは順次 store action に吸収し、useCase ファイルは削除する。前提作業として `Viewer.shared` は撤去済み・`bridge/activeViewer.ts`（`setActiveViewer`/`getActiveViewer`）に隔離済み。`Viewer.ts` は現在 1053 行で、R3.13 完了までに < 300 行まで縮小する。
+>
+> 進捗注記（2026-06-18 時点・R3.12 クローズ）：R3.7〜R3.12 完了し `Viewer.ts` は 318 行。R3.12 の Runtime クラス内部ロジック（`SlideShowRuntime` 595 行 / `EditCanvasRuntime` 502 行に残る状態・DOM 操作）の分解は R4（View 層 React FC 化）と本質的に重複するため、同フェーズと一体化して実施する（R4 処へ予定表を振り替え）。R3.12 では「表と裏に連携 API を hook で覆う」「ランタイム雑務を `useEffect` へ移送」までを達成点とする。残る Viewer.ts の runtime 連携 callback（mode 連動・HistoryManager listener・DocumentStorage listener）の剥離は R3.13 で `ModeController` / `ViewerBootstrap` と一体でオーケストレートする。
 
 ### R4: View 層の React FC 化 + jQuery 撤去
 **目的**：命令的 View とハイブリッド構造を解消する。
@@ -247,6 +248,7 @@
   - `TextView` の `innerHTML` を**テキストノード描画へ即時是正**（XSS 是正）。
 - `DOMSlideView` の `Object.defineProperties` ベース命令的 handle を、props/state ベースへ置換。
 - `EditableSlideView` のレイヤー個別 `addEventListener` を**イベント委譲**へ。
+- `SlideShowRuntime` / `EditCanvasRuntime` のクラス内部ロジック（状態・`timer` / `mouseMoveTimer` / index 進行 / DOM 更新）を `useSlideshow` / `useEditCanvas` の React 状態 + `useEffect` へ分解し、Runtime クラスを撤去または極小コンテナ化する（R3.12 より振り替え）。
 - jQuery 4 ファイル（`index.ts` / `Viewer.ts` / `SlideShowRuntime.ts` / `utils/LayerViewFactory.ts`）から `import $` を除去。
 - `classList`/`style` 直操作・`document`/`window` グローバルリスナーを React 管理下（Context / hooks）へ。
 

@@ -1,6 +1,5 @@
 import { Badge, Button, ColorInput, FileButton, Group, NativeSelect, Paper, Progress, ScrollArea, Stack, Switch, Text, Textarea, TextInput } from "@mantine/core";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ViewerCommands } from "../bridge/ViewerCommands";
 import {
 	useViewerEditCanvasState,
 	useViewerEditLayers,
@@ -28,9 +27,12 @@ import {
 } from "../bridge/useViewerBridge";
 import { useLayer } from "../hooks/useLayer";
 import { useSlide } from "../hooks/useSlide";
+import { useViewerDocument } from "../hooks/useViewerDocument";
 import { FeatureGate } from "../runtime/featureGate";
+import { setUpMobileLandscapeFallback } from "../runtime/mobileOrientation";
 import { AppRuntimeMode } from "../runtime/mode";
 import { getSaveFormat, setSaveFormat } from "../runtime/reactDomRegistry";
+import { slideStore } from "../state/slideStore";
 import type { ImageDeleteRequest } from "./imageDeleteRequest";
 import { getImageDeleteRequestState } from "./imageDeleteRequest";
 import { canToggleImagesPanel, getImagesPanelOpenState } from "./imagesPanelGate";
@@ -192,6 +194,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const editLayerState = useViewerEditValues();
 	const { actions: layerActions } = useLayer();
 	const { actions: slideActions } = useSlide();
+	const { actions: docActions } = useViewerDocument();
 
 	const [slideCollapsed, setSlideCollapsed] = useState(false);
 	const [fileCollapsed, setFileCollapsed] = useState(false);
@@ -255,6 +258,49 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	useEffect(() => {
 		setSaveFormatState(getSaveFormat());
 	}, []);
+
+	// R3.12: Viewer.ts から移送したランタイム雑務（feature gate / モバイル横向き / drop抑止 / beforeunload）。
+	useEffect(() => {
+		const cleanups: Array<() => void> = [];
+
+		if (!gate.canEdit) {
+			document.body.classList.add("runtime-readonly");
+			const imagesEl = document.getElementById("images");
+			if (imagesEl) imagesEl.style.display = "none";
+		}
+
+		if (mode === "mobile-pwa") {
+			setUpMobileLandscapeFallback(document.getElementById("wrapper"));
+		}
+
+		if (gate.canEdit) {
+			const preventDefault = (e: Event) => {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+			};
+			document.addEventListener("drop", preventDefault);
+			document.addEventListener("dragover", preventDefault);
+			cleanups.push(() => {
+				document.removeEventListener("drop", preventDefault);
+				document.removeEventListener("dragover", preventDefault);
+			});
+		}
+
+		if (gate.canEdit && process.env.NODE_ENV === "production") {
+			const handler = (e: BeforeUnloadEvent) => {
+				if (slideStore.getState().slides.length > 0) {
+					e.returnValue = "ページを離れます。よろしいですか？";
+				}
+			};
+			window.addEventListener("beforeunload", handler);
+			cleanups.push(() => window.removeEventListener("beforeunload", handler));
+		}
+
+		return () => {
+			cleanups.forEach((c) => c());
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [gate, mode]);
 
 	useEffect(() => {
 		if (canUseImagesPanel) return;
@@ -580,12 +626,12 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			setNewDocumentConfirmOpen(true);
 			return;
 		}
-		ViewerCommands.newDocument();
+		docActions.newDocument();
 	};
 
 	const confirmNewDocument = () => {
 		setNewDocumentConfirmOpen(false);
-		ViewerCommands.newDocument(true);
+		docActions.newDocument(true);
 	};
 
 	const requestImportDialog = () => {
@@ -594,17 +640,17 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 			setImportConfirmOpen(true);
 			return;
 		}
-		ViewerCommands.openImportDialog();
+		docActions.openImportDialog();
 	};
 
 	const confirmImportDialog = () => {
 		setImportConfirmOpen(false);
-		ViewerCommands.openImportDialog(true);
+		docActions.openImportDialog(true);
 	};
 
 	const importSelectedFile = (file: File | null) => {
 		if (!file) return;
-		ViewerCommands.importFile(file);
+		docActions.importFile(file);
 		resetImportPickerRef.current?.();
 	};
 
@@ -615,7 +661,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 
 	const saveDocumentWithChoice = (override: boolean) => {
 		setSaveChoiceOpen(false);
-		ViewerCommands.saveDocument(override);
+		docActions.saveDocument(override);
 	};
 
 	const confirmImageDelete = () => {
@@ -972,8 +1018,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	};
 
 	const selectSavedFile = (value: string) => {
-		ViewerCommands.selectSavedFile(value);
-		ViewerCommands.loadSelectedSavedFile();
+		docActions.selectSavedFile(value);
+		docActions.loadSelectedSavedFile();
 	};
 
 	const changeSaveFormat = (format: "png" | "hvz" | "hvd") => {
@@ -982,13 +1028,13 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	};
 
 	const selectPreviousSavedFileAndLoad = () => {
-		ViewerCommands.selectPreviousSavedFile();
-		ViewerCommands.loadSelectedSavedFile();
+		docActions.selectPreviousSavedFile();
+		docActions.loadSelectedSavedFile();
 	};
 
 	const selectNextSavedFileAndLoad = () => {
-		ViewerCommands.selectNextSavedFile();
-		ViewerCommands.loadSelectedSavedFile();
+		docActions.selectNextSavedFile();
+		docActions.loadSelectedSavedFile();
 	};
 
 	const modeText = mode === "mobile-pwa" ? "mobile-pwa" : "browser";
@@ -1032,35 +1078,35 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 						backdropFilter: "blur(2px)",
 					}}>
 					<Group gap={6} wrap="nowrap">
-						<Button size="xs" color="red" variant="light" onClick={() => ViewerCommands.stopSlideshow()}>
+						<Button size="xs" color="red" variant="light" onClick={() => docActions.stopSlideshow()}>
 							Exit
 						</Button>
-						<Button size="xs" variant="default" onClick={() => ViewerCommands.showPreviousSlide()}>
+						<Button size="xs" variant="default" onClick={() => docActions.showPreviousSlide()}>
 							Back
 						</Button>
-						<Button size="xs" variant="default" onClick={() => ViewerCommands.toggleSlideshowPause()}>
+						<Button size="xs" variant="default" onClick={() => docActions.toggleSlideshowPause()}>
 							{slideShowPlayback.isPause ? "Play" : "Pause"}
 						</Button>
-						<Button size="xs" variant="default" onClick={() => ViewerCommands.showNextSlide()}>
+						<Button size="xs" variant="default" onClick={() => docActions.showNextSlide()}>
 							Next
 						</Button>
 						<Switch
 							size="xs"
 							label="Full"
 							checked={slideShowSettings.fullscreen}
-							onChange={(e) => ViewerCommands.setFullscreen(e.currentTarget.checked)}
+							onChange={(e) => docActions.setFullscreen(e.currentTarget.checked)}
 						/>
 						<Switch
 							size="xs"
 							label="H"
 							checked={slideShowSettings.mirrorH}
-							onChange={(e) => ViewerCommands.setMirrorH(e.currentTarget.checked)}
+							onChange={(e) => docActions.setMirrorH(e.currentTarget.checked)}
 						/>
 						<Switch
 							size="xs"
 							label="V"
 							checked={slideShowSettings.mirrorV}
-							onChange={(e) => ViewerCommands.setMirrorV(e.currentTarget.checked)}
+							onChange={(e) => docActions.setMirrorV(e.currentTarget.checked)}
 						/>
 					</Group>
 				</Paper>
@@ -2244,7 +2290,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="light"
-									onClick={() => ViewerCommands.exportDocument()}
+									onClick={() => docActions.exportDocument()}
 									disabled={!gate.canExport}>
 									Export
 								</Button>
@@ -2279,7 +2325,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="light"
-									onClick={() => ViewerCommands.exportImages()}
+									onClick={() => docActions.exportImages()}
 									disabled={!gate.canExport}>
 									Export Img
 								</Button>
@@ -2292,7 +2338,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									data={durationOptions}
 									value={String(slideShowSettings.duration)}
 									onChange={(e) =>
-										ViewerCommands.setSlideShowDuration(Number(e.currentTarget.value))
+										docActions.setSlideShowDuration(Number(e.currentTarget.value))
 									}
 									size="xs"
 								/>
@@ -2300,7 +2346,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									data={intervalOptions}
 									value={String(slideShowSettings.interval)}
 									onChange={(e) =>
-										ViewerCommands.setSlideShowInterval(Number(e.currentTarget.value))
+										docActions.setSlideShowInterval(Number(e.currentTarget.value))
 									}
 									size="xs"
 								/>
@@ -2309,26 +2355,26 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<ColorInput
 									size="xs"
 									value={slideShowSettings.bgColor}
-									onChange={(value) => ViewerCommands.setBackgroundColor(value)}
+									onChange={(value) => docActions.setBackgroundColor(value)}
 									disabled={!gate.canEdit}
 								/>
 								<Switch
 									size="xs"
 									label="Fullscreen"
 									checked={slideShowSettings.fullscreen}
-									onChange={(e) => ViewerCommands.setFullscreen(e.currentTarget.checked)}
+									onChange={(e) => docActions.setFullscreen(e.currentTarget.checked)}
 								/>
 								<Switch
 									size="xs"
 									label="Mirror H"
 									checked={slideShowSettings.mirrorH}
-									onChange={(e) => ViewerCommands.setMirrorH(e.currentTarget.checked)}
+									onChange={(e) => docActions.setMirrorH(e.currentTarget.checked)}
 								/>
 								<Switch
 									size="xs"
 									label="Mirror V"
 									checked={slideShowSettings.mirrorV}
-									onChange={(e) => ViewerCommands.setMirrorV(e.currentTarget.checked)}
+									onChange={(e) => docActions.setMirrorV(e.currentTarget.checked)}
 								/>
 							</Group>
 							<Group grow>
@@ -2358,7 +2404,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 								<Button
 									size="xs"
 									variant="light"
-									onClick={() => ViewerCommands.loadSelectedSavedFile()}
+									onClick={() => docActions.loadSelectedSavedFile()}
 									disabled={!selectedFileId}>
 									Load
 								</Button>
@@ -2366,7 +2412,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									size="xs"
 									color="red"
 									variant="light"
-									onClick={() => ViewerCommands.deleteSelectedSavedFile()}
+									onClick={() => docActions.deleteSelectedSavedFile()}
 									disabled={!gate.canDeleteSavedData || !selectedFileId || selectedFileId === "-1"}>
 									Delete
 								</Button>
@@ -2384,7 +2430,7 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 									</Button>
 								</Group>
 							)}
-							<Button size="xs" variant="default" onClick={() => ViewerCommands.startSlideshow()}>
+							<Button size="xs" variant="default" onClick={() => docActions.startSlideshow()}>
 								Start SlideShow
 							</Button>
 							<ScrollArea h={84} type="auto">

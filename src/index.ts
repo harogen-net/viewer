@@ -6,9 +6,7 @@ import { createRoot } from "react-dom/client";
 import { Viewer } from "./Viewer";
 import { AppShell } from "./react/AppShell";
 import { mountRuntimeShell } from "./react/mountRuntimeShell";
-import { applyFeatureGate } from "./runtime/applyFeatureGate";
 import { getFeatureGate } from "./runtime/featureGate";
-import { setUpMobileLandscapeFallback } from "./runtime/mobileOrientation";
 import { resolveRuntimeMode } from "./runtime/mode";
 import { ViewerStartUpMode } from "./runtime/viewerMode";
 
@@ -28,12 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 	document.body.setAttribute("data-runtime-mode", runtimeMode);
 	mountRuntimeShell({ mode: runtimeMode, gate });
-	applyFeatureGate(gate);
 
 	const startUpMode = gate.canEdit ? ViewerStartUpMode.VIEW_AND_EDIT : ViewerStartUpMode.VIEW_ONLY;
 	new Viewer($("body"), startUpMode, gate);
-
-	if (runtimeMode === "mobile-pwa") {
-		setUpMobileLandscapeFallback(document.getElementById("wrapper"));
-	}
 });
