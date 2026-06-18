@@ -2,7 +2,7 @@ import $ from "jquery";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
 import { createImageLayer } from "./model/layer/ImageLayer";
-import { createSlide, Direction, getScreenSlideSize, Slide } from "./model/Slide";
+import { createSlide, getScreenSlideSize, Slide } from "./model/Slide";
 import { createViewerDocument, type ViewerDocument } from "./model/ViewerDocument";
 import { EditCanvasRuntime } from "./runtime/EditCanvasRuntime";
 import { FeatureGate } from "./runtime/featureGate";
@@ -10,7 +10,6 @@ import { showNotice } from "./runtime/notice";
 import { getSaveFormat } from "./runtime/reactDomRegistry";
 import { SlideShowRuntime } from "./runtime/SlideShowRuntime";
 import { ViewerMode, ViewerStartUpMode } from "./runtime/viewerMode";
-import { layerStore } from "./state/layerStore";
 import { slideStore } from "./state/slideStore";
 import { uiStore } from "./state/uiStore";
 import { viewerDocumentStore } from "./state/viewerDocumentStore";
@@ -22,6 +21,10 @@ import {
 	downloadSlideAsPNG,
 	type ImageExportContext,
 } from "./useCase/ImageExportUseCase";
+import {
+	createLayerCommandsUseCase,
+	type LayerCommandsUseCase,
+} from "./useCase/LayerCommandsUseCase";
 import {
 	createSavedFileNavigationUseCase,
 	type SavedFileNavigationUseCase,
@@ -49,6 +52,18 @@ export class Viewer {
 	private slideHistory: SlideHistoryUseCase = createSlideHistoryUseCase({
 		getStartUpMode: () => Viewer.startUpMode,
 		rebindSlideMetaListeners: () => this.rebindSlideMetaListeners(),
+	});
+	private layerCommands: LayerCommandsUseCase = createLayerCommandsUseCase({
+		getStartUpMode: () => Viewer.startUpMode,
+		getMode: () => this._mode,
+		getEditCanvasRuntime: () => this.editCanvasRuntime,
+		canEdit: () => this.canEdit(),
+		canExport: () => this.canExport(),
+		ensureAllowed: (canExecute, label) => this.ensureAllowed(canExecute, label),
+		setDocumentModified: (value) => {
+			this.IsDocumentModified = value;
+		},
+		slideHistory: this.slideHistory,
 	});
 
 	private _mode: ViewerMode;
@@ -131,75 +146,11 @@ export class Viewer {
 		});
 	}
 
-	private emitEditSelectionState(): void {
-		if (
-			Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT ||
-			this._mode != ViewerMode.EDIT ||
-			!this.editCanvasRuntime
-		) {
-			layerStore.getState().clearEditState();
-			return;
-		}
-	}
-
-	private emitCurrentEditState(): void {
-		if (
-			Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT ||
-			this._mode != ViewerMode.EDIT ||
-			!this.editCanvasRuntime
-		) {
-			this.emitEditSelectionState();
-			return;
-		}
-		this.editCanvasRuntime.emitCurrentState();
-		this.emitEditSelectionState();
-	}
-
-	private canRunEditOperations(actionLabel: string): boolean {
-		if (!this.ensureAllowed(this.canEdit(), actionLabel)) {
-			return false;
-		}
-		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) {
-			return false;
-		}
-		if (this._mode != ViewerMode.EDIT) {
-			showNotice("編集モードで操作してください。");
-			return false;
-		}
-		return true;
-	}
-
 	private canEnterEditMode(actionLabel: string): boolean {
 		if (!this.ensureAllowed(this.canEdit(), actionLabel)) {
 			return false;
 		}
 		return Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT;
-	}
-
-	private runEditSelectionOperation(actionLabel: string, operation: () => boolean): void {
-		if (!this.canRunEditOperations(actionLabel)) {
-			return;
-		}
-		if (!operation()) {
-			showNotice("レイヤーを選択してください。");
-		}
-		this.emitEditSelectionState();
-	}
-
-	private runEditOperation(actionLabel: string, operation: () => void): void {
-		if (!this.canRunEditOperations(actionLabel)) {
-			return;
-		}
-		operation();
-		this.emitEditSelectionState();
-	}
-
-	private runEditSelectionOperationSilently(actionLabel: string, operation: () => boolean): void {
-		if (!this.canRunEditOperations(actionLabel)) {
-			return;
-		}
-		operation();
-		this.emitEditSelectionState();
 	}
 
 	private initializeEditModeFeatures(startUpMode: ViewerStartUpMode): void {
@@ -211,7 +162,7 @@ export class Viewer {
 		HistoryManager.shared.addEventListener(PropertyEvent.UPDATE, (pe: PropertyEvent) => {
 			this.IsDocumentModified = HistoryManager.shared.canUndo;
 			this.slideHistory.publishHistoryState();
-			this.emitCurrentEditState();
+			this.layerCommands.publishCurrentEditState();
 		});
 		this.slideHistory.publishHistoryState();
 
@@ -232,7 +183,7 @@ export class Viewer {
 			this.editCanvasRuntime.initialize();
 		}
 		this.setMode(ViewerMode.SELECT);
-		this.emitEditSelectionState();
+		this.layerCommands.publishEditSelectionState();
 	}
 
 	private get slides(): Slide[] {
@@ -487,7 +438,7 @@ export class Viewer {
 		this.bindViewerDocument(this.viewerDocument, slidesToBind);
 		this.IsDocumentModified = false;
 		this.slideHistory.publishHistoryState();
-		this.emitEditSelectionState();
+		this.layerCommands.publishEditSelectionState();
 		this.rebindSlideMetaListeners();
 		uiStore.getState().setStorageTitles(this.documentStorage.getTitles());
 		const titles = this.documentStorage.getTitles();
@@ -530,7 +481,7 @@ export class Viewer {
 					? "slideshow"
 					: "select";
 		uiStore.getState().setMode(bridgeMode);
-		this.emitEditSelectionState();
+		this.layerCommands.publishEditSelectionState();
 	}
 
 	public commandNewSlide(): void {
@@ -898,7 +849,7 @@ export class Viewer {
 		this.setMode(ViewerMode.SELECT);
 		setTimeout(() => {
 			this.editCanvasRuntime.initialize();
-			this.emitEditSelectionState();
+			this.layerCommands.publishEditSelectionState();
 		}, 301);
 	}
 
@@ -1090,283 +1041,171 @@ export class Viewer {
 	}
 
 	public commandUndo(): void {
-		if (!this.ensureAllowed(this.canEdit(), "Undo")) return;
-		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) return;
-		HistoryManager.shared.undo();
+		this.layerCommands.undo();
 	}
 
 	public commandRedo(): void {
-		if (!this.ensureAllowed(this.canEdit(), "Redo")) return;
-		if (Viewer.startUpMode != ViewerStartUpMode.VIEW_AND_EDIT) return;
-		HistoryManager.shared.redo();
+		this.layerCommands.redo();
 	}
 
 	public commandRotateSelectedLayerLeft(): void {
-		this.runEditSelectionOperation("レイヤー回転", () =>
-			this.editCanvasRuntime.rotateSelectedLayer(-90)
-		);
+		this.layerCommands.rotateLeft();
 	}
 
 	public commandRotateSelectedLayerRight(): void {
-		this.runEditSelectionOperation("レイヤー回転", () =>
-			this.editCanvasRuntime.rotateSelectedLayer(90)
-		);
+		this.layerCommands.rotateRight();
 	}
 
 	public commandToggleSelectedLayerMirrorH(): void {
-		this.runEditSelectionOperation("水平反転", () =>
-			this.editCanvasRuntime.toggleSelectedLayerMirrorH()
-		);
+		this.layerCommands.toggleMirrorH();
 	}
 
 	public commandToggleSelectedLayerMirrorV(): void {
-		this.runEditSelectionOperation("垂直反転", () =>
-			this.editCanvasRuntime.toggleSelectedLayerMirrorV()
-		);
+		this.layerCommands.toggleMirrorV();
 	}
 
 	public commandToggleSelectedLayerIsText(): void {
-		this.runEditSelectionOperation("テキスト切替", () =>
-			this.editCanvasRuntime.toggleSelectedLayerIsText()
-		);
+		this.layerCommands.toggleIsText();
 	}
 
 	public commandSpreadSelectedLayer(confirmed = false): void {
-		if (!this.canRunEditOperations("全スライド展開")) return;
-		const request = this.editCanvasRuntime.getSelectedLayerRemovalRequest();
-		if (!request) {
-			showNotice("レイヤーを選択してください。");
-			this.emitEditSelectionState();
-			return;
-		}
-		if (!confirmed && ViewerBridge.hasListeners("spreadLayerRequested")) {
-			ViewerBridge.emit("spreadLayerRequested", { layerName: request.layerName });
-			return;
-		}
-		if (!confirmed) return;
-		const ok = this.editCanvasRuntime.spreadSelectedLayer();
-		if (!ok) {
-			showNotice("レイヤーを選択してください。");
-		}
+		this.layerCommands.spread(confirmed);
 	}
 
 	public commandFitSelectedLayer(): void {
-		this.runEditSelectionOperation("フィット", () => this.editCanvasRuntime.fitSelectedLayer());
+		this.layerCommands.fit();
 	}
 
 	public commandArrangeSelectedLayerTop(): void {
-		this.runEditSelectionOperation("上揃え", () =>
-			this.editCanvasRuntime.arrangeSelectedLayer(Direction.TOP)
-		);
+		this.layerCommands.arrangeTop();
 	}
 
 	public commandArrangeSelectedLayerRight(): void {
-		this.runEditSelectionOperation("右揃え", () =>
-			this.editCanvasRuntime.arrangeSelectedLayer(Direction.RIGHT)
-		);
+		this.layerCommands.arrangeRight();
 	}
 
 	public commandArrangeSelectedLayerBottom(): void {
-		this.runEditSelectionOperation("下揃え", () =>
-			this.editCanvasRuntime.arrangeSelectedLayer(Direction.BOTTOM)
-		);
+		this.layerCommands.arrangeBottom();
 	}
 
 	public commandArrangeSelectedLayerLeft(): void {
-		this.runEditSelectionOperation("左揃え", () =>
-			this.editCanvasRuntime.arrangeSelectedLayer(Direction.LEFT)
-		);
+		this.layerCommands.arrangeLeft();
 	}
 
 	public commandMoveSelectedLayerUp(): void {
-		this.runEditSelectionOperation("レイヤー順序変更", () =>
-			this.editCanvasRuntime.swapSelectedLayer(1)
-		);
+		this.layerCommands.moveUp();
 	}
 
 	public commandMoveSelectedLayerDown(): void {
-		this.runEditSelectionOperation("レイヤー順序変更", () =>
-			this.editCanvasRuntime.swapSelectedLayer(-1)
-		);
+		this.layerCommands.moveDown();
 	}
 
 	public commandMoveSelectedLayerToTop(): void {
-		this.runEditSelectionOperation("最前面へ移動", () =>
-			this.editCanvasRuntime.moveSelectedLayerToTop()
-		);
+		this.layerCommands.moveToTop();
 	}
 
 	public commandMoveSelectedLayerToBottom(): void {
-		this.runEditSelectionOperation("最背面へ移動", () =>
-			this.editCanvasRuntime.moveSelectedLayerToBottom()
-		);
+		this.layerCommands.moveToBottom();
 	}
 
 	public commandMoveSelectedLayerToIndex(toIndex: number): void {
-		this.runEditSelectionOperation("レイヤー順序変更", () =>
-			this.editCanvasRuntime.moveSelectedLayerToIndex(toIndex)
-		);
+		this.layerCommands.moveToIndex(toIndex);
 	}
 
 	public commandCopySelectedLayer(): void {
-		this.runEditSelectionOperation("レイヤーコピー", () =>
-			this.editCanvasRuntime.copySelectedLayer()
-		);
+		this.layerCommands.copyLayer();
 	}
 
 	public commandCutSelectedLayer(): void {
-		this.runEditSelectionOperation("レイヤーカット", () =>
-			this.editCanvasRuntime.cutSelectedLayer()
-		);
+		this.layerCommands.cutLayer();
 	}
 
 	public commandPasteLayer(): void {
-		this.runEditOperation("レイヤー貼り付け", () => {
-			this.editCanvasRuntime.pasteLayer();
-		});
+		this.layerCommands.pasteLayer();
 	}
 
 	public commandAddTextLayer(text: string): void {
-		this.runEditOperation("テキストレイヤー追加", () => {
-			this.editCanvasRuntime.addTextLayer(text);
-		});
+		this.layerCommands.addTextLayer(text);
 	}
 
 	public commandRequestTextLayerInput(): void {
-		if (!this.canRunEditOperations("テキストレイヤー追加")) return;
-		if (ViewerBridge.hasListeners("textLayerInputRequested")) {
-			ViewerBridge.emit("textLayerInputRequested", { open: true });
-		}
+		this.layerCommands.requestTextLayerInput();
 	}
 
 	public commandCopySelectedLayerTransform(): void {
-		this.runEditSelectionOperation("変形コピー", () =>
-			this.editCanvasRuntime.copySelectedLayerTransform()
-		);
+		this.layerCommands.copyTransform();
 	}
 
 	public commandPasteLayerTransform(): void {
-		this.runEditSelectionOperation("変形貼り付け", () =>
-			this.editCanvasRuntime.pasteLayerTransform()
-		);
+		this.layerCommands.pasteTransform();
 	}
 
 	public commandRemoveSelectedLayer(confirmedSharedRemoval = false): void {
-		if (!this.canRunEditOperations("レイヤー削除")) {
-			return;
-		}
-		const request = this.editCanvasRuntime.getSelectedLayerRemovalRequest();
-		if (!request) {
-			showNotice("レイヤーを選択してください。");
-			this.emitEditSelectionState();
-			return;
-		}
-		if (
-			request.shared &&
-			!confirmedSharedRemoval &&
-			ViewerBridge.hasListeners("sharedLayerRemovalRequested")
-		) {
-			ViewerBridge.emit("sharedLayerRemovalRequested", { layerName: request.layerName });
-			return;
-		}
-		this.editCanvasRuntime.removeSelectedLayer(confirmedSharedRemoval);
-		this.emitEditSelectionState();
+		this.layerCommands.remove(confirmedSharedRemoval);
 	}
 
 	public commandNudgeSelectedLayerLeft(): void {
-		this.runEditSelectionOperationSilently("レイヤー移動", () =>
-			this.editCanvasRuntime.nudgeSelectedLayer(-10, 0)
-		);
+		this.layerCommands.nudgeLeft();
 	}
 
 	public commandNudgeSelectedLayerRight(): void {
-		this.runEditSelectionOperationSilently("レイヤー移動", () =>
-			this.editCanvasRuntime.nudgeSelectedLayer(10, 0)
-		);
+		this.layerCommands.nudgeRight();
 	}
 
 	public commandNudgeSelectedLayerUp(): void {
-		this.runEditSelectionOperationSilently("レイヤー移動", () =>
-			this.editCanvasRuntime.nudgeSelectedLayer(0, -10)
-		);
+		this.layerCommands.nudgeUp();
 	}
 
 	public commandNudgeSelectedLayerDown(): void {
-		this.runEditSelectionOperationSilently("レイヤー移動", () =>
-			this.editCanvasRuntime.nudgeSelectedLayer(0, 10)
-		);
+		this.layerCommands.nudgeDown();
 	}
 
 	public commandScaleSelectedLayerUp(): void {
-		this.runEditSelectionOperationSilently("レイヤー拡大縮小", () =>
-			this.editCanvasRuntime.scaleSelectedLayer(1.1)
-		);
+		this.layerCommands.scaleUp();
 	}
 
 	public commandScaleSelectedLayerDown(): void {
-		this.runEditSelectionOperationSilently("レイヤー拡大縮小", () =>
-			this.editCanvasRuntime.scaleSelectedLayer(1 / 1.1)
-		);
+		this.layerCommands.scaleDown();
 	}
 
 	public commandAdjustSelectedLayerRotationLeft(): void {
-		this.runEditSelectionOperationSilently("レイヤー回転", () =>
-			this.editCanvasRuntime.adjustSelectedLayerRotation(-5)
-		);
+		this.layerCommands.adjustRotationLeft();
 	}
 
 	public commandAdjustSelectedLayerRotationRight(): void {
-		this.runEditSelectionOperationSilently("レイヤー回転", () =>
-			this.editCanvasRuntime.adjustSelectedLayerRotation(5)
-		);
+		this.layerCommands.adjustRotationRight();
 	}
 
 	public commandResetSelectedLayerRotation(): void {
-		this.runEditSelectionOperationSilently("レイヤー回転", () =>
-			this.editCanvasRuntime.resetSelectedLayerRotation()
-		);
+		this.layerCommands.resetRotation();
 	}
 
 	public commandDecreaseSelectedLayerOpacity(): void {
-		this.runEditSelectionOperationSilently("透明度変更", () =>
-			this.editCanvasRuntime.adjustSelectedLayerOpacity(-0.05)
-		);
+		this.layerCommands.decreaseOpacity();
 	}
 
 	public commandIncreaseSelectedLayerOpacity(): void {
-		this.runEditSelectionOperationSilently("透明度変更", () =>
-			this.editCanvasRuntime.adjustSelectedLayerOpacity(0.05)
-		);
+		this.layerCommands.increaseOpacity();
 	}
 
 	public commandResetSelectedLayerOpacity(): void {
-		this.runEditSelectionOperationSilently("透明度変更", () =>
-			this.editCanvasRuntime.resetSelectedLayerOpacity()
-		);
+		this.layerCommands.resetOpacity();
 	}
 
 	public commandSetSelectedLayerPosition(x: number, y: number): void {
-		this.runEditSelectionOperationSilently("位置変更", () =>
-			this.editCanvasRuntime.setSelectedLayerPosition(x, y)
-		);
+		this.layerCommands.setPosition(x, y);
 	}
 
 	public commandSetSelectedLayerScale(scale: number): void {
-		this.runEditSelectionOperationSilently("拡大縮小", () =>
-			this.editCanvasRuntime.setSelectedLayerScale(scale)
-		);
+		this.layerCommands.setScale(scale);
 	}
 
 	public commandSetSelectedLayerRotation(rotation: number): void {
-		this.runEditSelectionOperationSilently("回転変更", () =>
-			this.editCanvasRuntime.setSelectedLayerRotation(rotation)
-		);
+		this.layerCommands.setRotation(rotation);
 	}
 
 	public commandSetSelectedLayerOpacity(opacity: number): void {
-		this.runEditSelectionOperationSilently("透明度変更", () =>
-			this.editCanvasRuntime.setSelectedLayerOpacity(opacity)
-		);
+		this.layerCommands.setOpacity(opacity);
 	}
 
 	public commandSetSelectedImageClip(
@@ -1375,134 +1214,71 @@ export class Viewer {
 		bottom: number,
 		left: number
 	): void {
-		this.runEditSelectionOperationSilently("クリップ変更", () =>
-			this.editCanvasRuntime.setSelectedImageClip(top, right, bottom, left)
-		);
+		this.layerCommands.setImageClip(top, right, bottom, left);
 	}
 
 	public commandResetSelectedImageClip(): void {
-		this.runEditSelectionOperationSilently("クリップ変更", () =>
-			this.editCanvasRuntime.resetSelectedImageClip()
-		);
+		this.layerCommands.resetImageClip();
 	}
 
 	public commandSelectEditLayerByIndex(index: number): void {
-		if (!this.canRunEditOperations("レイヤー選択")) {
-			return;
-		}
-		if (!this.editCanvasRuntime.selectEditLayerByIndex(index)) {
-			showNotice("対象レイヤーが見つかりません。");
-		}
-		this.emitEditSelectionState();
+		this.layerCommands.selectByIndex(index);
 	}
 
 	public commandToggleSelectedLayerVisible(): void {
-		this.runEditSelectionOperationSilently("表示切替", () =>
-			this.editCanvasRuntime.toggleSelectedLayerVisible()
-		);
+		this.layerCommands.toggleVisible();
 	}
 
 	public commandToggleSelectedLayerLocked(): void {
-		this.runEditSelectionOperationSilently("ロック切替", () =>
-			this.editCanvasRuntime.toggleSelectedLayerLocked()
-		);
+		this.layerCommands.toggleLocked();
 	}
 
 	public commandToggleSelectedLayerShared(): void {
-		this.runEditSelectionOperationSilently("共有切替", () =>
-			this.editCanvasRuntime.toggleSelectedLayerShared()
-		);
+		this.layerCommands.toggleShared();
 	}
 
 	public commandSetSelectedLayerName(name: string): void {
-		this.runEditSelectionOperationSilently("レイヤー名変更", () =>
-			this.editCanvasRuntime.setSelectedLayerName(name)
-		);
+		this.layerCommands.setName(name);
 	}
 
 	public commandSetSelectedLayerText(text: string): void {
-		this.runEditSelectionOperationSilently("テキスト変更", () =>
-			this.editCanvasRuntime.setSelectedLayerText(text)
-		);
+		this.layerCommands.setText(text);
 	}
 
 	public commandZoomInCanvas(): void {
-		this.runEditOperation("キャンバス拡大", () => {
-			this.editCanvasRuntime.zoomInCanvas();
-		});
+		this.layerCommands.zoomInCanvas();
 	}
 
 	public commandZoomOutCanvas(): void {
-		this.runEditOperation("キャンバス縮小", () => {
-			this.editCanvasRuntime.zoomOutCanvas();
-		});
+		this.layerCommands.zoomOutCanvas();
 	}
 
 	public commandResetCanvasZoom(): void {
-		this.runEditOperation("キャンバス倍率初期化", () => {
-			this.editCanvasRuntime.resetCanvasZoom();
-		});
+		this.layerCommands.resetCanvasZoom();
 	}
 
 	public commandSetCanvasScale(scale: number): void {
-		if (!isFinite(scale) || scale <= 0) {
-			return;
-		}
-		this.runEditOperation("キャンバス倍率変更", () => {
-			this.editCanvasRuntime.setCanvasScale(scale);
-		});
+		this.layerCommands.setCanvasScale(scale);
 	}
 
 	public commandToggleRectEdit(): void {
-		this.runEditOperation("同時編集切替", () => {
-			this.editCanvasRuntime.toggleRectEdit();
-		});
+		this.layerCommands.toggleRectEdit();
 	}
 
 	public commandSetRectEdit(enabled: boolean): void {
-		this.runEditOperation("同時編集設定", () => {
-			this.editCanvasRuntime.setRectEdit(Boolean(enabled));
-		});
+		this.layerCommands.setRectEdit(enabled);
 	}
 
-	public async commandReplaceSelectedImage(file: File, applyAllReferences: boolean): Promise<void> {
-		if (!this.canRunEditOperations("画像差し替え")) {
-			return;
-		}
-		if (!file) {
-			return;
-		}
-		const ok = await this.editCanvasRuntime.replaceSelectedImage(file, applyAllReferences);
-		if (!ok) {
-			showNotice("画像レイヤーを選択してください。");
-		}
-		this.emitEditSelectionState();
+	public commandReplaceSelectedImage(file: File, applyAllReferences: boolean): Promise<void> {
+		return this.layerCommands.replaceImage(file, applyAllReferences);
 	}
 
 	public commandDownloadSelectedImage(): void {
-		if (!this.ensureAllowed(this.canExport(), "画像ダウンロード")) return;
-		this.runEditSelectionOperation("画像ダウンロード", () =>
-			this.editCanvasRuntime.downloadSelectedImage()
-		);
+		this.layerCommands.downloadImage();
 	}
 
 	public commandDeleteImageById(imageId: string, confirmed = false): void {
-		if (!this.ensureAllowed(this.canEdit(), "画像削除")) return;
-		if (!imageId) return;
-		if (!confirmed && ViewerBridge.hasListeners("imageDeleteRequested")) {
-			const imageProps = ImageManager.shared.getImagePropsById(imageId);
-			ViewerBridge.emit("imageDeleteRequested", {
-				imageId,
-				name: imageProps?.name || imageId,
-			});
-			return;
-		}
-		if (!confirmed) return;
-		ImageManager.shared.deleteImageById(imageId);
-		this.IsDocumentModified = true;
-		this.slideHistory.publishSlides(true);
-		this.emitCurrentEditState();
-		this.slideHistory.publishHistoryState();
+		this.layerCommands.deleteImageById(imageId, confirmed);
 	}
 
 	public getSavedFileTitles() {
