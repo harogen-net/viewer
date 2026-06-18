@@ -175,8 +175,59 @@
 - 各 `command*` メソッドを対応 useCase へ移設（呼び出し側は R2 で既に store/useCase 参照）。
 - `Viewer` は最終的に**起動オーケストレーションの薄いブートストラップ**に縮小。
 
+#### R3.1: スライドショー useCase 切り出し（実施済）
+- `SlideshowUseCase` を新設し、`commandSetSlideShow*` / `commandStart|Stop|TogglePause` / `commandShowPrevious|NextSlide` / `handlePlaybackChanged` 等を移設。
+
+#### R3.2: 画像エクスポート useCase 切り出し（実施済）
+- `ImageExportUseCase`（純関数）を新設し、`commandDownloadSelectedSlide` / `commandExportImages` のロジックを移設。
+
+#### R3.3: 保存ファイルナビゲーション useCase 切り出し（実施済）
+- `SavedFileNavigationUseCase` を新設し、`selectedSavedFileId` を `uiStore.storage.selectedId` に統合。`commandSelectNext|PreviousSavedFile` / `commandLoadSelectedSavedFile` / `commandDeleteSelectedSavedFile` のロジックを移設。
+
+#### R3.4: スライド履歴 useCase 切り出し（実施済）
+- `SlideHistoryUseCase` を新設し、`emitHistoryState` / `emitCurrentSlides` / `emitSlideHistoryMutation` / `recordSlideHistoryCommand` を `publishHistoryState` / `publishSlides` / `publishHistoryMutation` / `record` として移設。
+
+#### R3.5: レイヤー編集コマンド useCase 切り出し（実施済）
+- `LayerCommandsUseCase` を新設し、レイヤー回転・並び替え・コピー/貼り付け・透明度・クリップ・キャンバス倍率・画像差し替え/削除など 60+ メソッドを移設。`emitEditSelectionState` / `emitCurrentEditState` / `runEditOperation` 系ヘルパは `publishEditSelectionState` / `publishCurrentEditState` / 内部 `run`/`runSelection` に集約。
+
+#### R3.6: スライド操作コマンド useCase 切り出し（実施済）
+- `SlideCommandsUseCase` を新設し、スライド追加・複製・削除・並び替え・結合・有効/無効・長さ比率変更・選択遷移・モード切替 22 メソッドを移設。
+
+#### R3.7: `ViewerCommands` を useCase 直呼びの薄い re-export に書き換え
+- `Viewer.command*` 経由の delegating を廃止し、`ViewerCommands` から各 useCase（`layerCommands` / `slideCommands` / `slideshowUseCase` / `savedFileNav` / `ImageExportUseCase` 関数）を直接呼ぶ。
+- ドキュメント生成・保存・インポート・エクスポート系（`commandNewDocument` / `commandSaveDocument` / `commandExportDocument` / `commandOpenImportDialog` / `commandImportFile`）は R3.12 完了まで暫定的に Viewer 経由を残す。
+
+#### R3.8: `Viewer.shared` 撤去（実施済）
+- `Viewer.shared` 静的フィールドを削除し、`bridge/activeViewer.ts`（`setActiveViewer` / `getActiveViewer`）に singleton を隔離。`ViewerCommands` および将来の useCase registry がこの一点経由で Viewer を参照する。
+
+#### R3.9: `command*` 薄ラッパ全削除
+- R3.7 の `ViewerCommands` 改修が完了次第、`Viewer` の `command*` メソッド群（slide / layer / slideshow / savedFile / image-export 系）を一括削除（約 540 行削減）。
+- 残置するのはドキュメント・モード制御の高位コマンドのみ。
+
+#### R3.10: スライドストアヘルパーの store action 化
+- `addSlide` / `removeSlide` / `selectSlideInstance` / `selectSlideByIndex` / `selectSlideByOffset` / `moveSelectedSlideToIndex` / `moveSelectedSlideByOffset` / `setSlides` を `slideStore` action または `SlideCommandsUseCase` 内部関数に吸収。
+- `handleSlideSelectionChanged` / `handleSlideSelectionClosed` は `SlideCommandsUseCase` または `ModeController` に移設。
+
+#### R3.11: ドキュメントライフサイクル useCase 切り出し
+- `DocumentLifecycleUseCase` を新設し、`newDocument` / `bindViewerDocument` / `createDocumentSnapshot` / `createDefaultViewerDocument` / `hasEnabledSlides` / `getImageExportContext` / `shouldOverrideSave` / `handleStorageResult` / `rebindSlideMetaListeners` を移設。
+- 残存する `commandNewDocument` / `commandSaveDocument` / `commandExportDocument` / `commandOpenImportDialog` / `commandImportFile` も本 useCase に移設し、`ViewerCommands` から直接呼ぶ形に。
+
+#### R3.12: 起動・モード制御の分離
+- `ViewerBootstrap`（`initializeRuntime` / `initializeRuntimes` / `initializeBindings` / `initializeEditModeFeatures` / `initializeDocumentStorage` / `registerBeforeUnloadWarning`）と `ModeController`（`setMode` / `applySelectMode` / `applyEditMode` / `canEnterEditMode`）を切り出し。
+- `Viewer` のコンストラクタは bootstrap 呼び出しのみへ縮小。
+
+#### R3.13: パーミッション useCase 切り出し
+- `PermissionUseCase`（`ensureAllowed` / `canProceedWithDiscard` / `getPermissionPolicy` / `canEdit` / `canSave` / `canExport` / `canImport` / `showGateDenied`）として切り出し、各 useCase の deps へ注入する形に統一。
+
+#### R3 ゲート再判定
+- `Viewer.ts` 行数 < 300 を計測で確認。
+- ドメインロジック残存ゼロ（純粋に起動オーケストレーションのみ）を確認。
+- 79 useCase テスト緑、typecheck エラー 0 を確認。
+
 **完了条件**：`Viewer.ts` が 300 行未満。ドメインロジックが useCase / store に移管済み。
 **ロールバック**：分割で回帰した操作カテゴリは、当該カテゴリ単位で旧実装に退避。
+
+> 進捗注記（2026-06-18 時点）：R3.1〜R3.6 / R3.8 は実施済み（`Viewer.shared` 撤去、`Viewer.ts` 1692→1053 行）。R3.7 は activeViewer 経由の delegating に留まっており「useCase 直呼びの薄い re-export」までは未到達。R3.9〜R3.13 が残作業であり、これらを通過するまで R3 完了条件（< 300 行）は満たさない。
 
 ### R4: View 層の React FC 化 + jQuery 撤去
 **目的**：命令的 View とハイブリッド構造を解消する。
