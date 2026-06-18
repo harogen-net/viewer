@@ -1,8 +1,8 @@
 import { SlideTitle } from "../storage/storageTypes";
-import { Viewer } from "../Viewer";
+import { getActiveViewer } from "./activeViewer";
 
-function getViewer(): Viewer | null {
-	return Viewer.shared ?? null;
+function getViewer() {
+	return getActiveViewer();
 }
 
 export const ViewerCommands = {

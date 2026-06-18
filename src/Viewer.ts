@@ -1,4 +1,5 @@
 import $ from "jquery";
+import { setActiveViewer } from "./bridge/activeViewer";
 import { ViewerBridge } from "./bridge/ViewerBridge";
 import { PropertyEvent } from "./events/PropertyEvent";
 import { getScreenSlideSize, Slide } from "./model/Slide";
@@ -43,7 +44,6 @@ import { HistoryManager } from "./utils/HistoryManager";
 import { ImageManager } from "./utils/ImageManager";
 
 export class Viewer {
-	public static shared: Viewer;
 	public static isStrictMode: boolean = true;
 	public static startUpMode: ViewerStartUpMode = ViewerStartUpMode.VIEW_AND_EDIT;
 
@@ -424,7 +424,7 @@ export class Viewer {
 		startUpMode: ViewerStartUpMode,
 		private featureGate?: FeatureGate
 	) {
-		Viewer.shared = this;
+		setActiveViewer(this);
 		Viewer.startUpMode = startUpMode;
 
 		this.initializeRuntime(startUpMode);
