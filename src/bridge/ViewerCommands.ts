@@ -1,152 +1,149 @@
 import { getLayerActions } from "../hooks/useLayer";
+import { getSlideActions } from "../hooks/useSlide";
+import { getViewerDocumentActions } from "../hooks/useViewerDocument";
 import { SlideTitle } from "../storage/storageTypes";
-import { getActiveViewer } from "./activeViewer";
-
-function getViewer() {
-	return getActiveViewer();
-}
 
 export const ViewerCommands = {
 	newSlide(): void {
-		getViewer()?.commandNewSlide();
+		getSlideActions()?.newSlide();
 	},
 	cloneSelectedSlide(): void {
-		getViewer()?.commandCloneSelectedSlide();
+		getSlideActions()?.cloneSelected();
 	},
 	deleteSelectedSlide(): void {
-		getViewer()?.commandDeleteSelectedSlide();
+		getSlideActions()?.deleteSelected();
 	},
 	moveSelectedSlideBackward(): void {
-		getViewer()?.commandMoveSelectedSlideBackward();
+		getSlideActions()?.moveSelectedBackward();
 	},
 	moveSelectedSlideForward(): void {
-		getViewer()?.commandMoveSelectedSlideForward();
+		getSlideActions()?.moveSelectedForward();
 	},
 	moveSelectedSlideToIndex(toIndex: number): void {
-		getViewer()?.commandMoveSelectedSlideToIndex(toIndex);
+		getSlideActions()?.moveSelectedToIndex(toIndex);
 	},
 	addImageSlide(imageId: string, toIndex?: number): void {
-		getViewer()?.commandAddImageSlide(imageId, toIndex);
+		getSlideActions()?.addImageSlide(imageId, toIndex);
 	},
 	toggleSelectedSlideJoining(): void {
-		getViewer()?.commandToggleSelectedSlideJoining();
+		getSlideActions()?.toggleSelectedJoining();
 	},
 	toggleAllSlidesJoining(): void {
-		getViewer()?.commandToggleAllSlidesJoining();
+		getSlideActions()?.toggleAllJoining();
 	},
 	unjoinAllSlides(): void {
-		getViewer()?.commandUnjoinAllSlides();
+		getSlideActions()?.unjoinAll();
 	},
 	toggleSelectedSlideDisabled(): void {
-		getViewer()?.commandToggleSelectedSlideDisabled();
+		getSlideActions()?.toggleSelectedDisabled();
 	},
 	enableAllSlides(): void {
-		getViewer()?.commandEnableAllSlides();
+		getSlideActions()?.enableAll();
 	},
 	disableAllSlides(): void {
-		getViewer()?.commandDisableAllSlides();
+		getSlideActions()?.disableAll();
 	},
 	enableOnlySelectedSlide(): void {
-		getViewer()?.commandEnableOnlySelectedSlide();
+		getSlideActions()?.enableOnlySelected();
 	},
 	deleteDisabledSlides(): void {
-		getViewer()?.commandDeleteDisabledSlides();
+		getSlideActions()?.deleteDisabled();
 	},
 	setSelectedSlideDurationRatio(ratio: number): void {
-		getViewer()?.commandSetSelectedSlideDurationRatio(ratio);
+		getSlideActions()?.setSelectedDurationRatio(ratio);
 	},
 	selectPreviousSlide(): void {
-		getViewer()?.commandSelectPreviousSlide();
+		getSlideActions()?.selectPrevious();
 	},
 	selectNextSlide(): void {
-		getViewer()?.commandSelectNextSlide();
+		getSlideActions()?.selectNext();
 	},
 	selectSlideByIndex(index: number): void {
-		getViewer()?.commandSelectSlideByIndex(index);
+		getSlideActions()?.selectByIndex(index);
 	},
 	enterSelectMode(): void {
-		getViewer()?.commandEnterSelectMode();
+		getSlideActions()?.enterSelectMode();
 	},
 	closeEditMode(): void {
-		getViewer()?.commandCloseEditMode();
+		getSlideActions()?.closeEditMode();
 	},
 	enterEditMode(): void {
-		getViewer()?.commandEnterEditMode();
+		getSlideActions()?.enterEditMode();
 	},
 	newDocument(confirmed = false): void {
-		getViewer()?.commandNewDocument(confirmed);
+		getViewerDocumentActions()?.newDocument(confirmed);
 	},
 	saveDocument(override?: boolean): void {
-		getViewer()?.commandSaveDocument(override);
+		getViewerDocumentActions()?.saveDocument(override);
 	},
 	exportDocument(): void {
-		getViewer()?.commandExportDocument();
+		getViewerDocumentActions()?.exportDocument();
 	},
 	exportImages(): void {
-		getViewer()?.commandExportImages();
+		getViewerDocumentActions()?.exportImages();
 	},
 	downloadSelectedSlide(): void {
-		getViewer()?.commandDownloadSelectedSlide();
+		getViewerDocumentActions()?.downloadSelectedSlide();
 	},
 	setSlideShowDuration(duration: number): void {
-		getViewer()?.commandSetSlideShowDuration(duration);
+		getViewerDocumentActions()?.setSlideShowDuration(duration);
 	},
 	setSlideShowInterval(interval: number): void {
-		getViewer()?.commandSetSlideShowInterval(interval);
+		getViewerDocumentActions()?.setSlideShowInterval(interval);
 	},
 	setBackgroundColor(color: string): void {
-		getViewer()?.commandSetBackgroundColor(color);
+		getViewerDocumentActions()?.setBackgroundColor(color);
 	},
 	setFullscreen(enabled: boolean): void {
-		getViewer()?.commandSetFullscreen(enabled);
+		getViewerDocumentActions()?.setFullscreen(enabled);
 	},
 	setMirrorH(enabled: boolean): void {
-		getViewer()?.commandSetMirrorH(enabled);
+		getViewerDocumentActions()?.setMirrorH(enabled);
 	},
 	setMirrorV(enabled: boolean): void {
-		getViewer()?.commandSetMirrorV(enabled);
+		getViewerDocumentActions()?.setMirrorV(enabled);
 	},
 	openImportDialog(confirmed = false): void {
-		getViewer()?.commandOpenImportDialog(confirmed);
+		getViewerDocumentActions()?.openImportDialog(confirmed);
 	},
 	importFile(file: File): void {
-		getViewer()?.commandImportFile(file);
+		getViewerDocumentActions()?.importFile(file);
 	},
 	loadSavedFile(fileId: string): void {
-		getViewer()?.commandLoadSavedFile(fileId);
+		getViewerDocumentActions()?.loadSavedFile(fileId);
 	},
 	selectSavedFile(fileId: string | null): void {
-		getViewer()?.commandSelectSavedFile(fileId);
+		getViewerDocumentActions()?.selectSavedFile(fileId);
 	},
 	loadSelectedSavedFile(): void {
-		getViewer()?.commandLoadSelectedSavedFile();
+		getViewerDocumentActions()?.loadSelectedSavedFile();
 	},
 	deleteSavedFile(fileId: string): void {
-		getViewer()?.commandDeleteSavedFile(fileId);
+		getViewerDocumentActions()?.deleteSavedFile(fileId);
 	},
 	deleteSelectedSavedFile(): void {
-		getViewer()?.commandDeleteSelectedSavedFile();
+		getViewerDocumentActions()?.deleteSelectedSavedFile();
 	},
 	selectNextSavedFile(): void {
-		getViewer()?.commandSelectNextSavedFile();
+		getViewerDocumentActions()?.selectNextSavedFile();
 	},
 	selectPreviousSavedFile(): void {
-		getViewer()?.commandSelectPreviousSavedFile();
+		getViewerDocumentActions()?.selectPreviousSavedFile();
 	},
 	startSlideshow(): void {
-		getViewer()?.commandStartSlideshow();
+		getViewerDocumentActions()?.startSlideshow();
 	},
 	stopSlideshow(): void {
-		getViewer()?.commandStopSlideshow();
+		getViewerDocumentActions()?.stopSlideshow();
 	},
 	toggleSlideshowPause(): void {
-		getViewer()?.commandToggleSlideshowPause();
+		getViewerDocumentActions()?.toggleSlideshowPause();
 	},
 	showPreviousSlide(): void {
-		getViewer()?.commandShowPreviousSlide();
+		getViewerDocumentActions()?.showPreviousSlide();
 	},
 	showNextSlide(): void {
-		getViewer()?.commandShowNextSlide();
+		getViewerDocumentActions()?.showNextSlide();
 	},
 	undo(): void {
 		getLayerActions()?.undo();
@@ -323,6 +320,6 @@ export const ViewerCommands = {
 		getLayerActions()?.deleteImageById(imageId, confirmed);
 	},
 	getSavedFileTitles(): readonly SlideTitle[] {
-		return getViewer()?.getSavedFileTitles() ?? [];
+		return getViewerDocumentActions()?.getSavedFileTitles() ?? [];
 	},
 };

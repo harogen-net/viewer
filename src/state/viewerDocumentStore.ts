@@ -1,22 +1,47 @@
 import { create } from "zustand";
 import type { Slide } from "../model/Slide";
 import type { ViewerDocument } from "../model/ViewerDocument";
-import type { DocumentStorageUseCase } from "../useCase/DocumentStorageUseCase";
-import type { SavedFileNavigationUseCase } from "../useCase/SavedFileNavigationUseCase";
-import type { SlideHistoryUseCase } from "../useCase/SlideHistoryUseCase";
-import type { SlideshowUseCase } from "../useCase/SlideshowUseCase";
+import type { SlideTitle } from "../storage/storageTypes";
 import { slideStore } from "./slideStore";
 
 /**
- * R3.7: viewerDocumentStore に注入するドメインコマンド群。
- * R3.10 で useViewerDocument フックがこれを束ねて公開し、各 useCase は
- * 段階的に store action へ吸収される。
+ * R3.10: viewerDocumentStore に注入する公開コマンド群。
+ * `createViewerDocumentActions(deps)` の戻り値が `bindCommands` で注入され、
+ * `useViewerDocument` フックがこれを束ねて React/外部に公開する。
  */
-export type ViewerDocumentCommands = {
-	storage: DocumentStorageUseCase;
-	savedFileNav: SavedFileNavigationUseCase;
-	slideshow: SlideshowUseCase;
-	history: SlideHistoryUseCase;
+export type ViewerDocumentCommandsUseCase = {
+	newDocument(confirmed?: boolean): void;
+	saveDocument(override?: boolean): void;
+	exportDocument(): void;
+	exportImages(): void;
+	downloadSelectedSlide(): void;
+	openImportDialog(confirmed?: boolean): void;
+	importFile(file: File): void;
+	loadSavedFile(fileId: string): void;
+	selectSavedFile(fileId: string | null): void;
+	loadSelectedSavedFile(): void;
+	deleteSavedFile(fileId: string): void;
+	deleteSelectedSavedFile(): void;
+	selectNextSavedFile(): void;
+	selectPreviousSavedFile(): void;
+	setSlideShowDuration(duration: number): void;
+	setSlideShowInterval(interval: number): void;
+	setBackgroundColor(color: string): void;
+	setFullscreen(enabled: boolean): void;
+	setMirrorH(enabled: boolean): void;
+	setMirrorV(enabled: boolean): void;
+	startSlideshow(): void;
+	stopSlideshow(): void;
+	toggleSlideshowPause(): void;
+	showPreviousSlide(): void;
+	showNextSlide(): void;
+	getSavedFileTitles(): readonly SlideTitle[];
+	/** documentStorage.onLoaded から呼ばれる internal flow。 */
+	handleLoadedDocument(doc: ViewerDocument): void;
+	/** Viewer 構築直後に最初のドキュメントを生成・束縛する。 */
+	bootstrap(): void;
+	/** スライド構造変更後に PropertyEvent リスナを再アタッチ。 */
+	rebindSlideMetaListeners(): void;
 };
 
 type ViewerDocumentStateSnapshot = {
@@ -30,7 +55,7 @@ type ViewerDocumentStateSnapshot = {
 	width: number;
 	height: number;
 	bgColor: string;
-	commands: ViewerDocumentCommands | null;
+	commands: ViewerDocumentCommandsUseCase | null;
 	revision: number;
 };
 
@@ -66,7 +91,7 @@ type ViewerDocumentActions = {
 			>
 		>
 	) => void;
-	bindCommands: (commands: ViewerDocumentCommands) => void;
+	bindCommands: (commands: ViewerDocumentCommandsUseCase) => void;
 	reset: () => void;
 };
 
