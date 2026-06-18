@@ -41,7 +41,7 @@ export class TextView extends LayerView {
 	protected updateView(flag: number = PropFlags.ALL): void {
 		if (flag & PropFlags.TXT_TEXT) {
 			if (this.textSpan) {
-				this.textSpan.innerHTML = this._data.text;
+				this.textSpan.textContent = this._data.text;
 
 				setTimeout(() => {
 					this._data.originWidth = this.textSpan?.offsetWidth ?? 0;
