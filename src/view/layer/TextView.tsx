@@ -8,7 +8,7 @@ export class TextView extends LayerView {
 
 	constructor(
 		protected _data: TextLayer,
-		public obj: any
+		public obj: HTMLElement
 	) {
 		super(_data, obj);
 	}
@@ -22,7 +22,7 @@ export class TextView extends LayerView {
 		div.spellcheck = false;
 		const span = document.createElement("span");
 		div.appendChild(span);
-		(this.obj[0] as HTMLElement).appendChild(div);
+		this.obj.appendChild(div);
 
 		this.textObj = div;
 		this.textSpan = span;

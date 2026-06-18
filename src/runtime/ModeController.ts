@@ -1,4 +1,3 @@
-import $ from "jquery";
 import { layerStore } from "../state/layerStore";
 import { uiStore } from "../state/uiStore";
 import type { PermissionUseCase } from "../useCase/PermissionUseCase";
@@ -14,7 +13,7 @@ import { ViewerMode, ViewerStartUpMode } from "./viewerMode";
  */
 
 export type ModeControllerDeps = {
-	obj: JQuery;
+	obj: HTMLElement;
 	getStartUpMode: () => ViewerStartUpMode;
 	getEditCanvasRuntime: () => EditCanvasRuntime | undefined;
 	permission: PermissionUseCase;
@@ -30,9 +29,9 @@ export function createModeController(deps: ModeControllerDeps): ModeController {
 	let mode: ViewerMode | undefined;
 
 	const applySelectMode = (): void => {
-		$("body").removeClass("slideShow");
-		deps.obj.addClass("select");
-		deps.obj.removeClass("edit");
+		document.body.classList.remove("slideShow");
+		deps.obj.classList.add("select");
+		deps.obj.classList.remove("edit");
 		if (deps.getStartUpMode() === ViewerStartUpMode.VIEW_AND_EDIT) {
 			const runtime = deps.getEditCanvasRuntime();
 			if (runtime) {
@@ -42,9 +41,9 @@ export function createModeController(deps: ModeControllerDeps): ModeController {
 	};
 
 	const applyEditMode = (): void => {
-		$("body").removeClass("slideShow");
-		deps.obj.removeClass("select");
-		deps.obj.addClass("edit");
+		document.body.classList.remove("slideShow");
+		deps.obj.classList.remove("select");
+		deps.obj.classList.add("edit");
 		if (deps.getStartUpMode() === ViewerStartUpMode.VIEW_AND_EDIT) {
 			const runtime = deps.getEditCanvasRuntime();
 			if (runtime) {
@@ -56,7 +55,7 @@ export function createModeController(deps: ModeControllerDeps): ModeController {
 	const setMode = (next: ViewerMode): void => {
 		if (next === mode) {
 			if (next !== ViewerMode.SLIDESHOW) {
-				$("body").removeClass("slideShow");
+				document.body.classList.remove("slideShow");
 			}
 			return;
 		}

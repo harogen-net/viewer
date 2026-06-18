@@ -1,4 +1,3 @@
-import $ from "jquery";
 import { createElement, createRef, type FunctionComponent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
@@ -34,7 +33,7 @@ export class SlideShowRuntime {
 	private _mirrorH: boolean;
 	private _mirrorV: boolean;
 
-	private slideContainer: any;
+	private slideContainer: HTMLDivElement;
 
 	private slides: SlideShowSlideView[] = [];
 	private data: any[];
@@ -43,6 +42,7 @@ export class SlideShowRuntime {
 	private timer: any;
 	private history: SlideShowSlideView[];
 	private mouseMoveTimer: any;
+	private mouseMoveListener: ((event: MouseEvent) => void) | null = null;
 
 	private interval: number;
 	private duration: number;
@@ -55,10 +55,10 @@ export class SlideShowRuntime {
 	//private readonly RUN_IN_WINDOW:boolean = true;
 
 	constructor(
-		public obj: any,
+		public obj: HTMLElement,
 		private readonly options: SlideShowRuntimeOptions = {}
 	) {
-		obj.addClass("slideShow");
+		obj.classList.add("slideShow");
 		document.addEventListener("webkitfullscreenchange", () => {
 			if (document["webkitFullscreenElement"]) {
 			} else {
@@ -66,16 +66,20 @@ export class SlideShowRuntime {
 			}
 		});
 
-		$(window).resize(() => {
+		window.addEventListener("resize", () => {
 			setTimeout(() => {
 				this.updateSlideSize();
 			}, 50);
 		});
 
-		this.slideContainer = $('<div class="slideContainer" />').appendTo(obj);
-		this.slideContainer.on("mousedown", () => {
+		const container = document.createElement("div");
+		container.className = "slideContainer";
+		obj.appendChild(container);
+		this.slideContainer = container;
+		this.slideContainer.addEventListener("mousedown", (event) => {
 			this.togglePause();
-			return false;
+			event.preventDefault();
+			event.stopPropagation();
 		});
 	}
 
@@ -159,10 +163,10 @@ export class SlideShowRuntime {
 		clearInterval(this.timer);
 		this.started = 0;
 		this.elapsed = 0;
-		this.obj.removeClass("pause");
+		this.obj.classList.remove("pause");
 		this.isInit = false;
 
-		$("body").removeClass("slideShow");
+		document.body.classList.remove("slideShow");
 		if (this._fullscreen) {
 			try {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
@@ -192,7 +196,7 @@ export class SlideShowRuntime {
 		this._isRun = true;
 		this.isInit = true;
 
-		$("body").addClass("slideShow");
+		document.body.classList.add("slideShow");
 		if (this._fullscreen) {
 			this.requestFullscreen();
 		}
@@ -242,7 +246,7 @@ export class SlideShowRuntime {
 		this._isRun = false;
 		this._isPause = false;
 
-		$("body").removeClass("slideShow");
+		document.body.classList.remove("slideShow");
 		if (this._fullscreen) {
 			try {
 				document.exitFullscreen(); //HTML5 Fullscreen API仕様
@@ -268,7 +272,7 @@ export class SlideShowRuntime {
 		if (!this._isRun) return;
 		if (this._isPause) return;
 		this._isPause = true;
-		this.obj.addClass("pause");
+		this.obj.classList.add("pause");
 
 		this.elapsed = new Date().getTime() - this.started;
 		clearInterval(this.timer);
@@ -284,7 +288,7 @@ export class SlideShowRuntime {
 		if (!this._isRun) return;
 		if (!this._isPause) return;
 		this._isPause = false;
-		this.obj.removeClass("pause");
+		this.obj.classList.remove("pause");
 
 		var restDuration: number = this.slideDuration - this.elapsed;
 		if (restDuration < 0) {
@@ -404,29 +408,33 @@ export class SlideShowRuntime {
 	}
 
 	private startCursorAutoHide() {
-		this.obj.on("mousemove.showing", (any) => {
+		this.mouseMoveListener = () => {
 			this.mouseMoveOnPlaying();
-		});
+		};
+		this.obj.addEventListener("mousemove", this.mouseMoveListener);
 		this.mouseMoveTimer = setTimeout(() => {
-			this.obj.addClass("playing");
+			this.obj.classList.add("playing");
 		}, 1000);
 	}
 
 	private stopCursorAutoHide() {
-		this.obj.off("mousemove.showing");
+		if (this.mouseMoveListener) {
+			this.obj.removeEventListener("mousemove", this.mouseMoveListener);
+			this.mouseMoveListener = null;
+		}
 		clearInterval(this.mouseMoveTimer);
-		this.obj.removeClass("playing");
+		this.obj.classList.remove("playing");
 	}
 
 	private mouseMoveOnPlaying() {
-		this.obj.removeClass("playing");
+		this.obj.classList.remove("playing");
 		clearInterval(this.mouseMoveTimer);
 
 		if (!this._isRun) return;
 		if (this._isPause) return;
 
 		this.mouseMoveTimer = setTimeout(() => {
-			this.obj.addClass("playing");
+			this.obj.classList.add("playing");
 		}, 1000);
 	}
 
@@ -436,14 +444,14 @@ export class SlideShowRuntime {
 
 	private requestFullscreen() {
 		try {
-			if (this.obj[0].requestFullscreen) {
-				this.obj[0].requestFullscreen();
+			if (this.obj.requestFullscreen) {
+				this.obj.requestFullscreen();
 				return;
 			}
 		} catch (e) {}
 		try {
-			if (this.obj[0].webkitRequestFullScreen) {
-				this.obj[0].webkitRequestFullScreen();
+			if ((this.obj as any).webkitRequestFullScreen) {
+				(this.obj as any).webkitRequestFullScreen();
 			}
 		} catch (e) {}
 	}
@@ -466,15 +474,15 @@ export class SlideShowRuntime {
 		var cssTxts: string[] = [];
 		if (this._mirrorH) cssTxts.push("scaleX(-1)");
 		if (this._mirrorV) cssTxts.push("scaleY(-1)");
-		this.slideContainer.css("transform", cssTxts.join(" "));
+		this.slideContainer.style.transform = cssTxts.join(" ");
 	}
 
 	//
 
 	private updateSlideSize() {
 		//		console.log("updateSlideSize");
-		let dispWidth = this.obj.width();
-		let dispHeight = this.obj.height();
+		let dispWidth = this.obj.clientWidth;
+		let dispHeight = this.obj.clientHeight;
 		const { width, height } = viewerDocumentStore.getState();
 		let dispScale = Math.min(dispWidth / width, dispHeight / height);
 		let offsetX = (dispWidth - width) / 2;
@@ -491,7 +499,7 @@ export class SlideShowRuntime {
 
 	private createSlideView(slide: Slide): SlideShowSlideView {
 		const host = document.createElement("div");
-		this.slideContainer[0].appendChild(host);
+		this.slideContainer.appendChild(host);
 		const ref = createRef<DOMSlideViewHandle>();
 		const root: Root = createRoot(host);
 		flushSync(() => {

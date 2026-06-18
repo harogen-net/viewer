@@ -10,15 +10,15 @@ import { createSlide, SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "..
 import { layerStore, type EditLayerValues } from "../state/layerStore";
 import { slideStore } from "../state/slideStore";
 import {
-	createEditLayerMutationUseCase,
-	type EditLayerMutationUseCase,
-	type LayerMutationRenderScope,
+    createEditLayerMutationUseCase,
+    type EditLayerMutationUseCase,
+    type LayerMutationRenderScope,
 } from "../useCase/EditLayerMutationUseCase";
 import { ImageManager } from "../utils/ImageManager";
 import {
-	EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
-	EditableSlideView,
-	type EditableSlideViewHandle,
+    EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
+    EditableSlideView,
+    type EditableSlideViewHandle,
 } from "../view/slide";
 import { ViewerMode } from "./viewerMode";
 
@@ -36,13 +36,13 @@ export class EditCanvasRuntime {
 	private readonly slideViewHost: HTMLDivElement;
 	private readonly slideViewRef = createRef<EditableSlideViewHandle>();
 
-	constructor(public obj: any) {
-		this.obj.addClass("slideCanvas");
+	constructor(public obj: HTMLElement) {
+		this.obj.classList.add("slideCanvas");
 
 		this.slideViewHost = document.createElement("div");
 		this.slideViewHost.style.width = "100%";
 		this.slideViewHost.style.height = "100%";
-		this.obj[0].appendChild(this.slideViewHost);
+		this.obj.appendChild(this.slideViewHost);
 		this.slideViewRoot = createRoot(this.slideViewHost);
 		flushSync(() => {
 			this.slideViewRoot.render(

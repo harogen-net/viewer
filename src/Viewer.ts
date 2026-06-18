@@ -33,7 +33,7 @@ export class Viewer {
 	}
 
 	constructor(
-		public obj: JQuery,
+		public obj: HTMLElement,
 		startUpMode: ViewerStartUpMode,
 		featureGate?: FeatureGate
 	) {

@@ -17,10 +17,10 @@ export class LayerView {
 
 	constructor(
 		protected _data: Layer,
-		public obj: any
+		public obj: HTMLElement
 	) {
 		attachEventDispatcher(this);
-		if (_data == null || obj == null || obj.length != 1) throw new Error("");
+		if (_data == null || obj == null) throw new Error("");
 		this.constructMain();
 		this.updateView();
 	}
@@ -33,7 +33,7 @@ export class LayerView {
 		this.clearEventListener();
 		this._data.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
 		this.obj.remove();
-		this.obj = null;
+		this.obj = null!;
 	}
 
 	//
@@ -42,11 +42,11 @@ export class LayerView {
 	protected updateMatrix() {
 		var matrix: number[] = this._data.matrix;
 		var cssMat: string = "matrix(" + matrix.join(",") + ")";
-		(this.obj[0] as HTMLElement).style.transform = cssMat;
+		this.obj.style.transform = cssMat;
 	}
 
 	protected updateView(flag: number = PropFlags.ALL) {
-		const el = this.obj[0] as HTMLElement;
+		const el = this.obj;
 		if (flag & PropFlags.VISIBLE) {
 			if (!this._data.visible) {
 				el.classList.add("invisible");
@@ -90,7 +90,7 @@ export class LayerView {
 		return this._data;
 	}
 	public get element(): HTMLElement {
-		return this.obj[0] as HTMLElement;
+		return this.obj;
 	}
 	public get type(): LayerType {
 		return this._data.type;
@@ -99,10 +99,10 @@ export class LayerView {
 		return this._data.id;
 	}
 	public get width() {
-		return this.obj.width();
+		return this.obj.offsetWidth;
 	}
 	public get height() {
-		return this.obj.height();
+		return this.obj.offsetHeight;
 	}
 
 	public get selected(): boolean {

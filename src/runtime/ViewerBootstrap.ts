@@ -1,4 +1,3 @@
-import $ from "jquery";
 import { PropertyEvent } from "../events/PropertyEvent";
 import type { Slide } from "../model/Slide";
 import { createLayerActions } from "../state/layerActions";
@@ -41,7 +40,7 @@ import { ViewerStartUpMode } from "./viewerMode";
  */
 
 export type BootstrapDeps = {
-	obj: JQuery;
+	obj: HTMLElement;
 	startUpMode: ViewerStartUpMode;
 	featureGate?: FeatureGate;
 	getIsDocumentModified: () => boolean;
@@ -75,7 +74,9 @@ export function bootstrapViewer(deps: BootstrapDeps): BootstrapResult {
 	let editCanvasRuntime: EditCanvasRuntime | undefined;
 	let slideshowUseCase: SlideshowUseCase | undefined;
 
-	const slideShowRuntime = new SlideShowRuntime($("<div />").appendTo(deps.obj), {
+	const slideShowHost = document.createElement("div");
+	deps.obj.appendChild(slideShowHost);
+	const slideShowRuntime = new SlideShowRuntime(slideShowHost, {
 		onPlaybackChanged: ({ isRun, isPause }) => {
 			slideshowUseCase?.handlePlaybackChanged(isRun, isPause);
 		},
@@ -130,7 +131,7 @@ export function bootstrapViewer(deps: BootstrapDeps): BootstrapResult {
 		});
 		slideHistory.publishHistoryState();
 
-		editCanvasRuntime = new EditCanvasRuntime(deps.obj.find(".canvas"));
+		editCanvasRuntime = new EditCanvasRuntime(deps.obj.querySelector(".canvas") as HTMLElement);
 	}
 
 	const slideCommands = createSlideActions({

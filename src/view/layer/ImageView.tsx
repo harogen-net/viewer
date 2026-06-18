@@ -8,7 +8,7 @@ export class ImageView extends LayerView {
 
 	constructor(
 		protected _data: ImageLayer,
-		public obj: any
+		public obj: HTMLElement
 	) {
 		super(_data, obj);
 	}
@@ -26,7 +26,7 @@ export class ImageView extends LayerView {
 	}
 
 	private updateImage() {
-		const host = this.obj[0] as HTMLElement;
+		const host = this.obj;
 		for (const staleImage of Array.from(host.querySelectorAll("img"))) {
 			staleImage.remove();
 		}
@@ -83,7 +83,7 @@ export class ImageView extends LayerView {
 	// get set
 	//
 	public get width() {
-		const el = this.obj[0] as HTMLElement;
+		const el = this.obj;
 		if (el.offsetWidth === 0) {
 			return this._data.scaleX * this._data.originWidth;
 		} else {
@@ -91,7 +91,7 @@ export class ImageView extends LayerView {
 		}
 	}
 	public get height() {
-		const el = this.obj[0] as HTMLElement;
+		const el = this.obj;
 		if (el.offsetHeight === 0) {
 			return this._data.scaleY * this._data.originHeight;
 		} else {

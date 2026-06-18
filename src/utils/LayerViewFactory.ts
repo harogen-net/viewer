@@ -1,4 +1,3 @@
-import $ from "jquery";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
@@ -6,8 +5,10 @@ import { LayerView } from "../view/LayerView";
 import { ImageView } from "../view/layer/ImageView";
 import { TextView } from "../view/layer/TextView";
 
-function makeLayerWrapper(): JQuery {
-	return $('<div class="layerWrapper" />');
+function makeLayerWrapper(): HTMLDivElement {
+	const wrapper = document.createElement("div");
+	wrapper.className = "layerWrapper";
+	return wrapper;
 }
 
 export class LayerViewFactory {

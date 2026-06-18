@@ -1,5 +1,4 @@
 import "@fortawesome/fontawesome-free/css/all.css";
-import $ from "jquery";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -28,5 +27,5 @@ document.addEventListener("DOMContentLoaded", () => {
 	mountRuntimeShell({ mode: runtimeMode, gate });
 
 	const startUpMode = gate.canEdit ? ViewerStartUpMode.VIEW_AND_EDIT : ViewerStartUpMode.VIEW_ONLY;
-	new Viewer($("body"), startUpMode, gate);
+	new Viewer(document.body, startUpMode, gate);
 });
