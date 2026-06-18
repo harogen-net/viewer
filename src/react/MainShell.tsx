@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
-    useViewerEditSelection,
-    useViewerHistory,
-    useViewerMode,
-    useViewerSlideSnapshots,
+	useViewerEditSelection,
+	useViewerHistory,
+	useViewerMode,
+	useViewerSlideSnapshots,
 } from "../bridge/useViewerBridge";
-import { ViewerCommands } from "../bridge/ViewerCommands";
 import { getLayerActions } from "../hooks/useLayer";
+import { getSlideActions, useSlide } from "../hooks/useSlide";
 import type { LayerSnapshot, SlideSnapshot } from "../model/snapshot";
 import { FeatureGate, getFeatureGate } from "../runtime/featureGate";
 import { ImageManager } from "../utils/ImageManager";
@@ -109,6 +109,7 @@ const MainSlidePreview = ({ slide }: MainSlidePreviewProps) => {
 
 const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 	const { slides: rawSlides, selectedIndex, revision } = useViewerSlideSnapshots();
+	const { actions: slideActions } = useSlide();
 	const [draggingSlideIndex, setDraggingSlideIndex] = useState<number | null>(null);
 	const [slideDropIndex, setSlideDropIndex] = useState<number | null>(null);
 	const pendingFocusKey = useRef<string | null>(null);
@@ -162,21 +163,21 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 		switch (action.type) {
 			case "select":
 				focusSlideAfterRender(slides[action.index]?.key);
-				ViewerCommands.selectSlideByIndex(action.index);
+				slideActions.selectByIndex(action.index);
 				break;
 			case "move":
 				focusSlideAfterRender(slide.key);
-				ViewerCommands.selectSlideByIndex(action.index);
+				slideActions.selectByIndex(action.index);
 				if (action.direction < 0) {
-					ViewerCommands.moveSelectedSlideBackward();
+					slideActions.moveSelectedBackward();
 				} else {
-					ViewerCommands.moveSelectedSlideForward();
+					slideActions.moveSelectedForward();
 				}
 				break;
 			case "delete":
 				focusSlideAfterRender(slides[action.index + 1]?.key ?? slides[action.index - 1]?.key);
-				ViewerCommands.selectSlideByIndex(action.index);
-				ViewerCommands.deleteSelectedSlide();
+				slideActions.selectByIndex(action.index);
+				slideActions.deleteSelected();
 				break;
 		}
 	};
@@ -222,7 +223,7 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 			event.preventDefault();
 			setDraggingSlideIndex(null);
 			setSlideDropIndex(null);
-			ViewerCommands.addImageSlide(droppedImageId, slide.index);
+			slideActions.addImageSlide(droppedImageId, slide.index);
 			return;
 		}
 
@@ -237,8 +238,8 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 		if (!action.preventDefault) return;
 		event.preventDefault();
 		focusSlideAfterRender(slides[action.fromIndex]?.key);
-		ViewerCommands.selectSlideByIndex(action.fromIndex);
-		ViewerCommands.moveSelectedSlideToIndex(action.toIndex);
+		slideActions.selectByIndex(action.fromIndex);
+		slideActions.moveSelectedToIndex(action.toIndex);
 	};
 
 	const handleSlideDragEnd = () => {
@@ -281,8 +282,8 @@ const MainSlideList = ({ gate }: { gate: FeatureGate }) => {
 						onDragOver={(event) => handleSlideDragOver(slide, event)}
 						onDrop={(event) => handleSlideDrop(slide, event)}
 						onDragEnd={handleSlideDragEnd}
-						onClick={() => ViewerCommands.selectSlideByIndex(slide.index)}
-						onDoubleClick={() => gate.canEdit && ViewerCommands.enterEditMode()}>
+						onClick={() => slideActions.selectByIndex(slide.index)}
+						onDoubleClick={() => gate.canEdit && slideActions.enterEditMode()}>
 						<MainSlidePreview slide={slide.slide} />
 						<span className="mainSlideList-index">{slide.label}</span>
 						<span className="mainSlideList-meta">
@@ -337,7 +338,7 @@ export function MainShell({ gate = getFeatureGate("browser") }: MainShellProps) 
 					getLayerActions()?.redo();
 					break;
 				case "enterSelectMode":
-					ViewerCommands.enterSelectMode();
+					getSlideActions()?.enterSelectMode();
 					break;
 				case "removeSelectedLayer":
 					getLayerActions()?.remove();

@@ -12,7 +12,8 @@ import { SlideShowRuntime } from "./runtime/SlideShowRuntime";
 import { ViewerMode, ViewerStartUpMode } from "./runtime/viewerMode";
 import { createLayerActions } from "./state/layerActions";
 import { layerStore } from "./state/layerStore";
-import { slideStore } from "./state/slideStore";
+import { createSlideActions } from "./state/slideActions";
+import { slideStore, type SlideCommandsUseCase } from "./state/slideStore";
 import { uiStore } from "./state/uiStore";
 import { viewerDocumentStore } from "./state/viewerDocumentStore";
 import { createStorageAdapter } from "./storage/createStorageAdapter";
@@ -27,10 +28,6 @@ import {
 	createSavedFileNavigationUseCase,
 	type SavedFileNavigationUseCase,
 } from "./useCase/SavedFileNavigationUseCase";
-import {
-	createSlideCommandsUseCase,
-	type SlideCommandsUseCase,
-} from "./useCase/SlideCommandsUseCase";
 import {
 	createSlideHistoryUseCase,
 	type SlideHistoryUseCase,
@@ -54,10 +51,7 @@ export class Viewer {
 		getStartUpMode: () => Viewer.startUpMode,
 		rebindSlideMetaListeners: () => this.rebindSlideMetaListeners(),
 	});
-	private slideCommands: SlideCommandsUseCase = createSlideCommandsUseCase({
-		getSlides: () => this.slides,
-		getSelectedSlide: () => this.selectedSlide,
-		getSelectedSlideIndex: () => this.selectedSlideIndex,
+	private slideCommands: SlideCommandsUseCase = createSlideActions({
 		getViewerDocumentSize: () => {
 			const { width, height } = viewerDocumentStore.getState();
 			return { width, height };
@@ -66,16 +60,11 @@ export class Viewer {
 		canEdit: () => this.canEdit(),
 		canEnterEditMode: (label) => this.canEnterEditMode(label),
 		slideHistory: this.slideHistory,
-		addSlide: (slide, index) => this.addSlide(slide, index),
-		removeSlide: (slide, destroy) => this.removeSlide(slide, destroy),
-		selectSlideInstance: (slide) => this.selectSlideInstance(slide),
-		selectSlideByIndex: (index) => this.selectSlideByIndex(index),
-		selectSlideByOffset: (offset) => this.selectSlideByOffset(offset),
-		moveSelectedSlideByOffset: (offset) => this.moveSelectedSlideByOffset(offset),
-		moveSelectedSlideToIndex: (toIndex) => this.moveSelectedSlideToIndex(toIndex),
+		getMode: () => this._mode,
 		setMode: (mode) => this.setMode(mode),
 		getEditCanvasRuntime: () => this.editCanvasRuntime,
-		publishEditSelectionState: () => layerStore.getState().commands?.publishEditSelectionState(),
+		notice: showNotice,
+		imageManager: ImageManager.shared,
 	});
 
 	private _mode: ViewerMode;
@@ -181,23 +170,6 @@ export class Viewer {
 		this.editCanvasRuntime = new EditCanvasRuntime(this.obj.find(".canvas"));
 	}
 
-	private handleSlideSelectionChanged(): void {
-		if (!this.editCanvasRuntime || this._mode != ViewerMode.EDIT) return;
-		if (this.selectedSlide) {
-			this.editCanvasRuntime.setSlide(this.selectedSlide);
-		} else {
-			this.editCanvasRuntime.initialize();
-		}
-	}
-
-	private handleSlideSelectionClosed(): void {
-		if (this.editCanvasRuntime) {
-			this.editCanvasRuntime.initialize();
-		}
-		this.setMode(ViewerMode.SELECT);
-		layerStore.getState().commands?.publishEditSelectionState();
-	}
-
 	private get slides(): Slide[] {
 		return slideStore.getState().slides as Slide[];
 	}
@@ -264,71 +236,6 @@ export class Viewer {
 	private getImageExportContext(): ImageExportContext {
 		const { title, width, height, bgColor } = viewerDocumentStore.getState();
 		return { title, width, height, bgColor };
-	}
-
-	private setSlides(slides: Slide[], selectedIndex = -1): void {
-		slideStore.getState().setSlides(slides, selectedIndex);
-	}
-
-	private addSlide(slide: Slide, index = -1): Slide {
-		slideStore.getState().addSlide(slide, index);
-		return slide;
-	}
-
-	private removeSlide(slide: Slide, destroySlide = true): Slide {
-		const index = this.slides.indexOf(slide);
-		if (index === -1) return slide;
-		const wasSelected = slide === this.selectedSlide;
-		const nextSlide = wasSelected
-			? index < this.slides.length - 1
-				? this.slides[index + 1]
-				: index > 0
-					? this.slides[index - 1]
-					: null
-			: null;
-
-		slideStore.getState().removeSlide(slide);
-		if (destroySlide) {
-			slide.removeAllLayers();
-			slide.clearEventListener();
-		}
-		if (nextSlide) {
-			this.selectSlideInstance(nextSlide);
-		} else if (wasSelected) {
-			slideStore.getState().setSelectedIndex(-1);
-			this.handleSlideSelectionClosed();
-		}
-		return slide;
-	}
-
-	private selectSlideInstance(slide: Slide | null): void {
-		if (slide && this.slides.indexOf(slide) === -1) return;
-		slideStore.getState().setSelectedSlide(slide);
-		this.handleSlideSelectionChanged();
-	}
-
-	private selectSlideByIndex(index: number): void {
-		if (index < 0 || index >= this.slides.length) return;
-		this.selectSlideInstance(this.slides[index]);
-	}
-
-	private selectSlideByOffset(offset: number): void {
-		if (offset === 0 || this.selectedSlideIndex === -1) return;
-		const index = Math.max(0, Math.min(this.slides.length - 1, this.selectedSlideIndex + offset));
-		if (index === this.selectedSlideIndex) return;
-		this.selectSlideByIndex(index);
-	}
-
-	private moveSelectedSlideToIndex(toIndex: number): boolean {
-		if (!Number.isInteger(toIndex)) return false;
-		if (!slideStore.getState().moveSelectedSlideToIndex(toIndex)) return false;
-		this.handleSlideSelectionChanged();
-		return true;
-	}
-
-	private moveSelectedSlideByOffset(offset: number): boolean {
-		if (!Number.isInteger(offset) || offset === 0 || this.selectedSlideIndex === -1) return false;
-		return this.moveSelectedSlideToIndex(this.selectedSlideIndex + offset);
 	}
 
 	private initializeRuntime(startUpMode: ViewerStartUpMode): void {
@@ -453,7 +360,7 @@ export class Viewer {
 		if (this.viewerDocument) {
 			this.viewerDocument = null;
 
-			this.setSlides([], -1);
+			slideStore.getState().setSlides([], -1);
 			if (Viewer.startUpMode == ViewerStartUpMode.VIEW_AND_EDIT) {
 				this.setMode(ViewerMode.SELECT);
 				this.editCanvasRuntime.initialize();

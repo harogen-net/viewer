@@ -1,8 +1,36 @@
 import { create } from "zustand";
 import type { Slide } from "../model/Slide";
 import { toSlideSnapshot, type SlideSnapshot } from "../model/snapshot";
-import type { SlideCommandsUseCase } from "../useCase/SlideCommandsUseCase";
 import { layerStore } from "./layerStore";
+
+/**
+ * R3.9a: 後方互換のためのエイリアス。`SlideCommandsUseCase` という名は
+ * 保持しつつ実装は `src/state/slideActions.ts` の `createSlideActions` が提供する。
+ */
+export type SlideCommandsUseCase = {
+	newSlide(): void;
+	cloneSelected(): void;
+	addImageSlide(imageId: string, toIndex?: number): void;
+	deleteSelected(): void;
+	moveSelectedBackward(): void;
+	moveSelectedForward(): void;
+	moveSelectedToIndex(toIndex: number): void;
+	toggleSelectedJoining(): void;
+	toggleAllJoining(): void;
+	unjoinAll(): void;
+	toggleSelectedDisabled(): void;
+	enableAll(): void;
+	disableAll(): void;
+	enableOnlySelected(): void;
+	deleteDisabled(): void;
+	setSelectedDurationRatio(ratio: number): void;
+	selectPrevious(): void;
+	selectNext(): void;
+	selectByIndex(index: number): void;
+	enterSelectMode(): void;
+	enterEditMode(): void;
+	closeEditMode(): void;
+};
 
 type SlideStateSnapshot = {
 	slides: readonly Slide[];
