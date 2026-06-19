@@ -121,7 +121,7 @@ export const useLayerView = (
 		handleRef.current = handle;
 	}
 
-	useImperativeHandle(ref, () => handleRef.current!);
+	useImperativeHandle(ref, () => handleRef.current!, []);
 
 	useEffect(() => {
 		const onUpdate = (_e: PropertyEvent) => setTick((t) => t + 1);

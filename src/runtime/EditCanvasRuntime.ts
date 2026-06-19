@@ -1,12 +1,9 @@
-import { createElement, createRef, type FunctionComponent, type Ref } from "react";
-import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
 import { createImageLayer, ImageLayer } from "../model/layer/ImageLayer";
 import { createTextLayer, TextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
-import { createSlide, SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
+import { SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
 import { layerStore, type EditLayerValues } from "../state/layerStore";
 import { slideStore } from "../state/slideStore";
 import {
@@ -17,45 +14,24 @@ import {
 import { ImageManager } from "../utils/ImageManager";
 import {
     EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
-    EditableSlideView,
     type EditableSlideViewHandle,
 } from "../view/slide";
+import { mountEditableSlideViewInto, type ReactViewMount } from "./mountReactView";
 import { ViewerMode } from "./viewerMode";
-
-const EditableSlideViewForRender = EditableSlideView as unknown as FunctionComponent<{
-	ref: Ref<EditableSlideViewHandle>;
-	slide: Slide;
-	onImageDropped?: (imageId: string) => void;
-}>;
 
 export class EditCanvasRuntime {
 	public slideView: EditableSlideViewHandle;
 	private observedLayer: Layer | null = null;
 	private readonly layerMutations: EditLayerMutationUseCase;
-	private readonly slideViewRoot: Root;
-	private readonly slideViewHost: HTMLDivElement;
-	private readonly slideViewRef = createRef<EditableSlideViewHandle>();
+	private readonly slideViewMount: ReactViewMount<EditableSlideViewHandle>;
 
 	constructor(public obj: HTMLElement) {
 		this.obj.classList.add("slideCanvas");
 
-		this.slideViewHost = document.createElement("div");
-		this.slideViewHost.style.width = "100%";
-		this.slideViewHost.style.height = "100%";
-		this.obj.appendChild(this.slideViewHost);
-		this.slideViewRoot = createRoot(this.slideViewHost);
-		flushSync(() => {
-			this.slideViewRoot.render(
-				createElement(EditableSlideViewForRender, {
-					ref: this.slideViewRef,
-					slide: createSlide(),
-					onImageDropped: (imageId) => {
-						this.layerMutations.addImageLayer(imageId);
-					},
-				})
-			);
+		this.slideViewMount = mountEditableSlideViewInto(this.obj, (imageId) => {
+			this.layerMutations.addImageLayer(imageId);
 		});
-		this.slideView = this.slideViewRef.current as EditableSlideViewHandle;
+		this.slideView = this.slideViewMount.handle;
 		this.layerMutations = createEditLayerMutationUseCase({
 			getSelectedLayer: () => this.slideView.editingLayer,
 			getCurrentSlide: () => this.slide,

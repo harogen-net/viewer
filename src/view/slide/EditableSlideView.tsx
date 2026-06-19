@@ -73,10 +73,6 @@ export type EditableSlideViewHandle = EventDispatcher &
 
 type LayerCleanup = () => void;
 
-const getLayerElement = (layerView: LayerView): HTMLElement => {
-	return layerView.element;
-};
-
 export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideViewProps) => {
 	const baseRef = useRef<DOMSlideViewHandle | null>(null);
 	const adjustViewRef = useRef<AdjustViewHandle | null>(null);
@@ -89,6 +85,9 @@ export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideV
 	const sharedLayersByUUIDRef = useRef<{ [key: string]: Layer[] }>({});
 	const rectLayersRef = useRef<{ [key: string]: Layer[] }>({});
 	const layerCleanupsRef = useRef(new Map<LayerView, LayerCleanup>());
+	// 委譲化したマウス操作の状態：mousedown でセット、mousemove で drag 開始 or
+	// mouseup でクリック選択化、いずれかで null にリセットする。
+	const pendingLayerMoveRef = useRef<LayerView | null>(null);
 	const handleRef = useRef<EditableSlideViewHandle | null>(null);
 	const listenersRef = useRef<EventListenerMap>({});
 	const {
@@ -143,41 +142,9 @@ export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideV
 	const setupLayerView = (layerView: LayerView) => {
 		layerView.selected = false;
 		layerView.addEventListener(PropertyEvent.UPDATE, onLayerViewUpdate);
-		const element = getLayerElement(layerView);
-
-		const removePendingMove = () => {
-			element.removeEventListener("mousemove", onMouseMove);
-		};
-		const onMouseMove = (event: MouseEvent) => {
-			removePendingMove();
-			layerView.selected = true;
-			getAdjustView().startDrag(event);
-		};
-		const onMouseDown = (event: MouseEvent) => {
-			if (layerView.selected) {
-				event.stopImmediatePropagation();
-				return;
-			}
-			if (layerView.data.locked) return;
-			removePendingMove();
-			element.addEventListener("mousemove", onMouseMove);
-			event.stopImmediatePropagation();
-		};
-		const onMouseUp = () => {
-			removePendingMove();
-			if (!layerView.selected && !getAdjustView().isDrag && !layerView.data.locked) {
-				layerView.selected = true;
-			}
-		};
-
-		element.addEventListener("mousedown", onMouseDown);
-		element.addEventListener("mouseup", onMouseUp);
 
 		layerCleanupsRef.current.set(layerView, () => {
 			layerView.removeEventListener(PropertyEvent.UPDATE, onLayerViewUpdate);
-			removePendingMove();
-			element.removeEventListener("mousedown", onMouseDown);
-			element.removeEventListener("mouseup", onMouseUp);
 		});
 
 		if (layerView.data.shared) {
@@ -188,6 +155,10 @@ export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideV
 	const cleanupLayerView = (layerView: LayerView) => {
 		layerCleanupsRef.current.get(layerView)?.();
 		layerCleanupsRef.current.delete(layerView);
+		// 委譲ハンドラ側で参照中の pending を解除（マウント解除されたレイヤーへの誤適用を防ぐ）。
+		if (pendingLayerMoveRef.current === layerView) {
+			pendingLayerMoveRef.current = null;
+		}
 
 		if (layerView.selected) {
 			selectLayerView(null);
@@ -465,7 +436,9 @@ export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideV
 	]);
 
 	handleRef.current = handle;
-	useImperativeHandle(ref, () => handle);
+	// 子 (`DOMSlideView` → `LayerHost`) の useLayoutEffect 内から `getBase()` 等で
+	// 参照されるため、毎レンダで cleanup→再 attach されないよう deps `[]` を渡す。
+	useImperativeHandle(ref, () => handle, []);
 
 	const handleOptions = useMemo(
 		() => ({
@@ -523,16 +496,54 @@ export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideV
 			event.preventDefault();
 			event.stopPropagation();
 		};
+		// イベント委譲: 旧 setupLayerView でレイヤーごとに addEventListener していた
+		// mousedown / mousemove / mouseup を、`base.element`（編集領域ルート）への
+		// 単一リスナーで処理する。`event.target.closest(".layerWrapper")` で
+		// 対象レイヤーを判定し、`base.layerViews` から `LayerView` ハンドルを引く。
+		const findLayerViewFromEvent = (event: MouseEvent): LayerView | null => {
+			if (!(event.target instanceof Element)) return null;
+			const wrapper = event.target.closest<HTMLElement>(".layerWrapper");
+			if (!wrapper) return null;
+			return base.layerViews.find((layerView) => layerView.element === wrapper) ?? null;
+		};
 		const onMouseDown = (event: MouseEvent) => {
 			if (!isActiveRef.current) return;
 			if (event.target instanceof Element && event.target.closest(".controls")) return;
+			const layerView = findLayerViewFromEvent(event);
+			if (layerView && layerView.selected) {
+				// 選択済みレイヤー上での mousedown は何もしない（旧実装で
+				// stopImmediatePropagation により背景ハンドラを抑止していた挙動と等価）。
+				return;
+			}
+			if (layerView && !layerView.data.locked) {
+				pendingLayerMoveRef.current = layerView;
+				return;
+			}
+			// 背景クリック、もしくはロック済みレイヤークリック → 選択解除
 			selectLayerView(null);
+		};
+		const onMouseMove = (event: MouseEvent) => {
+			const layerView = pendingLayerMoveRef.current;
+			if (!layerView) return;
+			pendingLayerMoveRef.current = null;
+			layerView.selected = true;
+			getAdjustView().startDrag(event);
+		};
+		const onMouseUp = () => {
+			const layerView = pendingLayerMoveRef.current;
+			pendingLayerMoveRef.current = null;
+			if (!layerView) return;
+			if (!layerView.selected && !getAdjustView().isDrag && !layerView.data.locked) {
+				layerView.selected = true;
+			}
 		};
 		const onResize = () => {
 			setTimeout(() => updateSize(), 50);
 		};
 		base.element?.addEventListener("wheel", onWheel);
 		base.element?.addEventListener("mousedown", onMouseDown);
+		base.element?.addEventListener("mousemove", onMouseMove);
+		base.element?.addEventListener("mouseup", onMouseUp);
 		window.addEventListener("resize", onResize);
 		if (base.element?.clientWidth === 0 && base.element?.clientHeight === 0) {
 			requestAnimationFrame(() => updateSize());
@@ -542,6 +553,8 @@ export const EditableSlideView = ({ ref, slide, onImageDropped }: EditableSlideV
 		return () => {
 			base.element?.removeEventListener("wheel", onWheel);
 			base.element?.removeEventListener("mousedown", onMouseDown);
+			base.element?.removeEventListener("mousemove", onMouseMove);
+			base.element?.removeEventListener("mouseup", onMouseUp);
 			window.removeEventListener("resize", onResize);
 			dropHelper.clearEventListener();
 		};

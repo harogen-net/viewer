@@ -1,12 +1,16 @@
-import { createElement, createRef, type FunctionComponent, type Ref } from "react";
-import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
 import { Layer, LayerType } from "../model/Layer";
 import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
 import { Slide } from "../model/Slide";
 import { viewerDocumentStore } from "../state/viewerDocumentStore";
-import { DOMSlideView, type DOMSlideViewHandle } from "../view/slide";
+import { type DOMSlideViewHandle } from "../view/slide";
+import { createCursorAutoHide, type CursorAutoHide } from "./cursorAutoHide";
+import {
+    exitFullscreenIfActive,
+    forceExitFullscreen,
+    requestFullscreenOn,
+} from "./fullscreen";
+import { mountDOMSlideViewInto } from "./mountReactView";
 
 export type SlideShowPlaybackSettings = {
 	interval: number;
@@ -20,11 +24,6 @@ export type SlideShowRuntimeOptions = {
 type SlideShowSlideView = DOMSlideViewHandle & {
 	unmount: () => void;
 };
-
-const DOMSlideViewForRender = DOMSlideView as unknown as FunctionComponent<{
-	ref: Ref<DOMSlideViewHandle>;
-	slide: Slide;
-}>;
 
 export class SlideShowRuntime {
 	private _isRun: boolean;
@@ -41,8 +40,7 @@ export class SlideShowRuntime {
 	private isInit: boolean;
 	private timer: any;
 	private history: SlideShowSlideView[];
-	private mouseMoveTimer: any;
-	private mouseMoveListener: ((event: MouseEvent) => void) | null = null;
+	private readonly cursorAutoHide: CursorAutoHide;
 
 	private interval: number;
 	private duration: number;
@@ -80,6 +78,11 @@ export class SlideShowRuntime {
 			this.togglePause();
 			event.preventDefault();
 			event.stopPropagation();
+		});
+
+		this.cursorAutoHide = createCursorAutoHide({
+			target: this.obj,
+			isActive: () => this._isRun && !this._isPause,
 		});
 	}
 
@@ -168,12 +171,7 @@ export class SlideShowRuntime {
 
 		document.body.classList.remove("slideShow");
 		if (this._fullscreen) {
-			try {
-				document.exitFullscreen(); //HTML5 Fullscreen API仕様
-			} catch (e) {}
-			try {
-				document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
-			} catch (e) {}
+			forceExitFullscreen();
 		}
 
 		if (this.slides) {
@@ -185,7 +183,7 @@ export class SlideShowRuntime {
 		this.data = [];
 		this.history = [];
 
-		this.stopCursorAutoHide();
+		this.cursorAutoHide.stop();
 		this.dispatchPlaybackChanged();
 	}
 
@@ -198,7 +196,7 @@ export class SlideShowRuntime {
 
 		document.body.classList.add("slideShow");
 		if (this._fullscreen) {
-			this.requestFullscreen();
+			requestFullscreenOn(this.obj);
 		}
 		this.updateSlideSize();
 
@@ -221,7 +219,7 @@ export class SlideShowRuntime {
 					}
 				}
 			});
-			this.startCursorAutoHide();
+			this.cursorAutoHide.start();
 			this.dispatchPlaybackChanged();
 			return;
 		}
@@ -236,7 +234,7 @@ export class SlideShowRuntime {
 			this.slideShowFunc();
 		}, 1000);
 
-		this.startCursorAutoHide();
+		this.cursorAutoHide.start();
 		this.dispatchPlaybackChanged();
 	}
 
@@ -248,12 +246,7 @@ export class SlideShowRuntime {
 
 		document.body.classList.remove("slideShow");
 		if (this._fullscreen) {
-			try {
-				document.exitFullscreen(); //HTML5 Fullscreen API仕様
-			} catch (e) {}
-			try {
-				document["webkitCancelFullScreen"](); //Chrome, Safari, Opera
-			} catch (e) {}
+			forceExitFullscreen();
 		}
 
 		clearInterval(this.timer);
@@ -264,7 +257,7 @@ export class SlideShowRuntime {
 			slide.setLayerWrapperTransition("");
 		});
 
-		this.stopCursorAutoHide();
+		this.cursorAutoHide.stop();
 		this.dispatchPlaybackChanged();
 	}
 
@@ -280,7 +273,7 @@ export class SlideShowRuntime {
 		//console.log("[paused]");
 		//console.log("slideDuration : " + this.slideDuration + "ms");
 		//console.log("elasped : " + this.elapsed + "ms");
-		this.stopCursorAutoHide();
+		this.cursorAutoHide.stop();
 		this.dispatchPlaybackChanged();
 	}
 
@@ -302,7 +295,7 @@ export class SlideShowRuntime {
 		//console.log("restDuration : " + restDuration + "ms");
 		//note : 同一スライド上で2回以上ポーズをすると、経過時刻がおかしくなりリジュームが正常に動作しない。
 		//		とはいえリジューム後すぐに次のスライドが始まるだけなので現状実害はない
-		this.startCursorAutoHide();
+		this.cursorAutoHide.start();
 		this.dispatchPlaybackChanged();
 	}
 
@@ -407,67 +400,8 @@ export class SlideShowRuntime {
 		this.isInit = false;
 	}
 
-	private startCursorAutoHide() {
-		this.mouseMoveListener = () => {
-			this.mouseMoveOnPlaying();
-		};
-		this.obj.addEventListener("mousemove", this.mouseMoveListener);
-		this.mouseMoveTimer = setTimeout(() => {
-			this.obj.classList.add("playing");
-		}, 1000);
-	}
-
-	private stopCursorAutoHide() {
-		if (this.mouseMoveListener) {
-			this.obj.removeEventListener("mousemove", this.mouseMoveListener);
-			this.mouseMoveListener = null;
-		}
-		clearInterval(this.mouseMoveTimer);
-		this.obj.classList.remove("playing");
-	}
-
-	private mouseMoveOnPlaying() {
-		this.obj.classList.remove("playing");
-		clearInterval(this.mouseMoveTimer);
-
-		if (!this._isRun) return;
-		if (this._isPause) return;
-
-		this.mouseMoveTimer = setTimeout(() => {
-			this.obj.classList.add("playing");
-		}, 1000);
-	}
-
 	private dispatchPlaybackChanged() {
 		this.options.onPlaybackChanged?.({ isRun: this._isRun, isPause: this._isPause });
-	}
-
-	private requestFullscreen() {
-		try {
-			if (this.obj.requestFullscreen) {
-				this.obj.requestFullscreen();
-				return;
-			}
-		} catch (e) {}
-		try {
-			if ((this.obj as any).webkitRequestFullScreen) {
-				(this.obj as any).webkitRequestFullScreen();
-			}
-		} catch (e) {}
-	}
-
-	private exitFullscreen() {
-		try {
-			if (document.fullscreenElement && document.exitFullscreen) {
-				document.exitFullscreen();
-				return;
-			}
-		} catch (e) {}
-		try {
-			if (document["webkitCancelFullScreen"]) {
-				document["webkitCancelFullScreen"]();
-			}
-		} catch (e) {}
 	}
 
 	private updateMirror() {
@@ -498,18 +432,11 @@ export class SlideShowRuntime {
 	}
 
 	private createSlideView(slide: Slide): SlideShowSlideView {
-		const host = document.createElement("div");
-		this.slideContainer.appendChild(host);
-		const ref = createRef<DOMSlideViewHandle>();
-		const root: Root = createRoot(host);
-		flushSync(() => {
-			root.render(createElement(DOMSlideViewForRender, { ref, slide }));
-		});
-		const handle = ref.current as SlideShowSlideView;
+		const mount = mountDOMSlideViewInto(this.slideContainer, slide);
+		const handle = mount.handle as SlideShowSlideView;
 		handle.unmount = () => {
 			handle.destroy();
-			root.unmount();
-			host.remove();
+			mount.unmount();
 		};
 		return handle;
 	}
@@ -586,10 +513,10 @@ export class SlideShowRuntime {
 		this._fullscreen = value;
 		if (!this._isRun) return;
 		if (value) {
-			this.requestFullscreen();
+			requestFullscreenOn(this.obj);
 			return;
 		}
-		this.exitFullscreen();
+		exitFullscreenIfActive();
 	}
 
 	public set mirrorH(value: boolean) {

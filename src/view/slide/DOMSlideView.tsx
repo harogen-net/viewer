@@ -325,7 +325,11 @@ export const DOMSlideView = ({
 		handleRef.current = dispatcher;
 	}
 
-	useImperativeHandle(ref, () => handleRef.current as DOMSlideViewHandle);
+	// deps `[]` を渡し、cleanup → 再 attach が毎レンダ走るのを防ぐ。
+	// handle は `if (!handleRef.current)` で一度だけ構築され参照は不変。これにより
+	// 子 (`LayerHost`) の `useLayoutEffect` が親より先に走る際に baseRef が一時的に
+	// null になる不具合を回避する。
+	useImperativeHandle(ref, () => handleRef.current as DOMSlideViewHandle, []);
 
 	// prop の slide が変化したら内部 slide を同期（初期マウント以降の外部からの差し替え）
 	useEffect(() => {

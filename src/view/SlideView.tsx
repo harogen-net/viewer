@@ -1,8 +1,8 @@
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import {
-	useEventDispatcher,
-	type EventDispatcher,
-	type EventListenerMap,
+    useEventDispatcher,
+    type EventDispatcher,
+    type EventListenerMap,
 } from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { PropFlags } from "../model/PropFlags";
@@ -104,7 +104,7 @@ export const SlideView = ({
 		destroy,
 	};
 
-	useImperativeHandle(ref, () => handleRef.current as SlideViewHandle);
+	useImperativeHandle(ref, () => handleRef.current as SlideViewHandle, []);
 
 	useEffect(() => {
 		onSlideUpdateRef.current = onSlideUpdate;
