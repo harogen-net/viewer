@@ -1,25 +1,24 @@
 import { Layer, LayerType } from "../model/Layer";
-import { ImageLayer } from "../model/layer/ImageLayer";
-import { TextLayer } from "../model/layer/TextLayer";
-import { LayerView } from "../view/LayerView";
-import { ImageView } from "../view/layer/ImageView";
-import { TextView } from "../view/layer/TextView";
+import { ImageViewComponent } from "../view/layer/ImageView";
+import { TextViewComponent } from "../view/layer/TextView";
+import { LayerViewComponent, type LayerViewProps } from "../view/LayerView";
 
-function makeLayerWrapper(): HTMLDivElement {
-	const wrapper = document.createElement("div");
-	wrapper.className = "layerWrapper";
-	return wrapper;
-}
+export type LayerViewFC = (props: LayerViewProps) => React.ReactNode;
 
-export class LayerViewFactory {
-	public static ViewFromLayer(layer: Layer): LayerView {
-		switch (layer.type) {
-			case LayerType.IMAGE:
-				return new ImageView(layer as ImageLayer, makeLayerWrapper());
-			case LayerType.TEXT:
-				return new TextView(layer as TextLayer, makeLayerWrapper());
-			default:
-				return new LayerView(layer, makeLayerWrapper());
-		}
+/**
+ * レイヤー種別に応じた React FC を選択する。
+ *
+ * 旧 `LayerViewFactory.mountInto` (ネスト createRoot + flushSync) はネスト root への
+ * flushSync が React のライフサイクル内で禁止されるため廃止し、
+ * 呼び出し側 (`LayerHost` など) で直接 JSX 子要素として描画する方式へ移行した。
+ */
+export function pickLayerViewComponent(layer: Layer): LayerViewFC {
+	switch (layer.type) {
+		case LayerType.IMAGE:
+			return ImageViewComponent;
+		case LayerType.TEXT:
+			return TextViewComponent;
+		default:
+			return LayerViewComponent;
 	}
 }

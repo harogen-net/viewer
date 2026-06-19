@@ -1,105 +1,43 @@
+import { useEffect, useRef } from "react";
 import { ImageLayer } from "../../model/layer/ImageLayer";
-import { PropFlags } from "../../model/PropFlags";
 import { ImageManager } from "../../utils/ImageManager";
-import { LayerView } from "../LayerView";
+import { useLayerView, type LayerViewProps } from "../LayerView";
 
-export class ImageView extends LayerView {
-	private imgElement: HTMLImageElement | null = null;
+export const ImageViewComponent = ({ layer, hostRef, ref }: LayerViewProps) => {
+	const imageLayer = layer as ImageLayer;
+	useLayerView(layer, hostRef, ref, {
+		getWidth: (host) =>
+			!host || host.offsetWidth === 0
+				? imageLayer.scaleX * imageLayer.originWidth
+				: host.offsetWidth,
+		getHeight: (host) =>
+			!host || host.offsetHeight === 0
+				? imageLayer.scaleY * imageLayer.originHeight
+				: host.offsetHeight,
+	});
+	const imgRef = useRef<HTMLImageElement | null>(null);
 
-	constructor(
-		protected _data: ImageLayer,
-		public obj: HTMLElement
-	) {
-		super(_data, obj);
-	}
-	protected constructMain() {
-		super.constructMain();
-		//	this.updateImage();
-	}
+	const src = ImageManager.shared.getSrcById(imageLayer.imageId);
+	const clipPath = imageLayer.isClipped
+		? "inset(" + imageLayer.clipRect.map((value) => value + "px").join(" ") + ")"
+		: "inset(0)";
 
-	//
-
-	public destroy() {
-		this.imgElement?.remove();
-		this.imgElement = null;
-		super.destroy();
-	}
-
-	private updateImage() {
-		const host = this.obj;
-		for (const staleImage of Array.from(host.querySelectorAll("img"))) {
-			staleImage.remove();
+	// React の style プロパティでは -webkit-clip-path をベンダ接頭辞付きで指定できないため
+	// useEffect で imperative に適用する。
+	useEffect(() => {
+		if (imgRef.current) {
+			imgRef.current.style.setProperty("-webkit-clip-path", clipPath);
 		}
+	}, [clipPath]);
 
-		if (this.imgElement) {
-			this.imgElement.remove();
-			this.imgElement = null;
-		}
-		var imageElement = ImageManager.instance.getImageCloneElementById(this._data.imageId);
-		this.imgElement = imageElement;
-		host.appendChild(this.imgElement);
-
-		this.opacityObj = this.imgElement;
-		this.opacityObj.style.opacity = String(this._data.opacity);
-		this.applyClip();
-	}
-
-	private applyClip(): void {
-		if (!this.imgElement) {
-			return;
-		}
-		if (this.imageData.isClipped) {
-			var clipStr: string =
-				"inset(" +
-				this._data.clipRect
-					.map((value) => {
-						return value + "px";
-					})
-					.join(" ") +
-				")";
-			this.imgElement.style.setProperty("-webkit-clip-path", clipStr);
-			this.imgElement.style.clipPath = clipStr;
-		} else {
-			this.imgElement.style.setProperty("-webkit-clip-path", "inset(0)");
-			this.imgElement.style.clipPath = "inset(0)";
-		}
-	}
-
-	protected updateView(flag: number = PropFlags.ALL): void {
-		if (flag & PropFlags.IMG_IMAGEID) {
-			this.updateImage();
-		}
-		if (flag & PropFlags.IMG_CLIP) {
-			if (!this.imgElement) {
-				this.updateImage();
-			}
-			this.applyClip();
-		}
-		//先にimageObj設定してほしいからsuperは後で
-		super.updateView(flag);
-	}
-
-	//
-	// get set
-	//
-	public get width() {
-		const el = this.obj;
-		if (el.offsetWidth === 0) {
-			return this._data.scaleX * this._data.originWidth;
-		} else {
-			return el.offsetWidth;
-		}
-	}
-	public get height() {
-		const el = this.obj;
-		if (el.offsetHeight === 0) {
-			return this._data.scaleY * this._data.originHeight;
-		} else {
-			return el.offsetHeight;
-		}
-	}
-
-	private get imageData(): ImageLayer {
-		return this._data as ImageLayer;
-	}
-}
+	return (
+		<img
+			ref={imgRef}
+			src={src}
+			style={{
+				opacity: imageLayer.opacity === 1 ? undefined : imageLayer.opacity,
+				clipPath,
+			}}
+		/>
+	);
+};

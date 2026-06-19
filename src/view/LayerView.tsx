@@ -1,123 +1,144 @@
-import { attachEventDispatcher, type EventDispatcher } from "../events/EventDispatcher";
+import {
+	useEffect,
+	useImperativeHandle,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type Ref,
+	type RefObject,
+} from "react";
+import {
+	useEventDispatcher,
+	type EventDispatcher,
+	type EventListenerMap,
+} from "../events/EventDispatcher";
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
 import { PropFlags } from "../model/PropFlags";
 
-export class LayerView {
-	declare listeners: EventDispatcher["listeners"];
-	declare dispatchEvent: EventDispatcher["dispatchEvent"];
-	declare addEventListener: EventDispatcher["addEventListener"];
-	declare removeEventListener: EventDispatcher["removeEventListener"];
-	declare clearEventListener: EventDispatcher["clearEventListener"];
-	declare containEventListener: EventDispatcher["containEventListener"];
-	declare hasEventListener: EventDispatcher["hasEventListener"];
+export type LayerViewHandle = EventDispatcher & {
+	readonly data: Layer;
+	readonly element: HTMLElement;
+	readonly type: LayerType;
+	readonly id: number;
+	readonly width: number;
+	readonly height: number;
+	selected: boolean;
+	destroy: () => void;
+};
 
-	protected _selected: boolean = false;
-	protected opacityObj: HTMLElement | null = null;
+// 後方互換：以前は class 名、現在はハンドル型のエイリアス。
+export type LayerView = LayerViewHandle;
 
-	constructor(
-		protected _data: Layer,
-		public obj: HTMLElement
-	) {
-		attachEventDispatcher(this);
-		if (_data == null || obj == null) throw new Error("");
-		this.constructMain();
-		this.updateView();
-	}
-	protected constructMain() {
-		//override me
-		this._data.addEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
-	}
+export type LayerHostRef = RefObject<HTMLElement | null>;
 
-	public destroy() {
-		this.clearEventListener();
-		this._data.removeEventListener(PropertyEvent.UPDATE, this.onLayerUpdate);
-		this.obj.remove();
-		this.obj = null!;
-	}
+export type LayerViewProps = {
+	layer: Layer;
+	hostRef: LayerHostRef;
+	ref?: Ref<LayerViewHandle>;
+};
 
-	//
-	//methods
-	//
-	protected updateMatrix() {
-		var matrix: number[] = this._data.matrix;
-		var cssMat: string = "matrix(" + matrix.join(",") + ")";
-		this.obj.style.transform = cssMat;
-	}
+export type UseLayerViewOptions = {
+	getWidth?: (host: HTMLElement | null) => number;
+	getHeight?: (host: HTMLElement | null) => number;
+};
 
-	protected updateView(flag: number = PropFlags.ALL) {
-		const el = this.obj;
-		if (flag & PropFlags.VISIBLE) {
-			if (!this._data.visible) {
-				el.classList.add("invisible");
-			} else {
-				el.classList.remove("invisible");
-			}
-		}
-		if (flag & PropFlags.LOCKED) {
-			if (this._data.locked) {
-				el.classList.add("locked");
-			} else {
-				el.classList.remove("locked");
-			}
-		}
-		if (this.opacityObj && flag & PropFlags.OPACITY) {
-			if (this._data.opacity == 1) {
-				this.opacityObj.style.opacity = "";
-			} else {
-				this.opacityObj.style.opacity = String(this._data.opacity);
-			}
-		}
+const applyWrapperStyles = (host: HTMLElement | null, layer: Layer): void => {
+	if (!host) return;
+	host.classList.toggle("invisible", !layer.visible);
+	host.classList.toggle("locked", layer.locked);
+	host.style.transform = "matrix(" + layer.matrix.join(",") + ")";
+};
 
-		if (
-			flag &
-			(PropFlags.X |
-				PropFlags.Y |
-				PropFlags.SCALE_X |
-				PropFlags.SCALE_Y |
-				PropFlags.ROTATION |
-				PropFlags.MIRROR_H |
-				PropFlags.MIRROR_V)
-		) {
-			this.updateMatrix();
-		}
-	}
+/**
+ * レイヤー FC 共通フック。
+ *
+ * - レイヤーモデルの `PropertyEvent.UPDATE` を購読し、変化時に呼び出し側 FC を再レンダ。
+ * - host 要素の `invisible` / `locked` / `transform` を毎レンダ後に同期。
+ * - `LayerViewHandle` を `useImperativeHandle` で公開（外部互換 API）。
+ * - width/height の算出は呼び出し側 FC が options 経由で差し替え可能。
+ *
+ * host は `RefObject` 経由で受け取る。React のコミット段階で ref が attach される
+ * ため、フック内のゲッタ／effect は `hostRef.current` を遅延参照する。
+ */
+export const useLayerView = (
+	layer: Layer,
+	hostRef: LayerHostRef,
+	ref: Ref<LayerViewHandle> | undefined,
+	options: UseLayerViewOptions = {}
+): void => {
+	const [, setTick] = useState(0);
+	const selectedRef = useRef(false);
+	const listenersRef = useRef<EventListenerMap>({});
+	const dispatcher = useEventDispatcher(listenersRef);
+	const handleRef = useRef<LayerViewHandle | null>(null);
+	const getWidth = options.getWidth ?? ((host: HTMLElement | null) => host?.offsetWidth ?? 0);
+	const getHeight = options.getHeight ?? ((host: HTMLElement | null) => host?.offsetHeight ?? 0);
 
-	//
-	// getter / setter
-	//
-	public get data(): Layer {
-		return this._data;
-	}
-	public get element(): HTMLElement {
-		return this.obj;
-	}
-	public get type(): LayerType {
-		return this._data.type;
-	}
-	public get id(): number {
-		return this._data.id;
-	}
-	public get width() {
-		return this.obj.offsetWidth;
-	}
-	public get height() {
-		return this.obj.offsetHeight;
-	}
-
-	public get selected(): boolean {
-		return this._selected;
-	}
-	public set selected(value: boolean) {
-		if (this._selected == value) return;
-		this._selected = value;
-		this.dispatchEvent(new PropertyEvent(PropertyEvent.UPDATE, this, PropFlags.LV_SELECT));
+	if (!handleRef.current) {
+		const handle: LayerViewHandle = {
+			get listeners() {
+				return dispatcher.listeners;
+			},
+			dispatchEvent: dispatcher.dispatchEvent,
+			addEventListener: dispatcher.addEventListener,
+			removeEventListener: dispatcher.removeEventListener,
+			clearEventListener: dispatcher.clearEventListener,
+			containEventListener: dispatcher.containEventListener,
+			hasEventListener: dispatcher.hasEventListener,
+			get data() {
+				return layer;
+			},
+			get element() {
+				return hostRef.current as HTMLElement;
+			},
+			get type() {
+				return layer.type;
+			},
+			get id() {
+				return layer.id;
+			},
+			get width() {
+				return getWidth(hostRef.current);
+			},
+			get height() {
+				return getHeight(hostRef.current);
+			},
+			get selected() {
+				return selectedRef.current;
+			},
+			set selected(value: boolean) {
+				if (selectedRef.current === value) return;
+				selectedRef.current = value;
+				dispatcher.dispatchEvent(
+					new PropertyEvent(PropertyEvent.UPDATE, handle, PropFlags.LV_SELECT)
+				);
+			},
+			destroy: () => {
+				dispatcher.clearEventListener();
+			},
+		};
+		handleRef.current = handle;
 	}
 
-	//
-	// event handlers
-	//
-	protected onLayerUpdate = (pe: PropertyEvent) => {
-		this.updateView(pe.propFlags);
-	};
-}
+	useImperativeHandle(ref, () => handleRef.current!);
+
+	useEffect(() => {
+		const onUpdate = (_e: PropertyEvent) => setTick((t) => t + 1);
+		layer.addEventListener(PropertyEvent.UPDATE, onUpdate);
+		return () => {
+			layer.removeEventListener(PropertyEvent.UPDATE, onUpdate);
+		};
+	}, [layer]);
+
+	// host への wrapper クラス／transform 同期は、ref attach 済みのコミット段階で
+	// 実行する必要があるため useLayoutEffect を使用。
+	useLayoutEffect(() => {
+		applyWrapperStyles(hostRef.current, layer);
+	});
+};
+
+export const LayerViewComponent = ({ layer, hostRef, ref }: LayerViewProps) => {
+	useLayerView(layer, hostRef, ref);
+	return null;
+};

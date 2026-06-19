@@ -1,4 +1,13 @@
-import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from "react";
+import {
+	useEffect,
+	useImperativeHandle,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type ReactNode,
+	type Ref,
+} from "react";
+import { flushSync } from "react-dom";
 import {
 	useEventDispatcher,
 	type EventDispatcher,
@@ -8,8 +17,8 @@ import { PropertyEvent } from "../../events/PropertyEvent";
 import { Layer } from "../../model/Layer";
 import { PropFlags } from "../../model/PropFlags";
 import { Slide } from "../../model/Slide";
-import { LayerViewFactory } from "../../utils/LayerViewFactory";
-import { LayerView } from "../LayerView";
+import { pickLayerViewComponent } from "../../utils/LayerViewFactory";
+import { LayerView, type LayerViewHandle } from "../LayerView";
 
 export type DOMSlideViewHandle = EventDispatcher & {
 	readonly element: HTMLDivElement | null;
@@ -24,9 +33,6 @@ export type DOMSlideViewHandle = EventDispatcher & {
 	setScaleBase: (value: number) => void;
 	destroy: () => void;
 	getViewByLayer: (layer: Layer) => LayerView | null;
-	addLayerView: (layer: Layer) => LayerView;
-	removeLayerView: (layer: Layer) => LayerView;
-	updateViewsOrder: () => void;
 	show: () => void;
 	hide: () => void;
 	stopAnimation: () => void;
@@ -56,223 +62,50 @@ const clampScale = (value: number, min: number, max: number) => {
 	return value > min ? (value < max ? value : max) : min;
 };
 
-export const createDOMSlideViewHandle = (
-	elementRef: React.RefObject<HTMLDivElement | null>,
-	containerRef: React.RefObject<HTMLDivElement | null>,
-	eventDispatcher: EventDispatcher,
-	options: DOMSlideViewHandleOptions = {}
-): DOMSlideViewHandle => {
-	let slideValue: Slide | null = null;
-	let selectedValue = false;
-	let scaleBase = 1;
-	let scaleValue = 1;
-	const scaleMin = 0.2;
-	const scaleMax = 5;
-	const layerViews: LayerView[] = [];
-	const dispatcher = eventDispatcher as DOMSlideViewHandle;
+/**
+ * 個別レイヤーの host コンテナ FC。
+ *
+ * - `<div className="layerWrapper" style={{ zIndex }} ref={hostRef}>` を描画し、
+ *   その中で適切なレイヤー FC (`pickLayerViewComponent(layer)`) を子としてレンダ。
+ * - レイヤー FC は `hostRef` を受け取り、コミット段階で hostRef.current が attach
+ *   された後に `useLayoutEffect` / 各種 getter から参照する。
+ * - mount/unmount を `onMount` / `onUnmount` で parent に通知。
+ *
+ * host の DOM 自体・レイヤー FC のライフサイクル共に React が管理する
+ * （ネスト React root や `flushSync` を内部で使わない）。
+ */
+type LayerHostProps = {
+	layer: Layer;
+	zIndex: number;
+	onMount: (layer: Layer, handle: LayerViewHandle) => void;
+	onUnmount: (layer: Layer, handle: LayerViewHandle) => void;
+};
 
-	const getElement = () => elementRef.current;
-	const getContainer = () => containerRef.current;
+const LayerHost = ({ layer, zIndex, onMount, onUnmount }: LayerHostProps) => {
+	const hostRef = useRef<HTMLDivElement | null>(null);
+	const handleRef = useRef<LayerViewHandle | null>(null);
+	const onMountRef = useRef(onMount);
+	const onUnmountRef = useRef(onUnmount);
+	onMountRef.current = onMount;
+	onUnmountRef.current = onUnmount;
 
-	const updateContainerSize = () => {
-		const container = getContainer();
-		if (!container || !slideValue) return;
-		container.style.width = `${slideValue.width}px`;
-		container.style.height = `${slideValue.height}px`;
-	};
+	useLayoutEffect(() => {
+		const handle = handleRef.current;
+		if (!handle) return;
+		onMountRef.current(layer, handle);
+		return () => {
+			onUnmountRef.current(layer, handle);
+			handle.destroy();
+			handleRef.current = null;
+		};
+	}, [layer]);
 
-	const removeAllLayerViews = () => {
-		while (layerViews.length > 0) {
-			layerViews.pop()?.destroy();
-		}
-	};
-
-	const onSlideUpdateLambda = (event: PropertyEvent) => {
-		if (options.onSlideUpdate?.(event, dispatcher)) return;
-		const flag = event.propFlags;
-		if (flag & PropFlags.S_LAYER_ADD) {
-			dispatcher.addLayerView(event.options.layer);
-		}
-		if (flag & PropFlags.S_LAYER_REMOVE) {
-			dispatcher.removeLayerView(event.options.layer).destroy();
-		}
-		if (flag & PropFlags.S_LAYER_ORDER) {
-			dispatcher.updateViewsOrder();
-		}
-	};
-
-	const replaceSlide = (newSlide: Slide | null) => {
-		removeAllLayerViews();
-		slideValue?.removeEventListener(PropertyEvent.UPDATE, onSlideUpdateLambda);
-		slideValue = newSlide;
-		updateContainerSize();
-		slideValue?.addEventListener(PropertyEvent.UPDATE, onSlideUpdateLambda);
-		slideValue?.layers.forEach((layer) => dispatcher.addLayerView(layer));
-	};
-
-	Object.defineProperties(dispatcher, {
-		element: {
-			get: () => getElement(),
-		},
-		containerElement: {
-			get: () => getContainer(),
-		},
-		layerViews: {
-			get: () => layerViews,
-		},
-		width: {
-			get: () => (getElement()?.clientWidth ?? 0) * scaleValue * scaleBase,
-		},
-		height: {
-			get: () => (getElement()?.clientHeight ?? 0) * scaleValue * scaleBase,
-		},
-		selected: {
-			get: () => selectedValue,
-			set: (value: boolean) => {
-				if (value === selectedValue) return;
-				selectedValue = value;
-				getElement()?.classList.toggle("selected", selectedValue);
-				dispatcher.dispatchEvent(
-					new PropertyEvent(PropertyEvent.UPDATE, dispatcher, PropFlags.SV_SELECT)
-				);
-			},
-		},
-		slide: {
-			get: () => slideValue,
-			set: (value: Slide | null) => replaceSlide(value),
-		},
-		scale: {
-			get: () => scaleValue,
-			set: (value: number) => {
-				if (!slideValue) return;
-				scaleValue = clampScale(value, scaleMin, scaleMax);
-				const actualScale = scaleValue * scaleBase;
-				const element = getElement();
-				const container = getContainer();
-				if (!element || !container) return;
-				const containerWidth = slideValue.width * actualScale;
-				const containerHeight = slideValue.height * actualScale;
-				const defX =
-					-((slideValue.width * (1 - actualScale)) / 2) +
-					(element.clientWidth - containerWidth) / 2;
-				const defY =
-					-((slideValue.height * (1 - actualScale)) / 2) +
-					(element.clientHeight - containerHeight) / 2;
-				container.style.transform = `matrix(${actualScale},0,0,${actualScale},${defX},${defY})`;
-				dispatcher.dispatchEvent(
-					new PropertyEvent(PropertyEvent.UPDATE, dispatcher, PropFlags.DSV_SCALE)
-				);
-			},
-		},
-		actualScale: {
-			get: () => scaleValue * scaleBase,
-		},
-	});
-
-	dispatcher.setScaleBase = (value: number) => {
-		scaleBase = Number.isFinite(value) && value > 0 ? value : 1;
-		dispatcher.scale = scaleValue;
-	};
-
-	dispatcher.getViewByLayer = (layer: Layer): LayerView | null => {
-		return layerViews.find((layerView) => layerView.data === layer) ?? null;
-	};
-
-	dispatcher.addLayerView = (layer: Layer): LayerView => {
-		const container = getContainer();
-		if (!container) throw new Error("DOMSlideView container is not mounted.");
-		const layerView = LayerViewFactory.ViewFromLayer(layer);
-		layerViews.push(layerView);
-		container.appendChild(layerView.element);
-		dispatcher.updateViewsOrder();
-		options.onLayerViewAdded?.(layerView, dispatcher);
-		return layerView;
-	};
-
-	dispatcher.removeLayerView = (layer: Layer): LayerView => {
-		const layerView = dispatcher.getViewByLayer(layer);
-		if (!layerView) return null;
-		options.onLayerViewRemoving?.(layerView, dispatcher);
-		layerViews.splice(layerViews.indexOf(layerView), 1);
-		dispatcher.updateViewsOrder();
-		return layerView;
-	};
-
-	dispatcher.updateViewsOrder = () => {
-		if (!slideValue) return;
-		layerViews.sort((a: LayerView, b: LayerView) => {
-			return slideValue.layers.indexOf(a.data) < slideValue.layers.indexOf(b.data) ? -1 : 1;
-		});
-		layerViews.forEach((layerView, index) => {
-			layerView.element.style.zIndex = String(index);
-		});
-	};
-
-	dispatcher.destroy = () => {
-		dispatcher.clearEventListener();
-		slideValue?.removeEventListener(PropertyEvent.UPDATE, onSlideUpdateLambda);
-		removeAllLayerViews();
-		slideValue = null;
-	};
-
-	dispatcher.show = () => {
-		const element = getElement();
-		if (element) element.style.display = "";
-	};
-
-	dispatcher.hide = () => {
-		const element = getElement();
-		if (element) element.style.display = "none";
-	};
-
-	dispatcher.stopAnimation = () => {
-		getElement()
-			?.getAnimations()
-			.forEach((animation) => animation.cancel());
-	};
-
-	dispatcher.setOpacity = (opacity: number) => {
-		const element = getElement();
-		if (element) element.style.opacity = String(opacity);
-	};
-
-	dispatcher.setZIndex = (zIndex: number) => {
-		const element = getElement();
-		if (element) element.style.zIndex = String(zIndex);
-	};
-
-	dispatcher.animateOpacity = (opacity: number, duration: number) => {
-		const element = getElement();
-		if (!element) return;
-		dispatcher.stopAnimation();
-		element.style.opacity = String(opacity);
-	};
-
-	dispatcher.setLayerWrapperTransition = (transition: string) => {
-		getElement()
-			?.querySelectorAll<HTMLElement>(".layerWrapper")
-			.forEach((element) => {
-				element.style.transition = transition;
-			});
-	};
-
-	dispatcher.setImageTransition = (transition: string) => {
-		getElement()
-			?.querySelectorAll<HTMLElement>("img")
-			.forEach((element) => {
-				element.style.transition = transition;
-			});
-	};
-
-	dispatcher.setDisplayTransform = (transform: string, width: number, height: number) => {
-		const element = getElement();
-		if (!element) return;
-		element.style.transform = transform;
-		element.style.width = `${width}px`;
-		element.style.height = `${height}px`;
-	};
-
-	return dispatcher;
+	const Component = pickLayerViewComponent(layer);
+	return (
+		<div ref={hostRef} className="layerWrapper" style={{ zIndex }}>
+			<Component ref={handleRef} layer={layer} hostRef={hostRef} />
+		</div>
+	);
 };
 
 export const DOMSlideView = ({
@@ -295,40 +128,253 @@ export const DOMSlideView = ({
 		hasEventListener,
 	} = useEventDispatcher(listenersRef);
 	const handleRef = useRef<DOMSlideViewHandle | null>(null);
+	const optionsRef = useRef<DOMSlideViewHandleOptions | undefined>(handleOptions);
+	optionsRef.current = handleOptions;
+
+	// 内部 slide 状態（handle.slide setter / prop 両方から駆動。
+	// 描画する slide.layers の元）
+	const [internalSlide, setInternalSlide] = useState<Slide | null>(slide);
+	// slide.UPDATE 時の再レンダ tick（layers 配列の in-place 変化を反映）
+	const [, setTick] = useState(0);
+	// マウント済 LayerView handle のマップ（Layer -> handle）
+	const handleMapRef = useRef<Map<Layer, LayerViewHandle>>(new Map());
+	// internalSlide の最新値を closure 内 getter で参照するための ref
+	const internalSlideRef = useRef<Slide | null>(internalSlide);
+	internalSlideRef.current = internalSlide;
+
+	const getElement = () => elementRef.current;
+	const getContainer = () => containerRef.current;
+
+	const updateContainerSize = (target: Slide | null) => {
+		const container = getContainer();
+		if (!container || !target) return;
+		container.style.width = `${target.width}px`;
+		container.style.height = `${target.height}px`;
+	};
+
+	// LayerHost mount/unmount コールバック（ref で stable）
+	const layerHostHandlersRef = useRef({
+		onMount: (layer: Layer, handle: LayerViewHandle) => {
+			handleMapRef.current.set(layer, handle);
+			optionsRef.current?.onLayerViewAdded?.(handle, handleRef.current as DOMSlideViewHandle);
+		},
+		onUnmount: (layer: Layer, handle: LayerViewHandle) => {
+			optionsRef.current?.onLayerViewRemoving?.(
+				handle,
+				handleRef.current as DOMSlideViewHandle
+			);
+			handleMapRef.current.delete(layer);
+		},
+	});
 
 	if (!handleRef.current) {
-		handleRef.current = createDOMSlideViewHandle(
-			elementRef,
-			containerRef,
-			{
-				listeners,
-				dispatchEvent,
-				addEventListener,
-				removeEventListener,
-				clearEventListener,
-				containEventListener,
-				hasEventListener,
+		let selectedValue = false;
+		let scaleBase = 1;
+		let scaleValue = 1;
+		const scaleMin = 0.2;
+		const scaleMax = 5;
+
+		const eventDispatcher: EventDispatcher = {
+			listeners,
+			dispatchEvent,
+			addEventListener,
+			removeEventListener,
+			clearEventListener,
+			containEventListener,
+			hasEventListener,
+		};
+		const dispatcher = eventDispatcher as DOMSlideViewHandle;
+
+		Object.defineProperties(dispatcher, {
+			element: { get: () => getElement() },
+			containerElement: { get: () => getContainer() },
+			layerViews: {
+				get: () => {
+					const target = internalSlideRef.current;
+					if (!target) return [];
+					const map = handleMapRef.current;
+					const result: LayerViewHandle[] = [];
+					for (const layer of target.layers) {
+						const handle = map.get(layer);
+						if (handle) result.push(handle);
+					}
+					return result;
+				},
 			},
-			handleOptions
-		);
+			width: {
+				get: () => (getElement()?.clientWidth ?? 0) * scaleValue * scaleBase,
+			},
+			height: {
+				get: () => (getElement()?.clientHeight ?? 0) * scaleValue * scaleBase,
+			},
+			selected: {
+				get: () => selectedValue,
+				set: (value: boolean) => {
+					if (value === selectedValue) return;
+					selectedValue = value;
+					getElement()?.classList.toggle("selected", selectedValue);
+					dispatcher.dispatchEvent(
+						new PropertyEvent(PropertyEvent.UPDATE, dispatcher, PropFlags.SV_SELECT)
+					);
+				},
+			},
+			slide: {
+				get: () => internalSlideRef.current,
+				set: (value: Slide | null) => {
+					flushSync(() => {
+						setInternalSlide(value);
+					});
+				},
+			},
+			scale: {
+				get: () => scaleValue,
+				set: (value: number) => {
+					const target = internalSlideRef.current;
+					if (!target) return;
+					scaleValue = clampScale(value, scaleMin, scaleMax);
+					const actualScale = scaleValue * scaleBase;
+					const element = getElement();
+					const container = getContainer();
+					if (!element || !container) return;
+					const containerWidth = target.width * actualScale;
+					const containerHeight = target.height * actualScale;
+					const defX =
+						-((target.width * (1 - actualScale)) / 2) +
+						(element.clientWidth - containerWidth) / 2;
+					const defY =
+						-((target.height * (1 - actualScale)) / 2) +
+						(element.clientHeight - containerHeight) / 2;
+					container.style.transform = `matrix(${actualScale},0,0,${actualScale},${defX},${defY})`;
+					dispatcher.dispatchEvent(
+						new PropertyEvent(PropertyEvent.UPDATE, dispatcher, PropFlags.DSV_SCALE)
+					);
+				},
+			},
+			actualScale: {
+				get: () => scaleValue * scaleBase,
+			},
+		});
+
+		dispatcher.setScaleBase = (value: number) => {
+			scaleBase = Number.isFinite(value) && value > 0 ? value : 1;
+			dispatcher.scale = scaleValue;
+		};
+
+		dispatcher.getViewByLayer = (layer: Layer): LayerView | null => {
+			return handleMapRef.current.get(layer) ?? null;
+		};
+
+		dispatcher.destroy = () => {
+			dispatcher.clearEventListener();
+			// React unmount により LayerHost 群がアンマウントされ、handleMap も空になる。
+			// 内部 slide を null にして layers 描画を抑止する。
+			flushSync(() => {
+				setInternalSlide(null);
+			});
+		};
+
+		dispatcher.show = () => {
+			const element = getElement();
+			if (element) element.style.display = "";
+		};
+		dispatcher.hide = () => {
+			const element = getElement();
+			if (element) element.style.display = "none";
+		};
+		dispatcher.stopAnimation = () => {
+			getElement()
+				?.getAnimations()
+				.forEach((animation) => animation.cancel());
+		};
+		dispatcher.setOpacity = (opacity: number) => {
+			const element = getElement();
+			if (element) element.style.opacity = String(opacity);
+		};
+		dispatcher.setZIndex = (zIndex: number) => {
+			const element = getElement();
+			if (element) element.style.zIndex = String(zIndex);
+		};
+		dispatcher.animateOpacity = (opacity: number, _duration: number) => {
+			const element = getElement();
+			if (!element) return;
+			dispatcher.stopAnimation();
+			element.style.opacity = String(opacity);
+		};
+		dispatcher.setLayerWrapperTransition = (transition: string) => {
+			getElement()
+				?.querySelectorAll<HTMLElement>(".layerWrapper")
+				.forEach((element) => {
+					element.style.transition = transition;
+				});
+		};
+		dispatcher.setImageTransition = (transition: string) => {
+			getElement()
+				?.querySelectorAll<HTMLElement>("img")
+				.forEach((element) => {
+					element.style.transition = transition;
+				});
+		};
+		dispatcher.setDisplayTransform = (transform: string, width: number, height: number) => {
+			const element = getElement();
+			if (!element) return;
+			element.style.transform = transform;
+			element.style.width = `${width}px`;
+			element.style.height = `${height}px`;
+		};
+
+		handleRef.current = dispatcher;
 	}
 
 	useImperativeHandle(ref, () => handleRef.current as DOMSlideViewHandle);
 
+	// prop の slide が変化したら内部 slide を同期（初期マウント以降の外部からの差し替え）
 	useEffect(() => {
-		const handle = handleRef.current;
-		if (!handle) return;
-		handle.slide = slide;
-		return () => {
-			handle.destroy();
-		};
+		setInternalSlide(slide);
 	}, [slide]);
 
+	// internalSlide 変化時：コンテナサイズ更新 + slide.UPDATE 購読
+	useEffect(() => {
+		updateContainerSize(internalSlide);
+		if (!internalSlide) return;
+		const onUpdate = (event: PropertyEvent) => {
+			const shortCircuit = optionsRef.current?.onSlideUpdate?.(
+				event,
+				handleRef.current as DOMSlideViewHandle
+			);
+			if (shortCircuit) return;
+			const flag = event.propFlags;
+			// レイヤー構成変化は同期再レンダで反映（呼び出し直後の getViewByLayer 互換性のため）
+			if (
+				flag &
+				(PropFlags.S_LAYER_ADD | PropFlags.S_LAYER_REMOVE | PropFlags.S_LAYER_ORDER)
+			) {
+				flushSync(() => {
+					setTick((t) => t + 1);
+				});
+			}
+		};
+		internalSlide.addEventListener(PropertyEvent.UPDATE, onUpdate);
+		return () => {
+			internalSlide.removeEventListener(PropertyEvent.UPDATE, onUpdate);
+		};
+	}, [internalSlide]);
+
 	const slideClassName = ["slide", className].filter(Boolean).join(" ");
+	const layers = internalSlide?.layers ?? [];
+	const layerHostHandlers = layerHostHandlersRef.current;
 
 	return (
 		<div ref={elementRef} className={slideClassName}>
 			<div ref={containerRef} className="container">
+				{layers.map((layer, index) => (
+					<LayerHost
+						key={layer.id}
+						layer={layer}
+						zIndex={index}
+						onMount={layerHostHandlers.onMount}
+						onUnmount={layerHostHandlers.onUnmount}
+					/>
+				))}
 				{children}
 			</div>
 		</div>

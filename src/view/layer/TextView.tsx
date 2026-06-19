@@ -1,56 +1,33 @@
+import { useEffect, useRef } from "react";
 import { TextLayer } from "../../model/layer/TextLayer";
-import { PropFlags } from "../../model/PropFlags";
-import { LayerView } from "../LayerView";
+import { useLayerView, type LayerViewProps } from "../LayerView";
 
-export class TextView extends LayerView {
-	public textObj: HTMLDivElement | null = null;
-	private textSpan: HTMLSpanElement | null = null;
+export const TextViewComponent = ({ layer, hostRef, ref }: LayerViewProps) => {
+	useLayerView(layer, hostRef, ref);
+	const textLayer = layer as TextLayer;
+	const spanRef = useRef<HTMLSpanElement | null>(null);
 
-	constructor(
-		protected _data: TextLayer,
-		public obj: HTMLElement
-	) {
-		super(_data, obj);
-	}
-	protected constructMain() {
-		super.constructMain();
+	// span の実寸を model.originWidth/Height に反映（旧 TextView の挙動を踏襲し setTimeout で遅延）。
+	useEffect(() => {
+		const span = spanRef.current;
+		if (!span) return;
+		setTimeout(() => {
+			textLayer.originWidth = span.offsetWidth;
+			textLayer.originHeight = span.offsetHeight;
+		}, 0);
+	});
 
-		const div = document.createElement("div");
-		div.className = "text";
-		div.style.display = "inline-block";
-		div.contentEditable = "false";
-		div.spellcheck = false;
-		const span = document.createElement("span");
-		div.appendChild(span);
-		this.obj.appendChild(div);
-
-		this.textObj = div;
-		this.textSpan = span;
-		this.opacityObj = div;
-		div.style.opacity = String(this._data.opacity);
-	}
-
-	public destroy() {
-		this.textObj?.remove();
-		this.textObj = null;
-		this.textSpan = null;
-
-		super.destroy();
-	}
-
-	protected updateView(flag: number = PropFlags.ALL): void {
-		if (flag & PropFlags.TXT_TEXT) {
-			if (this.textSpan) {
-				this.textSpan.textContent = this._data.text;
-
-				setTimeout(() => {
-					this._data.originWidth = this.textSpan?.offsetWidth ?? 0;
-					this._data.originHeight = this.textSpan?.offsetHeight ?? 0;
-				}, 0);
-			}
-		}
-
-		//textを先に更新してほしいからsuperは後で
-		super.updateView(flag);
-	}
-}
+	return (
+		<div
+			className="text"
+			style={{
+				display: "inline-block",
+				opacity: textLayer.opacity === 1 ? undefined : textLayer.opacity,
+			}}
+			contentEditable={false}
+			spellCheck={false}
+		>
+			<span ref={spanRef}>{textLayer.text}</span>
+		</div>
+	);
+};
