@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canRequestSaveChoice, getSaveChoiceOpenState } from "../../src/react/saveDocumentChoice";
+import { canRequestSaveChoice, getSaveChoiceOpenState } from "../../src/react/dialogState";
 
 test("save choice requires save permission and at least one slide", () => {
 	assert.equal(canRequestSaveChoice(false, 1), false);

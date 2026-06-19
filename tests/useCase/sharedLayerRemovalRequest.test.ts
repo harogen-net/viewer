@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { SharedLayerRemovalRequest } from "../../src/react/sharedLayerRemovalRequest";
-import { getSharedLayerRemovalRequestState } from "../../src/react/sharedLayerRemovalRequest";
+import type { SharedLayerRemovalRequest } from "../../src/react/dialogState";
+import { getSharedLayerRemovalRequestState } from "../../src/react/dialogState";
 
 test("shared layer removal request is hidden without edit permission or selection", () => {
 	const request: SharedLayerRemovalRequest = { layerName: "Title" };

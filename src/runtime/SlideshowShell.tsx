@@ -25,23 +25,9 @@ import {
 	requestFullscreenOn,
 } from "./fullscreen";
 
-/**
- * R4 (bullet 4): `SlideShowRuntime` クラスを React FC へ全面置換した実装。
- *
- * - スライド view は JSX 子要素として宣言的にマウントする（旧 `createSlideView` の
- *   per-slide `createRoot + flushSync` パターンを撤去）。
- * - `webkitfullscreenchange` / `resize` / コンテナ `mousedown` / cursor mousemove の
- *   すべての global listener を `useEffect` 配下に移送。
- * - `slideShow` / `pause` クラスや mirror transform は JSX `className` / `style` で
- *   宣言的に駆動。
- * - 旧クラスの public API（`setUp` / `run` / `stop` / ...）は `useImperativeHandle`
- *   でそのまま露出するため、`SlideshowUseCase` 側は無改修で動作する。
- */
+/** R4 (bullet 4): `SlideShowRuntime` クラスを置換した React FC。public API は無改修で維持。 */
 
-export type SlideShowPlaybackSettings = {
-	interval: number;
-	duration: number;
-};
+export type SlideShowPlaybackSettings = { interval: number; duration: number };
 
 export type SlideShowRuntimeHandle = {
 	readonly isRun: boolean;
@@ -64,106 +50,63 @@ export type SlideshowShellProps = {
 	onPlaybackChanged?: (detail: { isRun: boolean; isPause: boolean }) => void;
 };
 
-type SlideEntry = {
-	key: number;
-	slide: Slide;
-	handleRef: RefObject<DOMSlideViewHandle | null>;
-};
-
-type SlideShowDatum = {
-	keep?: boolean;
-	index: number;
-	transforms: any[];
-	durationRatio: number;
-};
+type SlideEntry = { key: number; slide: Slide; handleRef: RefObject<DOMSlideViewHandle | null> };
+type SlideShowDatum = { keep?: boolean; index: number; transforms: any[]; durationRatio: number };
 
 const DOMSlideViewForRender = DOMSlideView as unknown as FunctionComponent<{
 	ref: Ref<DOMSlideViewHandle>;
 	slide: Slide;
 }>;
 
-// ------------------------------ pure helpers ------------------------------
-
-/** 旧 `SlideShowRuntime#checkSlidesSame` を class 外で純粋関数として再実装。 */
 function checkSlidesSame(slide1: Slide, slide2: Slide): boolean {
 	if (!slide2.joining) return false;
-	if (slide1.layers.length === 0) return false;
-	if (slide2.layers.length === 0) return false;
-
-	const visibleLayers1 = slide1.layers.filter((layer) => layer.visible);
-	const visibleLayers2 = slide2.layers.filter((layer) => layer.visible);
-
-	if (visibleLayers1.length !== visibleLayers2.length) return false;
-
-	for (let i = 0; i < visibleLayers1.length; i++) {
-		const layer1: Layer = visibleLayers1[i];
-		const layer2: Layer = visibleLayers2[i];
-
-		// 旧実装の typo を踏襲（`layer1.type != layer1.type` は常に false）。
-		// 互換のためこのまま残す。
-		if (layer1.type != layer1.type) return false;
-
-		switch (layer1.type) {
+	if (slide1.layers.length === 0 || slide2.layers.length === 0) return false;
+	const visible1 = slide1.layers.filter((l) => l.visible);
+	const visible2 = slide2.layers.filter((l) => l.visible);
+	if (visible1.length !== visible2.length) return false;
+	for (let i = 0; i < visible1.length; i++) {
+		const l1 = visible1[i];
+		const l2 = visible2[i];
+		// 旧 typo（`l1.type != l1.type` で常に false）を踏襲。
+		if (l1.type != l1.type) return false;
+		switch (l1.type) {
 			case LayerType.IMAGE:
-				if ((layer1 as ImageLayer).imageId !== (layer2 as ImageLayer).imageId) return false;
-				if ((layer1 as ImageLayer).isText !== (layer2 as ImageLayer).isText) return false;
+				if ((l1 as ImageLayer).imageId !== (l2 as ImageLayer).imageId) return false;
+				if ((l1 as ImageLayer).isText !== (l2 as ImageLayer).isText) return false;
 				break;
 			case LayerType.TEXT:
-				if ((layer1 as TextLayer).text !== (layer2 as TextLayer).text) return false;
+				if ((l1 as TextLayer).text !== (l2 as TextLayer).text) return false;
 				break;
 			default:
-				if (layer1.id !== layer2.id) return false;
-				break;
+				if (l1.id !== l2.id) return false;
 		}
 	}
-
 	return true;
 }
 
-/** 旧 `SlideShowRuntime#avoidMirror`。鏡面再生時に文字レイヤーの読み方向を補正する。 */
-function avoidMirror(
-	layer: Layer,
-	defaultMirrorH: boolean,
-	defaultMirrorV: boolean,
-	mirrorH: boolean,
-	mirrorV: boolean
-): void {
-	if (mirrorH) {
-		if (
-			(layer.rotation > 45 && layer.rotation < 135) ||
-			(layer.rotation < -45 && layer.rotation > -135)
-		) {
-			layer.mirrorV = !defaultMirrorV;
-		} else {
-			layer.mirrorH = !defaultMirrorH;
-		}
+function avoidMirror(layer: Layer, defH: boolean, defV: boolean, mH: boolean, mV: boolean): void {
+	const sideways =
+		(layer.rotation > 45 && layer.rotation < 135) ||
+		(layer.rotation < -45 && layer.rotation > -135);
+	if (mH) {
+		if (sideways) layer.mirrorV = !defV;
+		else layer.mirrorH = !defH;
 	}
-	if (mirrorV) {
-		if (
-			(layer.rotation > 45 && layer.rotation < 135) ||
-			(layer.rotation < -45 && layer.rotation > -135)
-		) {
-			layer.mirrorH = !defaultMirrorH;
-		} else {
-			layer.mirrorV = !defaultMirrorV;
-		}
+	if (mV) {
+		if (sideways) layer.mirrorH = !defH;
+		else layer.mirrorV = !defV;
 	}
 }
 
-// ------------------------------ component ------------------------------
-
 export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) => {
 	const objRef = useRef<HTMLDivElement | null>(null);
-	const containerRef = useRef<HTMLDivElement | null>(null);
 
-	// React-managed visual state
 	const [isRun, setIsRun] = useState(false);
 	const [isPause, setIsPause] = useState(false);
 	const [mirrorH, setMirrorHState] = useState(false);
 	const [mirrorV, setMirrorVState] = useState(false);
 	const [entries, setEntries] = useState<SlideEntry[]>([]);
 
-	// Imperative (non-rendering) control state, mutated freely.
 	const stateRef = useRef({
 		isRun: false,
 		isPause: false,
@@ -185,93 +128,73 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 	});
 
 	const onPlaybackChangedRef = useRef(onPlaybackChanged);
-	useEffect(() => {
-		onPlaybackChangedRef.current = onPlaybackChanged;
-	}, [onPlaybackChanged]);
+	onPlaybackChangedRef.current = onPlaybackChanged;
 
 	const cursorAutoHideRef = useRef<CursorAutoHide | null>(null);
 
-	const dispatchPlaybackChanged = (): void => {
+	const dispatchPlayback = (): void => {
 		onPlaybackChangedRef.current?.({
 			isRun: stateRef.current.isRun,
 			isPause: stateRef.current.isPause,
 		});
 	};
 
-	const setRun = (next: boolean): void => {
-		stateRef.current.isRun = next;
-		flushSync(() => setIsRun(next));
-	};
-	const setPause = (next: boolean): void => {
-		stateRef.current.isPause = next;
-		flushSync(() => setIsPause(next));
+	const clearTimer = (): void => {
+		const s = stateRef.current;
+		if (s.timer !== null) {
+			clearTimeout(s.timer);
+			s.timer = null;
+		}
 	};
 
 	const updateSlideSize = (): void => {
 		const obj = objRef.current;
 		if (!obj) return;
-		const dispWidth = obj.clientWidth;
-		const dispHeight = obj.clientHeight;
 		const { width, height } = viewerDocumentStore.getState();
-		const dispScale = Math.min(dispWidth / width, dispHeight / height);
-		const offsetX = (dispWidth - width) / 2;
-		const offsetY = (dispHeight - height) / 2;
-		stateRef.current.slidesOrder.forEach((slide) => {
-			slide.setDisplayTransform(
-				"translate(" + offsetX + "px, " + offsetY + "px) scale(" + dispScale + ")",
-				width,
-				height
-			);
-		});
+		const dispScale = Math.min(obj.clientWidth / width, obj.clientHeight / height);
+		const offsetX = (obj.clientWidth - width) / 2;
+		const offsetY = (obj.clientHeight - height) / 2;
+		const transform = `translate(${offsetX}px, ${offsetY}px) scale(${dispScale})`;
+		stateRef.current.slidesOrder.forEach((slide) =>
+			slide.setDisplayTransform(transform, width, height)
+		);
 	};
 
 	const slideShowFunc = (): void => {
 		const s = stateRef.current;
-		if (s.data.length <= 1) {
-			return;
-		}
-
-		s.started = new Date().getTime();
+		if (s.data.length <= 1) return;
+		s.started = Date.now();
 		s.elapsed = 0;
-
 		const datum = s.data[s.index % s.data.length];
-		const slideHandle = s.slidesOrder[datum.index];
-		if (!slideHandle) return;
-
+		const handle = s.slidesOrder[datum.index];
+		if (!handle) return;
 		s.slideDuration = s.interval * datum.durationRatio;
 
 		if (datum.keep && !s.isInit) {
-			slideHandle.stopAnimation();
-			slideHandle.setOpacity(1);
-			const keepDurationOffset = Math.min(s.slideDuration * 0.2, s.interval - s.duration);
-			const transitionDuration = (s.slideDuration - keepDurationOffset) / 1000;
-			const bezierStr = "cubic-bezier(.4,0,.7,1)";
-			slideHandle.setLayerWrapperTransition(
-				"transform " + transitionDuration + "s " + bezierStr
+			handle.stopAnimation();
+			handle.setOpacity(1);
+			const offset = Math.min(s.slideDuration * 0.2, s.interval - s.duration);
+			const td = (s.slideDuration - offset) / 1000;
+			const bz = "cubic-bezier(.4,0,.7,1)";
+			handle.setLayerWrapperTransition(`transform ${td}s ${bz}`);
+			handle.setImageTransition(
+				`opacity ${td}s linear, clip-path ${td}s ${bz}, -webkit-clip-path ${td}s ${bz}`
 			);
-			const imgTransitions: string[] = [];
-			imgTransitions.push("opacity " + transitionDuration + "s linear");
-			imgTransitions.push("clip-path " + transitionDuration + "s " + bezierStr);
-			imgTransitions.push("-webkit-clip-path " + transitionDuration + "s " + bezierStr);
-			slideHandle.setImageTransition(imgTransitions.join(", "));
 		} else {
-			slideHandle.setLayerWrapperTransition("");
-			slideHandle.setImageTransition("");
-			slideHandle.show();
-			slideHandle.setZIndex(s.index + 100);
-			slideHandle.setOpacity(0);
-			slideHandle.animateOpacity(1, Math.min(s.duration, s.slideDuration));
-
-			const histIdx = s.history.indexOf(slideHandle);
-			if (histIdx !== -1) {
-				s.history.splice(histIdx, 1);
-			}
-			s.history.push(slideHandle);
+			handle.setLayerWrapperTransition("");
+			handle.setImageTransition("");
+			handle.show();
+			handle.setZIndex(s.index + 100);
+			handle.setOpacity(0);
+			handle.animateOpacity(1, Math.min(s.duration, s.slideDuration));
+			const idx = s.history.indexOf(handle);
+			if (idx !== -1) s.history.splice(idx, 1);
+			s.history.push(handle);
 		}
 
-		const slideForLayers = slideHandle.slide;
-		for (let i = 0; i < slideForLayers.layers.length; i++) {
-			const layer = slideForLayers.layers[i];
+		const layers = handle.slide.layers;
+		for (let i = 0; i < layers.length; i++) {
+			const layer = layers[i];
 			const trans = datum.transforms[i];
 			layer.transform = trans;
 			if (
@@ -280,86 +203,58 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 			) {
 				avoidMirror(layer, trans.mirrorH, trans.mirrorV, s.mirrorH, s.mirrorV);
 			}
-			layer.opacity = datum.transforms[i].opacity;
-			if (layer.type === LayerType.IMAGE) {
-				(layer as ImageLayer).clipRect = datum.transforms[i].clipRect;
-			}
+			layer.opacity = trans.opacity;
+			if (layer.type === LayerType.IMAGE) (layer as ImageLayer).clipRect = trans.clipRect;
 		}
 
-		if (s.timer !== null) clearTimeout(s.timer);
-		s.timer = setTimeout(() => {
-			slideShowFunc();
-		}, s.slideDuration);
+		clearTimer();
+		s.timer = setTimeout(slideShowFunc, s.slideDuration);
 		s.index++;
-
-		if (s.history.length > 2) {
-			const popped = s.history.shift();
-			popped?.hide();
-		}
+		if (s.history.length > 2) s.history.shift()?.hide();
 		s.isInit = false;
 	};
 
 	const initialize = (): void => {
 		const s = stateRef.current;
-		if (s.timer !== null) {
-			clearTimeout(s.timer);
-			s.timer = null;
-		}
+		clearTimer();
 		s.started = 0;
 		s.elapsed = 0;
 		s.isInit = false;
-		setPause(false);
-		setRun(false);
-
+		s.isRun = false;
+		s.isPause = false;
+		flushSync(() => {
+			setIsRun(false);
+			setIsPause(false);
+		});
 		document.body.classList.remove("slideShow");
-		if (s.fullscreen) {
-			forceExitFullscreen();
-		}
-
-		// Detach + unmount all slide views via React state.
-		s.slidesOrder.forEach((handle) => handle.destroy());
+		if (s.fullscreen) forceExitFullscreen();
+		s.slidesOrder.forEach((h) => h.destroy());
 		s.slidesOrder = [];
 		s.data = [];
 		s.history = [];
 		flushSync(() => setEntries([]));
-
 		cursorAutoHideRef.current?.stop();
-		dispatchPlaybackChanged();
+		dispatchPlayback();
 	};
 
-	const setUp = (
-		targetSlides: Slide[],
-		settings: SlideShowPlaybackSettings
-	): void => {
-		console.log("setup at slideshow", targetSlides.length);
+	const setUp = (targetSlides: Slide[], settings: SlideShowPlaybackSettings): void => {
 		initialize();
-
 		const s = stateRef.current;
 		s.interval = settings.interval;
 		s.duration = settings.duration;
-
-		const filtered = targetSlides.filter((value) => !value.disabled);
+		const filtered = targetSlides.filter((v) => !v.disabled);
 		if (filtered.length === 0) return;
 
-		// Build entries (physical view set) + data (playback sequence).
 		const newEntries: SlideEntry[] = [];
 		const newData: SlideShowDatum[] = [];
 		for (let i = 0; i < filtered.length; i++) {
 			const slide = filtered[i];
 			const lastSlide = i === 0 ? filtered[filtered.length - 1] : filtered[i - 1];
-
-			const slideForSS = slide.clone();
-			slideForSS.id = slide.id;
-			slideForSS.durationRatio = slide.durationRatio;
-			slideForSS.joining = slide.joining;
-			slideForSS.disabled = slide.disabled;
-
 			const datum: SlideShowDatum = {
 				index: 0,
 				transforms: [],
 				durationRatio: slide.durationRatio,
 			};
-
 			if (checkSlidesSame(slide, lastSlide)) {
 				datum.keep = true;
 				datum.index = newEntries.length - 1;
@@ -367,11 +262,10 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 				datum.index = newEntries.length;
 				newEntries.push({
 					key: s.nextKey++,
-					slide: slideForSS,
+					slide: slide.clone(),
 					handleRef: createRef<DOMSlideViewHandle>(),
 				});
 			}
-
 			for (let j = 0; j < slide.layers.length; j++) {
 				const transform: any = slide.layers[j].transform;
 				transform.opacity = slide.layers[j].opacity;
@@ -383,165 +277,132 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 			newData.push(datum);
 		}
 
-		// Edge case: all slides were "kept" (0 unique) — clone the first to get one.
+		// 全 keep だった場合、先頭をクローンして 1 つ確保。
 		if (newEntries.length === 0) {
-			const head = filtered[0];
-			const slideForSS = head.clone();
-			slideForSS.id = head.id;
-			slideForSS.durationRatio = head.durationRatio;
-			slideForSS.joining = head.joining;
-			slideForSS.disabled = head.disabled;
 			newEntries.push({
 				key: s.nextKey++,
-				slide: slideForSS,
+				slide: filtered[0].clone(),
 				handleRef: createRef<DOMSlideViewHandle>(),
 			});
 		}
-
-		// Resolve negative indices.
-		newData.forEach((datum) => {
-			if (datum.index < 0) datum.index += newEntries.length;
+		newData.forEach((d) => {
+			if (d.index < 0) d.index += newEntries.length;
 		});
 
-		// Mount the slide views synchronously so handles are available before we return.
 		flushSync(() => setEntries(newEntries));
 
-		const slidesOrder: DOMSlideViewHandle[] = [];
+		const order: DOMSlideViewHandle[] = [];
 		for (const entry of newEntries) {
-			const handle = entry.handleRef.current;
-			if (handle) {
-				slidesOrder.push(handle);
-				handle.hide();
+			const h = entry.handleRef.current;
+			if (h) {
+				order.push(h);
+				h.hide();
 			}
 		}
-		s.slidesOrder = slidesOrder;
+		s.slidesOrder = order;
 		s.data = newData;
 	};
 
-	const run = (initIndex: number = 0): void => {
+	const run = (initIndex = 0): void => {
 		const s = stateRef.current;
-		if (s.isRun) return;
-		if (s.slidesOrder.length === 0) return;
+		if (s.isRun || s.slidesOrder.length === 0) return;
 		s.isInit = true;
-		setRun(true);
-
+		s.isRun = true;
+		flushSync(() => setIsRun(true));
 		document.body.classList.add("slideShow");
-		if (s.fullscreen) {
-			const obj = objRef.current;
-			if (obj) requestFullscreenOn(obj);
-		}
+		if (s.fullscreen && objRef.current) requestFullscreenOn(objRef.current);
 		updateSlideSize();
 
 		if (s.data.length === 1) {
-			s.slidesOrder.forEach((slideHandle) => {
-				slideHandle.setOpacity(0);
-				slideHandle.show();
-				slideHandle.animateOpacity(1, 1000);
-				const slideModel = slideHandle.slide;
-				for (let i = 0; i < slideModel.layers.length; i++) {
-					const layer = slideModel.layers[i];
-					const trans = layer.transform;
+			s.slidesOrder.forEach((h) => {
+				h.setOpacity(0);
+				h.show();
+				h.animateOpacity(1, 1000);
+				for (const layer of h.slide.layers) {
+					const t = layer.transform;
 					if (
 						layer.type === LayerType.TEXT ||
 						(layer.type === LayerType.IMAGE && (layer as ImageLayer).isText)
 					) {
-						avoidMirror(layer, trans.mirrorH, trans.mirrorV, s.mirrorH, s.mirrorV);
+						avoidMirror(layer, t.mirrorH, t.mirrorV, s.mirrorH, s.mirrorV);
 					}
 				}
 			});
 			cursorAutoHideRef.current?.start();
-			dispatchPlaybackChanged();
+			dispatchPlayback();
 			return;
 		}
 
-		s.slidesOrder.forEach((slideHandle) => slideHandle.setOpacity(0));
+		s.slidesOrder.forEach((h) => h.setOpacity(0));
 		s.index = initIndex;
-		if (s.timer !== null) clearTimeout(s.timer);
-		s.timer = setTimeout(() => {
-			slideShowFunc();
-		}, 1000);
-
+		clearTimer();
+		s.timer = setTimeout(slideShowFunc, 1000);
 		cursorAutoHideRef.current?.start();
-		dispatchPlaybackChanged();
+		dispatchPlayback();
 	};
 
 	const stop = (): void => {
 		const s = stateRef.current;
 		if (!s.isRun) return;
-		setRun(false);
-		setPause(false);
-
-		document.body.classList.remove("slideShow");
-		if (s.fullscreen) {
-			forceExitFullscreen();
-		}
-
-		if (s.timer !== null) {
-			clearTimeout(s.timer);
-			s.timer = null;
-		}
-		s.slidesOrder.forEach((slideHandle) => {
-			slideHandle.stopAnimation();
-			slideHandle.setZIndex(0);
-			slideHandle.setOpacity(1);
-			slideHandle.setLayerWrapperTransition("");
+		s.isRun = false;
+		s.isPause = false;
+		flushSync(() => {
+			setIsRun(false);
+			setIsPause(false);
 		});
-
+		document.body.classList.remove("slideShow");
+		if (s.fullscreen) forceExitFullscreen();
+		clearTimer();
+		s.slidesOrder.forEach((h) => {
+			h.stopAnimation();
+			h.setZIndex(0);
+			h.setOpacity(1);
+			h.setLayerWrapperTransition("");
+		});
 		cursorAutoHideRef.current?.stop();
-		dispatchPlaybackChanged();
+		dispatchPlayback();
 	};
 
 	const pause = (): void => {
 		const s = stateRef.current;
-		if (!s.isRun) return;
-		if (s.isPause) return;
-		setPause(true);
-		s.elapsed = new Date().getTime() - s.started;
-		if (s.timer !== null) {
-			clearTimeout(s.timer);
-			s.timer = null;
-		}
+		if (!s.isRun || s.isPause) return;
+		s.isPause = true;
+		flushSync(() => setIsPause(true));
+		s.elapsed = Date.now() - s.started;
+		clearTimer();
 		cursorAutoHideRef.current?.stop();
-		dispatchPlaybackChanged();
+		dispatchPlayback();
 	};
 
 	const resume = (): void => {
 		const s = stateRef.current;
-		if (!s.isRun) return;
-		if (!s.isPause) return;
-		setPause(false);
-
-		const restDuration = s.slideDuration - s.elapsed;
-		if (restDuration < 0) {
+		if (!s.isRun || !s.isPause) return;
+		s.isPause = false;
+		flushSync(() => setIsPause(false));
+		const rest = s.slideDuration - s.elapsed;
+		if (rest < 0) {
 			slideShowFunc();
 		} else {
-			if (s.timer !== null) clearTimeout(s.timer);
-			s.timer = setTimeout(() => {
-				slideShowFunc();
-			}, restDuration);
+			clearTimer();
+			s.timer = setTimeout(slideShowFunc, rest);
 		}
 		cursorAutoHideRef.current?.start();
-		dispatchPlaybackChanged();
+		dispatchPlayback();
 	};
 
-	const close = (): void => {
-		initialize();
-	};
+	const close = (): void => initialize();
 
 	const togglePause = (): void => {
 		const s = stateRef.current;
 		if (!s.isRun) return;
-		if (s.isPause) {
-			resume();
-			return;
-		}
-		pause();
+		if (s.isPause) resume();
+		else pause();
 	};
 
 	const showPrevious = (): void => {
 		const s = stateRef.current;
 		if (!s.isRun || s.data.length <= 1) return;
-		if (s.timer !== null) clearTimeout(s.timer);
+		clearTimer();
 		s.index -= 2;
 		if (s.index < 0) s.index += s.data.length;
 		slideShowFunc();
@@ -550,11 +411,10 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 	const showNext = (): void => {
 		const s = stateRef.current;
 		if (!s.isRun || s.data.length <= 1) return;
-		if (s.timer !== null) clearTimeout(s.timer);
+		clearTimer();
 		slideShowFunc();
 	};
 
-	// Set up cursor auto-hide once obj is mounted.
 	useLayoutEffect(() => {
 		const obj = objRef.current;
 		if (!obj) return;
@@ -568,41 +428,33 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 		};
 	}, []);
 
-	// Global window/document listeners — equivalent of class constructor side effects.
 	useEffect(() => {
-		const onFullscreenChange = (): void => {
-			// Original implementation kept the branch empty (only logging stripped).
+		const noop = (): void => {
+			/* webkitfullscreenchange listener (旧クラス互換、本体は空) */
 		};
-		document.addEventListener("webkitfullscreenchange", onFullscreenChange);
-
+		document.addEventListener("webkitfullscreenchange", noop);
 		let resizeRetimer: ReturnType<typeof setTimeout> | null = null;
 		const onResize = (): void => {
 			if (resizeRetimer !== null) clearTimeout(resizeRetimer);
-			resizeRetimer = setTimeout(() => {
-				updateSlideSize();
-			}, 50);
+			resizeRetimer = setTimeout(updateSlideSize, 50);
 		};
 		window.addEventListener("resize", onResize);
-
 		return () => {
-			document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
+			document.removeEventListener("webkitfullscreenchange", noop);
 			window.removeEventListener("resize", onResize);
 			if (resizeRetimer !== null) clearTimeout(resizeRetimer);
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	// Cleanup on unmount: stop timer + global classes.
-	useEffect(() => {
-		return () => {
-			const s = stateRef.current;
-			if (s.timer !== null) {
-				clearTimeout(s.timer);
-				s.timer = null;
-			}
+	useEffect(
+		() => () => {
+			clearTimer();
 			document.body.classList.remove("slideShow");
-		};
-	}, []);
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[]
+	);
 
 	useImperativeHandle(
 		ref,
@@ -616,12 +468,11 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 			set fullscreen(value: boolean) {
 				stateRef.current.fullscreen = value;
 				if (!stateRef.current.isRun) return;
-				const obj = objRef.current;
 				if (value) {
-					if (obj) requestFullscreenOn(obj);
-					return;
+					if (objRef.current) requestFullscreenOn(objRef.current);
+				} else {
+					exitFullscreenIfActive();
 				}
-				exitFullscreenIfActive();
 			},
 			get mirrorH() {
 				return stateRef.current.mirrorH;
@@ -651,29 +502,24 @@ export const SlideshowShell = ({ ref, onPlaybackChanged }: SlideshowShellProps) 
 		[]
 	);
 
-	const containerStyle: React.CSSProperties = {};
 	const transforms: string[] = [];
 	if (mirrorH) transforms.push("scaleX(-1)");
 	if (mirrorV) transforms.push("scaleY(-1)");
-	if (transforms.length > 0) {
-		containerStyle.transform = transforms.join(" ");
-	}
-
-	const onContainerMouseDown = (event: React.MouseEvent): void => {
-		togglePause();
-		event.preventDefault();
-		event.stopPropagation();
-	};
-
-	const className = "slideShow" + (isRun && isPause ? " pause" : "");
 
 	return (
-		<div ref={objRef} className={className} style={{opacity:0.2, backgroundColor:"red"}}>
+		<div
+			ref={objRef}
+			className={"slideShow" + (isRun && isPause ? " pause" : "")}
+			style={{ opacity: 0.2, backgroundColor: "red" }}
+		>
 			<div
-				ref={containerRef}
 				className="slideContainer"
-				style={containerStyle}
-				onMouseDown={onContainerMouseDown}
+				style={transforms.length > 0 ? { transform: transforms.join(" ") } : undefined}
+				onMouseDown={(e) => {
+					togglePause();
+					e.preventDefault();
+					e.stopPropagation();
+				}}
 			>
 				{entries.map((entry) =>
 					createElement(DOMSlideViewForRender, {

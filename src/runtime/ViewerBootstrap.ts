@@ -10,21 +10,21 @@ import { viewerDocumentStore } from "../state/viewerDocumentStore";
 import { createStorageAdapter } from "../storage/createStorageAdapter";
 import { DocumentStorageUseCase } from "../useCase/DocumentStorageUseCase";
 import {
-    createPermissionUseCase,
-    type PermissionUseCase,
+	createPermissionUseCase,
+	type PermissionUseCase,
 } from "../useCase/PermissionUseCase";
 import {
-    createSavedFileNavigationUseCase,
-    type SavedFileNavigationUseCase,
+	createSavedFileNavigationUseCase,
+	type SavedFileNavigationUseCase,
 } from "../useCase/SavedFileNavigationUseCase";
 import {
-    createSlideHistoryUseCase,
-    type SlideHistoryUseCase,
+	createSlideHistoryUseCase,
+	type SlideHistoryUseCase,
 } from "../useCase/SlideHistoryUseCase";
 import { createSlideshowUseCase, type SlideshowUseCase } from "../useCase/SlideshowUseCase";
 import { HistoryManager } from "../utils/HistoryManager";
 import { ImageManager } from "../utils/ImageManager";
-import { EditCanvasRuntime } from "./EditCanvasRuntime";
+import { createEditCanvasRuntime, type EditCanvasRuntime } from "./EditCanvasRuntime";
 import type { FeatureGate } from "./featureGate";
 import { createModeController, type ModeController } from "./ModeController";
 import { mountSlideshowShell, type SlideshowShellMount } from "./mountSlideshowShell";
@@ -134,7 +134,7 @@ export function bootstrapViewer(deps: BootstrapDeps): BootstrapResult {
 		});
 		slideHistory.publishHistoryState();
 
-		editCanvasRuntime = new EditCanvasRuntime(deps.obj.querySelector(".canvas") as HTMLElement);
+		editCanvasRuntime = createEditCanvasRuntime(deps.obj.querySelector(".canvas") as HTMLElement);
 	}
 
 	const slideCommands = createSlideActions({

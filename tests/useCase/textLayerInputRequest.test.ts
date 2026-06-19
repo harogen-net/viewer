@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TextLayerInputRequest } from "../../src/react/textLayerInputRequest";
-import { getTextLayerInputRequestState } from "../../src/react/textLayerInputRequest";
+import type { TextLayerInputRequest } from "../../src/react/dialogState";
+import { getTextLayerInputRequestState } from "../../src/react/dialogState";
 
 test("text layer input request is hidden outside editable edit mode", () => {
 	const request: TextLayerInputRequest = { open: true };

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { SpreadLayerRequest } from "../../src/react/spreadLayerRequest";
-import { getSpreadLayerRequestState } from "../../src/react/spreadLayerRequest";
+import type { SpreadLayerRequest } from "../../src/react/dialogState";
+import { getSpreadLayerRequestState } from "../../src/react/dialogState";
 
 test("spread layer request is hidden without edit permission or selection", () => {
 	const request: SpreadLayerRequest = { layerName: "Title" };

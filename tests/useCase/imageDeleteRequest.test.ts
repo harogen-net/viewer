@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { ImageDeleteRequest } from "../../src/react/imageDeleteRequest";
-import { getImageDeleteRequestState } from "../../src/react/imageDeleteRequest";
+import type { ImageDeleteRequest } from "../../src/react/dialogState";
+import { getImageDeleteRequestState } from "../../src/react/dialogState";
 
 test("image delete request is hidden outside editable images panel", () => {
 	const request: ImageDeleteRequest = { imageId: "img-1", name: "sample.png" };

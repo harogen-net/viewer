@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canToggleImagesPanel, getImagesPanelOpenState } from "../../src/react/imagesPanelGate";
+import { canToggleImagesPanel, getImagesPanelOpenState } from "../../src/react/dialogState";
 
 test("images panel stays closed when editing is disabled", () => {
 	assert.equal(getImagesPanelOpenState(true, false), false);

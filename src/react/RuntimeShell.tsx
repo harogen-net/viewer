@@ -33,9 +33,19 @@ import { setUpMobileLandscapeFallback } from "../runtime/mobileOrientation";
 import { AppRuntimeMode } from "../runtime/mode";
 import { getSaveFormat, setSaveFormat } from "../runtime/reactDomRegistry";
 import { slideStore } from "../state/slideStore";
-import type { ImageDeleteRequest } from "./imageDeleteRequest";
-import { getImageDeleteRequestState } from "./imageDeleteRequest";
-import { canToggleImagesPanel, getImagesPanelOpenState } from "./imagesPanelGate";
+import {
+	canRequestSaveChoice,
+	canToggleImagesPanel,
+	getImageDeleteRequestState,
+	getImagesPanelOpenState,
+	getSaveChoiceOpenState,
+	getSharedLayerRemovalRequestState,
+	getSpreadLayerRequestState,
+	getTextLayerInputRequestState,
+	type ImageDeleteRequest,
+	type SharedLayerRemovalRequest,
+	type SpreadLayerRequest,
+} from "./dialogState";
 import { getLayerListDropAction, getLayerListKeyboardAction } from "./layerListKeyboard";
 import {
 	type ClipSide,
@@ -45,13 +55,7 @@ import {
 	getInputStep,
 	getWheelInputDelta,
 } from "./numericInput";
-import { canRequestSaveChoice, getSaveChoiceOpenState } from "./saveDocumentChoice";
-import type { SharedLayerRemovalRequest } from "./sharedLayerRemovalRequest";
-import { getSharedLayerRemovalRequestState } from "./sharedLayerRemovalRequest";
 import { getSlideListDropAction, getSlideListKeyboardAction } from "./slideListKeyboard";
-import type { SpreadLayerRequest } from "./spreadLayerRequest";
-import { getSpreadLayerRequestState } from "./spreadLayerRequest";
-import { getTextLayerInputRequestState } from "./textLayerInputRequest";
 
 const durationOptions = [
 	{ value: "1", label: "0" },
