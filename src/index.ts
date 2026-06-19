@@ -1,4 +1,5 @@
 import '@fortawesome/fontawesome-free/css/all.css';
+import "@mantine/core/styles.css";
 import $ from "jquery";
 import 'jquery-ui-dist/jquery-ui';
 import { createElement } from "react";

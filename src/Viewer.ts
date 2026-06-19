@@ -1,15 +1,15 @@
-import { ListViewController } from "./viewController/ListViewController";
-import { SlideStorage, HVDataType } from "./utils/SlideStorage";
-import { SlideShowViewController } from "./viewController/SlideShowViewController";
-import { EditViewController } from "./viewController/EditViewController";
-import { ImageManager } from "./utils/ImageManager";
-import { ViewerDocument } from "./model/ViewerDocument";
-import { Slide } from "./model/Slide";
-import { HistoryManager } from "./utils/HistoryManager";
-import { PropertyEvent } from "./events/PropertyEvent";
 import $ from "jquery";
-import { ProgressBar } from "./view/ProgressBar";
+import { PropertyEvent } from "./events/PropertyEvent";
+import { Slide } from "./model/Slide";
+import { ViewerDocument } from "./model/ViewerDocument";
+import { useViewerDocumentStore } from "./state/viewerDocumentStore";
+import { HistoryManager } from "./utils/HistoryManager";
+import { ImageManager } from "./utils/ImageManager";
+import { HVDataType, SlideStorage } from "./utils/SlideStorage";
+import { EditViewController } from "./viewController/EditViewController";
 import { FileSelector } from "./viewController/file/FileSelector";
+import { ListViewController } from "./viewController/ListViewController";
+import { SlideShowViewController } from "./viewController/SlideShowViewController";
 
 
 export enum ViewerMode {
@@ -63,16 +63,13 @@ export class Viewer {
 		// 	}
 		// });
 
-		let progressBar = new ProgressBar($("<div />").appendTo(obj))
-
 		//
 		this.listVC = new ListViewController(obj.find(".list"));
 		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
 		this.storage = SlideStorage.getInstance();
 		this.storage.addEventListener("loading", (e: CustomEvent) => {
-			let percentage = e.detail as number;
-			progressBar.go(percentage)
+			useViewerDocumentStore.getState().setProgress(e.detail as number);
 		});
 		this.storage.addEventListener("loaded", (e: CustomEvent) => {
 			this.newDocument(e.detail as ViewerDocument);
