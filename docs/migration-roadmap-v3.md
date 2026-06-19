@@ -26,7 +26,13 @@ v3 では 2 つの転換を同時に行う:
 - **機能的に独立したスライス (SlideShow / ViewerDocumentIO / SlideList / Edit) を単位**とし、そのスライスの viewController を完成後に削除する
 - 共有される view class (`SlideView` base 等) は Group D (Edit) までレガシーとして生き残るが、それは「並走」ではなく「レガシー側の未移行部分の依存」。新側は一切使わずに `?new=1` で独立動作する
 
-これにより postmortem §1.1 が断罪した「並走を作ったまま放置」は、**削除ゲートの機械化 + 独立スライスごとの収束**によって構造的に不可能になる。
+**転換 3: 新側はレガシークラスを一切 import せず新規実装する** (ユーザ確定 2026-06-20、§0-10 で詳細):
+
+- 各 Group は「機能的にスライスする」だけでなく「**新側だけで完結する**」よう必要なものを新規実装する。例えば Group A の Slideshow が描画に必要な `SlideView`/`LayerView`/`LayerContent` はレガシー `view/SlideView.ts`/`view/LayerView.ts`/`view/layer/*` を import せず新規に作る
+- これにより**新側 component library が Group をまたいで漸進蓄積し再利用される**。Group A で作った rendering chain は Group C で `mode="thumb"` 拡張、Group D で `mode="edit"` 拡張により**コードレベルで再利用**される
+- 結果、Group が進むほど「次の Group で新規に書く量」が減り、マイグレーションが加速する。Group D (Edit、最大) に到達した時点で rendering chain は既に Group A/C で実証済の再利用資産となる
+
+これにより postmortem §1.1 が断罪した「並走を作ったまま放置」は、**削除ゲートの機械化 + 独立スライスごとの収束 + 新側 library の自律成長**によって構造的に不可能になる。
 
 ---
 
@@ -64,6 +70,8 @@ v3 では 2 つの転換を同時に行う:
 ### §0-1. swap chunk 単位の原子性 (反省文 §1.1, §3「削除ゲート」)
 
 各 swap chunk は build (1、5 ターン) + swap (1 ターン) の固定寿命。**build 開始から 5 ターン以内に swap が完了しなければ build を `git reset --hard chunk-X-start` で巻戻し、chunk 設計を見直す**。並走の慢性化を物理禁止。
+
+**Group A のみ例外**: 新側 rendering chain (SlideView / LayerView / LayerContent) の bootstrap を同梱するため上限 7 ターン (§3 Group A 記載)。Group B 以降は通常の 5 ターン上限。
 
 chunk は Group (A/B/C/D) 内部で複数設けてよい (例: A.単位規模が大きい場合は `SlideshowShell skeleton` と `slideshow controls` の 2 chunk に分ける)。ただし chunk 分割は **その Group 着手時点で todoList に明示宣言する**。Group 着手後に chunk を增やすのはサブ ID 即興発明 (memory 行 16) に該当し禁止。
 
@@ -114,6 +122,44 @@ swap ターン:  legacy -M, new ±α, total -(M-α) (負債回収)
 - **UI 操作は仕様書ベース**: [docs/function-list.md](function-list.md) / [docs/mode-spec.md](mode-spec.md) / [docs/sensitive-mode-spec.md](sensitive-mode-spec.md) / [docs/data-compatibility-spec.md](data-compatibility-spec.md) に明記された挙動を再現。pixel-perfect (cursor 形状の細部等) は不問
 - 「機能だけある程度」を口実にした仕様逸脱は禁止。仕様書記載の挙動は必須
 
+### §0-10. 新側内製の原則 (ユーザ確定 2026-06-20)
+
+新側 component は **レガシークラスを import してはならない**。新側で必要な機能はその Group の build フェーズで新規実装する。stateful なレガシークラス (EventDispatcher 派生 / jQuery 利用 / シングルトン保持) は **hook / store action / 純関数のいずれか**として再実装する (class インスタンスは廃)。
+
+**import 禁止** (stateful レガシークラス全般):
+
+| ファイル | 理由 | 新側での再実装先 |
+|---|---|---|
+| `src/view/**` | 神 component + 派生 view クラス、jQuery / EventDispatcher | `components/slide/SlideView.tsx` + `components/layer/*.tsx` (Group A〜D で段階構築) |
+| `src/viewController/**` | jQuery / EventDispatcher | `components/panels/*.tsx` + `components/SlideshowShell.tsx` (Group A〜D) |
+| `src/viewModel/VMUI.ts` | class シングルトン | store action + AppShell の `useEffect` (Group D) |
+| `src/Viewer.ts` / 現行 `src/index.ts` | god class + jQuery bootstrap | `src/main-new.tsx` → 最終 `src/main.tsx` (Group D 末尾) |
+| `src/model/**` | EventDispatcher 派生 class | `src/types/**` 純粋型 (済) + store action |
+| `src/events/**` / `src/interface/**` | EventDispatcher / 旧 OO interface | 不要 (zustand 購読で代替) |
+| `src/utils/LayerViewFactory.ts` | jQuery | 廃止 (FC 化で不要、Group D) |
+| `src/utils/KeyboardManager.ts` | EventDispatcher class | `hooks/useShellKeyboard.ts` (Group D) |
+| `src/utils/HistoryManager.ts` | EventDispatcher class | `hooks/useHistory.ts` + store action (Group D) |
+| `src/utils/DropHelper.ts` | EventDispatcher class | `hooks/useDrop.ts` (必要 Group で) |
+| `src/utils/ImageManager.ts` | jQuery class | `hooks/useImageLibrary.ts` (Group B/D) |
+| `src/utils/SlideStorage.ts` | EventDispatcher class シングルトン (ユーザ指示 2026-06-20) | **`hooks/useStorage.ts` + 純関数 codec** (Group B、HVD/HVZ/PNG パーサ・シリアライザを純関数化) |
+
+**import 可** (pure 静的ヘルパー、jQuery / EventDispatcher / class インスタンス状態を持たない):
+
+- `src/types/**` (純粋型、既に確立)
+- `src/state/**` (zustand store、既に確立)
+- `src/utils/DataUtil.ts` / `src/utils/DateUtil.ts` / `src/utils/PNGEmbedder.ts` / `src/utils/SlideToPNGConverter.ts` / `src/utils/TypeChecker.ts` (静的ヘルパー)
+  - 現状は class 構文だが静的メソッドのみで lifecycle 持たず。新側 import 時点では現状形で使用可。将来 P7 相当の最終整理で純関数化検討
+
+**戦略的価値** (ユーザ確定 2026-06-20):
+
+vertical slice で各 Group が新側だけで完結することで、**新側 component / hook / store が漸進蓄積される**。例:
+
+- Group A の rendering chain (`SlideView`/`LayerView`/`LayerContent`) → Group C で `mode="thumb"` 拡張、Group D で `mode="edit"` 拡張により**コードレベルで再利用**
+- Group B の `hooks/useStorage.ts` + 純関数 codec → Group C で SlideList 並び替え保存、Group D で edit 保存に再利用
+- Group D の `hooks/useHistory.ts` → 既に Group A〜C の store action が history record されている前提で組まれるため、最小 wiring で動作
+
+**Group が進むほど「次の Group で新規に書く量」が減り、マイグレーションが加速する**。Group D (Edit、最大) 到達時には rendering chain と storage が既に Group A/B で実証済の再利用資産となる。
+
 ---
 
 ## 3. Group カタログ (vertical slice 順、Group ID 固定)
@@ -124,23 +170,50 @@ swap ターン:  legacy -M, new ±α, total -(M-α) (負債回収)
 
 スライドショーは全画面表示の読み取り専用モード。編集状態と独立。
 
+**スコープは Slideshow だけでなく**、その描画に必要な新側 rendering chain 一式を含む (§0-10 新側内製原則)。以下は全てレガシー `view/*` `model/*` を import せず新規実装:
+
+- `components/slide/SlideView.tsx` (初版 = 読み取り専用描画コア、`mode` prop 未追加)
+- `components/layer/LayerView.tsx` (レイヤー描画コンテナ FC)
+- `components/layer/LayerContent.tsx` (image / text discriminated union ディスパッチ、`src/types/Layer.ts` 購読)
+- `components/SlideshowShell.tsx` (全画面シェル + Mantine Modal + next/prev/auto-advance)
+- 必要な `hooks/` (auto-advance タイマー等)
+- 新側エントリポイント: `src/main-new.tsx` + クエリ `?new=1` 振り分け (§0-8)
+
 | swap chunk | レガシー (削除対象) | 新 (build 先) | build 上限 |
 |---|---|---|---|
-| A | `viewController/SlideShowViewController.ts` (~530 行 jQuery) + `Viewer.ts` の slideshow 関連メソッド surgery | `components/SlideshowShell.tsx` (全画面シェル + Mantine Modal) + `components/slide/SlideView.tsx` (初版 = 読み取り専用描画コア、`mode` prop 未追加) + 必要な `hooks/` (auto-advance タイマー等) | 5 |
+| A | `viewController/SlideShowViewController.ts` (~530 行 jQuery) + `Viewer.ts` の slideshow 関連メソッド surgery | 上記新側 rendering chain + SlideshowShell + main-new.tsx + dev-only fixture ローダ | **7** (rendering chain bootstrap のため 5 ターン上限の例外、Group A のみ) |
 
-レガシー `DOMSlideView` `SlideView` (base) は Edit が依存するため Group D まで生き残る。新 `components/slide/SlideView.tsx` はそれとは独立の新実装。
+レガシー `view/slide/DOMSlideView.ts` `view/SlideView.ts` ベースは Edit が依存するため Group D まで生き残る。新 `components/slide/SlideView.tsx` はそれとは独立の新実装、レガシーを import しない。
 
-build 動作確認代替案 (§0-8): 新側 AppShell に dev-only fixture ローダ (`?new=1&fixture=2026-06-16_170948.hvd`) を一時的に設置。Group B 完了時に削除。
+**Group A で規格化される新側資産 (以降の Group で再利用)**:
+
+- `components/slide/SlideView.tsx` → Group C で `mode="thumb"`、Group D で `mode="edit"` 拡張
+- `components/layer/LayerView.tsx` + `components/layer/LayerContent.tsx` → Group C/D でそのまま再利用
+- 「新側 component 設計パターン」(store 購読型 / vitest 型 / Mantine コンポーネント選定 / FC 構造) をここで確立し B/C/D に適用
+
+build 動作確認代替案 (§0-8): 新側 AppShell に dev-only fixture ローダ (`?new=1&fixture=2026-06-16_170948.hvd`) を一時設置 (最小 fetch + 新側 codec スタブ)。Group B の useStorage 完成時に削除。
 
 ### Group B. ViewerDocumentIO
 
 ドキュメントレベルのロード/セーブ/インポート/エクスポート + 画像ライブラリ。
 
+**スコープに storage 層の新側再実装を含む** (§0-10 新側内製原則、ユーザ指示 2026-06-20):
+
+- レガシー `src/utils/SlideStorage.ts` (EventDispatcher class シングルトン) は新側から import しない
+- 新規実装: `hooks/useStorage.ts` (React-facing API) + storage 純関数 codec (HVD/HVZ/PNG パーサ・シリアライザ、class 不使用) + 必要なら `state/storageStore.ts` (storage 一覧/進捗スライス)
+- 純関数 codec は新側 round-trip test で byte-equal を assert (§0-9)
+- レガシー `SlideStorage` class 自体の削除は Group D 末尾 (レガシー `Viewer.ts` が依然参照するため)
+
 | swap chunk | レガシー (削除対象) | 新 (build 先) | build 上限 |
 |---|---|---|---|
-| B | `viewController/file/FileSelector.ts` + `Viewer.ts` のファイル IO メソッド surgery + Group A の dev-only fixture ローダ削除 | `components/panels/FileIOPanel.tsx` + load/save/import/export を store action 化 + Mantine ダイアログ | 5 |
+| B | `viewController/file/FileSelector.ts` + `Viewer.ts` のファイル IO メソッド surgery + Group A の dev-only fixture ローダ削除 | `components/panels/FileIOPanel.tsx` + `hooks/useStorage.ts` + storage 純関数 codec + (必要なら) `state/storageStore.ts` + Mantine ダイアログ | 5 |
 
-依然 `Viewer.ts` 本体は Edit 関連メソッドが残るため Group D まで存続 (サイズだけ縮む)。
+依然 `Viewer.ts` 本体は Edit 関連メソッドが残るため Group D まで存続 (サイズだけ縮む)。レガシー `SlideStorage` class も Group D まで生き残る。
+
+**Group B で規格化される新側資産**:
+
+- `hooks/useStorage.ts` + storage 純関数 codec → Group C で SlideList 並び替え保存、Group D で edit 保存に再利用
+- `state/storageStore.ts` (必要なら) → storage list / progress / selected ID の SSoT
 
 ### Group C. SlideList
 
@@ -160,7 +233,7 @@ build 動作確認代替案 (§0-8): 新側 AppShell に dev-only fixture ロー
 - `viewModel/VMUI.ts` (479 行)
 - `view/slide/EditableSlideView.ts` (692 行 jQuery) + `view/slide/DOMSlideView.ts` + `view/SlideView.ts` (base)
 - `view/LayerView.ts` (base) + `view/layer/AdjustView.ts` + `view/layer/ImageView.ts` + `view/layer/TextView.ts`
-- `utils/LayerViewFactory.ts` + `utils/KeyboardManager.ts`
+- `utils/LayerViewFactory.ts` + `utils/KeyboardManager.ts` + `utils/HistoryManager.ts` + `utils/DropHelper.ts` + `utils/ImageManager.ts` + `utils/SlideStorage.ts` (すべて stateful レガシー class、§0-10 不使用リスト)
 - `Viewer.ts` (残り全て、~332 行) + 現行 `index.ts` (jQuery)
 - `events/EventDispatcher.ts` + `events/PropertyEvent.ts` + `model/PropFlags.ts` + `model/Layer.ts` + `model/layer/*.ts` + `model/Slide.ts` + `model/ViewerDocument.ts` + `interface/IDroppable.ts` + `interface/IVMUI.ts`
 
@@ -248,12 +321,12 @@ build 完了 = 以下 4 つすべて満たす:
 | Group | build ターン | swap ターン | 小計 | 累計 |
 |---|---|---|---|---|
 | (済) #1 ProgressBar | 0 | 0 | 0 | 0 |
-| A. SlideShow | 3-5 | 1 | 4-6 | 4-6 |
-| B. ViewerDocumentIO | 3-5 | 1 | 4-6 | 8-12 |
-| C. SlideList | 3-5 | 1 | 4-6 | 12-18 |
-| D. Edit (複数 chunk) | 20-25 | 5-8 | 25-33 | 37-51 |
+| A. SlideShow (+rendering chain bootstrap) | 5-7 | 1 | 6-8 | 6-8 |
+| B. ViewerDocumentIO (+useStorage 再実装) | 4-5 | 1 | 5-6 | 11-14 |
+| C. SlideList | 3-5 | 1 | 4-6 | 15-20 |
+| D. Edit (複数 chunk) | 18-23 | 5-8 | 23-31 | 38-51 |
 
-合計 **約 37〜51 ターン**。
+合計 **約 38〜51 ターン**。Group A/B で rendering chain と storage を新規実装するため build コストが上り、Group C/D ではそれらを再利用するため build コストが下がる (新側 library 漸進蓄積効果)。
 
 但し書き:
 - 反省文 §3 末尾の「8〜15 ターン規模」推定は v2 §0-1 (ターン原子性) 前提のため適用不可
