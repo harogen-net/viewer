@@ -8,13 +8,17 @@ type DocumentMeta = Omit<ViewerDocument, "slides">;
 interface ViewerDocumentState {
 	meta: DocumentMeta | null;
 	modified: boolean;
+	/** document の load / save / export 等の進捗 (0..1)。実行中でない時は null。 */
+	progress: number | null;
 	setDocument: (doc: ViewerDocument | null) => void;
 	setModified: (modified: boolean) => void;
+	setProgress: (progress: number | null) => void;
 }
 
 export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 	meta: null,
 	modified: false,
+	progress: null,
 	setDocument: (doc) => {
 		if (doc === null) {
 			set({ meta: null, modified: false });
@@ -26,4 +30,5 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 		}
 	},
 	setModified: (modified) => set({ modified }),
+	setProgress: (progress) => set({ progress }),
 }));
