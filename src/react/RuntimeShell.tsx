@@ -1,4 +1,4 @@
-import { Badge, Button, ColorInput, FileButton, Group, NativeSelect, Paper, Progress, ScrollArea, Stack, Switch, Text, Textarea, TextInput } from "@mantine/core";
+import { Badge, Button, ColorInput, FileButton, Group, NativeSelect, Paper, ScrollArea, Stack, Switch, Text, Textarea, TextInput } from "@mantine/core";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
 	useViewerEditCanvasState,
@@ -55,7 +55,9 @@ import {
 	getInputStep,
 	getWheelInputDelta,
 } from "./numericInput";
+import { RuntimeNotice, RuntimeProgress } from "./runtimeStatusOverlays";
 import { getSlideListDropAction, getSlideListKeyboardAction } from "./slideListKeyboard";
+import { SlideshowToolbar } from "./SlideshowToolbar";
 
 const durationOptions = [
 	{ value: "1", label: "0" },
@@ -108,69 +110,6 @@ type SavedFileSnapshot = {
 	value: string;
 	label: string;
 };
-
-type RuntimeNoticePayload = {
-	id: number;
-	message: string;
-	variant: "error" | "info";
-} | null;
-
-function RuntimeProgress({ percentage }: { percentage: number }) {
-	if (percentage <= 0 || percentage >= 1) return null;
-	return (
-		<Progress
-			aria-label="Storage progress"
-			value={Math.round(percentage * 100)}
-			color="blue"
-			size="xs"
-			style={{
-				position: "fixed",
-				top: 0,
-				left: 0,
-				width: "100vw",
-				zIndex: 2147483647,
-			}}
-		/>
-	);
-}
-
-function RuntimeNotice({ notice }: { notice: RuntimeNoticePayload }) {
-	const [activeNotice, setActiveNotice] = useState<RuntimeNoticePayload>(null);
-
-	useEffect(() => {
-		if (!notice) return;
-		setActiveNotice(notice);
-		const hideTimer = window.setTimeout(() => {
-			setActiveNotice(null);
-		}, 2600);
-		return () => window.clearTimeout(hideTimer);
-	}, [notice?.id]);
-
-	if (!activeNotice) return null;
-
-	return (
-		<Paper
-			role="status"
-			aria-live="polite"
-			shadow="md"
-			p="sm"
-			radius="sm"
-			style={{
-				position: "fixed",
-				left: 16,
-				bottom: 16,
-				zIndex: 2147483647,
-				maxWidth: "min(78vw, 560px)",
-				color: "#fff",
-				background: activeNotice.variant === "error" ? "rgba(163, 35, 45, 0.96)" : "rgba(24, 78, 125, 0.96)",
-				pointerEvents: "none",
-			}}>
-			<Text size="sm" c="inherit" lh={1.4}>
-				{activeNotice.message}
-			</Text>
-		</Paper>
-	);
-}
 
 export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 	const { slides: rawSlides, selectedIndex, revision } = useViewerSlideSnapshots();
@@ -1062,77 +1001,25 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 		? { left: pos.x, top: pos.y, right: "auto" }
 		: { right: 12, top: 12 };
 
-	if (viewerMode === "slideshow") {
-		return (
-			<>
-				<RuntimeProgress percentage={storageProgress.percentage} />
-				<RuntimeNotice notice={requestedNotice} />
-				<Paper
-					shadow="md"
-					p="xs"
-					radius="md"
-					withBorder
-					style={{
-						position: "fixed",
-						top: 12,
-						left: "50%",
-						transform: "translateX(-50%)",
-						zIndex: 2147483647,
-						background: "rgba(255, 255, 255, 0.9)",
-						backdropFilter: "blur(2px)",
-					}}>
-					<Group gap={6} wrap="nowrap">
-						<Button size="xs" color="red" variant="light" onClick={() => docActions.stopSlideshow()}>
-							Exit
-						</Button>
-						<Button size="xs" variant="default" onClick={() => docActions.showPreviousSlide()}>
-							Back
-						</Button>
-						<Button size="xs" variant="default" onClick={() => docActions.toggleSlideshowPause()}>
-							{slideShowPlayback.isPause ? "Play" : "Pause"}
-						</Button>
-						<Button size="xs" variant="default" onClick={() => docActions.showNextSlide()}>
-							Next
-						</Button>
-						<Switch
-							size="xs"
-							label="Full"
-							checked={slideShowSettings.fullscreen}
-							onChange={(e) => docActions.setFullscreen(e.currentTarget.checked)}
-						/>
-						<Switch
-							size="xs"
-							label="H"
-							checked={slideShowSettings.mirrorH}
-							onChange={(e) => docActions.setMirrorH(e.currentTarget.checked)}
-						/>
-						<Switch
-							size="xs"
-							label="V"
-							checked={slideShowSettings.mirrorV}
-							onChange={(e) => docActions.setMirrorV(e.currentTarget.checked)}
-						/>
-					</Group>
-				</Paper>
-			</>
-		);
-	}
-
 	return (
 		<>
 			<RuntimeProgress percentage={storageProgress.percentage} />
 			<RuntimeNotice notice={requestedNotice} />
-			<FileButton
-				accept=".png,.hvd,.hvz"
-				onChange={importSelectedFile}
-				resetRef={resetImportPickerRef}>
-				{({ onClick }) => {
-					openImportPickerRef.current = onClick;
-					return null;
-				}}
-			</FileButton>
-			<Paper
-				shadow="md"
+			{viewerMode === "slideshow" ? (
+				<SlideshowToolbar />
+			) : (
+				<>
+					<FileButton
+						accept=".png,.hvd,.hvz"
+						onChange={importSelectedFile}
+						resetRef={resetImportPickerRef}>
+						{({ onClick }) => {
+							openImportPickerRef.current = onClick;
+							return null;
+						}}
+					</FileButton>
+					<Paper
+						shadow="md"
 				p={0}
 				radius="md"
 				withBorder
@@ -2462,6 +2349,8 @@ export function RuntimeShell({ mode, gate }: RuntimeShellProps) {
 					</ScrollArea>
 				)}
 			</Paper>
+				</>
+			)}
 		</>
 	);
 }
