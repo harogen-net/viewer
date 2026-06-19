@@ -1,169 +1,160 @@
-# 状態管理設計書（React 移行）
+# 状態管理設計書 (v2)
 
 ## 目的
-現行 jQuery + MVVM 的実装を React へ移行するため、状態の責務分割とデータフローを定義する。
+
+React 移行後の状態管理を、jQuery + class + EventDispatcher の旧実装から
+**純粋データ + Zustand store + 純粋 React FC** に置き換えるための設計指針を
+定義する。
 
 ## 関連ドキュメント
-- docs/function-list.md
-- docs/migration-roadmap.md
-- docs/mode-spec.md
 
-## 1. 設計方針
-- ドメイン状態と UI 状態を分離する。
-- 副作用（保存/読込/入出力）を Adapter 層に隔離する。
-- Undo/Redo は UI から独立した Command 履歴として管理する。
-- モード制御は App レベルの feature gate で統一する。
+- [docs/migration-roadmap-v2.md](migration-roadmap-v2.md)
+- [docs/data-compatibility-spec.md](data-compatibility-spec.md)
+- 旧 v1 設計: [docs/state-management-design.archived.md](state-management-design.archived.md) (参考のみ)
 
-## 2. 状態の分類
-### 2.1 ドメイン状態（永続対象）
-- ViewerDocument
-  - `title`, `createTime`, `editTime`, `bgColor`, `width`, `height`, `isSensitive`
-- Slide
-  - `id`, `uuid`, `durationRatio`, `joining`, `disabled`, `layers`
-- Layer
-  - 共通: 位置、拡縮、回転、反転、透明度、ロック、表示
-  - ImageLayer: `imageId`, `clipRect`, `isText`, `name`, `shared`
-  - TextLayer: `text`, `shared`
-- Image Asset
-  - `imageId`, `src`, `width`, `height`, `name`
+---
 
-### 2.2 UI 状態（非永続）
-- 現在モード
-  - `mode: browser | mobilePwa`
-- 画面状態
-  - `viewerMode: select | edit | slideshow`
-- 選択状態
-  - `selectedSlideId`, `selectedLayerId`
-- 表示状態
-  - パネル開閉、ダイアログ表示、進捗表示、トースト
-- スマホ向き制御状態
-  - orientation lock 試行結果、transform フォールバック有無
+## 1. 根幹アーキテクチャ
 
-### 2.3 セッション状態
-- 認証状態（センシティブ文書）
-  - `sensitiveAuthStatus: locked | unlocked | failed`
-- クリップボード状態
-  - コピー済みレイヤー、コピー済み transform
+本アプリの中核は `ViewerDocument → Slide → Layer` の **3 階層親子ヒエラルキー**。
 
-## 3. ストア構成（提案）
-- `documentStore`
-  - 文書、スライド、レイヤーの正規状態
-- `uiStore`
-  - 選択、表示、モード、ダイアログ
-- `historyStore`
-  - `undoStack`, `redoStack`, command 実行 API
-- `assetStore`
-  - imageId ベースの画像辞書
-- `securityStore`
-  - センシティブ認証状態、復号鍵の一時保持
+```
+ViewerDocument
+  ├─ title / width / height / bgColor / createTime / editTime
+  └─ slides: Slide[]
+       └─ Slide
+            ├─ id / uuid / width / height / durationRatio / joining / disabled
+            └─ layers: Layer[]
+                 └─ Layer (discriminated union)
+                      ├─ ImageLayer: type="image", imageId, clipRect, isText, ...
+                      └─ TextLayer:  type="text", text, ...
+```
 
-注記:
-- 状態管理ライブラリは実装時に最終決定（Context + useReducer / Zustand 等）。
-- どの実装でも Store 責務はこの分割を維持する。
+型定義は [src/types/ViewerDocument.ts](../src/types/ViewerDocument.ts) /
+[src/types/Slide.ts](../src/types/Slide.ts) /
+[src/types/Layer.ts](../src/types/Layer.ts) を **Single Source of Type**
+として参照する。
 
-## 4. データフロー
-1. UI 操作を Action として発火
-2. Action が Command（undo 可能単位）へ変換される
-3. Command 実行で `documentStore` を更新
-4. 必要に応じて `historyStore` へ記録
-5. 永続化契機で Adapter を呼び出し保存
+- `id`: HVD で永続化される識別子 (number)
+- `uuid`: React key 等 runtime identity 用 (string、HVD 非保存)
+- `Layer` は `type` field による discriminated union で型安全に分岐
 
-## 5. Command 設計
-### 5.1 Command インターフェース
-- `do()`
-- `undo()`
-- `redo()`（`do()` と同義でも可）
-- `label`（履歴可視化用）
+---
 
-### 5.2 Command 例
-- `MoveLayerCommand`
-- `ScaleLayerCommand`
-- `RotateLayerCommand`
-- `UpdateLayerPropsCommand`
-- `AddSlideCommand`
-- `RemoveSlideCommand`
-- `ReorderSlideCommand`
-- `ReplaceImageRefCommand`
-- `TransactionCommand`（複合操作）
+## 2. Zustand store の 3 分割
 
-## 6. Adapter 境界
-- `StorageAdapter`
-  - IndexedDB 保存/読込
-- `ImportExportAdapter`
-  - HVD/HVZ/PNG 埋め込みデータ
-- `ImageAssetAdapter`
-  - 画像登録/削除/参照
-- `SensitiveAdapter`
-  - 暗号化/復号、パスワード検証
+3 ヒエラルキー階層に **1:1 対応** する 3 store を持つ。
 
-ルール:
-- Store は Adapter を直接持たず、UseCase 層経由で呼び出す。
+| store | 保持データ | 同期タイミング |
+|---|---|---|
+| `viewerDocumentStore` | 現在開いている document のメタ (title 等) | document load 時 |
+| `slideStore`          | その document の `slides` 全件             | document load 時に viewerDocumentStore セットと連動 |
+| `layerStore`          | **選択中** slide の `layers` のみ          | slide 選択/編集時に slideStore から自動切り出し |
 
-### 6.1 StorageAdapter 契約
-- event: `loading`, `loaded`, `update`, `error`（`StorageEventType`）
-- command: `save`, `export`, `load`, `import`, `delete`
-- query: `getTitles`
+実体は [src/state/](../src/state/) 配下:
 
-### 6.2 UseCase 境界
-- `DocumentStorageUseCase` が UI と `StorageAdapter` の境界として機能する。
-- UI 層は `onLoading/onLoaded/onUpdated/onError` の意味論 API を利用する。
-- `FeatureGate` 判定（`canSave/canExport/canImport/canDeleteSavedData`）は UseCase 側で扱う。
+- [src/state/viewerDocumentStore.ts](../src/state/viewerDocumentStore.ts)
+- [src/state/slideStore.ts](../src/state/slideStore.ts)
+- [src/state/layerStore.ts](../src/state/layerStore.ts)
 
-### 6.3 エラーと Result モデル
-- `StorageActionResult` を保存系操作の共通戻り値とする。
-- エラーコードは `UNSUPPORTED_VERSION` / `PARSE_ERROR` / `MISSING_ASSET` / `STORAGE_IO_ERROR` / `PERMISSION_DENIED` / `INVALID_ARGUMENT` を使う。
-- UI 通知は `StorageActionResult.message` または UseCase の通知文言 API で統一する。
+### 2.1 なぜ 3 分割するか
 
-### 6.4 非同期完了の扱い
-- `save/export/import/load/delete` は非同期結果モデルで扱う。
-- `load` は `loaded/error`、`delete` は `update/error` を完了条件として扱う。
-- event 未到達のハングを避けるためタイムアウト制御を持つ。
+最小構成なら `viewerDocumentStore` 1 つで slides / layers を含めて全保持で
+済む。それでも **3 分割する理由**:
 
-### 6.5 型境界
-- ストレージ層の型は `src/storage/storageTypes.ts` を正規参照点とする。
-- `StorageRecordId` / `StorageExportOptions` / `StorageOperationError` を利用して I/O 境界の型を固定する。
+1. **編集パネルの購読範囲を狭める**: layerStore に「選択中 slide の layers
+   のみ」を切り出すことで、edit pane の React FC は無関係な slide の
+   layer 変更で再描画されない。
+2. **役割の明確化**: 各 store の責務が階層に対応し、actions の意味が自明
+   になる (例: `slideStore.addSlide` は document の slides を増やす、
+   `layerStore.addLayer` は選択中 slide の layers を増やす)。
+3. **段階的移行のしやすさ**: phase 単位で「この panel は layerStore を購読
+   するだけ」と独立移行できる。
 
-### 6.6 UI 連携方針
-- React 側は `ViewerBridge` と `ViewerCommands` を介して操作・状態同期を行う。
-- 保存ファイル選択、スライド一覧、スライドショー設定、履歴状態は bridge event で一元同期する。
-- legacy DOM の直接 click 依存は新規実装に導入しない。
+### 2.2 中間レイヤー禁止 (鉄則)
 
-## 7. 現行 MVVM からの対応
-- 旧 Model -> `documentStore` ドメインモデル
-- 旧双方向UIバインド -> React フォーム + selector + action dispatch
-- 旧 ViewController -> 画面単位コンテナ + useCase hooks
+- `bridge/` / `useCase/` / `adapter` / `service` / 専用 `hooks/` 等の
+  **中間層フォルダは一切作らない** (migration-roadmap-v2.md §0-2)。
+- React FC は store を**直接** `useStore((s) => s.field)` で購読する。
+- 副作用は store action 内または `useEffect` 内で完結させる。
 
-## 8. 同期・整合ルール
-- `selectedSlideId` が消えた場合は次候補へ選択移動
-- `selectedLayerId` が無効化された場合は選択解除
-- `mode=mobilePwa` の間は編集系 action を reject する
-- センシティブ未認証時は復号済み画像を store に展開しない
+---
 
-## 9. エラー処理
-- 永続化失敗
-  - UI 通知 + リトライ導線
-- 復号失敗
-  - 認証状態を `failed` へ遷移
-  - コンテンツ表示停止
-- 互換性不一致
-  - バージョン判定で読み込み拒否し、理由を表示
+## 3. データフロー
 
-## 10. テスト観点
-- reducer/store 単体テスト
-- command undo/redo 整合テスト
-- adapter モックによる保存読込テスト
-- mode gate の拒否動作テスト
-- センシティブ認証フローの正常/異常テスト
+### 3.1 Load (storage → store)
 
-## 11. 段階導入計画
-- Step 1: `uiStore` + `mode` 制御導入
-- Step 2: `documentStore` と閲覧系 action 移行
-- Step 3: `historyStore` と編集 command 移行
-- Step 4: Adapter 層置換（保存/入出力）
-- Step 5: `securityStore` とセンシティブ処理導入
+```
+File (.hvd / .hvz / .png)
+  → SlideStorage.import / load / parseData
+    → ViewerDocument (plain data, src/types)
+      → viewerDocumentStore.setDocument(...)     // meta セット
+      → slideStore.setSlides(doc.slides)         // 子 slides を同期
+      // layerStore は selectedSlideIndex 連動で派生
+```
 
-## 12. 受け入れ基準
-- 編集操作の undo/redo が既存同等である
-- 保存/読込互換が維持される
-- mobile pwa mode で編集 action が実行されない
-- センシティブ未認証時に機密表示が発生しない
+`viewerDocumentStore.setDocument` (将来追加) は `slideStore.setSlides` も
+**併せて呼ぶ** (orchestrator 不在のため store action 内で連鎖)。
+
+### 3.2 Slide 選択 (slideStore → layerStore)
+
+```
+UI: slideStore.setSelectedIndex(newIndex)
+  → slideStore.selectedIndex 更新
+    → effect (どこか、e.g. EditPanel の useEffect):
+        const slide = useSlideStore.getState().slides[newIndex];
+        layerStore.setLayers(slide?.layers ?? []);
+```
+
+選択 index の変化に応じて layerStore の中身を「**選択中 slide の layers
+のスナップショット**」に同期する。
+
+### 3.3 Edit (UI → store → View 再描画)
+
+```
+UI イベント (例: layer drag)
+  → layerStore.updateLayer(uuid, { transX: newX, transY: newY })
+    → layerStore.layers 配列が新参照で置き換わる
+      → 購読中の React FC (Mantine/Canvas 等) が再描画
+      → 同時に: slideStore の対応 slide.layers を更新 (writeBack action)
+        → slideStore.slides 配列も新参照で置き換わる
+          → 他の購読 FC (Thumbnail 等) も再描画
+```
+
+**書き戻し (writeBack)** を必ず行うことで、source of truth を slideStore
+側に保ち、layerStore を一時 view として扱う。
+
+### 3.4 Save (store → storage)
+
+```
+UI: save ボタン
+  → SlideStorage.save(buildViewerDocumentFromStores())
+    // viewerDocumentStore + slideStore を合成して plain data を組み立て、
+    // storage 側に渡す
+  → modified フラグを viewerDocumentStore.setModified(false)
+```
+
+---
+
+## 4. 設計上の鉄則 (再掲)
+
+- **純粋データのみ store に格納**: Slide / Layer は class instance ではなく
+  `src/types/` の type ベース。Object.is shallow equality で React の
+  再描画判定が確実に動く。
+- **mutation は store action 経由のみ**: 「読んだ object を直接書き換え」
+  禁止 (immer 等を使う or new array/object を作る)。
+- **storage は store を知らない**: SlideStorage は plain data の生成と
+  parse のみを担当。store update は呼び出し側 (UI/Viewer/AppShell) が行う。
+- **層は 4 つだけ**: `types/` / `state/` / `components/` / `utils/` (+ `model/`
+  は当面残るが P5 以降で types に吸収して削除)。
+
+---
+
+## 5. 移行への含意
+
+- P2 以降の view 置換は **store を直接購読する FC** として書く (props は
+  最小限)。
+- P5 で `model/` class の撤去と同時に store の Slide/Layer は
+  `src/types/` 由来であることを保証する。
+- 旧 EventDispatcher / PropertyEvent 経由の通知は **store の subscribe** に
+  完全置換する。並走 (旧 + 新) は禁止。
