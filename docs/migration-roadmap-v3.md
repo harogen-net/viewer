@@ -100,6 +100,8 @@ swap ターン:  legacy -M, new ±α, total -(M-α) (負債回収)
 
 **§3 の各 Group (A / B / C / D) の最終 swap 完了時点で累計 total が単調減少していること**。最終終点で < 6,500 行。
 
+**build ターンの LOC 正増は事前承認不要** (ユーザ確定 2026-06-20)。Strangler fig + vertical slice 戦略上、build ターンは LOC 正増が前提 (新コードを追加するが旧は消さない)。報告義務はあるがゲートではない。v2 §0-4 にあった「正増ターンは事前承認」要件は v3 では適用しない。承認が必要なのは KPI そのものの緩和 (最終終点 < 6,500 行、byte-equal 等) であり、中間 LOC ではない。
+
 ### §0-6. component 単独 round-trip test 同梱 (反省文 §2.6)
 
 各 component の swap コミットには `tests/fixtures/` の HVD/HVZ/PNG を**新 component 経由で**処理する round-trip テストを**同一コミット**で追加。test なしの swap は phase 未完。
