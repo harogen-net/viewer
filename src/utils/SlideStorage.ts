@@ -1,16 +1,16 @@
-import { ImageLayer } from "../model/layer/ImageLayer";
+import JSZip from "jszip";
 import { EventDispatcher } from "../events/EventDispatcher";
-import { Viewer } from "../Viewer";
+import { LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { TextLayer } from "../model/layer/TextLayer";
+import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
+import { Viewer } from "../Viewer";
+import { DataUtil } from "./DataUtil";
+import { DateUtil } from "./DateUtil";
+import { ImageManager } from "./ImageManager";
 import { PNGEmbedder } from "./PNGEmbedder";
 import { SlideToPNGConverter } from "./SlideToPNGConverter";
-import { DateUtil } from "./DateUtil";
-import { DataUtil } from "./DataUtil";
-import { LayerType } from "../model/Layer";
-import { TextLayer } from "../model/layer/TextLayer";
-import { ImageManager } from "./ImageManager";
-import { Slide } from "../model/Slide";
-import JSZip from "jszip";
 
 
 export enum HVDataType {
@@ -94,6 +94,8 @@ export class SlideStorage extends EventDispatcher {
 	save(doc: ViewerDocument, isOverride: boolean = false) {
 		console.log("save at SlideStorage,", doc, isOverride);
 
+		doc.editTime = new Date().getTime();
+
 		let title = isOverride ? doc.title : DateUtil.getDateString();
 		let id = this.idByTitle[title];
 
@@ -136,6 +138,7 @@ export class SlideStorage extends EventDispatcher {
 	}
 
 	public export(doc: ViewerDocument, type: HVDataType, options?: any) {
+		doc.editTime = new Date().getTime();
 		let jsonStr: string = this.stringifyData(doc);
 
 		//
@@ -262,11 +265,6 @@ export class SlideStorage extends EventDispatcher {
 	//
 
 	private stringifyData(doc: ViewerDocument): string {
-		//MARK : 更新時間上書き
-		doc.editTime = new Date().getTime();
-
-		//
-
 		//console.log("stringifyData start ------------");
 
 		let json: any = {};
@@ -367,6 +365,7 @@ export class SlideStorage extends EventDispatcher {
 			//construct slides
 			json.slideData.forEach(slideDatum => {
 				let slide: Slide = new Slide(width, height);
+				slide.id = slideDatum.id;
 				slide.durationRatio = slideDatum.durationRatio || 1;
 				slide.joining = Boolean(slideDatum.joining);
 				slide.disabled = Boolean(slideDatum.disabled);

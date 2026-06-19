@@ -10,9 +10,12 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@mantine/core": "^7.13.0",
+    "@mantine/hooks": "^7.13.0",
     "crc-32": "^1.2.2",
     "crypto-js": "^4.2.0",
     "jquery": "^3.7.1",
@@ -20,8 +23,11 @@
     "jszip": "^3.5.0",
     "matrixgl": "^2.0.0",
     "natural-compare": "^1.4.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "stackblur-canvas": "^2.3.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@fortawesome/fontawesome-free": "^6.5.2",
@@ -30,10 +36,15 @@
     "@types/jquery": "^3.5.30",
     "@types/jqueryui": "^1.12.22",
     "@types/node": "^18.13.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^25.0.0",
     "sass": "^1.77.2",
     "ts-loader": "^9.4.2",
     "typescript": "^4.9.5",
     "vite": "^5.2.11",
-    "vite-plugin-pwa": "^0.20.0"
+    "vite-plugin-pwa": "^0.20.0",
+    "vitest": "^2.1.0"
   }
 }
