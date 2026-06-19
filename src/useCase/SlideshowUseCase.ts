@@ -1,5 +1,5 @@
 import { Slide } from "../model/Slide";
-import { SlideShowRuntime } from "../runtime/SlideShowRuntime";
+import { type SlideShowRuntimeHandle } from "../runtime/SlideshowShell";
 import { ViewerMode } from "../runtime/viewerMode";
 import { uiStore } from "../state/uiStore";
 import { viewerDocumentStore } from "../state/viewerDocumentStore";
@@ -9,7 +9,7 @@ import { viewerDocumentStore } from "../state/viewerDocumentStore";
  * Kept narrow so the use case can be tested or relocated independently of Viewer.
  */
 export type SlideshowUseCaseDeps = {
-	runtime: SlideShowRuntime;
+	runtime: SlideShowRuntimeHandle;
 	getSlides: () => readonly Slide[];
 	getSelectedSlideIndex: () => number;
 	getMode: () => ViewerMode;

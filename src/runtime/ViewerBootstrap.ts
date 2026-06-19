@@ -27,9 +27,10 @@ import { ImageManager } from "../utils/ImageManager";
 import { EditCanvasRuntime } from "./EditCanvasRuntime";
 import type { FeatureGate } from "./featureGate";
 import { createModeController, type ModeController } from "./ModeController";
+import { mountSlideshowShell, type SlideshowShellMount } from "./mountSlideshowShell";
 import { showNotice } from "./notice";
 import { getSaveFormat } from "./reactDomRegistry";
-import { SlideShowRuntime } from "./SlideShowRuntime";
+import { type SlideShowRuntimeHandle } from "./SlideshowShell";
 import { ViewerStartUpMode } from "./viewerMode";
 
 /**
@@ -50,7 +51,8 @@ export type BootstrapDeps = {
 
 export type BootstrapResult = {
 	editCanvasRuntime: EditCanvasRuntime | undefined;
-	slideShowRuntime: SlideShowRuntime;
+	slideShowRuntime: SlideShowRuntimeHandle;
+	slideshowShellMount: SlideshowShellMount;
 	slideshowUseCase: SlideshowUseCase;
 	documentStorage: DocumentStorageUseCase;
 	savedFileNav: SavedFileNavigationUseCase;
@@ -76,11 +78,12 @@ export function bootstrapViewer(deps: BootstrapDeps): BootstrapResult {
 
 	const slideShowHost = document.createElement("div");
 	deps.obj.appendChild(slideShowHost);
-	const slideShowRuntime = new SlideShowRuntime(slideShowHost, {
+	const slideshowShellMount = mountSlideshowShell(slideShowHost, {
 		onPlaybackChanged: ({ isRun, isPause }) => {
 			slideshowUseCase?.handlePlaybackChanged(isRun, isPause);
 		},
 	});
+	const slideShowRuntime: SlideShowRuntimeHandle = slideshowShellMount.handle;
 
 	const modeController = createModeController({
 		obj: deps.obj,
@@ -199,6 +202,7 @@ export function bootstrapViewer(deps: BootstrapDeps): BootstrapResult {
 	return {
 		editCanvasRuntime,
 		slideShowRuntime,
+		slideshowShellMount,
 		slideshowUseCase,
 		documentStorage,
 		savedFileNav,

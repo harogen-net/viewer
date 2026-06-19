@@ -1,21 +1,26 @@
 import { PropertyEvent } from "../events/PropertyEvent";
 import { Layer, LayerType } from "../model/Layer";
 import { createImageLayer, ImageLayer } from "../model/layer/ImageLayer";
-import { createTextLayer, TextLayer } from "../model/layer/TextLayer";
+import { createTextLayer } from "../model/layer/TextLayer";
 import { PropFlags } from "../model/PropFlags";
-import { SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
-import { layerStore, type EditLayerValues } from "../state/layerStore";
+import { createSlide, SLIDE_LAYER_NUM_MAX, type Direction, type Slide } from "../model/Slide";
+import { layerStore } from "../state/layerStore";
 import { slideStore } from "../state/slideStore";
 import {
-    createEditLayerMutationUseCase,
-    type EditLayerMutationUseCase,
-    type LayerMutationRenderScope,
+	createEditLayerMutationUseCase,
+	type EditLayerMutationUseCase,
+	type LayerMutationRenderScope,
 } from "../useCase/EditLayerMutationUseCase";
 import { ImageManager } from "../utils/ImageManager";
 import {
-    EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
-    type EditableSlideViewHandle,
+	EDITABLE_SLIDE_VIEW_SCALE_DEFAULT,
+	type EditableSlideViewHandle,
 } from "../view/slide";
+import {
+	emitEditCanvasState,
+	emitEditLayerListState,
+	emitEditSelectedLayerState,
+} from "./editCanvasEmitters";
 import { mountEditableSlideViewInto, type ReactViewMount } from "./mountReactView";
 import { ViewerMode } from "./viewerMode";
 
@@ -99,25 +104,11 @@ export class EditCanvasRuntime {
 	}
 
 	private emitCanvasState(): void {
-		layerStore.getState().setEditCanvasState({
-			scale: this.slideView.scale,
-			rectEdit: this.slideView.rectEdit,
-		});
+		emitEditCanvasState(this.slideView);
 	}
 
 	private emitLayerListState(): void {
-		const selected = this.slideView.selectedLayer;
-		const layers = this.slide.layers.map((layer, index) => ({
-			index,
-			id: layer.id,
-			name: layer.name ?? "",
-			type: String(layer.type),
-			locked: Boolean(layer.locked),
-			visible: Boolean(layer.visible),
-			shared: Boolean(layer.shared),
-			selected: selected === layer,
-		}));
-		layerStore.getState().setEditLayers(layers);
+		emitEditLayerListState(this.slideView);
 	}
 
 	private watchSelectedLayer(): void {
@@ -142,65 +133,7 @@ export class EditCanvasRuntime {
 	};
 
 	private emitSelectedLayerState(): void {
-		const layer = this.slideView.editingLayer;
-		const canPasteLayer = this.layerMutations.canPasteLayer();
-		const canPasteLayerTransform = this.layerMutations.canPasteLayerTransform();
-		if (!layer) {
-			layerStore.getState().setEditSelection({
-				hasSelection: false,
-				canPasteLayer,
-				canPasteLayerTransform,
-			});
-			const values: EditLayerValues = {
-				name: null,
-				visible: null,
-				locked: null,
-				shared: null,
-				x: null,
-				y: null,
-				scale: null,
-				rotation: null,
-				opacity: null,
-				layerType: null,
-				mirrorH: null,
-				mirrorV: null,
-				isText: null,
-				textContent: null,
-				clipTop: null,
-				clipRight: null,
-				clipBottom: null,
-				clipLeft: null,
-			};
-			layerStore.getState().setEditValues(values);
-			return;
-		}
-		const imageLayer = layer.type == LayerType.IMAGE ? (layer as ImageLayer) : null;
-		layerStore.getState().setEditSelection({
-			hasSelection: true,
-			canPasteLayer,
-			canPasteLayerTransform,
-		});
-		const values: EditLayerValues = {
-			name: layer.name,
-			visible: layer.visible,
-			locked: layer.locked,
-			shared: layer.shared,
-			layerType: layer.type,
-			x: layer.x,
-			y: layer.y,
-			scale: layer.scale,
-			rotation: layer.rotation,
-			opacity: layer.opacity,
-			mirrorH: layer.mirrorH,
-			mirrorV: layer.mirrorV,
-			isText: imageLayer ? imageLayer.isText : null,
-			textContent: layer.type === LayerType.TEXT ? (layer as TextLayer).text : null,
-			clipTop: imageLayer ? imageLayer.clipT : null,
-			clipRight: imageLayer ? imageLayer.clipR : null,
-			clipBottom: imageLayer ? imageLayer.clipB : null,
-			clipLeft: imageLayer ? imageLayer.clipL : null,
-		};
-		layerStore.getState().setEditValues(values);
+		emitEditSelectedLayerState(this.slideView, this.layerMutations);
 	}
 
 	public emitCurrentState(): void {
