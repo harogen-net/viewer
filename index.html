@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <script type="module" src="src/index.ts"></script>
+    <script type="module">
+      // v3 Group A dual entrypoint (§0-8): ?new=1 で新側、それ以外でレガシー。
+      // <script type="module"> は defer 同等のため DOM parse 完了後に実行される。
+      const isNew = new URLSearchParams(location.search).get("new") === "1";
+      console.log("[entrypoint] new mode:", isNew);
+      if (isNew) {
+        // 新側モードではレガシー DOM (#wrapper) を削除し #root だけ残す。
+        document.getElementById("wrapper")?.remove();
+        import("/src/main-new.tsx")
+          .then((m) => console.log("[entrypoint] main-new.tsx loaded", m))
+          .catch((e) => console.error("[entrypoint] main-new.tsx import failed:", e));
+      } else {
+        import("/src/index.ts")
+          .catch((e) => console.error("[entrypoint] index.ts import failed:", e));
+      }
+    </script>
     <link rel="stylesheet" type="text/css" href="css/index.css" />
     <title>Viewer</title>
   </head>
