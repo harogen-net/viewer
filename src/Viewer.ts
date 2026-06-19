@@ -297,6 +297,8 @@ export class Viewer {
 			nextDocument = new ViewerDocument();
 		}
 		this.viewerDocument = nextDocument;
+		// 旧 class instance を seam で type に通す。class 撤去 (P5 想定) で as any も消える。
+		useViewerDocumentStore.getState().setDocument(nextDocument as any);
 		this.listVC.slides = this.viewerDocument.slides;
 		this.IsDocumentModified = false;
 	}
