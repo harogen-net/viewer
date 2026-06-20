@@ -1,105 +1,26 @@
 import { Paper, ScrollArea, Stack, Text, Title } from "@mantine/core";
-import type { CSSProperties, FC } from "react";
+import type { FC } from "react";
 import { Fragment } from "react";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
-import type { Slide } from "../../types/Slide";
-import { SlideDisplayMode } from "../../types/Slide";
-import { SlideView } from "../slide/SlideView";
+import { SlideJoinIndicator } from "../slide/SlideJoinIndicator";
+import { SlideThumbView } from "../slide/SlideThumbView";
 
-// SlideListPanel (v4 Group C build C-3、§0-10 新側内製、Mantine UI)。
+// SlideListPanel (v4 Group C build C-3、C-3R で slide view を slide/ に統合)。
 // レガシー src/viewController/ListViewController.ts (jQuery + ThumbSlideView class) は
-// import せず新規実装。サムネイル描画は components/slide/SlideView.tsx の mode="thumb" を利用。
+// import せず新規実装。
 //
-// C-3 スコープ (本ファイル):
-//   - スライド一覧の横並び表示 (横スクロール)
-//   - サムネクリックで選択 (setSelectedIndex)
-//   - 選択中 / disabled の視覚状態
-//   - joining 状態の視覚化 (隣接 slide との連結インジケーター)
+// 本 FC は「一覧パネルの組立て」のみ:
+//   - 横スクロール ScrollArea
+//   - slides を SlideThumbView 列に展開、間に SlideJoinIndicator を挿入
+//   - 状態テキスト (N slides / selected: #M)
+//   - クリックで store.setSelectedIndex
 //
-// C-4 以降で追加予定:
-//   - DnD 並び替え (@dnd-kit)
-//   - 前後移動ボタン
-//   - 追加 / 削除 / 複製ボタン
-//   - コンテキストメニュー (Mantine Menu)
+// 描画 / scale / 装飾はすべて slide/ 配下の FC に集約済 (SlideView / SlideThumbView /
+// SlideJoinIndicator)。C-4 以降の DnD / 前後ボタン / 追加削除複製 / コンテキストメニュー
+// は本 FC または slide/ 配下に追加していく。
 
 const THUMB_HEIGHT = 110;
-
-interface SlideThumbItemProps {
-	slide: Slide;
-	index: number;
-	selected: boolean;
-	bgColor?: string;
-	onClick: () => void;
-}
-
-/** 1 枚のサムネイル + 選択枠 + disabled 表示 (クリックで選択)。 */
-const SlideThumbItem: FC<SlideThumbItemProps> = ({ slide, index, selected, bgColor, onClick }) => {
-	const itemStyle: CSSProperties = {
-		position: "relative",
-		flex: "0 0 auto",
-		// 選択時は青枠、未選択時は同じ太さの透明枠 (border でレイアウトずれないように)
-		border: selected ? "2px solid #228be6" : "2px solid transparent",
-		borderRadius: 4,
-		// disabled は半透明
-		opacity: slide.disabled ? 0.35 : 1,
-		cursor: "pointer",
-		boxSizing: "content-box",
-		background: "#fff",
-		boxShadow: selected ? "0 0 0 1px rgba(34,139,230,0.3)" : "0 0 1px rgba(0,0,0,0.2)",
-	};
-	const indexLabelStyle: CSSProperties = {
-		position: "absolute",
-		bottom: 2,
-		left: 4,
-		color: "#fff",
-		background: "rgba(0,0,0,0.55)",
-		fontSize: 10,
-		lineHeight: 1,
-		padding: "2px 4px",
-		borderRadius: 2,
-		fontFamily: "monospace",
-		pointerEvents: "none",
-	};
-	return (
-		<div
-			style={itemStyle}
-			data-slide-index={index}
-			data-selected={selected ? "true" : "false"}
-			data-disabled={slide.disabled ? "true" : "false"}
-			onClick={onClick}
-		>
-			<SlideView slide={slide} bgColor={bgColor} mode={SlideDisplayMode.THUMB} thumbHeight={THUMB_HEIGHT} />
-			<span style={indexLabelStyle}>{index + 1}</span>
-		</div>
-	);
-};
-
-/**
- * 隣接スライド間の joining インジケーター。
- * joining=true: 細い接続線 (1 つに繋がっている) + 4px ギャップ
- * joining=false: 区切り線 + 12px ギャップ
- */
-const SlideJoinIndicator: FC<{ joining: boolean }> = ({ joining }) => {
-	if (joining) {
-		const style: CSSProperties = {
-			alignSelf: "center",
-			width: 8,
-			height: 2,
-			background: "#868e96",
-			flex: "0 0 auto",
-		};
-		return <div style={style} data-join="true" />;
-	}
-	const style: CSSProperties = {
-		alignSelf: "stretch",
-		width: 1,
-		margin: "0 8px",
-		background: "#dee2e6",
-		flex: "0 0 auto",
-	};
-	return <div style={style} data-join="false" />;
-};
 
 export const SlideListPanel: FC = () => {
 	const slides = useSlideStore((s) => s.slides);
@@ -132,12 +53,13 @@ export const SlideListPanel: FC = () => {
 						>
 							{slides.map((slide, i) => (
 								<Fragment key={slide.uuid}>
-									<SlideThumbItem
+									<SlideThumbView
 										slide={slide}
 										index={i}
 										selected={i === selectedIndex}
 										bgColor={bgColor}
 										onClick={() => setSelectedIndex(i)}
+										thumbHeight={THUMB_HEIGHT}
 									/>
 									{i < slides.length - 1 && (
 										<SlideJoinIndicator joining={slide.joining} />
