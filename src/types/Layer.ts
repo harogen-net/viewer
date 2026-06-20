@@ -4,7 +4,14 @@
  * id は HVD で保存される識別子、uuid は React key 等 runtime identity 用 (HVD 非保存)。
  */
 
-export type LayerType = "image" | "text" | "shape" | "layer";
+/** Layer.type の値カタログ (HVD で保存される文字列定数)。 */
+export const LayerType = {
+	IMAGE: "image",
+	TEXT: "text",
+	SHAPE: "shape",
+	LAYER: "layer",
+} as const;
+export type LayerType = (typeof LayerType)[keyof typeof LayerType];
 
 export interface LayerTransform {
 	transX: number;
