@@ -1,10 +1,14 @@
 import type { CSSProperties, FC, MouseEvent as ReactMouseEvent } from "react";
-import { SlideView, type SlideViewProps } from "./SlideView";
+import { useEffect, useMemo, useRef } from "react";
+import { useImageLibraryStore } from "../../state/imageLibraryStore";
+import { drawSlideToCanvas } from "../../utils/slideThumbnail";
+import type { SlideViewProps } from "./SlideView";
 
-// SlideListPanel の 1 要素 (v4 Group C C-3R で slide/ 配下に切り出し、C-9 で legacy thumb UI 同梱)。
+// SlideListPanel の 1 要素 (v4 Group C C-3R で slide/ 配下に切り出し、C-9 で legacy thumb UI 同梱、
+//                       C-10 で canvas 1 枚描画化、legacy CanvasSlideView/ThumbSlideView 互換)。
 //
-// 役割: 「リストの 1 サムネとしての装飾と相互作用」をすべて担う。
-//   - 縮小 (CSS transform: scale で thumbHeight に揃える)
+// 役割:
+//   - thumb サムネ描画 (canvas 1 枚に焼付け、layer DOM を作らない = 大量画像でも軽量)
 //   - 選択枠 (selected で青ボーダー)
 //   - disabled opacity
 //   - クリック → 親 onClick
@@ -12,28 +16,24 @@ import { SlideView, type SlideViewProps } from "./SlideView";
 //   - durationRatio コントローラ ( [-] xN [+]、N != 1 のみ label 表示)
 //   - joining toggle ボタン (右辺中央)
 //   - disabled checkbox (右上)
-//   - durationRatio に応じた width 補正 (legacy ThumbSlideView 互換)
+//   - durationRatio に応じた wrapper width 補正 (canvas は native aspect、wrapper を CSS で横方向 stretch)
 //
-// SlideView は描画コアのみを担当。本 FC は SlideView をラップし「リストアイテムとして
-// 提示する」装飾レイヤー。Group D の Edit canvas は別 wrapper FC (SlideEditView 等) を
-// 用意し、同じく SlideView を内包する。
+// SlideView (DOM 描画) はここでは使わない。Slideshow 用の display 描画は SlideView を直接使う。
+// Edit canvas (Group D) は SlideEditView 等の別 wrapper を用意し、SlideView (DOM 描画) を内包する想定。
 
 interface SlideThumbViewProps extends SlideViewProps {
 	index: number;
 	selected: boolean;
 	onClick: () => void;
-	/** durationRatio の +/- ボタン押下。 */
 	onIncrementDuration: () => void;
 	onDecrementDuration: () => void;
-	/** joining checkbox / arrow クリックで反転。 */
 	onToggleJoining: () => void;
-	/** disabled checkbox クリックで反転。 */
 	onToggleDisabled: () => void;
 	/** thumb の固定高さ (px)。デフォルト 110 (legacy THUMB_HEIGHT 互換)。 */
 	thumbHeight?: number;
 }
 
-// legacy ThumbSlideView.fitToHeight() の幅補正式。
+// legacy ThumbSlideView.fitToHeight() の幅補正式:
 //   r == 1     → 1
 //   r < 1      → pow(r, 0.4)
 //   r > 1      → atan(r - 1) * 0.5 + 1
@@ -64,10 +64,35 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 }) => {
 	const scale = thumbHeight / slide.height;
 	const correction = computeDurationCorrection(slide.durationRatio);
-	// 浮動小数点誤差で 220.00000000000003px 等になるのを避けるため整数化
-	const scaledWidth = Math.round(slide.width * scale * correction);
+	// canvas natural size (native aspect、durationCorrection なし)
+	const canvasW = Math.round(slide.width * scale);
+	const canvasH = thumbHeight;
+	// wrapper の見かけ width (durationCorrection を CSS stretch として反映)
+	const wrapperW = Math.round(canvasW * correction);
 	const durationLabel =
 		slide.durationRatio === 1 ? "" : `x${slide.durationRatio.toString().substr(0, 3)}`;
+
+	// imageLibraryStore を購読 (slide の参照する image 更新時に redraw)
+	const imageById = useImageLibraryStore((s) => s.imageById);
+	const imageMap = useMemo(() => {
+		const map: Record<string, string> = {};
+		for (const [id, entry] of Object.entries(imageById)) {
+			map[id] = entry.dataURL;
+		}
+		return map;
+	}, [imageById]);
+
+	// canvas 描画 (legacy CanvasSlideView 相当、in-place 描画でメモリ節約)
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	useEffect(() => {
+		const canvas = canvasRef.current;
+		if (!canvas) return;
+		drawSlideToCanvas(slide, bgColor, imageMap, {
+			targetCanvas: canvas,
+			targetWidth: canvasW,
+			targetHeight: canvasH,
+		}).catch((e) => console.warn("[SlideThumbView] draw failed:", e));
+	}, [slide, bgColor, imageMap, canvasW, canvasH]);
 
 	const itemStyle: CSSProperties = {
 		position: "relative",
@@ -81,17 +106,16 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		boxSizing: "content-box",
 		background: "#fff",
 		boxShadow: selected ? "0 0 0 1px rgba(34,139,230,0.3)" : "0 0 1px rgba(0,0,0,0.2)",
-		// 縮小された見かけ寸法を border の内側として確保 (durationCorrection で横伸縮)
-		width: scaledWidth,
+		// wrapper の見かけ寸法 (durationCorrection で横伸縮)
+		width: wrapperW,
 		height: thumbHeight,
 		overflow: "hidden",
 	};
-	const scaledInnerStyle: CSSProperties = {
-		// SlideView は native サイズで描画 → ここで scale をかけて thumbHeight に揃える
-		transform: `scale(${scale})`,
-		transformOrigin: "top left",
-		width: slide.width,
-		height: slide.height,
+	// canvas は native aspect で描画、CSS で wrapper に fit (width:100% で stretch される)。
+	const canvasStyle: CSSProperties = {
+		width: "100%",
+		height: "100%",
+		display: "block",
 	};
 	const indexLabelStyle: CSSProperties = {
 		position: "absolute",
@@ -106,7 +130,6 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		fontFamily: "monospace",
 		pointerEvents: "none",
 	};
-	// 右上 disabled checkbox。pointer-events は ON (クリック有効)。
 	const enableCheckStyle: CSSProperties = {
 		position: "absolute",
 		top: 2,
@@ -114,7 +137,6 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		margin: 0,
 		cursor: "pointer",
 	};
-	// 右辺中央 joining 矢印 (▶ で結合、▷ で非結合)。wrapper.overflow=hidden 内に収める。
 	const joinArrowStyle: CSSProperties = {
 		position: "absolute",
 		top: "50%",
@@ -134,7 +156,6 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		userSelect: "none",
 		lineHeight: 1,
 	};
-	// 下端中央の duration コントローラ。
 	const durationControlStyle: CSSProperties = {
 		position: "absolute",
 		bottom: 2,
@@ -174,9 +195,13 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 			data-duration-ratio={slide.durationRatio}
 			onClick={onClick}
 		>
-			<div style={scaledInnerStyle}>
-				<SlideView slide={slide} bgColor={bgColor} />
-			</div>
+			<canvas
+				ref={canvasRef}
+				width={canvasW}
+				height={canvasH}
+				style={canvasStyle}
+				data-thumb-canvas
+			/>
 			<span style={indexLabelStyle}>{index + 1}</span>
 
 			<input

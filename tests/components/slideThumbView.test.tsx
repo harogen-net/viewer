@@ -156,18 +156,42 @@ describe("SlideThumbView thumb 内 UI (v4 Group C C-9)", () => {
 			expect(getOuter().style.width).toBe("220px");
 		});
 
-		it("ratio>1 のとき width 伸長", () => {
+		it("ratio>1 のとき wrapper width 伸長 (canvas natural aspect は不変)", () => {
 			renderThumb(makeSlide({ durationRatio: 2 }));
 			const w = parseInt(getOuter().style.width, 10);
 			expect(w).toBeGreaterThan(220);
 			expect(w).toBeLessThan(400);
+			// canvas は durationCorrection なしの native aspect で固定
+			const canvas = container.querySelector<HTMLCanvasElement>("[data-thumb-canvas]");
+			expect(canvas?.width).toBe(220);
+			expect(canvas?.height).toBe(110);
 		});
 
-		it("ratio<1 のとき width 短縮", () => {
+		it("ratio<1 のとき wrapper width 短縮", () => {
 			renderThumb(makeSlide({ durationRatio: 0.5 }));
 			const w = parseInt(getOuter().style.width, 10);
 			expect(w).toBeLessThan(220);
 			expect(w).toBeGreaterThan(120);
+		});
+	});
+
+	describe("canvas 描画 (C-10 legacy CanvasSlideView 互換)", () => {
+		it("data-thumb-canvas な <canvas> が 1 つ存在し、native aspect で属性設定される", () => {
+			renderThumb(makeSlide());
+			const canvas = container.querySelector<HTMLCanvasElement>("[data-thumb-canvas]");
+			expect(canvas).not.toBeNull();
+			// slide 1600x800 + thumbHeight 110 → scale 0.1375、canvasW = 220
+			expect(canvas?.width).toBe(220);
+			expect(canvas?.height).toBe(110);
+			// CSS は 100% で wrapper にフィット
+			expect(canvas?.style.width).toBe("100%");
+			expect(canvas?.style.height).toBe("100%");
+		});
+
+		it("従来の <SlideView> ベース DOM 要素は出ない (= layers DOM が積み上がらない)", () => {
+			// SlideView 内側の data-slide-id (slide id 1 のもの) は描画されない
+			renderThumb(makeSlide({ id: 1 }));
+			expect(container.querySelector("[data-slide-id='1']")).toBeNull();
 		});
 	});
 
