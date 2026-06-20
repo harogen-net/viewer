@@ -143,6 +143,16 @@ function ingestImageData(raw: RawHvd): void {
 }
 
 /**
+ * HVD JSON 文字列を ViewerDocument に変換する (テスト/外部用 export)。
+ * 副作用として imageLibraryStore も更新する (新側 round-trip ロジックの完全形)。
+ */
+export function parseHvdJson(text: string, fallbackTitle: string): ViewerDocument {
+	const raw = JSON.parse(text) as RawHvd;
+	ingestImageData(raw);
+	return mapHvd(raw, fallbackTitle);
+}
+
+/**
  * クエリ `?fixture=<filename>` から tests/fixtures/<filename> を読み込み
  * ViewerDocument に変換する。fixture 未指定なら null を返す。
  */
@@ -161,10 +171,8 @@ export async function loadFixtureFromQuery(): Promise<ViewerDocument | null> {
 		return null;
 	}
 	const text = await res.text();
-	const raw = JSON.parse(text) as RawHvd;
-	ingestImageData(raw);
-	const doc = mapHvd(raw, name);
-	console.log("[devFixtureLoader] loaded", { title: doc.title, slides: doc.slides.length, images: Object.keys(raw.imageData ?? {}).length });
+	const doc = parseHvdJson(text, name);
+	console.log("[devFixtureLoader] loaded", { title: doc.title, slides: doc.slides.length });
 	return doc;
 }
 
