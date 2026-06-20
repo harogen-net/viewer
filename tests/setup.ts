@@ -17,3 +17,28 @@ Object.defineProperty(HTMLImageElement.prototype, "src", {
 		});
 	},
 });
+
+// jsdom (25) の Blob には arrayBuffer() / text() が無い。FileReader 経由で polyfill。
+// useFileIO.importFile が File.arrayBuffer() / File.text() を呼ぶため、test 環境
+// でも本番と同じ経路で動作させるためのもの。
+if (typeof Blob !== "undefined" && typeof Blob.prototype.arrayBuffer !== "function") {
+	Blob.prototype.arrayBuffer = function (this: Blob): Promise<ArrayBuffer> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(reader.error);
+			reader.readAsArrayBuffer(this);
+		});
+	};
+}
+if (typeof Blob !== "undefined" && typeof Blob.prototype.text !== "function") {
+	Blob.prototype.text = function (this: Blob): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as string);
+			reader.onerror = () => reject(reader.error);
+			reader.readAsText(this);
+		});
+	};
+}
+
