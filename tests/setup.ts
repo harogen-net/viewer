@@ -18,9 +18,33 @@ Object.defineProperty(HTMLImageElement.prototype, "src", {
 	},
 });
 
-// jsdom (25) の Blob には arrayBuffer() / text() が無い。FileReader 経由で polyfill。
+// jsdom (25) には window.matchMedia が無い。Mantine の color-scheme 検出が
+// requires。test 環境では light スキーム固定でよいので no-match を返す。
+if (typeof window !== "undefined" && !window.matchMedia) {
+	Object.defineProperty(window, "matchMedia", {
+		configurable: true,
+		value: (query: string) => ({
+			matches: false,
+			media: query,
+			onchange: null,
+			addListener: () => {},
+			removeListener: () => {},
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			dispatchEvent: () => false,
+		}),
+	});
+}
+// jsdom には ResizeObserver も無い。Mantine ScrollArea で必須。no-op で polyfill。
+if (typeof window !== "undefined" && typeof (window as unknown as { ResizeObserver?: unknown }).ResizeObserver === "undefined") {
+	(window as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+		observe(): void {}
+		unobserve(): void {}
+		disconnect(): void {}
+	};
+}
 // useFileIO.importFile が File.arrayBuffer() / File.text() を呼ぶため、test 環境
-// でも本番と同じ経路で動作させるためのもの。
+// でも本番と同じ経路で動作させるためのもの (jsdom 25 の Blob は両関数を持たない)。
 if (typeof Blob !== "undefined" && typeof Blob.prototype.arrayBuffer !== "function") {
 	Blob.prototype.arrayBuffer = function (this: Blob): Promise<ArrayBuffer> {
 		return new Promise((resolve, reject) => {

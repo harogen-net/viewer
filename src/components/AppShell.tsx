@@ -3,6 +3,7 @@ import type { CSSProperties, FC } from "react";
 import { useState } from "react";
 import { useSlideStore } from "../state/slideStore";
 import { FileIOPanel } from "./panels/FileIOPanel";
+import { SlideListPanel } from "./panels/SlideListPanel";
 import { ProgressBar } from "./ProgressBar";
 import { SlideshowShell } from "./SlideshowShell";
 
@@ -38,6 +39,7 @@ const NewSidePanel: FC = () => {
 				<Stack gap="md">
 					<Title order={3}>v3 new side</Title>
 					<FileIOPanel />
+					<SlideListPanel />
 					<Group gap="sm" align="center">
 						<Button
 							color="green"
