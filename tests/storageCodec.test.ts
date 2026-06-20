@@ -1,10 +1,11 @@
+import JSZip from "jszip";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ImageLayer, TextLayer } from "../src/types/Layer";
 import { LayerType } from "../src/types/Layer";
 import type { ViewerDocument } from "../src/types/ViewerDocument";
-import { parseHvd, serializeHvd } from "../src/utils/storageCodec";
+import { parseHvd, parseHvz, parsePng, serializeHvd, serializeHvz, serializePng } from "../src/utils/storageCodec";
 
 // v3 Group B build 1: storageCodec 純関数の単体テスト。
 // HVD JSON ↔ ViewerDocument 変換の正常性と round-trip 安定性を検証。
@@ -244,6 +245,78 @@ describe("storageCodec (v3 Group B build 1)", () => {
 			}
 
 			expect(Object.keys(second.imageData).sort()).toEqual(Object.keys(first.imageData).sort());
+		});
+	});
+
+	describe("serializeHvz / parseHvz", () => {
+		it("HVZ round-trip: parse(serialize(doc)) で構造が保たれる (fixture)", async () => {
+			const first = parseHvd(fixtureText, "fixture.hvd");
+			const u8a = await serializeHvz(first.doc, first.imageData);
+			// jsdom realm の Uint8Array と Node global の違いを避けるため Buffer.from で wrap。
+			const second = await parseHvz(Buffer.from(u8a), "fixture.hvd");
+
+			expect(second.doc.width).toBe(first.doc.width);
+			expect(second.doc.height).toBe(first.doc.height);
+			expect(second.doc.slides.length).toBe(first.doc.slides.length);
+			expect(Object.keys(second.imageData).sort()).toEqual(Object.keys(first.imageData).sort());
+		});
+
+		it("空 zip は parseHvz でエラー", async () => {
+			const empty = await new JSZip().generateAsync({ type: "uint8array" });
+			await expect(parseHvz(Buffer.from(empty), "x")).rejects.toThrow(/zip に有効なエントリ/);
+		});
+
+		it("serializeHvz は zip 内に doc.title.hvd エントリを含む", async () => {
+			const doc: ViewerDocument = {
+				title: "my-doc",
+				width: 100,
+				height: 100,
+				createTime: 0,
+				editTime: 0,
+				slides: [],
+			};
+			const u8a = await serializeHvz(doc, {});
+			const zip = await JSZip.loadAsync(Buffer.from(u8a));
+			expect(Object.keys(zip.files)).toContain("my-doc.hvd");
+		});
+	});
+
+	describe("serializePng / parsePng", () => {
+		it("PNG round-trip: parse(serialize(doc)) で構造が保たれる (fixture、デフォルト透明 PNG)", async () => {
+			const first = parseHvd(fixtureText, "fixture.hvd");
+			const pngBytes = await serializePng(first.doc, first.imageData);
+			// jsdom realm の Uint8Array 罠回避のため Buffer.from でラップ
+			const second = await parsePng(Buffer.from(pngBytes), "fixture.hvd");
+
+			expect(second.doc.width).toBe(first.doc.width);
+			expect(second.doc.height).toBe(first.doc.height);
+			expect(second.doc.slides.length).toBe(first.doc.slides.length);
+			expect(Object.keys(second.imageData).sort()).toEqual(Object.keys(first.imageData).sort());
+		});
+
+		it("serializePng の出力 PNG は valid な PNG シグネチャを持つ", async () => {
+			const doc: ViewerDocument = {
+				title: "t",
+				width: 100,
+				height: 100,
+				createTime: 0,
+				editTime: 0,
+				slides: [],
+			};
+			const u8a = await serializePng(doc, {});
+			// PNG signature: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
+			expect(u8a[0]).toBe(0x89);
+			expect(u8a[1]).toBe(0x50);
+			expect(u8a[2]).toBe(0x4e);
+			expect(u8a[3]).toBe(0x47);
+		});
+
+		it("HVD データが埋め込まれていない PNG は parsePng でエラー", async () => {
+			// 1x1 transparent PNG (embed なし) の生バイト
+			const rawPngBase64 =
+				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+			const rawBytes = Buffer.from(rawPngBase64, "base64");
+			await expect(parsePng(rawBytes, "x")).rejects.toThrow();
 		});
 	});
 });

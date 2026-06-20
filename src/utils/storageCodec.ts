@@ -1,7 +1,9 @@
+import JSZip from "jszip";
 import type { ImageLayer, Layer, TextLayer } from "../types/Layer";
 import { LayerType } from "../types/Layer";
 import type { Slide } from "../types/Slide";
 import type { ViewerDocument } from "../types/ViewerDocument";
+import { PNGEmbedder } from "./PNGEmbedder";
 
 // HVD (Histelle Viewer Data) JSON 形式 ↔ ViewerDocument 純関数 codec
 // (v3 Group B build 1、§0-10 新側内製)。
@@ -220,4 +222,134 @@ export function serializeHvd(doc: ViewerDocument, imageDataMap: Record<string, s
 	out.imageData = imageData;
 
 	return JSON.stringify(out);
+}
+
+// ---- HVZ (HVD JSON を ZIP 包装) ----
+//
+// レガシー src/utils/SlideStorage.ts の HVZ 形式に互換:
+//   - ZIP (DEFLATE 圧縮) 内に 1 エントリ `${doc.title}.hvd` (HVD JSON 文字列)
+//   - 読み出し時は zip 内の任意の .hvd エントリ (なければ先頭) を解釈
+// JSZip は pure utility のため §0-10 で import 可。
+
+/**
+ * ViewerDocument を HVZ (HVD JSON を含む zip) として生成。
+ * 戻り値は Uint8Array (browser では new Blob([u8a]) でラップ、Node/test では
+ * そのまま JSZip.loadAsync に渡せる universal な形)。
+ */
+export async function serializeHvz(
+	doc: ViewerDocument,
+	imageDataMap: Record<string, string>,
+): Promise<Uint8Array> {
+	const json = serializeHvd(doc, imageDataMap);
+	const zip = new JSZip();
+	zip.file(`${doc.title || "document"}.hvd`, json);
+	return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+}
+
+/**
+ * HVZ (zip) を parse。zip 内の .hvd エントリ (なければ先頭) を読み parseHvd へ。
+ * input は Blob / ArrayBuffer / Uint8Array 等 JSZip がそのまま受ける形式。
+ * fallbackTitle は HVD 内 title 不在時の最終 fallback。
+ */
+export async function parseHvz(
+	buffer: Blob | ArrayBuffer | Uint8Array,
+	fallbackTitle: string,
+): Promise<ParsedHvd> {
+	const zip = await JSZip.loadAsync(buffer);
+	const entries = Object.values(zip.files).filter((f) => !f.dir);
+	if (entries.length === 0) throw new Error("HVZ: zip に有効なエントリがありません");
+	const target = entries.find((f) => /\.hvd$/i.test(f.name)) ?? entries[0];
+	const text = await target.async("string");
+	return parseHvd(text, fallbackTitle);
+}
+
+// ---- PNG embedded (HVD JSON を ZIP 化して PNG に埋め込み) ----
+//
+// レガシー src/utils/SlideStorage.ts の HVDataType.PNG 形式に互換:
+//   - 1 つの PNG ファイルに hvDc チャンクとして zip (DEFLATE) を埋め込む
+//   - 内部 zip は 1 エントリ "data.hvd" (HVD JSON 文字列、固定名)
+//   - ファイル名規約: `[hv]{title}.png` (新側でも caller が prefix を扱う)
+// PNGEmbedder は pure util 扱い (§0-10 import 可リスト) で class インスタンスを
+// 1 関数内で生成して使い捨てる。
+//
+// 注: serializePng の thumbnail は実 slide 描画でないと意味がないが、
+// Group B 時点では新側 rendering chain (Group A) で SlideView が canvas 出力を
+// 直接持っていない。本 build では暫定で 1x1 透明 PNG を base に embed する
+// (PNG ファイルとして valid、データ往復は機能)。実 slide thumbnail 生成は
+// Group D の AppShell で SlideView canvas 出力経路を整えた後に thumbnail 引数で
+// 渡してもらう設計。
+
+// 1x1 transparent PNG (PNGEmbedder.embed の入力ベース用)
+const TRANSPARENT_PNG_DATA_URL =
+	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+
+/** Uint8Array → base64 文字列 (chunked、大サイズでも stack overflow しない)。 */
+function bytesToBase64(bytes: Uint8Array): string {
+	let binary = "";
+	const CHUNK = 0x8000;
+	for (let i = 0; i < bytes.length; i += CHUNK) {
+		const slice = bytes.subarray(i, i + CHUNK);
+		binary += String.fromCharCode.apply(null, Array.from(slice));
+	}
+	return btoa(binary);
+}
+
+/** base64 → Uint8Array。 */
+function base64ToBytes(base64: string): Uint8Array {
+	const binary = atob(base64);
+	const out = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+	return out;
+}
+
+/** PNGEmbedder.embed (callback-style) を Promise でラップ。 */
+function pngEmbedAsync(
+	embedder: PNGEmbedder,
+	pngDataURL: string,
+	bytes: Uint8Array,
+): Promise<string> {
+	return new Promise((resolve) => {
+		embedder.embed(pngDataURL, bytes, resolve);
+	});
+}
+
+/**
+ * ViewerDocument を PNG 埋め込み形式 (hvDc チャンクに HVD-zip を含む PNG) として
+ * Uint8Array で生成。thumbnailPngDataURL を渡せばその PNG にデータを埋め込む。
+ * 省略時は 1x1 透明 PNG を base にする (data 往復のみ、表示用 thumbnail は持たない)。
+ */
+export async function serializePng(
+	doc: ViewerDocument,
+	imageDataMap: Record<string, string>,
+	options?: { thumbnailPngDataURL?: string },
+): Promise<Uint8Array> {
+	const json = serializeHvd(doc, imageDataMap);
+	const zip = new JSZip();
+	zip.file("data.hvd", json);
+	const zipU8a = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+
+	const inputPngDataURL = options?.thumbnailPngDataURL ?? TRANSPARENT_PNG_DATA_URL;
+	const embedder = new PNGEmbedder();
+	const embeddedDataURL = await pngEmbedAsync(embedder, inputPngDataURL, zipU8a);
+
+	const base64 = embeddedDataURL.split(",", 2)[1] ?? "";
+	return base64ToBytes(base64);
+}
+
+/**
+ * PNG ファイル (hvDc チャンクに HVD-zip を埋め込んだもの) を parse。
+ * legacy SlideStorage の PNG 出力 (`[hv]{title}.png`) と互換。
+ */
+export async function parsePng(
+	buffer: Uint8Array,
+	fallbackTitle: string,
+): Promise<ParsedHvd> {
+	const dataURL = `data:image/png;base64,${bytesToBase64(buffer)}`;
+	const embedder = new PNGEmbedder();
+	const zipBytes = embedder.extract(dataURL);
+	const zip = await JSZip.loadAsync(zipBytes);
+	const entry = zip.file("data.hvd");
+	if (!entry) throw new Error("PNG: 埋め込み data.hvd エントリなし");
+	const text = await entry.async("string");
+	return parseHvd(text, fallbackTitle);
 }

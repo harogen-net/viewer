@@ -1,23 +1,36 @@
 import { ActionIcon, Button, Group, Paper, Select, Stack, Text, Title, Tooltip } from "@mantine/core";
-import type { FC } from "react";
-import { useCallback, useEffect, useState } from "react";
+import type { ChangeEvent, FC } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFileIO } from "../../hooks/useFileIO";
 import { useStorage, type StoredSlideTitle } from "../../hooks/useStorage";
+import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import type { ViewerDocument } from "../../types/ViewerDocument";
+import { createNewViewerDocument } from "../../utils/viewerDocumentFactory";
 
 // ファイル IO パネル (v3 Group B build、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/file/FileSelector.ts (jQuery) + Viewer.ts の
 // .save / .load / .new / .import / .export ハンドラ群を 1 component に統合。
 //
-// 現状サポート: 新規 / 開く / 保存 (新規 or 上書き) / 削除 (HVD JSON ベース)。
-// import (File 取り込み) / export (PNG/HVZ ダウンロード) は別 build で追加予定。
+// 役割分担:
+//   - 新規 / 一覧 / 開く / 保存 / 削除: 本 component + useStorage (IDB)
+//   - import / export (HVD/HVZ/PNG):  useFileIO に委譲 (doc / imageMap を注入)
+//   - store 反映 (setDocument / setImageLibrary) は本 component 側で行う
 
-const DEFAULT_WIDTH = 1792;
-const DEFAULT_HEIGHT = 1120;
+/** imageLibraryStore から imageId → dataURL の map を集める (export 用)。 */
+const collectImageMap = (): Record<string, string> => {
+	const imageMap: Record<string, string> = {};
+	const library = useImageLibraryStore.getState().imageById;
+	for (const [id, entry] of Object.entries(library)) {
+		imageMap[id] = entry.dataURL;
+	}
+	return imageMap;
+};
 
 export const FileIOPanel: FC = () => {
 	const { listTitles, loadByTitle, save, deleteByTitle } = useStorage();
+	const { exportHvd, exportHvz, exportPng, importFile } = useFileIO();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slides = useSlideStore((s) => s.slides);
@@ -25,6 +38,7 @@ export const FileIOPanel: FC = () => {
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
 	const [msg, setMsg] = useState<string | null>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// title 一覧を refresh (update 降順)。
 	const refreshTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
@@ -48,15 +62,7 @@ export const FileIOPanel: FC = () => {
 	};
 
 	const handleNew = wrap(async () => {
-		const now = Date.now();
-		setDocument({
-			title: "(new)",
-			width: DEFAULT_WIDTH,
-			height: DEFAULT_HEIGHT,
-			createTime: now,
-			editTime: now,
-			slides: [],
-		});
+		setDocument(createNewViewerDocument());
 		setMsg("new document created");
 		setSelectedTitle(null);
 	});
@@ -89,6 +95,45 @@ export const FileIOPanel: FC = () => {
 			await refreshTitles();
 		});
 
+	const handleExportHvd = wrap(async () => {
+		if (!meta) {
+			setMsg("document が未ロード");
+			return;
+		}
+		setMsg(await exportHvd({ ...meta, slides }, collectImageMap()));
+	});
+	const handleExportHvz = wrap(async () => {
+		if (!meta) {
+			setMsg("document が未ロード");
+			return;
+		}
+		setMsg(await exportHvz({ ...meta, slides }, collectImageMap()));
+	});
+	const handleExportPng = wrap(async () => {
+		if (!meta) {
+			setMsg("document が未ロード");
+			return;
+		}
+		setMsg(await exportPng({ ...meta, slides }, collectImageMap()));
+	});
+
+	const onFileSelected = (e: ChangeEvent<HTMLInputElement>): void => {
+		const file = e.target.files?.[0];
+		e.target.value = ""; // 同じファイルを連続選択できるよう reset
+		if (!file) return;
+		wrap(async () => {
+			const result = await importFile(file);
+			if (!result) {
+				setMsg(`未対応拡張子: ${file.name}`);
+				return;
+			}
+			setDocument(result.doc);
+			useImageLibraryStore.getState().setImageLibrary(result.imageData);
+			setSelectedTitle(null);
+			setMsg(`imported: ${result.doc.title} (${result.doc.slides.length} slides)`);
+		})();
+	};
+
 	const handleDelete = wrap(async () => {
 		if (!selectedTitle) {
 			setMsg("削除する title を選択してください");
@@ -118,6 +163,16 @@ export const FileIOPanel: FC = () => {
 					<Button size="xs" variant="default" onClick={handleNew}>
 						📄 新規
 					</Button>
+					<Button size="xs" variant="default" onClick={() => fileInputRef.current?.click()}>
+						📂 import
+					</Button>
+					<input
+						ref={fileInputRef}
+						type="file"
+						accept=".hvd,.hvz,.png"
+						onChange={onFileSelected}
+						style={{ display: "none" }}
+					/>
 					<Select
 						placeholder="開くファイルを選択"
 						value={selectedTitle}
@@ -148,6 +203,30 @@ export const FileIOPanel: FC = () => {
 							💾 上書き
 						</Button>
 					</Tooltip>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={handleExportHvd}
+						disabled={!hasSlides}
+					>
+						⬇ HVD
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={handleExportHvz}
+						disabled={!hasSlides}
+					>
+						⬇ HVZ
+					</Button>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={handleExportPng}
+						disabled={!hasSlides}
+					>
+						⬇ PNG
+					</Button>
 					<ActionIcon
 						size="lg"
 						variant="default"
