@@ -144,3 +144,68 @@ export const deleteAllDisabled = (state: SlideState): SlideState | null => {
 	if (next.length === slides.length) return null;
 	return { slides: next, selectedIndex: reselectByUuid(next, selectedUuid) };
 };
+
+// --- durationRatio ---
+//
+// レガシー src/view/slide/ThumbSlideView.ts の up/down 増減仕様を純関数化:
+//   - 上限 9 / 下限 0.2 (clamp)
+//   - 増減ステップは現在値で非線形:
+//       v < 1         : ±0.2
+//       1 ≤ v < 2     : ±0.5
+//       v ≥ 2         : ±1
+//     (down は ">" 比較で、up と境界の扱いがわずかに違うため step 関数を 2 つ用意)
+
+const incrementStep = (v: number): number => {
+	if (v >= 9) return 0;
+	if (v >= 2) return 1;
+	if (v >= 1) return 0.5;
+	return 0.2;
+};
+
+const decrementStep = (v: number): number => {
+	if (v <= 0.2) return 0;
+	if (v > 2) return 1;
+	if (v > 1) return 0.5;
+	return 0.2;
+};
+
+const MIN_DURATION = 0.2;
+const MAX_DURATION = 9;
+
+/** durationRatio を任意の値に設定 (0.2..9 でクランプ)。値変化なし / 範囲外なら null。 */
+export const setSlideDurationRatio = (
+	state: SlideState,
+	index: number,
+	ratio: number,
+): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (index < 0 || index >= slides.length) return null;
+	const clamped = Math.max(MIN_DURATION, Math.min(MAX_DURATION, ratio));
+	if (slides[index].durationRatio === clamped) return null;
+	const next = slides.map((s, i) => (i === index ? { ...s, durationRatio: clamped } : s));
+	return { slides: next, selectedIndex };
+};
+
+/** durationRatio を 1 ステップ増加 (legacy ThumbSlideView 互換ステップ)。 */
+export const incrementSlideDurationRatio = (
+	state: SlideState,
+	index: number,
+): SlideState | null => {
+	const { slides } = state;
+	if (index < 0 || index >= slides.length) return null;
+	const step = incrementStep(slides[index].durationRatio);
+	if (step === 0) return null;
+	return setSlideDurationRatio(state, index, slides[index].durationRatio + step);
+};
+
+/** durationRatio を 1 ステップ減少。 */
+export const decrementSlideDurationRatio = (
+	state: SlideState,
+	index: number,
+): SlideState | null => {
+	const { slides } = state;
+	if (index < 0 || index >= slides.length) return null;
+	const step = decrementStep(slides[index].durationRatio);
+	if (step === 0) return null;
+	return setSlideDurationRatio(state, index, slides[index].durationRatio - step);
+};

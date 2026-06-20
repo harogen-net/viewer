@@ -16,6 +16,9 @@ export interface UseSlideMutation {
 	setAllJoining: (joining: boolean) => void;
 	setAllDisabled: (disabled: boolean) => void;
 	deleteAllDisabled: () => void;
+	setSlideDurationRatio: (index: number, ratio: number) => void;
+	incrementSlideDurationRatio: (index: number) => void;
+	decrementSlideDurationRatio: (index: number) => void;
 }
 
 export const useSlideMutation = (): UseSlideMutation => {
@@ -77,6 +80,30 @@ export const useSlideMutation = (): UseSlideMutation => {
 		() => applySlideChange("delete disabled slides", (s) => slideOps.deleteAllDisabled(s)),
 		[applySlideChange],
 	);
+	const setSlideDurationRatio = useCallback(
+		(index: number, ratio: number) =>
+			applySlideChange(
+				"set duration ratio",
+				(s) => slideOps.setSlideDurationRatio(s, index, ratio),
+			),
+		[applySlideChange],
+	);
+	const incrementSlideDurationRatio = useCallback(
+		(index: number) =>
+			applySlideChange(
+				"duration up",
+				(s) => slideOps.incrementSlideDurationRatio(s, index),
+			),
+		[applySlideChange],
+	);
+	const decrementSlideDurationRatio = useCallback(
+		(index: number) =>
+			applySlideChange(
+				"duration down",
+				(s) => slideOps.decrementSlideDurationRatio(s, index),
+			),
+		[applySlideChange],
+	);
 
 	return {
 		moveSlide,
@@ -88,5 +115,8 @@ export const useSlideMutation = (): UseSlideMutation => {
 		setAllJoining,
 		setAllDisabled,
 		deleteAllDisabled,
+		setSlideDurationRatio,
+		incrementSlideDurationRatio,
+		decrementSlideDurationRatio,
 	};
 };

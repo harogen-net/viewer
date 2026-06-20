@@ -3,13 +3,16 @@ import type { Slide } from "../../src/types/Slide";
 import type { SlideState } from "../../src/types/SlideState";
 import {
     addSlide,
+    decrementSlideDurationRatio,
     deleteAllDisabled,
     deleteSlide,
     duplicateSlide,
+    incrementSlideDurationRatio,
     moveSlide,
     setAllDisabled,
     setAllJoining,
     setSlideDisabled,
+    setSlideDurationRatio,
     setSlideJoining,
 } from "../../src/utils/slideOps";
 
@@ -190,6 +193,63 @@ describe("slideOps (v4 Group C 純関数)", () => {
 		it("disabled 無し / 空配列 の deleteAllDisabled は null", () => {
 			expect(deleteAllDisabled(makeState([makeSlide(1, "a")]))).toBeNull();
 			expect(deleteAllDisabled(makeState([]))).toBeNull();
+		});
+	});
+
+	describe("durationRatio (set / increment / decrement)", () => {
+		it("setSlideDurationRatio: 範囲外 / 値同じは null、それ以外更新", () => {
+			const s = makeState([makeSlide(1, "a")]);
+			expect(setSlideDurationRatio(s, 0, 1)).toBeNull(); // 既定 1
+			expect(setSlideDurationRatio(s, 99, 2)).toBeNull(); // 範囲外
+			const r = setSlideDurationRatio(s, 0, 1.5);
+			expect(r?.slides[0].durationRatio).toBe(1.5);
+		});
+
+		it("setSlideDurationRatio: 0.2 未満 / 9 超は clamp", () => {
+			const s = makeState([makeSlide(1, "a")]);
+			expect(setSlideDurationRatio(s, 0, 0)?.slides[0].durationRatio).toBe(0.2);
+			expect(setSlideDurationRatio(s, 0, 100)?.slides[0].durationRatio).toBe(9);
+		});
+
+		it("incrementSlideDurationRatio: 1 → 1.5 → 2 → 3 → ... → 9 (頭打ち)", () => {
+			let s: SlideState = makeState([makeSlide(1, "a")]);
+			// 1.0 + 0.5 = 1.5
+			s = incrementSlideDurationRatio(s, 0) ?? s;
+			expect(s.slides[0].durationRatio).toBe(1.5);
+			// 1.5 + 0.5 = 2.0
+			s = incrementSlideDurationRatio(s, 0) ?? s;
+			expect(s.slides[0].durationRatio).toBe(2);
+			// 2.0 + 1 = 3.0
+			s = incrementSlideDurationRatio(s, 0) ?? s;
+			expect(s.slides[0].durationRatio).toBe(3);
+		});
+
+		it("incrementSlideDurationRatio: v < 1 のとき +0.2、上限 9 で null", () => {
+			let s: SlideState = makeState([makeSlide(1, "a", { durationRatio: 0.4 })]);
+			s = incrementSlideDurationRatio(s, 0) ?? s;
+			// 0.4 + 0.2 = 0.6 だが浮動小数点で 0.6000000000000001 になる可能性 → toBeCloseTo
+			expect(s.slides[0].durationRatio).toBeCloseTo(0.6, 10);
+
+			const s9 = makeState([makeSlide(1, "a", { durationRatio: 9 })]);
+			expect(incrementSlideDurationRatio(s9, 0)).toBeNull();
+		});
+
+		it("decrementSlideDurationRatio: 2 → 1.5 → 1 → 0.8 → ... → 0.2 (下限)", () => {
+			let s: SlideState = makeState([makeSlide(1, "a", { durationRatio: 2 })]);
+			s = decrementSlideDurationRatio(s, 0) ?? s;
+			expect(s.slides[0].durationRatio).toBe(1.5);
+			s = decrementSlideDurationRatio(s, 0) ?? s;
+			expect(s.slides[0].durationRatio).toBe(1);
+			s = decrementSlideDurationRatio(s, 0) ?? s;
+			expect(s.slides[0].durationRatio).toBeCloseTo(0.8, 10);
+
+			const sMin = makeState([makeSlide(1, "a", { durationRatio: 0.2 })]);
+			expect(decrementSlideDurationRatio(sMin, 0)).toBeNull();
+		});
+
+		it("decrementSlideDurationRatio: v > 2 で -1", () => {
+			const s = makeState([makeSlide(1, "a", { durationRatio: 5 })]);
+			expect(decrementSlideDurationRatio(s, 0)?.slides[0].durationRatio).toBe(4);
 		});
 	});
 });

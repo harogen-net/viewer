@@ -46,7 +46,9 @@ export const SlideListPanel: FC = () => {
 	const setSelectedIndex = useSlideStore((s) => s.setSelectedIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const bgColor = meta?.bgColor;
-	const { moveSlide, addSlide, duplicateSlide, deleteSlide } = useSlideMutation();
+	const { moveSlide, addSlide, duplicateSlide, deleteSlide,
+		setSlideJoining, setSlideDisabled,
+		incrementSlideDurationRatio, decrementSlideDurationRatio } = useSlideMutation();
 
 	const isEmpty = slides.length === 0;
 	const canMovePrev = selectedIndex > 0;
@@ -203,8 +205,10 @@ export const SlideListPanel: FC = () => {
 													index={i}
 													selected={i === selectedIndex}
 													bgColor={bgColor}
-													onClick={() => setSelectedIndex(i)}
-													thumbHeight={THUMB_HEIGHT}
+													onClick={() => setSelectedIndex(i)}												onIncrementDuration={() => incrementSlideDurationRatio(i)}
+												onDecrementDuration={() => decrementSlideDurationRatio(i)}
+												onToggleJoining={() => setSlideJoining(i, !slide.joining)}
+												onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}													thumbHeight={THUMB_HEIGHT}
 												/>
 												{i < slides.length - 1 && (
 													<SlideJoinIndicator joining={slide.joining} />

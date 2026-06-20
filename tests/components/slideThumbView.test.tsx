@@ -1,0 +1,182 @@
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SlideThumbView } from "../../src/components/slide/SlideThumbView";
+import type { Slide } from "../../src/types/Slide";
+
+// v4 Group C C-9: SlideThumbView の thumb 内 UI (duration ボタン / joining 矢印 / 有効 checkbox)
+// + width 補正を検証。SlideListPanel との統合は slideListPanel.test.tsx 側。
+
+const makeSlide = (overrides: Partial<Slide> = {}): Slide => ({
+	id: 1,
+	uuid: "s-1",
+	width: 1600,
+	height: 800,
+	durationRatio: 1,
+	joining: true,
+	disabled: false,
+	layers: [],
+	...overrides,
+});
+
+let container: HTMLDivElement;
+let root: Root;
+
+const baseHandlers = {
+	onClick: () => {},
+	onIncrementDuration: () => {},
+	onDecrementDuration: () => {},
+	onToggleJoining: () => {},
+	onToggleDisabled: () => {},
+};
+
+const renderThumb = (
+	slide: Slide,
+	overrides: Partial<typeof baseHandlers> & { selected?: boolean; index?: number } = {},
+): void => {
+	const { selected = false, index = 0, ...handlers } = overrides;
+	act(() => {
+		root.render(
+			<SlideThumbView
+				slide={slide}
+				index={index}
+				selected={selected}
+				{...baseHandlers}
+				{...handlers}
+			/>,
+		);
+	});
+};
+
+beforeEach(() => {
+	container = document.createElement("div");
+	document.body.appendChild(container);
+	root = createRoot(container);
+});
+
+afterEach(() => {
+	act(() => root.unmount());
+	container.remove();
+});
+
+const getControl = (name: string): HTMLElement | null =>
+	container.querySelector<HTMLElement>(`[data-thumb-control='${name}']`);
+
+describe("SlideThumbView thumb 内 UI (v4 Group C C-9)", () => {
+	describe("durationRatio コントローラ", () => {
+		it("durationRatio === 1 のとき label は空、!== 1 のとき 'xN' 表示", () => {
+			renderThumb(makeSlide({ durationRatio: 1 }));
+			expect(getControl("duration-label")?.textContent).toBe("");
+
+			renderThumb(makeSlide({ durationRatio: 1.5 }));
+			expect(getControl("duration-label")?.textContent).toBe("x1.5");
+
+			renderThumb(makeSlide({ durationRatio: 0.6 }));
+			expect(getControl("duration-label")?.textContent).toBe("x0.6");
+		});
+
+		it("+/- ボタン click で対応 handler 呼び出し、親 onClick へ伝播しない", () => {
+			const inc = vi.fn();
+			const dec = vi.fn();
+			const click = vi.fn();
+			renderThumb(makeSlide(), { onIncrementDuration: inc, onDecrementDuration: dec, onClick: click });
+
+			act(() => {
+				getControl("duration-up")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+			act(() => {
+				getControl("duration-down")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+
+			expect(inc).toHaveBeenCalledTimes(1);
+			expect(dec).toHaveBeenCalledTimes(1);
+			expect(click).not.toHaveBeenCalled(); // stopPropagation で thumb 選択は走らない
+		});
+	});
+
+	describe("joining 矢印", () => {
+		it("joining=true で ▶ + 色付き、false で ▷", () => {
+			renderThumb(makeSlide({ joining: true }));
+			expect(getControl("join-arrow")?.textContent).toBe("▶");
+
+			renderThumb(makeSlide({ joining: false }));
+			expect(getControl("join-arrow")?.textContent).toBe("▷");
+		});
+
+		it("click で onToggleJoining、親 onClick 不発", () => {
+			const toggle = vi.fn();
+			const click = vi.fn();
+			renderThumb(makeSlide(), { onToggleJoining: toggle, onClick: click });
+
+			act(() => {
+				getControl("join-arrow")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+
+			expect(toggle).toHaveBeenCalledTimes(1);
+			expect(click).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("有効 checkbox", () => {
+		it("disabled=false なら checked、true なら unchecked", () => {
+			renderThumb(makeSlide({ disabled: false }));
+			const cb1 = getControl("enable-check") as HTMLInputElement;
+			expect(cb1.checked).toBe(true);
+
+			renderThumb(makeSlide({ disabled: true }));
+			const cb2 = getControl("enable-check") as HTMLInputElement;
+			expect(cb2.checked).toBe(false);
+		});
+
+		it("change で onToggleDisabled、親 onClick 不発", () => {
+			const toggle = vi.fn();
+			const click = vi.fn();
+			renderThumb(makeSlide({ disabled: false }), { onToggleDisabled: toggle, onClick: click });
+
+			// HTMLInputElement.click() で実 click simulate (toggle + change 発火)
+			act(() => {
+				(getControl("enable-check") as HTMLInputElement).click();
+			});
+
+			expect(toggle).toHaveBeenCalledTimes(1);
+			expect(click).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("durationCorrection で width 伸縮", () => {
+		const getOuter = (): HTMLElement => container.querySelector<HTMLElement>("[data-slide-index]")!;
+		// thumbHeight 110、slide 1600x800 → scale = 0.1375
+		// 補正:
+		//   r=1   → 1.0       → width = 220
+		//   r=2   → atan(1)*0.5+1 = 0.785*0.5+1 = 1.3927 → width ≈ 306
+		//   r=0.5 → 0.5^0.4   ≈ 0.7579         → width ≈ 167
+
+		it("ratio=1 のとき width=220px (補正なし)", () => {
+			renderThumb(makeSlide({ durationRatio: 1 }));
+			expect(getOuter().style.width).toBe("220px");
+		});
+
+		it("ratio>1 のとき width 伸長", () => {
+			renderThumb(makeSlide({ durationRatio: 2 }));
+			const w = parseInt(getOuter().style.width, 10);
+			expect(w).toBeGreaterThan(220);
+			expect(w).toBeLessThan(400);
+		});
+
+		it("ratio<1 のとき width 短縮", () => {
+			renderThumb(makeSlide({ durationRatio: 0.5 }));
+			const w = parseInt(getOuter().style.width, 10);
+			expect(w).toBeLessThan(220);
+			expect(w).toBeGreaterThan(120);
+		});
+	});
+
+	describe("data 属性", () => {
+		it("data-joining / data-duration-ratio が反映される", () => {
+			renderThumb(makeSlide({ joining: false, durationRatio: 1.5 }));
+			const outer = container.querySelector<HTMLElement>("[data-slide-index]");
+			expect(outer?.getAttribute("data-joining")).toBe("false");
+			expect(outer?.getAttribute("data-duration-ratio")).toBe("1.5");
+		});
+	});
+});

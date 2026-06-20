@@ -21,6 +21,10 @@ interface SortableSlideThumbProps extends SlideViewProps {
 	index: number;
 	selected: boolean;
 	onClick: () => void;
+	onIncrementDuration: () => void;
+	onDecrementDuration: () => void;
+	onToggleJoining: () => void;
+	onToggleDisabled: () => void;
 	thumbHeight?: number;
 }
 
@@ -31,6 +35,10 @@ export const SortableSlideThumb: FC<SortableSlideThumbProps> = ({
 	index,
 	selected,
 	onClick,
+	onIncrementDuration,
+	onDecrementDuration,
+	onToggleJoining,
+	onToggleDisabled,
 	thumbHeight,
 }) => {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -56,6 +64,10 @@ export const SortableSlideThumb: FC<SortableSlideThumbProps> = ({
 				index={index}
 				selected={selected}
 				onClick={onClick}
+				onIncrementDuration={onIncrementDuration}
+				onDecrementDuration={onDecrementDuration}
+				onToggleJoining={onToggleJoining}
+				onToggleDisabled={onToggleDisabled}
 				thumbHeight={thumbHeight}
 			/>
 		</div>
