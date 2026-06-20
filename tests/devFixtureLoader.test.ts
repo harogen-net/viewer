@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseHvdJson } from "../src/devFixtureLoader";
 import { useImageLibraryStore } from "../src/state/imageLibraryStore";
+import { LayerType } from "../src/types/Layer";
 
 // v3 Group A swap: devFixtureLoader.parseHvdJson が HVD JSON を
 // 純粋型 ViewerDocument に正しく変換し、imageData が imageLibraryStore に
@@ -70,7 +71,7 @@ describe("devFixtureLoader.parseHvdJson (v3 Group A)", () => {
 		});
 		useImageLibraryStore.getState().setImageLibrary({});
 		const doc = parseHvdJson(minimal, "minimal.hvd");
-		expect(doc.slides[0].layers[0].type).toBe("text");
+		expect(doc.slides[0].layers[0].type).toBe(LayerType.TEXT);
 		expect((doc.slides[0].layers[0] as { text?: string }).text).toBe("hello");
 		expect(Object.keys(useImageLibraryStore.getState().imageById).length).toBe(0);
 	});

@@ -1,6 +1,7 @@
 import type { CSSProperties, FC } from "react";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import type { ImageLayer, Layer, TextLayer } from "../../types/Layer";
+import { LayerType } from "../../types/Layer";
 
 // レイヤー 1 枚の中身描画 FC (v3 Group A build 2、§0-10 新側内製)。
 // レガシー view/LayerView.ts / view/layer/*.ts は import せず新規実装。
@@ -74,7 +75,7 @@ const TextLayerContent: FC<{ layer: TextLayer }> = ({ layer }) => (
  * shape / layer (group) 型は v2 起点では未使用、未対応 type は null を返す。
  */
 export const LayerContent: FC<{ layer: Layer }> = ({ layer }) => {
-	if (layer.type === "image") return <ImageLayerContent layer={layer} />;
-	if (layer.type === "text") return <TextLayerContent layer={layer} />;
+	if (layer.type === LayerType.IMAGE) return <ImageLayerContent layer={layer} />;
+	if (layer.type === LayerType.TEXT) return <TextLayerContent layer={layer} />;
 	return null;
 };

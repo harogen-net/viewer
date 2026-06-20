@@ -1,0 +1,249 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import type { ImageLayer, TextLayer } from "../src/types/Layer";
+import { LayerType } from "../src/types/Layer";
+import type { ViewerDocument } from "../src/types/ViewerDocument";
+import { parseHvd, serializeHvd } from "../src/utils/storageCodec";
+
+// v3 Group B build 1: storageCodec 純関数の単体テスト。
+// HVD JSON ↔ ViewerDocument 変換の正常性と round-trip 安定性を検証。
+
+describe("storageCodec (v3 Group B build 1)", () => {
+	const fixtureText = readFileSync(
+		resolve(__dirname, "fixtures/2026-06-16_170948.hvd"),
+		"utf-8",
+	);
+
+	describe("parseHvd", () => {
+		it("fixture を ViewerDocument + imageData に分解する", () => {
+			const { doc, imageData } = parseHvd(fixtureText, "fixture.hvd");
+			expect(doc.title).toBe("fixture.hvd");
+			expect(doc.width).toBe(1792);
+			expect(doc.height).toBe(1120);
+			expect(doc.bgColor).toBe("#ffffff");
+			expect(doc.slides.length).toBe(3);
+			expect(Object.keys(imageData).length).toBeGreaterThan(0);
+			const firstImg = Object.values(imageData)[0];
+			expect(firstImg).toMatch(/^data:image\/[a-z]+;base64,/);
+		});
+
+		it("layer の default 値を補完する", () => {
+			const minimal = JSON.stringify({
+				version: 3,
+				screen: { width: 800, height: 600 },
+				slideData: [
+					{
+						id: 1,
+						layers: [
+							{
+								transX: 0,
+								transY: 0,
+								scaleX: 1,
+								scaleY: 1,
+								rotation: 0,
+								mirrorH: false,
+								mirrorV: false,
+								type: LayerType.TEXT,
+								text: "hi",
+							},
+						],
+					},
+				],
+			});
+			const { doc } = parseHvd(minimal, "minimal.hvd");
+			const layer = doc.slides[0].layers[0];
+			expect(layer.opacity).toBe(1);
+			expect(layer.visible).toBe(true);
+			expect(layer.locked).toBe(false);
+			expect(layer.shared).toBe(false);
+			expect(layer.name).toBe("");
+		});
+	});
+
+	describe("serializeHvd", () => {
+		it("最小 doc が version=3 / screen / slideData / 空 imageData を含む", () => {
+			const doc: ViewerDocument = {
+				title: "t",
+				width: 100,
+				height: 200,
+				createTime: 0,
+				editTime: 0,
+				slides: [],
+			};
+			const json = JSON.parse(serializeHvd(doc, {}));
+			expect(json.version).toBe(3);
+			expect(json.screen).toEqual({ width: 100, height: 200 });
+			expect(json.slideData).toEqual([]);
+			expect(json.imageData).toEqual({});
+		});
+
+		it("default 値の layer フィールドを省略する (visible/locked/opacity/shared/name)", () => {
+			const doc: ViewerDocument = {
+				title: "t",
+				width: 100,
+				height: 100,
+				createTime: 0,
+				editTime: 0,
+				slides: [
+					{
+						id: 1,
+						uuid: "u",
+						width: 100,
+						height: 100,
+						durationRatio: 1,
+						joining: true,
+						disabled: false,
+						layers: [
+							{
+								id: 1,
+								uuid: "u-l",
+								name: "",
+								opacity: 1,
+								locked: false,
+								visible: true,
+								shared: false,
+								transX: 10,
+								transY: 20,
+								scaleX: 1,
+								scaleY: 1,
+								rotation: 0,
+								mirrorH: false,
+								mirrorV: false,
+								type: LayerType.TEXT,
+								text: "hello",
+							},
+						],
+					},
+				],
+			};
+			const json = JSON.parse(serializeHvd(doc, {}));
+			const rawLayer = json.slideData[0].layers[0];
+			expect(rawLayer.visible).toBeUndefined();
+			expect(rawLayer.locked).toBeUndefined();
+			expect(rawLayer.opacity).toBeUndefined();
+			expect(rawLayer.shared).toBeUndefined();
+			expect(rawLayer.name).toBeUndefined();
+			expect(rawLayer.text).toBe("hello");
+			expect(rawLayer.type).toBe("text");
+			expect(rawLayer.transX).toBe(10);
+		});
+
+		it("uuid は HVD に出力しない", () => {
+			const doc: ViewerDocument = {
+				title: "t",
+				width: 100,
+				height: 100,
+				createTime: 0,
+				editTime: 0,
+				slides: [
+					{
+						id: 1,
+						uuid: "should-not-appear",
+						width: 100,
+						height: 100,
+						durationRatio: 1,
+						joining: true,
+						disabled: false,
+						layers: [],
+					},
+				],
+			};
+			const out = serializeHvd(doc, {});
+			expect(out).not.toContain("should-not-appear");
+			expect(out).not.toContain("uuid");
+		});
+
+		it("imageData は参照されている imageId のみ含める (孤児は除外)", () => {
+			const imgLayer: ImageLayer = {
+				id: 1,
+				uuid: "u",
+				name: "",
+				opacity: 1,
+				locked: false,
+				visible: true,
+				shared: false,
+				transX: 0,
+				transY: 0,
+				scaleX: 1,
+				scaleY: 1,
+				rotation: 0,
+				mirrorH: false,
+				mirrorV: false,
+				type: LayerType.IMAGE,
+				imageId: "used",
+				clipRect: [0, 0, 0, 0],
+				isText: false,
+			};
+			const doc: ViewerDocument = {
+				title: "t",
+				width: 100,
+				height: 100,
+				createTime: 0,
+				editTime: 0,
+				slides: [
+					{
+						id: 1,
+						uuid: "su",
+						width: 100,
+						height: 100,
+						durationRatio: 1,
+						joining: true,
+						disabled: false,
+						layers: [imgLayer],
+					},
+				],
+			};
+			const json = JSON.parse(
+				serializeHvd(doc, { used: "data:image/png;base64,AAA=", orphan: "data:image/png;base64,BBB=" }),
+			);
+			expect(Object.keys(json.imageData)).toEqual(["used"]);
+			expect(json.imageData.used).toBe("data:image/png;base64,AAA=");
+		});
+	});
+
+	describe("round-trip", () => {
+		it("parse → serialize → parse で構造が保たれる (fixture)", () => {
+			const first = parseHvd(fixtureText, "fixture.hvd");
+			const round = serializeHvd(first.doc, first.imageData);
+			const second = parseHvd(round, "fixture.hvd");
+
+			expect(second.doc.width).toBe(first.doc.width);
+			expect(second.doc.height).toBe(first.doc.height);
+			expect(second.doc.bgColor).toBe(first.doc.bgColor);
+			expect(second.doc.createTime).toBe(first.doc.createTime);
+			expect(second.doc.editTime).toBe(first.doc.editTime);
+			expect(second.doc.slides.length).toBe(first.doc.slides.length);
+
+			for (let i = 0; i < first.doc.slides.length; i++) {
+				const a = first.doc.slides[i];
+				const b = second.doc.slides[i];
+				expect(b.id).toBe(a.id);
+				expect(b.durationRatio).toBe(a.durationRatio);
+				expect(b.joining).toBe(a.joining);
+				expect(b.disabled).toBe(a.disabled);
+				expect(b.layers.length).toBe(a.layers.length);
+				for (let j = 0; j < a.layers.length; j++) {
+					const la = a.layers[j];
+					const lb = b.layers[j];
+					expect(lb.type).toBe(la.type);
+					expect(lb.transX).toBe(la.transX);
+					expect(lb.transY).toBe(la.transY);
+					expect(lb.scaleX).toBe(la.scaleX);
+					expect(lb.scaleY).toBe(la.scaleY);
+					expect(lb.rotation).toBe(la.rotation);
+					expect(lb.opacity).toBe(la.opacity);
+					expect(lb.visible).toBe(la.visible);
+					if (la.type === "image" && lb.type === "image") {
+						expect((lb as ImageLayer).imageId).toBe((la as ImageLayer).imageId);
+					}
+					if (la.type === "text" && lb.type === "text") {
+						expect((lb as TextLayer).text).toBe((la as TextLayer).text);
+					}
+				}
+			}
+
+			expect(Object.keys(second.imageData).sort()).toEqual(Object.keys(first.imageData).sort());
+		});
+	});
+});
