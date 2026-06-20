@@ -1,12 +1,12 @@
+import $ from "jquery";
 import { EventDispatcher } from "../events/EventDispatcher";
-import { SlideView } from "../view/SlideView";
-import { ImageLayer } from "../model/layer/ImageLayer";
 import { Layer, LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
 import { TextLayer } from "../model/layer/TextLayer";
-import { DOMSlideView } from "../view/slide/DOMSlideView";
 import { Slide } from "../model/Slide";
 import { ViewerDocument } from "../model/ViewerDocument";
-import $ from "jquery";
+import { DOMSlideView } from "../view/slide/DOMSlideView";
+import { SlideView } from "../view/SlideView";
 
 export class SlideShowViewController extends EventDispatcher {
 	private _isRun: boolean;
@@ -113,8 +113,8 @@ export class SlideShowViewController extends EventDispatcher {
 		console.log("setup at slideshow", targetSlides.length);
 		this.intialize();
 
-		this.interval = parseInt($("#interval").val());
-		this.duration = parseInt($("#duration").val());
+		this.interval = parseInt($("#interval").val() as string);
+		this.duration = parseInt($("#duration").val() as string);
 		//		this.bgColor = $("#bgColor").val();
 
 		targetSlides = targetSlides.filter((value: Slide) => {

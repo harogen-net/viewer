@@ -1,19 +1,19 @@
-import { EventDispatcher } from "../events/EventDispatcher";
-import { EditableSlideView } from "../view/slide/EditableSlideView";
-import { ImageLayer } from "../model/layer/ImageLayer";
-import { ImageManager } from "../utils/ImageManager";
-import { Viewer,ViewerMode } from "../Viewer";
-import { LayerType, Layer } from "../model/Layer";
-import { TextLayer } from "../model/layer/TextLayer";
-import { Slide, Direction } from "../model/Slide";
-import { EditLayerViewController } from "./edit/EditLayerViewController";
-import { ViewerDocument } from "../model/ViewerDocument";
-import { IVMUI } from "../interface/IVMUI";
-import { VMButton, VMToggleButton, VMShowHideUI, VMHistoricalTextInput, VMHistoricalVariableInput } from "../viewModel/VMUI";
-import { PropFlags } from "../model/PropFlags";
-import { PropertyEvent } from "../events/PropertyEvent";
-import { HistoryManager, Command, Transaction } from "../utils/HistoryManager";
 import $ from "jquery";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { PropertyEvent } from "../events/PropertyEvent";
+import { IVMUI } from "../interface/IVMUI";
+import { Layer, LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { TextLayer } from "../model/layer/TextLayer";
+import { PropFlags } from "../model/PropFlags";
+import { Direction, Slide } from "../model/Slide";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { Command, HistoryManager, Transaction } from "../utils/HistoryManager";
+import { ImageManager } from "../utils/ImageManager";
+import { EditableSlideView } from "../view/slide/EditableSlideView";
+import { ViewerMode } from "../Viewer";
+import { VMButton, VMHistoricalTextInput, VMHistoricalVariableInput, VMShowHideUI, VMToggleButton } from "../viewModel/VMUI";
+import { EditLayerViewController } from "./edit/EditLayerViewController";
 
 export class EditViewController extends EventDispatcher {
 
@@ -329,7 +329,7 @@ export class EditViewController extends EventDispatcher {
 			if(this.selectedLayer == null || this.selectedLayer.type != LayerType.IMAGE) return;
 			var targetImage:ImageLayer = this.selectedLayer as ImageLayer;
 			var fromImageId:string = targetImage.imageId;
-			var newImageId:string = await ImageManager.shared.registImageFromFile(e.target.files[0]);
+			var newImageId:string = await ImageManager.shared.registImageFromFile((e.target as HTMLInputElement).files![0]);
 
 			if($("input#cb_imageRef").prop("checked")){
 				var transaction = new Transaction();

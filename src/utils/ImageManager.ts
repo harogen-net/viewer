@@ -1,10 +1,10 @@
-import { ImageLayer } from "../model/layer/ImageLayer";
 import CryptoJS from "crypto-js";
-import { ViewerDocument } from "../model/ViewerDocument";
-import { HistoryManager, Transaction, Command } from "./HistoryManager";
-import { Layer, LayerType } from "../model/Layer";
-import { Slide } from "../model/Slide";
 import $ from "jquery";
+import { Layer, LayerType } from "../model/Layer";
+import { ImageLayer } from "../model/layer/ImageLayer";
+import { Slide } from "../model/Slide";
+import { ViewerDocument } from "../model/ViewerDocument";
+import { HistoryManager } from "./HistoryManager";
 
 export class ImageManager {
 
@@ -50,7 +50,7 @@ export class ImageManager {
 				//set data for drop to slide or list.
 				imgObj.prop("draggable", true);
 				imgObj.on("dragstart.imageManager", (e)=>{
-					e.originalEvent.dataTransfer.setData('imageId', id);
+					(e.originalEvent as DragEvent).dataTransfer!.setData('imageId', id);
 				});
 
 				var onImageLoad = (e:Event)=>{

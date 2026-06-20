@@ -149,7 +149,7 @@ export class Viewer {
 						isOpen = true;
 						target.slideDown(100);
 						$(document).on(key, function (e) {
-							if (e.target == opener[0]) return;
+							if ((e.target as unknown as HTMLElement) == opener[0]) return;
 							hide();
 						});
 					}
@@ -238,8 +238,9 @@ export class Viewer {
 				}
 			});
 			$("input.import").change((e) => {
-				if (e.target.files[0]) {
-					this.storage.import(e.target.files[0]);
+				const target = e.target as HTMLInputElement;
+				if (target.files![0]) {
+					this.storage.import(target.files![0]);
 					$("input.import").val("");
 				}
 			});
