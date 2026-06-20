@@ -12,8 +12,8 @@ import { LayerType } from "../../types/Layer";
 // wrapper の transform-origin (default = 50% 50%) はそのコンテンツ中心基準になる。
 //
 // imageData は HVD 内に `{imageId: dataURL}` として埋め込まれており、
-// devFixtureLoader が imageLibraryStore に投入する。Group B/D では
-// hooks/useImageLibrary 等に整理予定。clipRect 適用も Group B 以降。
+// hooks/useStorage が parseHvd 経由で imageLibraryStore に投入する。
+// clipRect 適用も Group B 以降。
 
 const ImageLayerContent: FC<{ layer: ImageLayer }> = ({ layer }) => {
 	const entry = useImageLibraryStore((s) => s.imageById[layer.imageId]);

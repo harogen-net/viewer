@@ -1,9 +1,8 @@
-import { MantineProvider } from "@mantine/core";
+import { Anchor, Box, Button, Group, MantineProvider, Stack, Text, Title } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
-import { useEffect, useState } from "react";
-import { loadFixtureFromQuery, loadLatestFromIndexedDB } from "../devFixtureLoader";
+import { useState } from "react";
 import { useSlideStore } from "../state/slideStore";
-import { useViewerDocumentStore } from "../state/viewerDocumentStore";
+import { FileIOPanel } from "./panels/FileIOPanel";
 import { ProgressBar } from "./ProgressBar";
 import { SlideshowShell } from "./SlideshowShell";
 
@@ -30,67 +29,31 @@ const modeSwitchLinkStyle: CSSProperties = {
 };
 
 const NewSidePanel: FC = () => {
-	const setDocument = useViewerDocumentStore((s) => s.setDocument);
-	const title = useViewerDocumentStore((s) => s.meta?.title);
 	const slideCount = useSlideStore((s) => s.slides.length);
 	const [showSlideshow, setShowSlideshow] = useState(false);
-	const [loadMsg, setLoadMsg] = useState<string | null>(null);
-
-	// `?fixture=<name>` クエリがあれば mount 時に自動ロード (v3 Group A build 7、
-	// Group B 完成時に削除予定)。
-	useEffect(() => {
-		loadFixtureFromQuery()
-			.then((doc) => {
-				if (doc) setDocument(doc);
-			})
-			.catch((e) => console.error("[AppShell] fixture load error:", e));
-	}, [setDocument]);
-
-	// レガシーが IndexedDB に保存した最新ドキュメントをロード (dev 用ボタン)。
-	const handleLoadLatest = () => {
-		setLoadMsg("loading...");
-		loadLatestFromIndexedDB()
-			.then((doc) => {
-				if (doc) {
-					setDocument(doc);
-					setLoadMsg(`loaded: ${doc.title} (${doc.slides.length} slides)`);
-				} else {
-					setLoadMsg("該当データなし (レガシーで一度も保存していない可能性)");
-				}
-			})
-			.catch((e) => {
-				console.error("[AppShell] load latest failed:", e);
-				setLoadMsg(`error: ${String(e)}`);
-			});
-	};
 
 	return (
 		<>
-			<div style={{ padding: 20, fontFamily: "monospace" }}>
-				<h2>v3 new side (Group A: SlideShow)</h2>
-				<p>document: {title ?? "(未ロード)"} / slides: {slideCount}</p>
-				<div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-					<button
-						type="button"
-						onClick={handleLoadLatest}
-						style={{ padding: "4px 12px", fontFamily: "inherit" }}
-					>
-						📥 最新データ読込 (IndexedDB)
-					</button>
-					<button
-						type="button"
-						onClick={() => setShowSlideshow(true)}
-						disabled={slideCount === 0}
-						style={{ padding: "4px 12px", fontFamily: "inherit" }}
-					>
-						▶ slideshow 開始
-					</button>
-				</div>
-				{loadMsg && <p style={{ fontSize: 11, color: "#666" }}>{loadMsg}</p>}
-				<p style={{ fontSize: 11, color: "#666" }}>
-					代替: <code>?new=1&amp;fixture=2026-06-16_170948.hvd</code> 等でテスト fixture もロード可。
-				</p>
-			</div>
+			<Box p="lg">
+				<Stack gap="md">
+					<Title order={3}>v3 new side</Title>
+					<FileIOPanel />
+					<Group gap="sm" align="center">
+						<Button
+							color="green"
+							onClick={() => setShowSlideshow(true)}
+							disabled={slideCount === 0}
+						>
+							▶ slideshow 開始
+						</Button>
+						{slideCount === 0 && (
+							<Text size="xs" c="dimmed">
+								document をロードしてから slideshow を開始
+							</Text>
+						)}
+					</Group>
+				</Stack>
+			</Box>
 			<SlideshowShell open={showSlideshow} onClose={() => setShowSlideshow(false)} />
 		</>
 	);
@@ -101,11 +64,16 @@ export const AppShell: FC = () => (
 		{isNewMode ? (
 			<>
 				<NewSidePanel />
-				<a href="/" style={modeSwitchLinkStyle}>→ legacy</a>
+				<Anchor href="/" style={modeSwitchLinkStyle} underline="never">
+					→ legacy
+				</Anchor>
 			</>
 		) : (
-			<a href="/?new=1" style={modeSwitchLinkStyle}>→ new (v3)</a>
+			<Anchor href="/?new=1" style={modeSwitchLinkStyle} underline="never">
+				→ new (v3)
+			</Anchor>
 		)}
 		<ProgressBar />
 	</MantineProvider>
 );
+

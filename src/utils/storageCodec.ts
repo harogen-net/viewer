@@ -11,8 +11,8 @@ import type { ViewerDocument } from "../types/ViewerDocument";
 // crypto / location / IndexedDB / fetch 等の副作用 API は使わず、純粋に
 // (string ↔ object) 変換のみを担う。React / Zustand とも独立。
 //
-// 副作用 (image library への登録、URL 解決、IDB アクセス) は caller (Group B
-// では hooks/useStorage.ts、Group A では devFixtureLoader.ts) が担う。
+// 副作用 (image library への登録、URL 解決、IDB アクセス) は caller
+// (Group B 以降では hooks/useStorage.ts) が担う。
 
 const HVD_VERSION = 3;
 
