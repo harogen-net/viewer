@@ -58,26 +58,24 @@ export const FileIOPanel: FC = () => {
 			slides: [],
 		});
 		setMsg("new document created");
+		setSelectedTitle(null);
 	});
 
-	// 選択値で開く。null/空 = 最新 (titles 降順先頭)。
-	const handleLoad = wrap(async () => {
-		let titleToLoad = selectedTitle ?? "";
-		if (!titleToLoad) {
-			if (titles.length === 0) {
-				setMsg("該当データなし");
-				return;
+	// title を選んだ瞬間にロードする (レガシー FileSelector と同挙動)。
+	// null クリア時はロードしない (選択のみ解除)。
+	const handleSelectChange = (v: string | null): void => {
+		setSelectedTitle(v);
+		if (!v) return;
+		wrap(async () => {
+			const doc = await loadByTitle(v);
+			if (doc) {
+				setDocument(doc);
+				setMsg(`loaded: ${doc.title} (${doc.slides.length} slides)`);
+			} else {
+				setMsg(`data missing for title: ${v}`);
 			}
-			titleToLoad = titles[0].title;
-		}
-		const doc = await loadByTitle(titleToLoad);
-		if (doc) {
-			setDocument(doc);
-			setMsg(`loaded: ${doc.title} (${doc.slides.length} slides)`);
-		} else {
-			setMsg(`data missing for title: ${titleToLoad}`);
-		}
-	});
+		})();
+	};
 
 	const handleSave = (override: boolean) =>
 		wrap(async () => {
@@ -121,19 +119,15 @@ export const FileIOPanel: FC = () => {
 						📄 新規
 					</Button>
 					<Select
-						placeholder="--- (最新を開く) ---"
+						placeholder="開くファイルを選択"
 						value={selectedTitle}
-						onChange={setSelectedTitle}
+						onChange={handleSelectChange}
 						data={selectData}
 						clearable
-						searchable
 						size="xs"
 						w={260}
 						nothingFoundMessage="(該当なし)"
 					/>
-					<Button size="xs" variant="default" onClick={handleLoad}>
-						📂 開く
-					</Button>
 					<Button
 						size="xs"
 						variant="filled"
