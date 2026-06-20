@@ -1,5 +1,6 @@
 import $ from "jquery";
 import { PropertyEvent } from "./events/PropertyEvent";
+import { Slide } from "./model/Slide";
 import { ViewerDocument } from "./model/ViewerDocument";
 import { useViewerDocumentStore } from "./state/viewerDocumentStore";
 import { HistoryManager } from "./utils/HistoryManager";
@@ -8,7 +9,7 @@ import { HVDataType, SlideStorage } from "./utils/SlideStorage";
 import { EditViewController } from "./viewController/EditViewController";
 import { FileSelector } from "./viewController/file/FileSelector";
 import { ListViewController } from "./viewController/ListViewController";
-// SlideShowViewController removed in v3 Group A swap (use ?new=1 SlideshowShell)
+import { SlideShowViewController } from "./viewController/SlideShowViewController";
 
 
 export enum ViewerMode {
@@ -32,7 +33,7 @@ export class Viewer {
 
 	private editVC: EditViewController;
 	private listVC: ListViewController;
-	// slideShowVC removed in v3 Group A swap
+	private slideShowVC: SlideShowViewController;
 	private storage: SlideStorage;
 	// private menu:Menu;
 
@@ -64,7 +65,7 @@ export class Viewer {
 
 		//
 		this.listVC = new ListViewController(obj.find(".list"));
-		// slideShowVC instantiation removed in v3 Group A swap
+		this.slideShowVC = new SlideShowViewController($("<div />").appendTo(obj));
 
 		this.storage = SlideStorage.getInstance();
 		this.storage.addEventListener("loading", (e: CustomEvent) => {
@@ -199,9 +200,23 @@ export class Viewer {
 
 
 			$(".startSlideShow").click(() => {
-				// v3 Group A swap: slideshow ロジックは ?new=1 の SlideshowShell に
-				// 移行のため legacy click handler は no-op 化 (button DOM は index.html に残存、
-				// 完全撤去は Group D の最終 swap)。
+				var slides: Slide[] = [];
+				var startIndex: number = 0;
+				for (var i: number = 0; i < this.viewerDocument.slides.length; i++) {
+					var slide: Slide = this.viewerDocument.slides[i];
+					if (slide.disabled) continue;
+					slides.push(slide.clone());
+					if (i == this.listVC.selectedSlideIndex) startIndex = slides.length - 1;
+				}
+				if (slides.length == 0) return;
+				this.slideShowVC.setUp(slides);
+				this.slideShowVC.run(startIndex);
+			});
+			$("#cb_mirrorH").click(() => {
+				this.slideShowVC.mirrorH = $("#cb_mirrorH").prop("checked");
+			});
+			$("#cb_mirrorV").click(() => {
+				this.slideShowVC.mirrorV = $("#cb_mirrorV").prop("checked");
 			});
 
 
