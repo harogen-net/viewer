@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ViewerDocument } from "../types/ViewerDocument";
+import { useHistoryStore } from "./historyStore";
 import { useSlideStore } from "./slideStore";
 
 /** ViewerDocument から slides を除いたメタ部分 (slides は slideStore が保持)。 */
@@ -20,6 +21,8 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 	modified: false,
 	progress: null,
 	setDocument: (doc) => {
+		// document 差し替え時は history を完全 reset (load 直後は undo 不可、legacy 挙動)
+		useHistoryStore.getState().clear();
 		if (doc === null) {
 			set({ meta: null, modified: false });
 			useSlideStore.getState().setSlides([]);

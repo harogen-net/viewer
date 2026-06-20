@@ -1,0 +1,146 @@
+import type { Slide } from "../types/Slide";
+import type { SlideState } from "../types/SlideState";
+import { cloneSlide, createEmptySlide, nextSlideId } from "./slideFactory";
+
+// Slide 階層 mutation の純関数群 (v4 Group C 設計コア)。
+// (state, args) => state | null の形に統一:
+//   - 戻り値 null = no-op (範囲外 / 変化なし)。primitive 側で history 記録もスキップ
+//   - 戻り値 SlideState = 変化後 state。primitive が store cascade + history push に使う
+//
+// すべて純関数 (副作用なし、入力 state を mutate しない)。store / hook / DOM を一切知らない。
+// undo/redo 実装時は同関数を逆引数で呼ぶことで対称性を確保 (例: move(s, to, from) で undo)。
+//
+// 選択 slide 追従ロジック:
+//   - move / delete / deleteAllDisabled: 選択 slide の uuid で再検索 (見失えば -1)
+//   - add / duplicate: 挿入位置 ≤ selectedIndex なら +1 シフト
+//   - 値更新系 (setSlideJoining / setSlideDisabled / setAll系): selectedIndex 不変
+
+const reselectByUuid = (next: Slide[], prevUuid: string | null): number => {
+	if (!prevUuid) return -1;
+	return next.findIndex((s) => s.uuid === prevUuid);
+};
+
+const getSelectedUuid = (state: SlideState): string | null =>
+	state.selectedIndex >= 0 ? state.slides[state.selectedIndex]?.uuid ?? null : null;
+
+/** from を to 位置に移動。範囲外 / 同 index は null。 */
+export const moveSlide = (state: SlideState, from: number, to: number): SlideState | null => {
+	const { slides } = state;
+	if (
+		from === to ||
+		from < 0 ||
+		from >= slides.length ||
+		to < 0 ||
+		to >= slides.length
+	) {
+		return null;
+	}
+	const selectedUuid = getSelectedUuid(state);
+	const next = [...slides];
+	const [moved] = next.splice(from, 1);
+	next.splice(to, 0, moved);
+	return { slides: next, selectedIndex: reselectByUuid(next, selectedUuid) };
+};
+
+/** 空 slide を生成して挿入 (atIndex 未指定なら末尾)。 */
+export const addSlide = (
+	state: SlideState,
+	width: number,
+	height: number,
+	atIndex?: number,
+): SlideState => {
+	const { slides, selectedIndex } = state;
+	const newSlide = createEmptySlide(width, height, nextSlideId(slides));
+	const insertAt =
+		atIndex === undefined || atIndex < 0 || atIndex > slides.length ? slides.length : atIndex;
+	const next = [...slides];
+	next.splice(insertAt, 0, newSlide);
+	const newSelected =
+		selectedIndex >= 0 && insertAt <= selectedIndex ? selectedIndex + 1 : selectedIndex;
+	return { slides: next, selectedIndex: newSelected };
+};
+
+/** index の slide を削除。範囲外は null。選択中 slide 消失時は同 index の次 (無ければ前)。 */
+export const deleteSlide = (state: SlideState, index: number): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (index < 0 || index >= slides.length) return null;
+	const next = slides.filter((_, i) => i !== index);
+	let newSelected = selectedIndex;
+	if (selectedIndex === index) {
+		newSelected = index < next.length ? index : next.length - 1;
+	} else if (selectedIndex > index) {
+		newSelected = selectedIndex - 1;
+	}
+	return { slides: next, selectedIndex: newSelected };
+};
+
+/** index の slide を複製して直後に挿入。範囲外は null。 */
+export const duplicateSlide = (state: SlideState, index: number): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (index < 0 || index >= slides.length) return null;
+	const duped = cloneSlide(slides[index], nextSlideId(slides));
+	const next = [...slides];
+	next.splice(index + 1, 0, duped);
+	const newSelected =
+		selectedIndex >= 0 && index + 1 <= selectedIndex ? selectedIndex + 1 : selectedIndex;
+	return { slides: next, selectedIndex: newSelected };
+};
+
+/** index の slide の joining を更新。範囲外 / 値が同じなら null。 */
+export const setSlideJoining = (
+	state: SlideState,
+	index: number,
+	joining: boolean,
+): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (index < 0 || index >= slides.length) return null;
+	if (slides[index].joining === joining) return null;
+	const next = slides.map((s, i) => (i === index ? { ...s, joining } : s));
+	return { slides: next, selectedIndex };
+};
+
+/** index の slide の disabled を更新。範囲外 / 値が同じなら null。 */
+export const setSlideDisabled = (
+	state: SlideState,
+	index: number,
+	disabled: boolean,
+): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (index < 0 || index >= slides.length) return null;
+	if (slides[index].disabled === disabled) return null;
+	const next = slides.map((s, i) => (i === index ? { ...s, disabled } : s));
+	return { slides: next, selectedIndex };
+};
+
+/**
+ * 全 slide の joining を一括設定。空配列 / 既に全一致なら null。
+ * レガシー仕様: joining 切替時は durationRatio も 1 にリセット。
+ */
+export const setAllJoining = (state: SlideState, joining: boolean): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (slides.length === 0) return null;
+	const allMatch = slides.every((s) => s.joining === joining && s.durationRatio === 1);
+	if (allMatch) return null;
+	const next = slides.map((s) => ({ ...s, joining, durationRatio: 1 }));
+	return { slides: next, selectedIndex };
+};
+
+/** 全 slide の disabled を一括設定。空配列 / 既に全一致なら null。 */
+export const setAllDisabled = (state: SlideState, disabled: boolean): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (slides.length === 0) return null;
+	const allMatch = slides.every((s) => s.disabled === disabled);
+	if (allMatch) return null;
+	const next = slides.map((s) => ({ ...s, disabled }));
+	return { slides: next, selectedIndex };
+};
+
+/** disabled な slide をすべて削除。該当なし / 空配列なら null。 */
+export const deleteAllDisabled = (state: SlideState): SlideState | null => {
+	const { slides } = state;
+	if (slides.length === 0) return null;
+	const selectedUuid = getSelectedUuid(state);
+	const next = slides.filter((s) => !s.disabled);
+	if (next.length === slides.length) return null;
+	return { slides: next, selectedIndex: reselectByUuid(next, selectedUuid) };
+};
