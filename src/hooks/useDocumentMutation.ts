@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useHistoryStore } from "../state/historyStore";
+import { useLayerStore } from "../state/layerStore";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import type { SlideState } from "../types/SlideState";
@@ -35,10 +36,22 @@ const currentSlideState = (): SlideState => {
 };
 
 const applyToStores = (next: SlideState): void => {
+	// 中間 cascade (setSlides → setLayers([])) で selectedLayer が一旦クリアされるため、
+	// 現選択の uuid を保存しておき、cascade 完了後に新 layers から同 uuid を探して復元する。
+	// (in-place mutation で drag / resize / prop 編集 後も選択状態を保つため)
+	const prevSelectedUuid = useLayerStore.getState().selectedLayer?.uuid ?? null;
+
 	// 階層 cascade: slideStore.setSlides → slideStore.setSelectedIndex → layerStore 自動同期
 	const slideStore = useSlideStore.getState();
 	slideStore.setSlides(next.slides);
 	slideStore.setSelectedIndex(next.selectedIndex);
+
+	// 復元: 現在 layers に同 uuid があれば選択を出し直す (别 slide 切替等で見失えた場合は null のまま)
+	if (prevSelectedUuid) {
+		const layers = useLayerStore.getState().layers;
+		const found = layers.find((l) => l.uuid === prevSelectedUuid) ?? null;
+		if (found) useLayerStore.getState().setSelectedLayer(found);
+	}
 };
 
 export const useDocumentMutation = (): UseDocumentMutation => {

@@ -3,10 +3,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SlideEditView } from "../../src/components/slide/SlideEditView";
 import { useLayerStore } from "../../src/state/layerStore";
+import { useSlideStore } from "../../src/state/slideStore";
 import type { ImageLayer, Layer, TextLayer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 
-// v4 Group D D-3a: LayerEditOverlay (選択枠 + bbox 計測 + click hit-test) のテスト。
+// v4 Group D D-3a: LayerEditOverlay (選択枠 + bbox 計測 + hit-test) のテスト。
+// hit-test は D-3b refactor で click → pointerdown に移行済み。
 // drag/resize/rotate は D-3b/D-3c で追加するためここでは扱わない。
 
 const baseTransform = {
@@ -63,6 +65,7 @@ let __origOffsetW: PropertyDescriptor | undefined;
 let __origOffsetH: PropertyDescriptor | undefined;
 
 beforeEach(() => {
+	useSlideStore.getState().setSlides([]);
 	useLayerStore.getState().setLayers([]);
 	useLayerStore.getState().setSelectedLayer(null);
 	container = document.createElement("div");
@@ -187,21 +190,26 @@ describe("SlideEditView (v4 Group D D-3a) - overlay + hit-test", () => {
 		expect(container.querySelector("[data-edit-selection-frame]")).toBeNull();
 	});
 
-	it("layer wrapper を click すると setSelectedLayer が呼ばれる (hit-test)", () => {
+	it("layer wrapper に pointerdown したら setSelectedLayer が呼ばれる (hit-test)", () => {
 		const l1 = makeImageLayer(1, "u-1", "img-a");
 		const l2 = makeTextLayer(2, "u-2", "hello");
 		render(makeSlide([l1, l2]));
 		const wrapper = container.querySelector<HTMLElement>('[data-layer-id="2"]');
 		expect(wrapper).not.toBeNull();
 		act(() => {
-			wrapper?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			const ev = new Event("pointerdown", { bubbles: true, cancelable: true });
+			Object.defineProperty(ev, "clientX", { value: 0 });
+			Object.defineProperty(ev, "clientY", { value: 0 });
+			Object.defineProperty(ev, "pointerId", { value: 1 });
+			Object.defineProperty(ev, "button", { value: 0 });
+			wrapper?.dispatchEvent(ev);
 		});
 		const sel = useLayerStore.getState().selectedLayer;
 		expect(sel?.id).toBe(2);
 		expect(sel?.uuid).toBe("u-2");
 	});
 
-	it("layer 以外 (背景) を click すると selectedLayer が null に", () => {
+	it("layer 以外 (背景) に pointerdown したら selectedLayer が null に", () => {
 		const layer = makeImageLayer(1, "u-1", "img-a");
 		render(makeSlide([layer]));
 		act(() => {
@@ -210,7 +218,12 @@ describe("SlideEditView (v4 Group D D-3a) - overlay + hit-test", () => {
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 		expect(stage).not.toBeNull();
 		act(() => {
-			stage?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			const ev = new Event("pointerdown", { bubbles: true, cancelable: true });
+			Object.defineProperty(ev, "clientX", { value: 0 });
+			Object.defineProperty(ev, "clientY", { value: 0 });
+			Object.defineProperty(ev, "pointerId", { value: 1 });
+			Object.defineProperty(ev, "button", { value: 0 });
+			stage?.dispatchEvent(ev);
 		});
 		expect(useLayerStore.getState().selectedLayer).toBeNull();
 	});
