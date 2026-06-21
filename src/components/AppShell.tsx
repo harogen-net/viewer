@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { FileIOPanel } from "./panels/FileIOPanel";
+import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
 import { ProgressBar } from "./ProgressBar";
 import { SlideEditView } from "./slide/SlideEditView";
@@ -63,20 +64,20 @@ const NewSidePanel: FC = () => {
 	);
 };
 
-// 編集 canvas 領域 (右列、v4 Group D D-1)。
+// 編集 canvas 領域 (v4 Group D D-1、D-5 で右側に LayerListPanel を併設)。
 // 選択 slide があれば SlideEditView を fit-to-area で render、無ければ案内テキスト。
-// 自身のサイズを ResizeObserver で測定し SlideEditView に渡す。
+// SlideEditView の fit 領域は左側コンテナを ResizeObserver で計測し SlideEditView に渡す。
 const EditArea: FC = () => {
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slide = selectedIndex >= 0 ? slides[selectedIndex] : null;
 
-	const containerRef = useRef<HTMLDivElement>(null);
+	const stageRef = useRef<HTMLDivElement>(null);
 	const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
 	useEffect(() => {
-		const el = containerRef.current;
+		const el = stageRef.current;
 		if (!el) return;
 		const ro = new ResizeObserver((entries) => {
 			const r = entries[0].contentRect;
@@ -86,30 +87,50 @@ const EditArea: FC = () => {
 		return () => ro.disconnect();
 	}, []);
 
-	const containerStyle: CSSProperties = {
+	const editAreaStyle: CSSProperties = {
+		flex: 1,
+		minWidth: 0,
+		minHeight: 0,
+		display: "flex",
+		flexDirection: "row",
+	};
+	const stageStyle: CSSProperties = {
 		flex: 1,
 		minWidth: 0,
 		minHeight: 0,
 		position: "relative",
 		background: "#f1f3f5",
 	};
+	const sideRailStyle: CSSProperties = {
+		flex: "0 0 320px",
+		width: 320,
+		borderLeft: "1px solid #dee2e6",
+		overflowY: "auto",
+		padding: 8,
+		background: "#fff",
+	};
 
 	return (
-		<div ref={containerRef} style={containerStyle} data-edit-area>
-			{slide && size.w > 0 && size.h > 0 ? (
-				<SlideEditView
-					slide={slide}
-					bgColor={meta?.bgColor}
-					fitAreaWidth={size.w}
-					fitAreaHeight={size.h}
-				/>
-			) : (
-				<Box p="lg">
-					<Text size="sm" c="dimmed">
-						{slide ? "..." : "編集対象の slide を一覧から選択してください"}
-					</Text>
-				</Box>
-			)}
+		<div style={editAreaStyle} data-edit-area>
+			<div ref={stageRef} style={stageStyle} data-edit-stage-area>
+				{slide && size.w > 0 && size.h > 0 ? (
+					<SlideEditView
+						slide={slide}
+						bgColor={meta?.bgColor}
+						fitAreaWidth={size.w}
+						fitAreaHeight={size.h}
+					/>
+				) : (
+					<Box p="lg">
+						<Text size="sm" c="dimmed">
+							{slide ? "..." : "編集対象の slide を一覧から選択してください"}
+						</Text>
+					</Box>
+				)}
+			</div>
+			<aside style={sideRailStyle} data-edit-side-rail>
+				<LayerListPanel />
+			</aside>
 		</div>
 	);
 };
