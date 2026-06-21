@@ -23,7 +23,7 @@ export interface LayerTransform {
 	mirrorV: boolean;
 }
 
-interface LayerBase extends LayerTransform {
+export interface LayerBase extends LayerTransform {
 	id: number;
 	uuid: string;
 	name: string;
