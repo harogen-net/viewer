@@ -230,7 +230,7 @@ describe("SlideEditView (v4 Group D D-3a) - overlay + hit-test", () => {
 
 	it("選択枠の outline 太さは stageScale で補正される (10/scale)", () => {
 		// fit area 800x600, slide 1600x800 → scale = min(0.5, 0.75) = 0.5
-		// → outline 太さ = 10/0.5 = 20px (LayerEditOverlay の outlineThickness=10)
+		// → outline 太さ = 10/0.5 = 20px (LayerEditOverlay の OUTLINE_THICKNESS_PX=10)
 		const layer = makeImageLayer(1, "u-1", "img-a");
 		render(makeSlide([layer]), 800, 600);
 		act(() => {

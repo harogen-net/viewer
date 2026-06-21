@@ -146,7 +146,7 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		// transX 50 + 200 = 250, transY 30 + 100 = 130
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
 		expect(frame!.style.transform).toBe("translate(250px, 130px) rotate(0deg)");
-		expect(frame!.dataset.dragging).toBe("true");
+		expect(frame!.dataset.gesturing).toBe("true");
 	});
 
 	it("pointerup で transX/transY が slideStore に commit、履歴 1 件", () => {
@@ -166,9 +166,9 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		expect(stored.transY).toBe(20 + 40);
 		expect(useHistoryStore.getState().past.length).toBe(1);
 		expect(useHistoryStore.getState().past[0].label).toBe("update layer");
-		// drag state 解除
+		// gesture state 解除
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
-		expect(frame?.dataset.dragging).toBe("false");
+		expect(frame?.dataset.gesturing).toBe("false");
 	});
 
 	it("pointer 移動なし (delta=0) で pointerup したら commit されない (= 純粋な選択クリック)", () => {
@@ -202,7 +202,7 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		// pointermove しても drag 状態ではない
 		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
-		expect(frame?.dataset.dragging).toBe("false");
+		expect(frame?.dataset.gesturing).toBe("false");
 		dispatchPointer(stage!, "pointerup", { clientX: 100, clientY: 50 });
 		const stored = useSlideStore.getState().slides[0].layers[0];
 		expect(stored.transX).toBe(10);

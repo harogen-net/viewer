@@ -1,6 +1,6 @@
 import type { CSSProperties, FC } from "react";
 import { useState } from "react";
-import { useLayerDrag } from "../../hooks/useLayerDrag";
+import { useLayerGesture } from "../../hooks/useLayerGesture";
 import { LayerEditOverlay } from "./LayerEditOverlay";
 import { SlideView, type SlideViewProps } from "./SlideView";
 
@@ -20,7 +20,7 @@ import { SlideView, type SlideViewProps } from "./SlideView";
 // fit-to-area: scaleX/scaleY の最小値を採用 (aspect 維持)。
 // AppShell の左列 (stage) に配置される想定。
 //
-// 入力ハンドリングは `useLayerDrag` hook が担当 (hit-test + drag を 1 gesture に統合)。
+// 入力ハンドリングは `useLayerGesture` hook が担当 (hit-test + drag + resize + rotate を 1 gesture に統合)。
 // click イベントは使わない (pointerdown で選択 → 同 gesture でそのまま drag できるようにするため)。
 
 interface SlideEditViewProps extends SlideViewProps {
@@ -47,8 +47,12 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 	const displayW = Math.round(slide.width * scale);
 	const displayH = Math.round(slide.height * scale);
 
-	// hit-test + drag を統合 (pointerdown で選択即 drag 開始)
-	const { dragDelta, onPointerDown, onPointerMove, onPointerEnd } = useLayerDrag(slide, scale);
+	// hit-test + drag + resize + rotate を統合 (pointerdown で選択即 drag 開始)
+	const { live, onPointerDown, onPointerMove, onPointerEnd } = useLayerGesture(
+		slide,
+		scale,
+		scaledEl,
+	);
 
 	// 外側 = fit area いっぱい、中央配置
 	const outerStyle: CSSProperties = {
@@ -97,7 +101,7 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 						slide={slide}
 						stageScale={scale}
 						stageRoot={scaledEl}
-						dragDelta={dragDelta}
+						live={live}
 					/>
 				</div>
 			</div>

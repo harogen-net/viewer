@@ -1,22 +1,21 @@
 import type { CSSProperties, FC } from "react";
 import { useLayoutEffect, useState } from "react";
-import type { DragDelta } from "../../hooks/useLayerDrag";
+import type { LiveTransform } from "../../hooks/useLayerGesture";
 import { useLayerStore } from "../../state/layerStore";
 import type { Slide } from "../../types/Slide";
 
-// 編集 canvas の選択 layer 装飾 overlay (v4 Group D D-3a / D-3b refactor)。
+// 編集 canvas の選択 layer 装飾 overlay (v4 Group D D-3a/b/c)。
 // レガシー src/view/layer/AdjustView.ts (jQuery 293 行) は import せず新規実装 (§0-10)。
 //
 // 役割 (visual only):
 //   - useLayerStore.selectedLayer に対応する slide layer の bbox を計測 (D-3a)
 //   - SlideView と同一の slide-coord 空間で transform を再現した選択枠を描画 (D-3a)
-//   - drag 中は親 (SlideEditView) から渡される dragDelta を transform に加算して即時追従 (D-3b)
+//   - drag/resize/rotate 中は親 (SlideEditView) から渡される live を transform に適用 (D-3b/c)
+//   - 4 隅 anchor + 上部 rotate handle を描画 (D-3c)
 //
-// hit-test / 入力ハンドリングは親 (SlideEditView) の useLayerDrag hook が担当する。
-// LayerEditOverlay 自身は pointer events 非受け取り (frame は pointer-events:none)。
-//
-// 後の chunk:
-//   - D-3c: 4 隅 anchor で resize、上部 anchor で rotate (anchor は overlay 内で描画予定)
+// hit-test / 入力ハンドリングは親 (SlideEditView) の useLayerGesture hook が担当する。
+// ハンドル要素は data-resize-anchor / data-rotate-handle を持ち、pointerdown 時に
+// hook が target を検査して mode を決定する。
 //
 // bbox 計測:
 //   - LayerView wrapper (`[data-layer-id="${id}"]`) を stageRoot から querySelector
@@ -31,10 +30,11 @@ import type { Slide } from "../../types/Slide";
 //   - layer wrapper の visual center に frame center を合わせるため translate にオフセット補正を入れる
 //   - rotate のみ frame にも適用 (回転後の bbox を反映)
 //
-// 線の太さ補正:
-//   - SlideEditView の親で stage 全体が `scale(stageScale)` されているため、
-//     1px の outline は描画上 stageScale px となり小縮尺では視認不可。
-//   - outline 太さを (outlineThickness / stageScale) で補正し常時 outlineThickness px 視認可とする。
+// ハンドル:
+//   - 4 隅 resize anchor + 上辺中央 rotate handle
+//   - 全て frame の中で配置 → frame の rotate を継承
+//   - サイズ・距離は stageScale で逆補正し常時 px 固定 (HANDLE_SIZE_PX / HANDLE_GAP_PX)
+//   - locked layer は anchor を描画しない (drag 自体も hook 側で抑止)
 
 interface LayerEditOverlayProps {
 	slide: Slide;
@@ -42,8 +42,8 @@ interface LayerEditOverlayProps {
 	stageScale: number;
 	/** layer wrapper を querySelector する起点要素。SlideView root を渡す。 */
 	stageRoot: HTMLElement | null;
-	/** drag 中の delta (slide-coord)。selectedLayer.uuid と一致するときに transform へ加算。 */
-	dragDelta?: DragDelta | null;
+	/** gesture 中の live transform (selectedLayer.uuid と一致する間 frame に反映)。 */
+	live?: LiveTransform | null;
 }
 
 const overlayWrapStyle: CSSProperties = {
@@ -52,16 +52,36 @@ const overlayWrapStyle: CSSProperties = {
 	pointerEvents: "none",
 };
 
+const OUTLINE_THICKNESS_PX = 2;
+const HANDLE_SIZE_PX = 20;
+const ROTATE_HANDLE_GAP_PX = 24;
+
+// 4 隅 anchor 定義 (legacy css/index.css L620-665 互換)
+//   - 位置: 角に貼り付け (translate しない) → anchor の box がフレーム内側に収まる
+//   - 色: nw=orange / ne=red / sw=blue / se=green
+//   - cursor: 方向別 (nw-resize / ne-resize / sw-resize / se-resize)
+const ANCHORS: {
+	id: "nw" | "ne" | "sw" | "se";
+	pos: { top?: 0; bottom?: 0; left?: 0; right?: 0 };
+	bg: string;
+	cursor: string;
+}[] = [
+	{ id: "nw", pos: { top: 0, left: 0 }, bg: "orange", cursor: "nw-resize" },
+	{ id: "ne", pos: { top: 0, right: 0 }, bg: "red", cursor: "ne-resize" },
+	{ id: "sw", pos: { bottom: 0, left: 0 }, bg: "blue", cursor: "sw-resize" },
+	{ id: "se", pos: { bottom: 0, right: 0 }, bg: "green", cursor: "se-resize" },
+];
+
 export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 	slide,
 	stageScale,
 	stageRoot,
-	dragDelta = null,
+	live = null,
 }) => {
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 
 	// 計測値に uuid を紐付け、現選択 layer と一致しない間 1 frame は描画をスキップする
-	// (これがないと selectedLayer 変更後の初回 render で 「旧 size + 新 transform」 の枠が
+	// (これがないと selectedLayer 変更後の初回 render で「旧 size + 新 transform」 の枠が
 	//  1 フレーム描画されてアウトラインがちらつく)。
 	const [measured, setMeasured] = useState<{
 		uuid: string;
@@ -108,24 +128,31 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 		return <div style={overlayWrapStyle} data-edit-overlay />;
 	}
 
-	const absSx = Math.abs(selectedLayer.scaleX);
-	const absSy = Math.abs(selectedLayer.scaleY);
+	// gesture 中で uuid 一致なら live、それ以外は base layer
+	const useLive = live && live.uuid === selectedLayer.uuid ? live : null;
+	const transX = useLive?.transX ?? selectedLayer.transX;
+	const transY = useLive?.transY ?? selectedLayer.transY;
+	const scaleX = useLive?.scaleX ?? selectedLayer.scaleX;
+	const scaleY = useLive?.scaleY ?? selectedLayer.scaleY;
+	const rotation = useLive?.rotation ?? selectedLayer.rotation;
+
+	const absSx = Math.abs(scaleX);
+	const absSy = Math.abs(scaleY);
 	// visual size: layer の scale を展開して frame の幅高に反映
 	const visW = validMeasured.w * absSx;
 	const visH = validMeasured.h * absSy;
 	// visual center を layer wrapper の visual center に合わせるためのオフセット
 	const offX = (validMeasured.w - visW) / 2;
 	const offY = (validMeasured.h - visH) / 2;
-	// drag 中で、かつ delta が現選択 layer のものなら加算 (即時追従)
-	const drag = dragDelta && dragDelta.uuid === selectedLayer.uuid ? dragDelta : null;
-	const liveTransX = selectedLayer.transX + (drag?.dx ?? 0);
-	const liveTransY = selectedLayer.transY + (drag?.dy ?? 0);
-	// transform: translate (visual center 合わせ + drag delta) → rotate のみ。scale は適用しない
-	// (mirrorH/V も visual size には |sx|/|sy| として反映済み、frame に符号反転は不要)。
-	const transform = `translate(${liveTransX + offX}px, ${liveTransY + offY}px) rotate(${selectedLayer.rotation}deg)`;
-	const outlineThickness = 10;
+	// transform: translate (visual center 合わせ) → rotate のみ。scale は frame サイズへ展開済み
+	const transform = `translate(${transX + offX}px, ${transY + offY}px) rotate(${rotation}deg)`;
 	const outlinePx =
-		stageScale > 0 ? Math.max(outlineThickness / stageScale, 1) : outlineThickness;
+		stageScale > 0
+			? Math.max(OUTLINE_THICKNESS_PX / stageScale, 1)
+			: OUTLINE_THICKNESS_PX;
+	// stage 全体が scale(stageScale) されているため、ハンドルの「画面上 px 固定」化に逆補正
+	const handlePx = stageScale > 0 ? HANDLE_SIZE_PX / stageScale : HANDLE_SIZE_PX;
+	const rotateGapPx = stageScale > 0 ? ROTATE_HANDLE_GAP_PX / stageScale : ROTATE_HANDLE_GAP_PX;
 
 	const frameStyle: CSSProperties = {
 		position: "absolute",
@@ -135,12 +162,46 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 		height: visH,
 		transform,
 		transformOrigin: "50% 50%",
-		outline: `${outlinePx}px solid rgba(255, 0, 0, 0.5)`,
-		outlineOffset: 0,
+		outline: `${outlinePx}px solid blue`,
+		// outline: `${outlinePx}px solid rgba(255, 0, 0, 0.5)`,
+		outlineOffset: `-${outlinePx}px`,
 		boxSizing: "border-box",
-		// visual only: pointer events は親 (SlideEditView の useLayerDrag) で扱う
+		// visual only: pointer events は親 (SlideEditView の useLayerGesture) で扱う
 		pointerEvents: "none",
 	};
+
+	// legacy .slide.editable .anchor: 20x20, background-color のみ、border なし
+	const baseAnchorStyle: CSSProperties = {
+		position: "absolute",
+		width: handlePx,
+		height: handlePx,
+		boxSizing: "border-box",
+		pointerEvents: "auto",
+		userSelect: "none",
+		touchAction: "none",
+		zIndex: 2,
+	};
+
+	const rotateHandleStyle: CSSProperties = {
+		position: "absolute",
+		left: "50%",
+		top: 0,
+		width: handlePx,
+		height: handlePx,
+		// 上辺中央から ROTATE_HANDLE_GAP_PX だけ外側に出す
+		transform: `translate(-50%, calc(-100% - ${rotateGapPx}px))`,
+		background: "#fff",
+		border: `${Math.max(1 / Math.max(stageScale, 0.0001), 1)}px solid #228be6`,
+		borderRadius: "50%",
+		boxSizing: "border-box",
+		cursor: "grab",
+		pointerEvents: "auto",
+		userSelect: "none",
+		touchAction: "none",
+		zIndex: 2,
+	};
+
+	const showHandles = !selectedLayer.locked;
 
 	return (
 		<div style={overlayWrapStyle} data-edit-overlay>
@@ -149,8 +210,26 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 				data-edit-selection-frame
 				data-selected-layer-id={selectedLayer.id}
 				data-selected-layer-uuid={selectedLayer.uuid}
-				data-dragging={drag ? "true" : "false"}
-			/>
+				data-gesturing={useLive ? "true" : "false"}
+			>
+				{showHandles && (
+					<>
+						{ANCHORS.map((a) => (
+							<div
+								key={a.id}
+								data-resize-anchor={a.id}
+								style={{
+									...baseAnchorStyle,
+									...a.pos,
+									background: a.bg,
+									cursor: a.cursor,
+								}}
+							/>
+						))}
+						<div data-rotate-handle style={rotateHandleStyle} />
+					</>
+				)}
+			</div>
 		</div>
 	);
 };
