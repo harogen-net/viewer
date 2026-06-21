@@ -3,6 +3,7 @@ import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
+import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { FileIOPanel } from "./panels/FileIOPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
@@ -129,7 +130,10 @@ const EditArea: FC = () => {
 				)}
 			</div>
 			<aside style={sideRailStyle} data-edit-side-rail>
-				<LayerListPanel />
+				<Stack gap="sm">
+					<EditOpsPanel />
+					<LayerListPanel />
+				</Stack>
 			</aside>
 		</div>
 	);

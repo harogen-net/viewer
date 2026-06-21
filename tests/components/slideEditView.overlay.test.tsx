@@ -228,16 +228,16 @@ describe("SlideEditView (v4 Group D D-3a) - overlay + hit-test", () => {
 		expect(useLayerStore.getState().selectedLayer).toBeNull();
 	});
 
-	it("選択枠の outline 太さは stageScale で補正される (10/scale)", () => {
+	it("選択枠の outline 太さは stageScale で補正される (2/scale)", () => {
 		// fit area 800x600, slide 1600x800 → scale = min(0.5, 0.75) = 0.5
-		// → outline 太さ = 10/0.5 = 20px (LayerEditOverlay の OUTLINE_THICKNESS_PX=10)
+		// → outline 太さ = 2/0.5 = 4px (LayerEditOverlay の OUTLINE_THICKNESS_PX=2)
 		const layer = makeImageLayer(1, "u-1", "img-a");
 		render(makeSlide([layer]), 800, 600);
 		act(() => {
 			useLayerStore.getState().setSelectedLayer(layer);
 		});
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
-		expect(frame?.style.outline).toContain("20px");
+		expect(frame?.style.outline).toContain("4px");
 		expect(frame?.style.outline).toContain("solid");
 	});
 });
