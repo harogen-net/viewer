@@ -103,7 +103,11 @@ export const drawSlideToCanvas = async (
 		ctx.resetTransform();
 		// base scale (slide → target 縮小) を一律先頭で適用
 		ctx.scale(baseScaleX, baseScaleY);
-		ctx.translate(imgLayer.transX, imgLayer.transY);
+		// transX/transY は content 中心 (= layer.x/y in legacy) の位置ではなく、
+		// transform-origin: 50% 50% を仮定した CSS matrix() と同じ「中心からのオフセット」。
+		// content 中心を正しい位置に持ってくるためには transX + w/2, transY + h/2 へ移動する必要がある
+		// (legacy SlideToPNGConverter は image.x = transX + originWidth/2 を使っているため同等)。
+		ctx.translate(imgLayer.transX + img.naturalWidth / 2, imgLayer.transY + img.naturalHeight / 2);
 		ctx.rotate((imgLayer.rotation * Math.PI) / 180);
 		ctx.scale(
 			imgLayer.scaleX * (imgLayer.mirrorH ? -1 : 1),
