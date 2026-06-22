@@ -4,13 +4,20 @@ import type { Slide } from "../../src/types/Slide";
 import type { SlideState } from "../../src/types/SlideState";
 import {
     addLayer,
+    alignTo,
     bringForward,
     bringToFront,
     duplicateLayer,
+    fitToSlide,
     removeLayer,
     reorderLayer,
+    resetOpacity,
+    resetRotation,
+    rotateBy,
     sendBackward,
     sendToBack,
+    toggleMirrorH,
+    toggleMirrorV,
     updateImageLayer,
     updateLayer,
     updateSharedLayer,
@@ -237,6 +244,158 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 		it("該当 0 件は null", () => {
 			const s = makeState([makeSlide([makeImageLayer(1, "Y", { shared: true })])]);
 			expect(updateSharedLayer(s, "X", { opacity: 0.5 })).toBeNull();
+		});
+	});
+
+	describe("transform ops (D-4b)", () => {
+		it("rotateBy: rotation 加算", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a", { rotation: 30 })])]);
+			const r = rotateBy(s, 0, 90);
+			expect(r?.slides[0].layers[0].rotation).toBe(120);
+		});
+
+		it("rotateBy: delta=0 は null", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a")])]);
+			expect(rotateBy(s, 0, 0)).toBeNull();
+		});
+
+		it("resetRotation: rotation を 0 に", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a", { rotation: 45 })])]);
+			const r = resetRotation(s, 0);
+			expect(r?.slides[0].layers[0].rotation).toBe(0);
+		});
+
+		it("resetRotation: すでに 0 なら null", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a", { rotation: 0 })])]);
+			expect(resetRotation(s, 0)).toBeNull();
+		});
+
+		it("toggleMirrorH: false → true → false", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a", { mirrorH: false })])]);
+			const r1 = toggleMirrorH(s, 0);
+			expect(r1?.slides[0].layers[0].mirrorH).toBe(true);
+			const r2 = toggleMirrorH(r1!, 0);
+			expect(r2?.slides[0].layers[0].mirrorH).toBe(false);
+		});
+
+		it("toggleMirrorV: 同様に toggle", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a", { mirrorV: false })])]);
+			const r = toggleMirrorV(s, 0);
+			expect(r?.slides[0].layers[0].mirrorV).toBe(true);
+		});
+
+		it("resetOpacity: opacity を 1 に / すでに 1 なら null", () => {
+			const s1 = makeState([makeSlide([makeImageLayer(1, "a", { opacity: 0.5 })])]);
+			expect(resetOpacity(s1, 0)?.slides[0].layers[0].opacity).toBe(1);
+			const s2 = makeState([makeSlide([makeImageLayer(1, "a", { opacity: 1 })])]);
+			expect(resetOpacity(s2, 0)).toBeNull();
+		});
+
+		describe("fitToSlide (legacy Slide.fitLayer 互換)", () => {
+			it("通常: slide 1600x800, content 800x800 → scale1 = min(2, 1) = 1, 中央配置", () => {
+				const s = makeState([
+					makeSlide([makeImageLayer(1, "a", { scaleX: 0.5, scaleY: 0.5 })], 1, "s1"),
+				]);
+				// slide 1600x800, content 800x800 → sx=2, sy=1, scale1=1
+				const r = fitToSlide(s, 0, 1600, 800, 800, 800);
+				const layer = r?.slides[0].layers[0];
+				expect(layer?.scaleX).toBe(1);
+				expect(layer?.scaleY).toBe(1);
+				// 中央配置: transX = slideCx - contentW/2 = 800 - 400 = 400
+				expect(layer?.transX).toBe(400);
+				expect(layer?.transY).toBe(0);
+			});
+
+			it("rotation ±90° のときは content W/H を入れ替えて scale 計算", () => {
+				// rotation=90: scaleX = slideW/contentH = 1600/400 = 4, scaleY = slideH/contentW = 800/800 = 1
+				// scale1 = 1
+				const s = makeState([
+					makeSlide([
+						makeImageLayer(1, "a", { rotation: 90, scaleX: 0.5, scaleY: 0.5 }),
+					]),
+				]);
+				const r = fitToSlide(s, 0, 1600, 800, 800, 400);
+				const layer = r?.slides[0].layers[0];
+				expect(layer?.scaleX).toBe(1);
+				expect(layer?.scaleY).toBe(1);
+			});
+
+			it("toggle: 中央 + scale1 状態なら scale2 に切り替え", () => {
+				// 1 回目で scale1=1, 中央配置になる。状態を残して 2 回目を呼ぶ。
+				const s1 = makeState([
+					makeSlide([makeImageLayer(1, "a", { scaleX: 0.5, scaleY: 0.5 })], 1, "s1"),
+				]);
+				const r1 = fitToSlide(s1, 0, 1600, 800, 800, 800)!;
+				expect(r1.slides[0].layers[0].scaleX).toBe(1); // scale1
+				// 2 回目: 中央 + scale1 なので scale2 (= 2) に切り替え
+				const r2 = fitToSlide(r1, 0, 1600, 800, 800, 800)!;
+				expect(r2.slides[0].layers[0].scaleX).toBe(2);
+				expect(r2.slides[0].layers[0].scaleY).toBe(2);
+			});
+
+			it("contentW <= 0 は null", () => {
+				const s = makeState([makeSlide([makeImageLayer(1, "a")])]);
+				expect(fitToSlide(s, 0, 1600, 800, 0, 500)).toBeNull();
+				expect(fitToSlide(s, 0, 1600, 800, 500, 0)).toBeNull();
+			});
+		});
+
+		describe("alignTo (legacy Slide.arrangeLayer 互換)", () => {
+			// slide 1600x800、layer content 400x200、scale=1、rotation=0
+			// visual bbox = 400x200 (no rotation)
+			it("top: visual top が y=0 に接する (transY = bounds.h/2 - contentH/2 = 100 - 100 = 0)", () => {
+				const s = makeState([makeSlide([makeImageLayer(1, "a", { transX: 0, transY: 500 })])]);
+				const r = alignTo(s, 0, "top", 1600, 800, 400, 200);
+				expect(r?.slides[0].layers[0].transY).toBe(0);
+				expect(r?.slides[0].layers[0].transX).toBe(0); // X 不変
+			});
+
+			it("bottom: visual bottom が y=slideH に接する (transY = 800 - 100 - 100 = 600)", () => {
+				const s = makeState([makeSlide([makeImageLayer(1, "a", { transY: 0 })])]);
+				const r = alignTo(s, 0, "bottom", 1600, 800, 400, 200);
+				expect(r?.slides[0].layers[0].transY).toBe(600);
+			});
+
+			it("left: visual left が x=0 に接する (transX = bounds.w/2 - contentW/2 = 200 - 200 = 0)", () => {
+				const s = makeState([makeSlide([makeImageLayer(1, "a", { transX: 500 })])]);
+				const r = alignTo(s, 0, "left", 1600, 800, 400, 200);
+				expect(r?.slides[0].layers[0].transX).toBe(0);
+			});
+
+			it("right: visual right が x=slideW に接する (transX = 1600 - 200 - 200 = 1200)", () => {
+				const s = makeState([makeSlide([makeImageLayer(1, "a", { transX: 0 })])]);
+				const r = alignTo(s, 0, "right", 1600, 800, 400, 200);
+				expect(r?.slides[0].layers[0].transX).toBe(1200);
+			});
+
+			it("rotation 90°: bbox の幅高が swap (visual bbox = 200x400)", () => {
+				// rotation 90: 4 corner rotate → visual bbox = (contentH, contentW) = (200, 400)
+				// top: transY = bounds.h/2 - contentH/2 = 200 - 100 = 100
+				const s = makeState([
+					makeSlide([makeImageLayer(1, "a", { rotation: 90, transY: 500 })]),
+				]);
+				const r = alignTo(s, 0, "top", 1600, 800, 400, 200);
+				expect(r?.slides[0].layers[0].transY).toBe(100);
+			});
+
+			it("scale 2 倍: bbox も 2 倍 (visual bbox = 800x400)", () => {
+				// top: bounds.h = 200 * 2 = 400, transY = 200 - 100 = 100
+				const s = makeState([
+					makeSlide([makeImageLayer(1, "a", { scaleX: 2, scaleY: 2, transY: 500 })]),
+				]);
+				const r = alignTo(s, 0, "top", 1600, 800, 400, 200);
+				expect(r?.slides[0].layers[0].transY).toBe(100);
+			});
+
+			it("既に揃っている位置なら null", () => {
+				const s = makeState([makeSlide([makeImageLayer(1, "a", { transY: 0 })])]);
+				expect(alignTo(s, 0, "top", 1600, 800, 400, 200)).toBeNull();
+			});
+
+			it("contentW/H <= 0 は null", () => {
+				const s = makeState([makeSlide([makeImageLayer(1, "a")])]);
+				expect(alignTo(s, 0, "top", 1600, 800, 0, 200)).toBeNull();
+			});
 		});
 	});
 });

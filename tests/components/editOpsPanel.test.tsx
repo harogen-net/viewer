@@ -232,3 +232,90 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		expect(container.textContent).toContain("0 / 1");
 	});
 });
+
+describe("EditOpsPanel (v4 Group D D-4b) - transform ops", () => {
+	it("rotate-left/right で rotation が ±90° 加算", () => {
+		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
+		render();
+		selectLayer("u-1");
+		clickByOp("rotate-right");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
+		clickByOp("rotate-left");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
+	});
+
+	it("reset-rotation で rotation = 0", () => {
+		seedSlide([makeImageLayer(1, "u-1", { rotation: 45 })]);
+		render();
+		selectLayer("u-1");
+		clickByOp("reset-rotation");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
+	});
+
+	it("mirror-h / mirror-v ボタンが mirror flag を toggle", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("mirror-h");
+		expect(useSlideStore.getState().slides[0].layers[0].mirrorH).toBe(true);
+		clickByOp("mirror-h");
+		expect(useSlideStore.getState().slides[0].layers[0].mirrorH).toBe(false);
+		clickByOp("mirror-v");
+		expect(useSlideStore.getState().slides[0].layers[0].mirrorV).toBe(true);
+	});
+
+	it("reset-opacity で opacity = 1", () => {
+		seedSlide([makeImageLayer(1, "u-1", { opacity: 0.3 })]);
+		render();
+		selectLayer("u-1");
+		clickByOp("reset-opacity");
+		expect(useSlideStore.getState().slides[0].layers[0].opacity).toBe(1);
+	});
+
+	it("locked layer は transform op ボタンも disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1", { locked: true })]);
+		render();
+		selectLayer("u-1");
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled,
+		).toBe(true);
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled,
+		).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="fit"]')?.disabled).toBe(true);
+	});
+
+	it("fit ボタン: DOM 計測できないので no-op (jsdom 環境)、エラーは出ない", () => {
+		// jsdom では offsetWidth/Height は 0 を返すため fit は no-op (contentW<=0 で null)。
+		// エラーなく押せることだけ確認。
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		expect(() => clickByOp("fit")).not.toThrow();
+		// 履歴も増えない (no-op)
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
+	it("align-top/right/bottom/left ボタンが描画されており、enabled になる", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		for (const edge of ["top", "right", "bottom", "left"] as const) {
+			const btn = container.querySelector<HTMLButtonElement>(
+				`[data-edit-op="align-${edge}"]`,
+			);
+			expect(btn).not.toBeNull();
+			expect(btn?.disabled).toBe(false);
+		}
+	});
+
+	it("align ボタンも jsdom 環境では no-op (offsetWidth=0)、エラーは出ない", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		for (const edge of ["top", "right", "bottom", "left"]) {
+			expect(() => clickByOp(`align-${edge}`)).not.toThrow();
+		}
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+});

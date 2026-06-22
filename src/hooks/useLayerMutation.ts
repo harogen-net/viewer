@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { ImageLayer, LayerBase, TextLayer } from "../types/Layer";
-import type { NewLayer } from "../utils/layerOps";
+import type { AlignEdge, NewLayer } from "../utils/layerOps";
 import * as layerOps from "../utils/layerOps";
 import { useDocumentMutation } from "./useDocumentMutation";
 
@@ -34,6 +34,26 @@ export interface UseLayerMutation {
 	bringForward: (layerIndex: number) => void;
 	sendBackward: (layerIndex: number) => void;
 	updateSharedLayer: (sharedUuid: string, patch: Partial<LayerBase>) => void;
+	rotateBy: (layerIndex: number, deltaDeg: number) => void;
+	resetRotation: (layerIndex: number) => void;
+	toggleMirrorH: (layerIndex: number) => void;
+	toggleMirrorV: (layerIndex: number) => void;
+	resetOpacity: (layerIndex: number) => void;
+	fitToSlide: (
+		layerIndex: number,
+		slideW: number,
+		slideH: number,
+		contentW: number,
+		contentH: number,
+	) => void;
+	alignTo: (
+		layerIndex: number,
+		edge: AlignEdge,
+		slideW: number,
+		slideH: number,
+		contentW: number,
+		contentH: number,
+	) => void;
 }
 
 export const useLayerMutation = (): UseLayerMutation => {
@@ -105,6 +125,52 @@ export const useLayerMutation = (): UseLayerMutation => {
 			),
 		[applySlideChange],
 	);
+	const rotateBy = useCallback(
+		(layerIndex: number, deltaDeg: number) =>
+			applySlideChange("rotate layer", (s) => layerOps.rotateBy(s, layerIndex, deltaDeg)),
+		[applySlideChange],
+	);
+	const resetRotation = useCallback(
+		(layerIndex: number) =>
+			applySlideChange("reset rotation", (s) => layerOps.resetRotation(s, layerIndex)),
+		[applySlideChange],
+	);
+	const toggleMirrorH = useCallback(
+		(layerIndex: number) =>
+			applySlideChange("toggle mirror h", (s) => layerOps.toggleMirrorH(s, layerIndex)),
+		[applySlideChange],
+	);
+	const toggleMirrorV = useCallback(
+		(layerIndex: number) =>
+			applySlideChange("toggle mirror v", (s) => layerOps.toggleMirrorV(s, layerIndex)),
+		[applySlideChange],
+	);
+	const resetOpacity = useCallback(
+		(layerIndex: number) =>
+			applySlideChange("reset opacity", (s) => layerOps.resetOpacity(s, layerIndex)),
+		[applySlideChange],
+	);
+	const fitToSlide = useCallback(
+		(layerIndex: number, slideW: number, slideH: number, contentW: number, contentH: number) =>
+			applySlideChange("fit to slide", (s) =>
+				layerOps.fitToSlide(s, layerIndex, slideW, slideH, contentW, contentH),
+			),
+		[applySlideChange],
+	);
+	const alignTo = useCallback(
+		(
+			layerIndex: number,
+			edge: AlignEdge,
+			slideW: number,
+			slideH: number,
+			contentW: number,
+			contentH: number,
+		) =>
+			applySlideChange(`align ${edge}`, (s) =>
+				layerOps.alignTo(s, layerIndex, edge, slideW, slideH, contentW, contentH),
+			),
+		[applySlideChange],
+	);
 
 	return {
 		updateLayer,
@@ -119,5 +185,12 @@ export const useLayerMutation = (): UseLayerMutation => {
 		bringForward,
 		sendBackward,
 		updateSharedLayer,
+		rotateBy,
+		resetRotation,
+		toggleMirrorH,
+		toggleMirrorV,
+		resetOpacity,
+		fitToSlide,
+		alignTo,
 	};
 };

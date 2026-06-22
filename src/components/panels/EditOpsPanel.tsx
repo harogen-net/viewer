@@ -5,19 +5,23 @@ import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useHistoryStore } from "../../state/historyStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
+import type { AlignEdge } from "../../utils/layerOps";
 
 // EditOpsPanel (v4 Group D D-4a、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/EditViewController.ts (446 行 jQuery) は import せず新規実装。
 //
-// D-4a スコープ:
+// D-4a/b スコープ:
 //   - undo / redo ボタン (`useDocumentMutation.undo/redo`, `canUndo/canRedo`)
 //   - layer 順序変更 (bringToFront / bringForward / sendBackward / sendToBack)
 //   - layer 削除 (removeLayer)
 //   - layer 複製 (duplicateLayer)
 //   - 透明度スライダー (opacity 0-1, updateLayer)
+//   - 回転 ±90° / リセット (D-4b)
+//   - 反転 H / V トグル (D-4b)
+//   - フィット配置 (slide 寸法に aspect 維持で最大化 + 中央、legacy fitLayer scale1↔scale2 toggle 付き) (D-4b)
+//   - 透明度リセット (opacity = 1) (D-4b)
 //
 // 後の chunk:
-//   - D-4b: 回転 (±90°) / 反転 (mirrorH/V) / フィット配置 / 位置揃え
 //   - D-8: カット/コピー/ペースト (keyboard shortcut とセット)
 //
 // 配置: AppShell の右側 rail 内、LayerListPanel の上。
@@ -52,6 +56,35 @@ export const EditOpsPanel: FC = () => {
 		const next = Math.max(0, Math.min(1, value / 100));
 		// 値変化なしの場合は layerOps.updateLayer が null を返し no-op + history 記録なし
 		layer.updateLayer(layerIndex, { opacity: next });
+	};
+
+	// fit: layer wrapper の DOM を検索し content size を実測 (scaled 上で querySelector)
+	// スコープ: edit canvas の scaled stage 内の wrapper のみ (LayerListPanel や thumb にも
+	//        data-layer-id があるため [data-slide-edit-scaled] 下に限定)。
+	const measureContentSize = (): { w: number; h: number } | null => {
+		if (!selectedLayer) return null;
+		const wrapper = document.querySelector<HTMLElement>(
+			`[data-slide-edit-scaled] [data-layer-id="${selectedLayer.id}"]`,
+		);
+		if (!wrapper) return null;
+		const w = wrapper.offsetWidth;
+		const h = wrapper.offsetHeight;
+		if (w <= 0 || h <= 0) return null;
+		return { w, h };
+	};
+
+	const handleFit = () => {
+		if (!selectedLayer || !selectedSlide || layerIndex < 0) return;
+		const size = measureContentSize();
+		if (!size) return;
+		layer.fitToSlide(layerIndex, selectedSlide.width, selectedSlide.height, size.w, size.h);
+	};
+
+	const handleAlign = (edge: AlignEdge) => {
+		if (!selectedLayer || !selectedSlide || layerIndex < 0) return;
+		const size = measureContentSize();
+		if (!size) return;
+		layer.alignTo(layerIndex, edge, selectedSlide.width, selectedSlide.height, size.w, size.h);
 	};
 
 	return (
@@ -163,15 +196,151 @@ export const EditOpsPanel: FC = () => {
 					</Tooltip>
 				</Group>
 
+				{/* 回転 (±90° / リセット) */}
+				<Group gap={4}>
+					<Tooltip label="左に 90°">
+						<ActionIcon
+							variant="default"
+							onClick={() => layer.rotateBy(layerIndex, -90)}
+							disabled={!canEditLayer}
+							data-edit-op="rotate-left"
+							aria-label="rotate left 90"
+						>
+							↺
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="右に 90°">
+						<ActionIcon
+							variant="default"
+							onClick={() => layer.rotateBy(layerIndex, 90)}
+							disabled={!canEditLayer}
+							data-edit-op="rotate-right"
+							aria-label="rotate right 90"
+						>
+							↻
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="回転リセット">
+						<ActionIcon
+							variant="default"
+							onClick={() => layer.resetRotation(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="reset-rotation"
+							aria-label="reset rotation"
+						>
+							↺0
+						</ActionIcon>
+					</Tooltip>
+				</Group>
+
+				{/* 反転 H / V トグル + フィット */}
+				<Group gap={4}>
+					<Tooltip label="水平反転">
+						<ActionIcon
+							variant={selectedLayer?.mirrorH ? "filled" : "default"}
+							onClick={() => layer.toggleMirrorH(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="mirror-h"
+							aria-label="toggle mirror horizontal"
+						>
+							⇄
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="垂直反転">
+						<ActionIcon
+							variant={selectedLayer?.mirrorV ? "filled" : "default"}
+							onClick={() => layer.toggleMirrorV(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="mirror-v"
+							aria-label="toggle mirror vertical"
+						>
+							⇅
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="slide にフィット (中央配置、scale1↔scale2 toggle)">
+						<ActionIcon
+							variant="default"
+							onClick={handleFit}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="fit"
+							aria-label="fit to slide"
+						>
+							⛶
+						</ActionIcon>
+					</Tooltip>
+				</Group>
+
+				{/* 位置揃え (上/右/下/左、visual bbox の端を slide 端に接する) */}
+				<Group gap={4}>
+					<Tooltip label="上端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("top")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-top"
+							aria-label="align top"
+						>
+							↥
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="右端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("right")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-right"
+							aria-label="align right"
+						>
+							↦
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="下端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("bottom")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-bottom"
+							aria-label="align bottom"
+						>
+							↧
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="左端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("left")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-left"
+							aria-label="align left"
+						>
+							↤
+						</ActionIcon>
+					</Tooltip>
+				</Group>
+
 				{/* 透明度 */}
 				<Stack gap={2} data-edit-op-group="opacity">
 					<Group gap={6} justify="space-between">
 						<Text size="xs" c="dimmed">
 							透明度
 						</Text>
-						<Text size="xs" ff="monospace">
-							{opacityPercent}%
-						</Text>
+						<Group gap={4}>
+							<Text size="xs" ff="monospace">
+								{opacityPercent}%
+							</Text>
+							<Tooltip label="透明度リセット (100%)">
+								<ActionIcon
+									size="xs"
+									variant="subtle"
+									onClick={() => layer.resetOpacity(layerIndex)}
+									disabled={!canEditLayer}
+									data-edit-op="reset-opacity"
+									aria-label="reset opacity"
+								>
+									↺
+								</ActionIcon>
+							</Tooltip>
+						</Group>
 					</Group>
 					<Slider
 						value={opacityPercent}

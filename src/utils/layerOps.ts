@@ -232,3 +232,193 @@ export const updateSharedLayer = (
 	if (!anyChanged) return null;
 	return { slides: nextSlides, selectedIndex: state.selectedIndex };
 };
+
+// --- transform ops (v4 Group D D-4b) ---
+
+/** rotation += deltaDeg。値変化なし (delta=0) は null。 */
+export const rotateBy = (state: SlideState, layerIndex: number, deltaDeg: number): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		if (deltaDeg === 0) return null;
+		const cur = layers[layerIndex];
+		return layers.map((l, i) =>
+			i === layerIndex ? ({ ...cur, rotation: cur.rotation + deltaDeg } as Layer) : l,
+		);
+	});
+
+/** rotation = 0。すでに 0 なら null。 */
+export const resetRotation = (state: SlideState, layerIndex: number): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		const cur = layers[layerIndex];
+		if (cur.rotation === 0) return null;
+		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, rotation: 0 } as Layer) : l));
+	});
+
+/** mirrorH を toggle。 */
+export const toggleMirrorH = (state: SlideState, layerIndex: number): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		const cur = layers[layerIndex];
+		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, mirrorH: !cur.mirrorH } as Layer) : l));
+	});
+
+/** mirrorV を toggle。 */
+export const toggleMirrorV = (state: SlideState, layerIndex: number): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		const cur = layers[layerIndex];
+		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, mirrorV: !cur.mirrorV } as Layer) : l));
+	});
+
+/** opacity = 1。すでに 1 なら null。 */
+export const resetOpacity = (state: SlideState, layerIndex: number): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		const cur = layers[layerIndex];
+		if (cur.opacity === 1) return null;
+		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, opacity: 1 } as Layer) : l));
+	});
+
+/**
+ * slide 寸法に fit-to-area (aspect 維持で最大化、中央配置)。
+ * legacy Slide.fitLayer 互換:
+ *   - rotation ±90° なら content の W/H を入れ替えて scale を計算
+ *   - scale1 = min(scaleX, scaleY) (fit), scale2 = max (cover)
+ *   - 既に中央 + scale1 なら scale2 に toggle (legacy の小細工)
+ *   - それ以外は scale1 + 中央
+ * - contentW/contentH は呼び出し側 (DOM 計測) から渡す。0 以下なら null。
+ * - 結果が現在と一致なら null (no-op)。
+ */
+export const fitToSlide = (
+	state: SlideState,
+	layerIndex: number,
+	slideW: number,
+	slideH: number,
+	contentW: number,
+	contentH: number,
+): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		if (contentW <= 0 || contentH <= 0) return null;
+		const cur = layers[layerIndex];
+		const isQuarter = cur.rotation === 90 || cur.rotation === -90;
+		const sx = isQuarter ? slideW / contentH : slideW / contentW;
+		const sy = isQuarter ? slideH / contentW : slideH / contentH;
+		const scale1 = Math.min(sx, sy);
+		const scale2 = Math.max(sx, sy);
+		const slideCx = slideW / 2;
+		const slideCy = slideH / 2;
+		const curCx = cur.transX + contentW / 2;
+		const curCy = cur.transY + contentH / 2;
+		const isCentered = curCx === slideCx && curCy === slideCy;
+		// legacy compRatio (= 1e10) で scale 一致判定
+		const COMP_RATIO = 1e10;
+		const isScale1 = Math.round(cur.scaleX * COMP_RATIO) === Math.round(scale1 * COMP_RATIO);
+		const targetScale = isCentered && isScale1 ? scale2 : scale1;
+		const newTransX = slideCx - contentW / 2;
+		const newTransY = slideCy - contentH / 2;
+		// 値変化検出
+		if (
+			cur.scaleX === targetScale &&
+			cur.scaleY === targetScale &&
+			cur.transX === newTransX &&
+			cur.transY === newTransY
+		) {
+			return null;
+		}
+		return layers.map((l, i) =>
+			i === layerIndex
+				? ({
+						...cur,
+						scaleX: targetScale,
+						scaleY: targetScale,
+						transX: newTransX,
+						transY: newTransY,
+					} as Layer)
+				: l,
+		);
+	});
+
+export type AlignEdge = "top" | "right" | "bottom" | "left";
+
+/**
+ * layer の visual bounding box (回転考慮) を返す。
+ * legacy Layer.bounds 互換: 4 corner を rotate して max(|x|)*2, max(|y|)*2。
+ * mirror は visual サイズに影響しない (|scale| 経由で吸収済み)。
+ */
+const getVisualBounds = (
+	contentW: number,
+	contentH: number,
+	scaleX: number,
+	scaleY: number,
+	rotationDeg: number,
+): { w: number; h: number } => {
+	const halfW = (contentW * Math.abs(scaleX)) / 2;
+	const halfH = (contentH * Math.abs(scaleY)) / 2;
+	const rad = (rotationDeg * Math.PI) / 180;
+	const cos = Math.cos(rad);
+	const sin = Math.sin(rad);
+	const corners: [number, number][] = [
+		[halfW, halfH],
+		[-halfW, halfH],
+		[-halfW, -halfH],
+		[halfW, -halfH],
+	];
+	let maxX = 0;
+	let maxY = 0;
+	for (const [x, y] of corners) {
+		const nx = cos * x - sin * y;
+		const ny = cos * y + sin * x;
+		if (nx > maxX) maxX = nx;
+		if (ny > maxY) maxY = ny;
+	}
+	return { w: maxX * 2, h: maxY * 2 };
+};
+
+/**
+ * slide の端 (上/右/下/左) に layer の visual bbox が接するように移動。
+ * legacy Slide.arrangeLayer(Direction) 互換:
+ *   - TOP:    visual center.y = bounds.h / 2 (visual top が y=0 に接する)
+ *   - BOTTOM: visual center.y = slideH - bounds.h / 2
+ *   - LEFT:   visual center.x = bounds.w / 2
+ *   - RIGHT:  visual center.x = slideW - bounds.w / 2
+ * visual center → transform 値: transX = center.x - contentW/2 (transY も同様)。
+ * - contentW/H は呼び出し側 (DOM 計測) から渡す。0 以下なら null。
+ * - 値変化なし (既に端) なら null。
+ */
+export const alignTo = (
+	state: SlideState,
+	layerIndex: number,
+	edge: AlignEdge,
+	slideW: number,
+	slideH: number,
+	contentW: number,
+	contentH: number,
+): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		if (contentW <= 0 || contentH <= 0) return null;
+		const cur = layers[layerIndex];
+		const bounds = getVisualBounds(contentW, contentH, cur.scaleX, cur.scaleY, cur.rotation);
+		let newTransX = cur.transX;
+		let newTransY = cur.transY;
+		switch (edge) {
+			case "top":
+				newTransY = bounds.h / 2 - contentH / 2;
+				break;
+			case "bottom":
+				newTransY = slideH - bounds.h / 2 - contentH / 2;
+				break;
+			case "left":
+				newTransX = bounds.w / 2 - contentW / 2;
+				break;
+			case "right":
+				newTransX = slideW - bounds.w / 2 - contentW / 2;
+				break;
+		}
+		if (cur.transX === newTransX && cur.transY === newTransY) return null;
+		return layers.map((l, i) =>
+			i === layerIndex ? ({ ...cur, transX: newTransX, transY: newTransY } as Layer) : l,
+		);
+	});
