@@ -33,6 +33,9 @@ interface SlideThumbViewProps extends SlideViewProps {
 	thumbHeight?: number;
 }
 
+// canvas 再描画 debounce ms (legacy CanvasSlideView.refresh の setTimeout 100ms 互換)。
+const DEBOUNCE_MS = 100;
+
 // legacy ThumbSlideView.fitToHeight() の幅補正式:
 //   r == 1     → 1
 //   r < 1      → pow(r, 0.4)
@@ -82,16 +85,21 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		return map;
 	}, [imageById]);
 
-	// canvas 描画 (legacy CanvasSlideView 相当、in-place 描画でメモリ節約)
+	// canvas 描画 (legacy CanvasSlideView 相当、in-place 描画でメモリ節約 + debounce)。
+	// legacy `CanvasSlideView.refresh()` は setTimeout 100ms で連続更新を間引いている。
+	// 同等にするため effect で前回 timer を clear → 100ms 後に描画。
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
-		drawSlideToCanvas(slide, bgColor, imageMap, {
-			targetCanvas: canvas,
-			targetWidth: canvasW,
-			targetHeight: canvasH,
-		}).catch((e) => console.warn("[SlideThumbView] draw failed:", e));
+		const tid = window.setTimeout(() => {
+			drawSlideToCanvas(slide, bgColor, imageMap, {
+				targetCanvas: canvas,
+				targetWidth: canvasW,
+				targetHeight: canvasH,
+			}).catch((e) => console.warn("[SlideThumbView] draw failed:", e));
+		}, DEBOUNCE_MS);
+		return () => window.clearTimeout(tid);
 	}, [slide, bgColor, imageMap, canvasW, canvasH]);
 
 	const itemStyle: CSSProperties = {

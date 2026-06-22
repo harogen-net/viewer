@@ -98,4 +98,20 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		render(true);
 		expect(document.body.textContent).toContain("photo.png");
 	});
+
+	it("mode toggle (data-image-mode-control) が描画される + 3 mode (配置/単体差替/まとめて差替)", () => {
+		render(true);
+		const ctl = document.body.querySelector("[data-image-mode-control]");
+		expect(ctl).not.toBeNull();
+		expect(ctl?.textContent).toContain("配置");
+		expect(ctl?.textContent).toContain("単体差替");
+		expect(ctl?.textContent).toContain("まとめて差替");
+	});
+
+	it("各 tile に DL ボタン (data-image-download) が付く", () => {
+		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
+		render(true);
+		const tile = document.body.querySelector<HTMLElement>('[data-image-tile][data-image-id="id-a"]');
+		expect(tile?.querySelector("[data-image-download]")).not.toBeNull();
+	});
 });

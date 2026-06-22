@@ -13,17 +13,22 @@ import { LayerType } from "../../types/Layer";
 //
 // imageData は HVD 内に `{imageId: dataURL}` として埋め込まれており、
 // hooks/useStorage が parseHvd 経由で imageLibraryStore に投入する。
-// clipRect 適用も Group B 以降。
+// clipRect は CSS clip-path: inset(top right bottom left) で適用 (legacy ImageView.ts L43-58 互換)。
 
 const ImageLayerContent: FC<{ layer: ImageLayer }> = ({ layer }) => {
 	const entry = useImageLibraryStore((s) => s.imageById[layer.imageId]);
 	if (entry) {
+		const [top, right, bottom, left] = layer.clipRect;
+		const isClipped = top !== 0 || right !== 0 || bottom !== 0 || left !== 0;
+		const clipStyle: CSSProperties = isClipped
+			? { clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px)` }
+			: {};
 		return (
 			<img
 				src={entry.dataURL}
 				alt={entry.name ?? layer.name ?? layer.imageId.slice(0, 8)}
 				draggable={false}
-				style={{ display: "block", userSelect: "none" }}
+				style={{ display: "block", userSelect: "none", ...clipStyle }}
 			/>
 		);
 	}

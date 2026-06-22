@@ -56,6 +56,10 @@ export interface UseLayerMutation {
 	) => void;
 	/** 指定 imageId を参照する ImageLayer を全 slide から削除 (D-6a)。 */
 	removeLayersByImageId: (imageId: string) => void;
+	/** 選択 slide の指定 layerIndex (ImageLayer) の imageId のみ差替 (D-6b、単体差替)。 */
+	replaceImageId: (layerIndex: number, newImageId: string) => void;
+	/** 全 slide の oldImageId を参照する ImageLayer の imageId を newImageId に置換 (D-6b、まとめて差替)。 */
+	replaceImageIdAll: (oldImageId: string, newImageId: string) => void;
 }
 
 export const useLayerMutation = (): UseLayerMutation => {
@@ -180,6 +184,20 @@ export const useLayerMutation = (): UseLayerMutation => {
 			),
 		[applySlideChange],
 	);
+	const replaceImageId = useCallback(
+		(layerIndex: number, newImageId: string) =>
+			applySlideChange("replace image", (s) =>
+				layerOps.replaceImageId(s, layerIndex, newImageId),
+			),
+		[applySlideChange],
+	);
+	const replaceImageIdAll = useCallback(
+		(oldImageId: string, newImageId: string) =>
+			applySlideChange("replace image (all)", (s) =>
+				layerOps.replaceImageIdAll(s, oldImageId, newImageId),
+			),
+		[applySlideChange],
+	);
 
 	return {
 		updateLayer,
@@ -202,5 +220,7 @@ export const useLayerMutation = (): UseLayerMutation => {
 		fitToSlide,
 		alignTo,
 		removeLayersByImageId,
+		replaceImageId,
+		replaceImageIdAll,
 	};
 };

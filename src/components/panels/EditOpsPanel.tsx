@@ -87,6 +87,21 @@ export const EditOpsPanel: FC = () => {
 		layer.alignTo(layerIndex, edge, selectedSlide.width, selectedSlide.height, size.w, size.h);
 	};
 
+	// clipRect スライダー (D-6b、ImageLayer のみ) — [top, right, bottom, left]
+	const isImageLayer = selectedLayer?.type === "image";
+	const imageLayer = isImageLayer ? (selectedLayer as { clipRect: [number, number, number, number]; imageId: string }) : null;
+	const clipContentSize = isImageLayer ? measureContentSize() : null;
+	const handleClipChange = (edgeIndex: 0 | 1 | 2 | 3, value: number) => {
+		if (!imageLayer || layerIndex < 0) return;
+		const next: [number, number, number, number] = [...imageLayer.clipRect];
+		next[edgeIndex] = Math.max(0, Math.floor(value));
+		layer.updateImageLayer(layerIndex, { clipRect: next });
+	};
+	const handleClipReset = () => {
+		if (!imageLayer || layerIndex < 0) return;
+		layer.updateImageLayer(layerIndex, { clipRect: [0, 0, 0, 0] });
+	};
+
 	return (
 		<Paper withBorder p="sm" radius="sm">
 			<Stack gap="xs">
@@ -353,6 +368,57 @@ export const EditOpsPanel: FC = () => {
 						data-edit-op="opacity"
 					/>
 				</Stack>
+
+				{/* clipRect 4 slider (D-6b、ImageLayer のみ、上/右/下/左) */}
+				{imageLayer && (
+					<Stack gap={4} data-edit-op-group="clip-rect">
+						<Group gap={6} justify="space-between" align="center">
+							<Text size="xs" c="dimmed">
+								クリップ (T/R/B/L)
+							</Text>
+							<Tooltip label="クリップリセット (0,0,0,0)">
+								<ActionIcon
+									size="xs"
+									variant="subtle"
+									onClick={handleClipReset}
+									disabled={!canEditLayer}
+									data-edit-op="reset-clip"
+									aria-label="reset clip"
+								>
+									↺
+								</ActionIcon>
+							</Tooltip>
+						</Group>
+						{(
+							[
+								{ key: "top", label: "T", idx: 0 as const, max: clipContentSize?.h ?? 0 },
+								{ key: "right", label: "R", idx: 1 as const, max: clipContentSize?.w ?? 0 },
+								{ key: "bottom", label: "B", idx: 2 as const, max: clipContentSize?.h ?? 0 },
+								{ key: "left", label: "L", idx: 3 as const, max: clipContentSize?.w ?? 0 },
+							]
+						).map((row) => (
+							<Group key={row.key} gap={6} align="center">
+								<Text size="xs" ff="monospace" w={16}>
+									{row.label}
+								</Text>
+								<Slider
+									value={imageLayer.clipRect[row.idx]}
+									onChange={(v) => handleClipChange(row.idx, v)}
+									disabled={!canEditLayer || row.max <= 0}
+									min={0}
+									max={Math.max(row.max, 1)}
+									step={1}
+									label={null}
+									data-edit-op={`clip-${row.key}`}
+									style={{ flex: 1 }}
+								/>
+								<Text size="xs" ff="monospace" w={36} ta="right">
+									{imageLayer.clipRect[row.idx]}
+								</Text>
+							</Group>
+						))}
+					</Stack>
+				)}
 
 				{!hasSelection && (
 					<Text size="xs" c="dimmed">

@@ -319,3 +319,39 @@ describe("EditOpsPanel (v4 Group D D-4b) - transform ops", () => {
 		expect(useHistoryStore.getState().past.length).toBe(0);
 	});
 });
+
+describe("EditOpsPanel (v4 Group D D-6b) - clipRect", () => {
+	it("ImageLayer 選択時のみ clipRect グループが描画される", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		// 未選択時は出ない
+		expect(container.querySelector('[data-edit-op-group="clip-rect"]')).toBeNull();
+		// 選択時に描画
+		selectLayer("u-1");
+		expect(container.querySelector('[data-edit-op-group="clip-rect"]')).not.toBeNull();
+		// T/R/B/L slider + reset button
+		expect(container.querySelector('[data-edit-op="clip-top"]')).not.toBeNull();
+		expect(container.querySelector('[data-edit-op="clip-right"]')).not.toBeNull();
+		expect(container.querySelector('[data-edit-op="clip-bottom"]')).not.toBeNull();
+		expect(container.querySelector('[data-edit-op="clip-left"]')).not.toBeNull();
+		expect(container.querySelector('[data-edit-op="reset-clip"]')).not.toBeNull();
+	});
+
+	it("reset-clip ボタンで clipRect が [0,0,0,0] に戻る", () => {
+		seedSlide([makeImageLayer(1, "u-1", { clipRect: [10, 20, 30, 40] })]);
+		render();
+		selectLayer("u-1");
+		clickByOp("reset-clip");
+		const stored = useSlideStore.getState().slides[0].layers[0] as ImageLayer;
+		expect(stored.clipRect).toEqual([0, 0, 0, 0]);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("locked layer は reset-clip が disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1", { locked: true, clipRect: [10, 0, 0, 0] })]);
+		render();
+		selectLayer("u-1");
+		const btn = container.querySelector<HTMLButtonElement>('[data-edit-op="reset-clip"]');
+		expect(btn?.disabled).toBe(true);
+	});
+});

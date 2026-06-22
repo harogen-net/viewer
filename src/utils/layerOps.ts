@@ -257,6 +257,57 @@ export const removeLayersByImageId = (
 	return { slides: nextSlides, selectedIndex: state.selectedIndex };
 };
 
+/**
+ * 指定 layerIndex (selected slide) の ImageLayer の imageId のみを差し替え (v4 Group D D-6b)。
+ * legacy 画像差替 (単体) 相当。transform / clipRect 等は維持。
+ *   - 範囲外 / 非 image 型 / 同 imageId は null。
+ */
+export const replaceImageId = (
+	state: SlideState,
+	layerIndex: number,
+	newImageId: string,
+): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		if (layerIndex < 0 || layerIndex >= layers.length) return null;
+		const cur = layers[layerIndex];
+		if (cur.type !== LayerType.IMAGE) return null;
+		if (cur.imageId === newImageId) return null;
+		return layers.map((l, i) =>
+			i === layerIndex ? ({ ...cur, imageId: newImageId } as Layer) : l,
+		);
+	});
+
+/**
+ * 全 slide の同 oldImageId を参照する ImageLayer の imageId を newImageId に置換 (v4 Group D D-6b)。
+ * legacy 画像差替 (同一参照画像をまとめて差替) 相当。transform / clipRect 等は維持。
+ *   - 同 id / 該当 0 件は null。
+ */
+export const replaceImageIdAll = (
+	state: SlideState,
+	oldImageId: string,
+	newImageId: string,
+): SlideState | null => {
+	if (oldImageId === newImageId) return null;
+	let anyChanged = false;
+	const nextSlides = state.slides.map((slide) => {
+		let slideChanged = false;
+		const nextLayers = slide.layers.map((l) => {
+			if (l.type === LayerType.IMAGE && l.imageId === oldImageId) {
+				slideChanged = true;
+				return { ...l, imageId: newImageId } as Layer;
+			}
+			return l;
+		});
+		if (slideChanged) {
+			anyChanged = true;
+			return { ...slide, layers: nextLayers };
+		}
+		return slide;
+	});
+	if (!anyChanged) return null;
+	return { slides: nextSlides, selectedIndex: state.selectedIndex };
+};
+
 // --- transform ops (v4 Group D D-4b) ---
 
 /** rotation += deltaDeg。値変化なし (delta=0) は null。 */

@@ -11,6 +11,8 @@ import {
     fitToSlide,
     removeLayer,
     reorderLayer,
+    replaceImageId,
+    replaceImageIdAll,
     resetOpacity,
     resetRotation,
     rotateBy,
@@ -244,6 +246,67 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 		it("該当 0 件は null", () => {
 			const s = makeState([makeSlide([makeImageLayer(1, "Y", { shared: true })])]);
 			expect(updateSharedLayer(s, "X", { opacity: 0.5 })).toBeNull();
+		});
+	});
+
+	describe("replaceImageId / replaceImageIdAll (D-6b)", () => {
+		it("replaceImageId: 単 layer の imageId のみ置換、transform は維持", () => {
+			const layer = makeImageLayer(1, "a", {
+				transX: 100,
+				transY: 50,
+				scaleX: 2,
+				rotation: 30,
+			});
+			const s = makeState([makeSlide([layer])]);
+			const r = replaceImageId(s, 0, "new-img");
+			const next = r?.slides[0].layers[0] as ImageLayer;
+			expect(next.imageId).toBe("new-img");
+			expect(next.transX).toBe(100);
+			expect(next.transY).toBe(50);
+			expect(next.scaleX).toBe(2);
+			expect(next.rotation).toBe(30);
+		});
+
+		it("replaceImageId: 非 image 型は null", () => {
+			const t = makeTextLayer(1, "a");
+			const s = makeState([makeSlide([t])]);
+			expect(replaceImageId(s, 0, "new-img")).toBeNull();
+		});
+
+		it("replaceImageId: 同 imageId は null", () => {
+			const layer = makeImageLayer(1, "a");
+			const s = makeState([makeSlide([layer])]);
+			// makeImageLayer は imageId = `img-${id}` を生成 (id=1 → "img-1")
+			expect(replaceImageId(s, 0, layer.imageId)).toBeNull();
+		});
+
+		it("replaceImageIdAll: 全 slide で oldId 参照 layer の imageId を newId に置換", () => {
+			const s = makeState([
+				makeSlide(
+					[makeImageLayer(1, "a"), makeImageLayer(2, "b")],
+					1,
+					"s1",
+				),
+				makeSlide([makeImageLayer(3, "c")], 2, "s2"),
+			]);
+			// makeImageLayer は imageId = `img-${id}` を生成
+			// (id=1 → img-1, id=2 → img-2, id=3 → img-3)
+			// img-1 を newImg に置換 (slide1 layer1 と slide2 layer1)
+			const r = replaceImageIdAll(s, "img-1", "new-img");
+			expect((r?.slides[0].layers[0] as ImageLayer).imageId).toBe("new-img");
+			expect((r?.slides[0].layers[1] as ImageLayer).imageId).toBe("img-2");
+			// img-3 は変化なし
+			expect((r?.slides[1].layers[0] as ImageLayer).imageId).toBe("img-3");
+		});
+
+		it("replaceImageIdAll: 同 id 指定は null", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a")])]);
+			expect(replaceImageIdAll(s, "img-1", "img-1")).toBeNull();
+		});
+
+		it("replaceImageIdAll: 該当 0 件は null", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a")])]);
+			expect(replaceImageIdAll(s, "img-X", "new-img")).toBeNull();
 		});
 	});
 
