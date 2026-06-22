@@ -233,6 +233,30 @@ export const updateSharedLayer = (
 	return { slides: nextSlides, selectedIndex: state.selectedIndex };
 };
 
+/**
+ * 指定 imageId を参照する ImageLayer を全 slide から削除 (v4 Group D D-6a)。
+ * legacy ImageManager.deleteImageById の cascade 削除相当 (shared layer も例外なく削除)。
+ * 該当 0 件なら null。
+ */
+export const removeLayersByImageId = (
+	state: SlideState,
+	imageId: string,
+): SlideState | null => {
+	let anyChanged = false;
+	const nextSlides = state.slides.map((slide) => {
+		const filtered = slide.layers.filter(
+			(l) => !(l.type === LayerType.IMAGE && l.imageId === imageId),
+		);
+		if (filtered.length !== slide.layers.length) {
+			anyChanged = true;
+			return { ...slide, layers: filtered };
+		}
+		return slide;
+	});
+	if (!anyChanged) return null;
+	return { slides: nextSlides, selectedIndex: state.selectedIndex };
+};
+
 // --- transform ops (v4 Group D D-4b) ---
 
 /** rotation += deltaDeg。値変化なし (delta=0) は null。 */

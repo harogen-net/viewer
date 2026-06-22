@@ -54,6 +54,8 @@ export interface UseLayerMutation {
 		contentW: number,
 		contentH: number,
 	) => void;
+	/** 指定 imageId を参照する ImageLayer を全 slide から削除 (D-6a)。 */
+	removeLayersByImageId: (imageId: string) => void;
 }
 
 export const useLayerMutation = (): UseLayerMutation => {
@@ -171,6 +173,13 @@ export const useLayerMutation = (): UseLayerMutation => {
 			),
 		[applySlideChange],
 	);
+	const removeLayersByImageId = useCallback(
+		(imageId: string) =>
+			applySlideChange("remove layers by image", (s) =>
+				layerOps.removeLayersByImageId(s, imageId),
+			),
+		[applySlideChange],
+	);
 
 	return {
 		updateLayer,
@@ -192,5 +201,6 @@ export const useLayerMutation = (): UseLayerMutation => {
 		resetOpacity,
 		fitToSlide,
 		alignTo,
+		removeLayersByImageId,
 	};
 };

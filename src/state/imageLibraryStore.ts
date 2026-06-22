@@ -19,6 +19,8 @@ interface ImageLibraryState {
 	setImageLibrary: (entries: Record<string, ImageEntry | string>) => void;
 	/** 個別追加 (将来の画像 import 用、Group D で使う想定)。 */
 	addImage: (id: string, entry: ImageEntry | string) => void;
+	/** 個別削除 (D-6a 画像マネージャからの削除)。該当なしは no-op。 */
+	removeImage: (id: string) => void;
 }
 
 function normalize(entry: ImageEntry | string): ImageEntry {
@@ -33,4 +35,11 @@ export const useImageLibraryStore = create<ImageLibraryState>()((set) => ({
 		set({ imageById: next });
 	},
 	addImage: (id, entry) => set((s) => ({ imageById: { ...s.imageById, [id]: normalize(entry) } })),
+	removeImage: (id) =>
+		set((s) => {
+			if (!(id in s.imageById)) return s;
+			const next = { ...s.imageById };
+			delete next[id];
+			return { imageById: next };
+		}),
 }));

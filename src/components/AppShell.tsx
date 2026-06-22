@@ -5,6 +5,7 @@ import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { FileIOPanel } from "./panels/FileIOPanel";
+import { ImageLibraryPanel } from "./panels/ImageLibraryPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
 import { ProgressBar } from "./ProgressBar";
@@ -36,6 +37,7 @@ const modeSwitchLinkStyle: CSSProperties = {
 const NewSidePanel: FC = () => {
 	const slideCount = useSlideStore((s) => s.slides.length);
 	const [showSlideshow, setShowSlideshow] = useState(false);
+	const [showImageLibrary, setShowImageLibrary] = useState(false);
 
 	return (
 		<>
@@ -52,6 +54,13 @@ const NewSidePanel: FC = () => {
 						>
 							▶ slideshow 開始
 						</Button>
+						<Button
+							variant="default"
+							onClick={() => setShowImageLibrary(true)}
+							data-open-image-library
+						>
+							🖼 画像ライブラリ
+						</Button>
 						{slideCount === 0 && (
 							<Text size="xs" c="dimmed">
 								document をロードしてから slideshow を開始
@@ -61,6 +70,10 @@ const NewSidePanel: FC = () => {
 				</Stack>
 			</Box>
 			<SlideshowShell open={showSlideshow} onClose={() => setShowSlideshow(false)} />
+			<ImageLibraryPanel
+				opened={showImageLibrary}
+				onClose={() => setShowImageLibrary(false)}
+			/>
 		</>
 	);
 };
