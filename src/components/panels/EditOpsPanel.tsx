@@ -1,12 +1,14 @@
-import { ActionIcon, Group, Paper, Slider, Stack, Text, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Group, Paper, Slider, Stack, Text, Textarea, Title, Tooltip } from "@mantine/core";
 import type { FC } from "react";
+import { useRef } from "react";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useHistoryStore } from "../../state/historyStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
-import type { AlignEdge } from "../../utils/layerOps";
+import type { SlideState } from "../../types/SlideState";
+import { type AlignEdge, updateTextLayer as updateTextLayerOp } from "../../utils/layerOps";
 
 // EditOpsPanel (v4 Group D D-4a、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/EditViewController.ts (446 行 jQuery) は import せず新規実装。
@@ -26,13 +28,17 @@ import type { AlignEdge } from "../../utils/layerOps";
 //   - カット / コピー / ペースト (clipboard、useLayerClipboard + Ctrl+C/V/X)
 //   - 変形情報コピー / 貼付 (transform clipboard)
 //
+// D-9 スコープ (追加、function-list §6):
+//   - テキストレイヤー追加 (legacy `.text` 相当、既定テキストで追加→直後に編集)
+//   - テキスト編集 (選択中 TextLayer のみ textarea を表示 = legacy VMShowHideUI 相当の表示切替)
+//
 // 配置: AppShell の右側 rail 内、LayerListPanel の上。
 
 // useLayerMutation の facade は layer index を受け取るため、selectedLayer の現在 index を求めて渡す。
 // (LayerListPanel と異なり、こちらは index を直接 prop で受け取らないので毎回 findIndex する)
 
 export const EditOpsPanel: FC = () => {
-	const { undo, redo } = useDocumentMutation();
+	const { undo, redo, applySlideChangeLive, recordHistory, snapshot } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
 	const past = useHistoryStore((s) => s.past);
@@ -51,6 +57,42 @@ export const EditOpsPanel: FC = () => {
 	const hasSelection = layerIndex >= 0;
 	const isLocked = selectedLayer?.locked ?? false;
 	const canEditLayer = hasSelection && !isLocked;
+
+	// テキストレイヤー追加 (D-9、legacy `.text` 基準):
+	// まず prompt で初期テキストを受け付ける (legacy: new TextLayer(prompt(...)))。
+	// cancel (null) 時は追加しない。追加後は当該 layer を選択し、textarea で続けて編集可。
+	const handleAddText = () => {
+		if (!selectedSlide) return;
+		const input = window.prompt("テキストを入力:", "");
+		// cancel (null) または空文字サブミットは追加しない
+		if (input === null || input === "") return;
+		layer.addTextLayer(input, selectedSlide.width, selectedSlide.height);
+		const updated = useSlideStore.getState().slides[selectedSlideIndex];
+		const added = updated?.layers[updated.layers.length - 1];
+		if (added) useLayerStore.getState().setSelectedLayer(added);
+	};
+
+	// テキスト編集 (D-9、legacy VMHistoricalTextInput 基準): 選択中 TextLayer のみ textarea 表示。
+	//   - 入力中 (onChange): applySlideChangeLive でレイヤーへ即時反映 (history は積まない)
+	//   - focus 時: 開始 snapshot + 開始テキストを保持
+	//   - blur 時: 開始テキストと異なれば history を 1 件だけ記録 (編集セッション全体で 1 undo)
+	const textLayer = selectedLayer?.type === "text" ? (selectedLayer as { text: string }) : null;
+	const textEditStartRef = useRef<{ before: SlideState; startText: string } | null>(null);
+
+	const handleTextLiveChange = (value: string) => {
+		if (!textLayer || layerIndex < 0) return;
+		applySlideChangeLive((s) => updateTextLayerOp(s, layerIndex, { text: value }));
+	};
+	const handleTextFocus = () => {
+		if (!textLayer) return;
+		textEditStartRef.current = { before: snapshot(), startText: textLayer.text };
+	};
+	const handleTextBlur = (value: string) => {
+		const start = textEditStartRef.current;
+		textEditStartRef.current = null;
+		if (!start || value === start.startText) return;
+		recordHistory("edit text", start.before);
+	};
 
 	// 透明度は 0-100 の slider にする (Mantine の Slider は数値変換が楽)。
 	const opacityPercent = Math.round((selectedLayer?.opacity ?? 1) * 100);
@@ -212,6 +254,19 @@ export const EditOpsPanel: FC = () => {
 							✕
 						</ActionIcon>
 					</Tooltip>
+				</Group>
+
+				{/* レイヤー追加 (D-9 テキスト) */}
+				<Group gap={4}>
+					<Button
+						size="xs"
+						variant="default"
+						onClick={handleAddText}
+						disabled={!selectedSlide}
+						data-edit-op="add-text"
+					>
+						＋ テキスト
+					</Button>
 				</Group>
 
 				{/* clipboard: コピー / カット / ペースト + 変形コピー/貼付 (D-8) */}
@@ -430,6 +485,26 @@ export const EditOpsPanel: FC = () => {
 						data-edit-op="opacity"
 					/>
 				</Stack>
+
+				{/* テキスト編集 (D-9、TextLayer のみ表示) */}
+				{textLayer && (
+					<Stack gap={2} data-edit-op-group="text">
+						<Text size="xs" c="dimmed">
+							テキスト
+						</Text>
+						<Textarea
+							value={textLayer.text}
+							onChange={(e) => handleTextLiveChange(e.currentTarget.value)}
+							onFocus={handleTextFocus}
+							onBlur={(e) => handleTextBlur(e.currentTarget.value)}
+							disabled={!canEditLayer}
+							autosize
+							minRows={2}
+							maxRows={6}
+							data-edit-op="text-edit"
+						/>
+					</Stack>
+				)}
 
 				{/* clipRect 4 slider (D-6b、ImageLayer のみ、上/右/下/左) */}
 				{imageLayer && (

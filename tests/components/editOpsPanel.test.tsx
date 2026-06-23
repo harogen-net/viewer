@@ -99,6 +99,34 @@ const clickByOp = (op: string): void => {
 	});
 };
 
+/** uuid="t-1" のテキストレイヤー 1 枚を seed して選択可能にする。 */
+const seedTextLayer = (text: string): void => {
+	useSlideStore.getState().setSlides([
+		makeSlide([
+			{
+				id: 1,
+				uuid: "t-1",
+				name: "",
+				opacity: 1,
+				locked: false,
+				visible: true,
+				shared: false,
+				...baseTransform,
+				type: "text",
+				text,
+			},
+		]),
+	]);
+	useSlideStore.getState().setSelectedIndex(0);
+};
+
+/** 制御 textarea にネイティブ setter 経由で値を入れ input を発火 (React onChange を起こす)。 */
+const typeInto = (ta: HTMLTextAreaElement, value: string): void => {
+	const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+	setter?.call(ta, value);
+	ta.dispatchEvent(new Event("input", { bubbles: true }));
+};
+
 describe("EditOpsPanel (v4 Group D D-4a)", () => {
 	it("選択 layer なしでは undo/redo 以外の op ボタンが disabled", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
@@ -403,5 +431,109 @@ describe("EditOpsPanel clipboard ボタン (v4 Group D D-8)", () => {
 		const after = useSlideStore.getState().slides[0].layers[1] as ImageLayer;
 		expect(after.transX).toBe(33);
 		expect(after.rotation).toBe(90);
+	});
+});
+
+describe("EditOpsPanel テキスト (v4 Group D D-9)", () => {
+	it("slide 選択中なら add-text ボタンが有効", () => {
+		seedSlide([]);
+		render();
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="add-text"]')?.disabled).toBe(
+			false,
+		);
+	});
+
+	it("add-text: prompt の入力テキストで追加され選択される (legacy 基準)", () => {
+		const orig = window.prompt;
+		window.prompt = () => "hello";
+		try {
+			seedSlide([]);
+			render();
+			clickByOp("add-text");
+			const layers = useSlideStore.getState().slides[0].layers;
+			expect(layers).toHaveLength(1);
+			expect(layers[0].type).toBe("text");
+			expect((layers[0] as { text: string }).text).toBe("hello");
+			expect(useLayerStore.getState().selectedLayer?.uuid).toBe(layers[0].uuid);
+			expect(useHistoryStore.getState().past.length).toBe(1);
+		} finally {
+			window.prompt = orig;
+		}
+	});
+
+	it("add-text: prompt キャンセル (null) では追加しない", () => {
+		const orig = window.prompt;
+		window.prompt = () => null;
+		try {
+			seedSlide([]);
+			render();
+			clickByOp("add-text");
+			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+			expect(useHistoryStore.getState().past.length).toBe(0);
+		} finally {
+			window.prompt = orig;
+		}
+	});
+
+	it("add-text: 空文字サブミットでは追加しない", () => {
+		const orig = window.prompt;
+		window.prompt = () => "";
+		try {
+			seedSlide([]);
+			render();
+			clickByOp("add-text");
+			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+			expect(useHistoryStore.getState().past.length).toBe(0);
+		} finally {
+			window.prompt = orig;
+		}
+	});
+
+	it("textarea は TextLayer 選択時のみ表示 (ImageLayer では非表示)", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		expect(container.querySelector('[data-edit-op="text-edit"]')).toBeNull();
+	});
+
+	it("入力中 (onChange) はレイヤーへ即時反映され、history は積まれない", () => {
+		seedTextLayer("before");
+		render();
+		selectLayer("t-1");
+		const ta = container.querySelector<HTMLTextAreaElement>('[data-edit-op="text-edit"]');
+		if (!ta) throw new Error("textarea not found");
+		act(() => ta.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => typeInto(ta, "live"));
+		// レイヤーへ即時反映
+		expect((useSlideStore.getState().slides[0].layers[0] as { text: string }).text).toBe("live");
+		// 入力中は history を積まない
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
+	it("blur 時に開始テキストと異なれば history を 1 件記録、undo で巻き戻る", () => {
+		seedTextLayer("before");
+		render();
+		selectLayer("t-1");
+		const ta = container.querySelector<HTMLTextAreaElement>('[data-edit-op="text-edit"]');
+		if (!ta) throw new Error("textarea not found");
+		act(() => ta.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => typeInto(ta, "after"));
+		act(() => ta.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+		expect((useSlideStore.getState().slides[0].layers[0] as { text: string }).text).toBe("after");
+		expect(useHistoryStore.getState().past.length).toBe(1);
+		// undo で開始テキストへ戻る (編集セッション全体で 1 undo)
+		clickByOp("undo");
+		expect((useSlideStore.getState().slides[0].layers[0] as { text: string }).text).toBe("before");
+	});
+
+	it("blur 時に開始テキストと同じなら history を積まない", () => {
+		seedTextLayer("same");
+		render();
+		selectLayer("t-1");
+		const ta = container.querySelector<HTMLTextAreaElement>('[data-edit-op="text-edit"]');
+		if (!ta) throw new Error("textarea not found");
+		act(() => ta.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => ta.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+		expect(useHistoryStore.getState().past.length).toBe(0);
 	});
 });

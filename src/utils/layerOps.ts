@@ -128,6 +128,40 @@ export const addLayer = (
 		return [...layers, newLayer];
 	});
 
+/**
+ * テキストレイヤーを新規追加 (末尾 = 前面)。id / uuid は自動採番。
+ * legacy EditViewController `.text` (new TextLayer + moveTo(center)) 相当。
+ * 配置: transform-origin 50% 50% のため top-left を slide 中央に置く
+ * (描画後の実寸が不明なため moveTo の originWidth/Height 補正は省略、初期位置は中央付近)。
+ */
+export const addTextLayer = (
+	state: SlideState,
+	text: string,
+	slideW: number,
+	slideH: number,
+): SlideState | null =>
+	transformSelectedSlideLayers(state, (layers) => {
+		const newLayer: TextLayer = {
+			id: nextLayerId(layers),
+			uuid: newUuid(),
+			name: "",
+			opacity: 1,
+			locked: false,
+			visible: true,
+			shared: false,
+			transX: slideW / 2,
+			transY: slideH / 2,
+			scaleX: 1,
+			scaleY: 1,
+			rotation: 0,
+			mirrorH: false,
+			mirrorV: false,
+			type: LayerType.TEXT,
+			text,
+		};
+		return [...layers, newLayer];
+	});
+
 /** layer 削除。範囲外は null。 */
 export const removeLayer = (state: SlideState, layerIndex: number): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {

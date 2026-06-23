@@ -24,6 +24,20 @@ export interface UseDocumentMutation {
 	 * @param update (state: SlideState) => SlideState | null
 	 */
 	applySlideChange: (label: string, update: (state: SlideState) => SlideState | null) => void;
+	/**
+	 * history を積まずに SlideState mutation を即時適用する (live 反映用)。
+	 * legacy VMTextInput の `on("input")` 相当 — テキスト入力中など、確定前の
+	 * 連続更新を store に反映するが undo ステップは作らない。
+	 * 確定時に recordHistory で 1 件だけ history を残す運用とセットで使う。
+	 */
+	applySlideChangeLive: (update: (state: SlideState) => SlideState | null) => void;
+	/**
+	 * before スナップショットから現在状態までを history 1 件として記録する。
+	 * legacy VMHistoricalTextInput の blur 記録相当。変化がなければ no-op。
+	 */
+	recordHistory: (label: string, before: SlideState) => void;
+	/** 現在の SlideState スナップショット (before 取得用)。 */
+	snapshot: () => SlideState;
 	undo: () => void;
 	redo: () => void;
 	canUndo: () => boolean;
@@ -67,6 +81,26 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 		[],
 	);
 
+	const applySlideChangeLive = useCallback(
+		(update: (state: SlideState) => SlideState | null): void => {
+			const after = update(currentSlideState());
+			if (!after) return; // no-op
+			applyToStores(after);
+			useViewerDocumentStore.getState().setModified(true);
+			// history は積まない (確定時に recordHistory で 1 件残す)
+		},
+		[],
+	);
+
+	const recordHistory = useCallback((label: string, before: SlideState): void => {
+		const after = currentSlideState();
+		// 変化なし (slides 参照が同一) は記録しない
+		if (after.slides === before.slides) return;
+		useHistoryStore.getState().push({ label, before, after });
+	}, []);
+
+	const snapshot = useCallback((): SlideState => currentSlideState(), []);
+
 	const undo = useCallback((): void => {
 		const entry = useHistoryStore.getState().popUndo();
 		if (!entry) return;
@@ -84,5 +118,14 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	const canUndo = useCallback((): boolean => useHistoryStore.getState().canUndo(), []);
 	const canRedo = useCallback((): boolean => useHistoryStore.getState().canRedo(), []);
 
-	return { applySlideChange, undo, redo, canUndo, canRedo };
+	return {
+		applySlideChange,
+		applySlideChangeLive,
+		recordHistory,
+		snapshot,
+		undo,
+		redo,
+		canUndo,
+		canRedo,
+	};
 };

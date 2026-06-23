@@ -9,6 +9,12 @@ import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 import type { ImageLayer, Layer, TextLayer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
+import type { SlideState } from "../../src/types/SlideState";
+import { updateTextLayer } from "../../src/utils/layerOps";
+
+/** applySlideChangeLive に渡す純関数 (text のみ更新)。 */
+const layerOpsUpdateText = (s: SlideState, idx: number, text: string): SlideState | null =>
+	updateTextLayer(s, idx, { text });
 
 // v4 Group D D-2: useLayerMutation 統合テスト。
 // useDocumentMutation primitive 経由で:
@@ -237,6 +243,34 @@ describe("useLayerMutation + useDocumentMutation (v4 Group D D-2)", () => {
 			expect(slides[1].layers[0].opacity).toBe(0.3);
 			expect(useHistoryStore.getState().past.length).toBe(1);
 			expect(useHistoryStore.getState().past[0].label).toBe("update shared layer");
+		});
+	});
+
+	describe("applySlideChangeLive / recordHistory (D-9 ライブ編集 primitive)", () => {
+		it("applySlideChangeLive: store へ即時反映するが history は積まない", () => {
+			seedSlideWithLayers([makeTextLayer(1, "a", "x")]);
+			hooks.api.doc.applySlideChangeLive((s) => layerOpsUpdateText(s, 0, "live1"));
+			hooks.api.doc.applySlideChangeLive((s) => layerOpsUpdateText(s, 0, "live2"));
+			expect((useSlideStore.getState().slides[0].layers[0] as { text: string }).text).toBe("live2");
+			expect(useViewerDocumentStore.getState().modified).toBe(true);
+			expect(useHistoryStore.getState().past.length).toBe(0);
+		});
+
+		it("recordHistory: before→現在 を 1 件記録、undo で before に戻る", () => {
+			seedSlideWithLayers([makeTextLayer(1, "a", "start")]);
+			const before = hooks.api.doc.snapshot();
+			hooks.api.doc.applySlideChangeLive((s) => layerOpsUpdateText(s, 0, "end"));
+			hooks.api.doc.recordHistory("edit text", before);
+			expect(useHistoryStore.getState().past.length).toBe(1);
+			hooks.api.doc.undo();
+			expect((useSlideStore.getState().slides[0].layers[0] as { text: string }).text).toBe("start");
+		});
+
+		it("recordHistory: 変化がなければ no-op", () => {
+			seedSlideWithLayers([makeTextLayer(1, "a", "same")]);
+			const before = hooks.api.doc.snapshot();
+			hooks.api.doc.recordHistory("edit text", before);
+			expect(useHistoryStore.getState().past.length).toBe(0);
 		});
 	});
 });

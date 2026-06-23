@@ -26,6 +26,8 @@ export interface UseLayerMutation {
 		patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>,
 	) => void;
 	addLayer: (layer: NewLayer) => void;
+	/** テキストレイヤーを slide 中央付近に追加 (§6、legacy `.text` 相当)。 */
+	addTextLayer: (text: string, slideW: number, slideH: number) => void;
 	removeLayer: (layerIndex: number) => void;
 	duplicateLayer: (layerIndex: number) => void;
 	reorderLayer: (fromIndex: number, toIndex: number) => void;
@@ -87,6 +89,11 @@ export const useLayerMutation = (): UseLayerMutation => {
 	const addLayer = useCallback(
 		(layer: NewLayer) =>
 			applySlideChange("add layer", (s) => layerOps.addLayer(s, layer)),
+		[applySlideChange],
+	);
+	const addTextLayer = useCallback(
+		(text: string, slideW: number, slideH: number) =>
+			applySlideChange("add text layer", (s) => layerOps.addTextLayer(s, text, slideW, slideH)),
 		[applySlideChange],
 	);
 	const removeLayer = useCallback(
@@ -204,6 +211,7 @@ export const useLayerMutation = (): UseLayerMutation => {
 		updateImageLayer,
 		updateTextLayer,
 		addLayer,
+		addTextLayer,
 		removeLayer,
 		duplicateLayer,
 		reorderLayer,

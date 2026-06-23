@@ -4,6 +4,7 @@ import type { Slide } from "../../src/types/Slide";
 import type { SlideState } from "../../src/types/SlideState";
 import {
     addLayer,
+    addTextLayer,
     alignTo,
     bringForward,
     bringToFront,
@@ -170,6 +171,24 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 			expect(r?.slides[0].layers[1].uuid).not.toBe("b");
 			expect(r?.slides[0].layers[1].id).toBe(3); // max(1,2)+1
 			expect(r?.slides[0].layers[2].uuid).toBe("b");
+		});
+
+		it("addTextLayer: 末尾に text layer 追加、中央付近配置、id/uuid 採番 (D-9)", () => {
+			const s = makeState([makeSlide([makeImageLayer(5, "a")], 1, "s-1")]); // slide 800x600
+			const r = addTextLayer(s, "hello", 800, 600);
+			expect(r?.slides[0].layers.length).toBe(2);
+			const added = r?.slides[0].layers[1] as TextLayer;
+			expect(added.type).toBe("text");
+			expect(added.text).toBe("hello");
+			expect(added.id).toBe(6);
+			expect(added.uuid).toBeTruthy();
+			expect(added.transX).toBe(400);
+			expect(added.transY).toBe(300);
+		});
+
+		it("addTextLayer: selectedIndex < 0 は null", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a")])], -1);
+			expect(addTextLayer(s, "x", 800, 600)).toBeNull();
 		});
 	});
 
