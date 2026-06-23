@@ -1,6 +1,7 @@
 import { ActionIcon, Group, Paper, Slider, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { FC } from "react";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
+import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useHistoryStore } from "../../state/historyStore";
 import { useLayerStore } from "../../state/layerStore";
@@ -21,8 +22,9 @@ import type { AlignEdge } from "../../utils/layerOps";
 //   - フィット配置 (slide 寸法に aspect 維持で最大化 + 中央、legacy fitLayer scale1↔scale2 toggle 付き) (D-4b)
 //   - 透明度リセット (opacity = 1) (D-4b)
 //
-// 後の chunk:
-//   - D-8: カット/コピー/ペースト (keyboard shortcut とセット)
+// D-8 スコープ (追加):
+//   - カット / コピー / ペースト (clipboard、useLayerClipboard + Ctrl+C/V/X)
+//   - 変形情報コピー / 貼付 (transform clipboard)
 //
 // 配置: AppShell の右側 rail 内、LayerListPanel の上。
 
@@ -32,6 +34,7 @@ import type { AlignEdge } from "../../utils/layerOps";
 export const EditOpsPanel: FC = () => {
 	const { undo, redo } = useDocumentMutation();
 	const layer = useLayerMutation();
+	const clipboard = useLayerClipboard();
 	const past = useHistoryStore((s) => s.past);
 	const future = useHistoryStore((s) => s.future);
 	const canUndo = past.length > 0;
@@ -207,6 +210,65 @@ export const EditOpsPanel: FC = () => {
 							aria-label="remove"
 						>
 							✕
+						</ActionIcon>
+					</Tooltip>
+				</Group>
+
+				{/* clipboard: コピー / カット / ペースト + 変形コピー/貼付 (D-8) */}
+				<Group gap={4}>
+					<Tooltip label="コピー (Ctrl+C)">
+						<ActionIcon
+							variant="default"
+							onClick={clipboard.copy}
+							disabled={!hasSelection}
+							data-edit-op="copy"
+							aria-label="copy"
+						>
+							⧉
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="カット (Ctrl+X)">
+						<ActionIcon
+							variant="default"
+							onClick={clipboard.cut}
+							disabled={!canEditLayer}
+							data-edit-op="cut"
+							aria-label="cut"
+						>
+							✂
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="ペースト (Ctrl+V)">
+						<ActionIcon
+							variant="default"
+							onClick={clipboard.paste}
+							disabled={!clipboard.canPaste}
+							data-edit-op="paste"
+							aria-label="paste"
+						>
+							📋
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="変形情報コピー">
+						<ActionIcon
+							variant="default"
+							onClick={clipboard.copyTransform}
+							disabled={!hasSelection}
+							data-edit-op="copy-transform"
+							aria-label="copy transform"
+						>
+							⤳
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="変形情報貼付">
+						<ActionIcon
+							variant="default"
+							onClick={clipboard.pasteTransform}
+							disabled={!canEditLayer || !clipboard.canPasteTransform}
+							data-edit-op="paste-transform"
+							aria-label="paste transform"
+						>
+							⤵
 						</ActionIcon>
 					</Tooltip>
 				</Group>

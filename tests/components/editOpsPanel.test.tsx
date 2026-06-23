@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EditOpsPanel } from "../../src/components/panels/EditOpsPanel";
+import { useClipboardStore } from "../../src/state/clipboardStore";
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
@@ -55,6 +56,7 @@ beforeEach(() => {
 	useLayerStore.getState().setLayers([]);
 	useLayerStore.getState().setSelectedLayer(null);
 	useHistoryStore.getState().clear();
+	useClipboardStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	container = document.createElement("div");
 	document.body.appendChild(container);
@@ -353,5 +355,53 @@ describe("EditOpsPanel (v4 Group D D-6b) - clipRect", () => {
 		selectLayer("u-1");
 		const btn = container.querySelector<HTMLButtonElement>('[data-edit-op="reset-clip"]');
 		expect(btn?.disabled).toBe(true);
+	});
+});
+
+describe("EditOpsPanel clipboard ボタン (v4 Group D D-8)", () => {
+	it("選択なしでは copy/cut/copy-transform が disabled、paste/paste-transform も disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="copy"]')?.disabled).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="cut"]')?.disabled).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(true);
+	});
+
+	it("copy ボタンで clipboard に積まれ paste が有効化される", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(true);
+		clickByOp("copy");
+		expect(useClipboardStore.getState().layer?.uuid).toBe("u-1");
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(false);
+	});
+
+	it("copy → paste ボタンで layer が複製される (履歴 1 件)", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("copy");
+		clickByOp("paste");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(2);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("copy-transform → paste-transform ボタンで変形が複写される", () => {
+		seedSlide([
+			makeImageLayer(1, "u-1", { transX: 33, rotation: 90 }),
+			makeImageLayer(2, "u-2"),
+		]);
+		render();
+		selectLayer("u-1");
+		clickByOp("copy-transform");
+		selectLayer("u-2");
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="paste-transform"]')?.disabled,
+		).toBe(false);
+		clickByOp("paste-transform");
+		const after = useSlideStore.getState().slides[0].layers[1] as ImageLayer;
+		expect(after.transX).toBe(33);
+		expect(after.rotation).toBe(90);
 	});
 });

@@ -1,6 +1,7 @@
 import { Anchor, Box, Button, Group, MantineProvider, Stack, Text, Title } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useShellKeyboard } from "../hooks/useShellKeyboard";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
@@ -86,6 +87,9 @@ const EditArea: FC = () => {
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slide = selectedIndex >= 0 ? slides[selectedIndex] : null;
+
+	// 編集シェルのキーボードショートカット (Ctrl+C/V/X) を配線 (D-8)。
+	useShellKeyboard();
 
 	const stageRef = useRef<HTMLDivElement>(null);
 	const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });

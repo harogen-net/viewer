@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ViewerDocument } from "../types/ViewerDocument";
+import { useClipboardStore } from "./clipboardStore";
 import { useHistoryStore } from "./historyStore";
 import { useSlideStore } from "./slideStore";
 
@@ -23,6 +24,9 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 	setDocument: (doc) => {
 		// document 差し替え時は history を完全 reset (load 直後は undo 不可、legacy 挙動)
 		useHistoryStore.getState().clear();
+		// clipboard も clear (D-8)。レガシー clipboard は edit-view インスタンス毎で
+		// document 切替時に失われるため、またぎペーストで孤児 imageId を生まないよう揃える。
+		useClipboardStore.getState().clear();
 		if (doc === null) {
 			set({ meta: null, modified: false });
 			useSlideStore.getState().setSlides([]);
