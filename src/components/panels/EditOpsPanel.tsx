@@ -7,8 +7,14 @@ import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useHistoryStore } from "../../state/historyStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
+import type { LayerBase } from "../../types/Layer";
 import type { SlideState } from "../../types/SlideState";
-import { type AlignEdge, updateTextLayer as updateTextLayerOp } from "../../utils/layerOps";
+import {
+	type AlignEdge,
+	updateLayer as updateLayerOp,
+	updateTextLayer as updateTextLayerOp,
+} from "../../utils/layerOps";
+import { NumberAdjustInput } from "../common/NumberAdjustInput";
 
 // EditOpsPanel (v4 Group D D-4a、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/EditViewController.ts (446 行 jQuery) は import せず新規実装。
@@ -92,6 +98,22 @@ export const EditOpsPanel: FC = () => {
 		textEditStartRef.current = null;
 		if (!start || value === start.startText) return;
 		recordHistory("edit text", start.before);
+	};
+
+	// 数値プロパティ入力 (D-9 と同じ live + history-on-blur パターン、§12)。
+	// 入力中 (Enter/↑↓/ホイール) は applySlideChangeLive で即時反映、blur で 1 件記録。
+	const propEditStartRef = useRef<SlideState | null>(null);
+	const handlePropStart = () => {
+		propEditStartRef.current = snapshot();
+	};
+	const handlePropEnd = (label: string) => {
+		const before = propEditStartRef.current;
+		propEditStartRef.current = null;
+		if (before) recordHistory(label, before); // 変化なしは recordHistory 内で no-op
+	};
+	const livePatch = (patch: Partial<LayerBase>) => {
+		if (layerIndex < 0) return;
+		applySlideChangeLive((s) => updateLayerOp(s, layerIndex, patch));
 	};
 
 	// 透明度は 0-100 の slider にする (Mantine の Slider は数値変換が楽)。
@@ -450,6 +472,75 @@ export const EditOpsPanel: FC = () => {
 					</Tooltip>
 				</Group>
 
+				{/* 数値プロパティ (X / Y / 拡大率 / 回転、§12 Enter/↑↓/ホイール調整) */}
+				{selectedLayer && hasSelection && (
+					<Stack gap={4} data-edit-op-group="props">
+						<Group gap={6} align="center" wrap="nowrap">
+							<Text size="xs" c="dimmed" w={40}>
+								X
+							</Text>
+							<NumberAdjustInput
+								value={selectedLayer.transX}
+								step={25}
+								shiftStep={100}
+								invert
+								disabled={!canEditLayer}
+								dataAdjust="transX"
+								aria-label="X"
+								onAdjust={(v) => livePatch({ transX: v })}
+								onAdjustStart={handlePropStart}
+								onAdjustEnd={() => handlePropEnd("edit X")}
+							/>
+							<Text size="xs" c="dimmed" w={40}>
+								Y
+							</Text>
+							<NumberAdjustInput
+								value={selectedLayer.transY}
+								step={25}
+								shiftStep={100}
+								invert
+								disabled={!canEditLayer}
+								dataAdjust="transY"
+								aria-label="Y"
+								onAdjust={(v) => livePatch({ transY: v })}
+								onAdjustStart={handlePropStart}
+								onAdjustEnd={() => handlePropEnd("edit Y")}
+							/>
+						</Group>
+						<Group gap={6} align="center" wrap="nowrap">
+							<Text size="xs" c="dimmed" w={40}>
+								拡大率
+							</Text>
+							<NumberAdjustInput
+								value={selectedLayer.scaleX}
+								step={0.1}
+								multiply
+								min={0.1}
+								max={20}
+								disabled={!canEditLayer}
+								dataAdjust="scale"
+								aria-label="拡大率"
+								onAdjust={(v) => livePatch({ scaleX: v, scaleY: v })}
+								onAdjustStart={handlePropStart}
+								onAdjustEnd={() => handlePropEnd("edit scale")}
+							/>
+							<Text size="xs" c="dimmed" w={40}>
+								回転
+							</Text>
+							<NumberAdjustInput
+								value={selectedLayer.rotation}
+								step={5}
+								disabled={!canEditLayer}
+								dataAdjust="rotation"
+								aria-label="回転"
+								onAdjust={(v) => livePatch({ rotation: v })}
+								onAdjustStart={handlePropStart}
+								onAdjustEnd={() => handlePropEnd("edit rotation")}
+							/>
+						</Group>
+					</Stack>
+				)}
+
 				{/* 透明度 */}
 				<Stack gap={2} data-edit-op-group="opacity">
 					<Group gap={6} justify="space-between">
@@ -480,7 +571,7 @@ export const EditOpsPanel: FC = () => {
 						disabled={!canEditLayer}
 						min={0}
 						max={100}
-						step={1}
+						step={5}
 						label={null}
 						data-edit-op="opacity"
 					/>
@@ -544,7 +635,7 @@ export const EditOpsPanel: FC = () => {
 									disabled={!canEditLayer || row.max <= 0}
 									min={0}
 									max={Math.max(row.max, 1)}
-									step={1}
+									step={25}
 									label={null}
 									data-edit-op={`clip-${row.key}`}
 									style={{ flex: 1 }}

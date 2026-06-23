@@ -537,3 +537,87 @@ describe("EditOpsPanel テキスト (v4 Group D D-9)", () => {
 		expect(useHistoryStore.getState().past.length).toBe(0);
 	});
 });
+
+describe("EditOpsPanel 数値プロパティ入力 (v4 Group D D-10, §12)", () => {
+	const adjustInput = (prop: string): HTMLInputElement => {
+		const el = container.querySelector<HTMLInputElement>(`[data-adjust="${prop}"]`);
+		if (!el) throw new Error(`adjust input not found: ${prop}`);
+		return el;
+	};
+
+	it("選択 layer の transX/transY/scaleX/rotation が入力欄に表示される", () => {
+		seedSlide([
+			makeImageLayer(1, "u-1", { transX: 12, transY: 34, scaleX: 2, scaleY: 2, rotation: 45 }),
+		]);
+		render();
+		selectLayer("u-1");
+		expect(adjustInput("transX").value).toBe("12");
+		expect(adjustInput("transY").value).toBe("34");
+		expect(adjustInput("scale").value).toBe("2");
+		expect(adjustInput("rotation").value).toBe("45");
+	});
+
+	it("↑キーで transX が -25 (legacy 逆方向)、即時反映で入力中は history なし", () => {
+		seedSlide([makeImageLayer(1, "u-1", { transX: 100 })]);
+		render();
+		selectLayer("u-1");
+		const el = adjustInput("transX");
+		act(() => el.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(75); // ↑ で -25 (invert)
+		// ↓ は +25
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(100);
+		// 入力中 (blur 前) は history を積まない
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
+	it("拡大率は multiply (×1.1) で scaleX/scaleY 両方を更新", () => {
+		seedSlide([makeImageLayer(1, "u-1", { scaleX: 2, scaleY: 2 })]);
+		render();
+		selectLayer("u-1");
+		const el = adjustInput("scale");
+		act(() => el.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
+		const layer = useSlideStore.getState().slides[0].layers[0];
+		expect(layer.scaleX).toBeCloseTo(2.2);
+		expect(layer.scaleY).toBeCloseTo(2.2);
+	});
+
+	it("回転は ↑ で 5° 単位、blur で history 1 件 + undo で元に戻る", () => {
+		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
+		render();
+		selectLayer("u-1");
+		const el = adjustInput("rotation");
+		act(() => el.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
+		act(() => el.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(10); // 5° × 2
+		expect(useHistoryStore.getState().past.length).toBe(1);
+		clickByOp("undo");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
+	});
+
+	it("位置 X は Shift+↑ で -100 (=shiftStep×invert)、rotation は Shift 無効 (5)", () => {
+		seedSlide([makeImageLayer(1, "u-1", { transX: 0, rotation: 0 })]);
+		render();
+		selectLayer("u-1");
+		const x = adjustInput("transX");
+		act(() => x.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => x.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true })));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(-100); // invert + shiftStep
+		// rotation は Shift 無効 + invert なし → 通常 step 5 (正方向)
+		const r = adjustInput("rotation");
+		act(() => r.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => r.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true })));
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(5);
+	});
+
+	it("locked layer では入力欄が disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1", { locked: true })]);
+		render();
+		selectLayer("u-1");
+		expect(adjustInput("transX").disabled).toBe(true);
+	});
+});
