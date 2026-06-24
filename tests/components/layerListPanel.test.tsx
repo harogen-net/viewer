@@ -3,13 +3,16 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LayerListPanel } from "../../src/components/panels/LayerListPanel";
+import { useHistoryStore } from "../../src/state/historyStore";
 import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import type { ImageLayer, Layer, TextLayer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 
 // v4 Group D D-5: LayerListPanel の表示 + 選択テスト。
-// mutation (visible/locked toggle, 削除, 順序変更) は D-2 以降で実装するため本テストでは扱わない。
+// 順序変更 (bring-to-front / bring-forward / send-backward / send-to-back) は
+// ui微修正で EditOpsPanel から本パネルへ移設されたため、当該 mutation テストも本ファイルに集約。
+// visible/locked toggle / 削除 などの mutation は別パネル (EditOpsPanel) 側で扱う。
 
 const baseTransform = {
 	transX: 0,
@@ -63,6 +66,7 @@ let root: Root;
 beforeEach(() => {
 	useSlideStore.getState().setSlides([]);
 	useLayerStore.getState().setLayers([]);
+	useHistoryStore.getState().clear();
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -181,5 +185,107 @@ describe("LayerListPanel (v4 Group D D-5)", () => {
 		expect(container.textContent).toContain("2 layers");
 		expect(container.textContent).toContain("selected:");
 		expect(container.textContent).toContain("#2");
+	});
+});
+
+// 順序変更 (ui微修正で EditOpsPanel → LayerListPanel に移設)。
+// ボタンは選択 layer の slide 内 index に対して bring/send mutation を発火する。
+describe("LayerListPanel 順序変更 (reorder ops)", () => {
+	const selectLayer = (uuid: string): void => {
+		const slide = useSlideStore.getState().slides[0];
+		const layer = slide.layers.find((l) => l.uuid === uuid) ?? null;
+		act(() => {
+			useLayerStore.getState().setSelectedLayer(layer);
+		});
+	};
+
+	const clickByOp = (op: string): void => {
+		const btn = container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`);
+		if (!btn) throw new Error(`button not found: ${op}`);
+		act(() => {
+			btn.click();
+		});
+	};
+
+	const order = (): string[] =>
+		useSlideStore.getState().slides[0].layers.map((l) => l.uuid);
+
+	it("選択 layer なしでは順序変更ボタンが disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1", "img-1"), makeImageLayer(2, "u-2", "img-2")]);
+		render();
+		for (const op of ["bring-to-front", "bring-forward", "send-backward", "send-to-back"]) {
+			expect(
+				container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled,
+			).toBe(true);
+		}
+	});
+
+	it("選択 layer ありで順序変更ボタンが有効化される", () => {
+		seedSlide([makeImageLayer(1, "u-1", "img-1"), makeImageLayer(2, "u-2", "img-2")]);
+		render();
+		selectLayer("u-1");
+		for (const op of ["bring-to-front", "bring-forward", "send-backward", "send-to-back"]) {
+			expect(
+				container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled,
+			).toBe(false);
+		}
+	});
+
+	it("locked layer は順序変更ボタンが disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1", "img-1", { locked: true })]);
+		render();
+		selectLayer("u-1");
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="bring-to-front"]')?.disabled,
+		).toBe(true);
+	});
+
+	it("bring-forward ボタンで layer 順序が 1 段上がり、履歴 1 件", () => {
+		seedSlide([
+			makeImageLayer(1, "u-1", "img-1"),
+			makeImageLayer(2, "u-2", "img-2"),
+			makeImageLayer(3, "u-3", "img-3"),
+		]);
+		render();
+		selectLayer("u-1");
+		clickByOp("bring-forward");
+		expect(order()).toEqual(["u-2", "u-1", "u-3"]);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("bring-to-front ボタンで layer が最後尾 (前面) に移動", () => {
+		seedSlide([
+			makeImageLayer(1, "u-1", "img-1"),
+			makeImageLayer(2, "u-2", "img-2"),
+			makeImageLayer(3, "u-3", "img-3"),
+		]);
+		render();
+		selectLayer("u-1");
+		clickByOp("bring-to-front");
+		expect(order()).toEqual(["u-2", "u-3", "u-1"]);
+	});
+
+	it("send-backward ボタンで layer が 1 段下がる", () => {
+		seedSlide([
+			makeImageLayer(1, "u-1", "img-1"),
+			makeImageLayer(2, "u-2", "img-2"),
+			makeImageLayer(3, "u-3", "img-3"),
+		]);
+		render();
+		selectLayer("u-3");
+		clickByOp("send-backward");
+		expect(order()).toEqual(["u-1", "u-3", "u-2"]);
+	});
+
+	it("send-to-back ボタンで layer が先頭 (背面) に移動", () => {
+		seedSlide([
+			makeImageLayer(1, "u-1", "img-1"),
+			makeImageLayer(2, "u-2", "img-2"),
+			makeImageLayer(3, "u-3", "img-3"),
+		]);
+		render();
+		selectLayer("u-3");
+		clickByOp("send-to-back");
+		expect(order()).toEqual(["u-3", "u-1", "u-2"]);
 	});
 });

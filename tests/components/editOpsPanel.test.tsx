@@ -11,7 +11,9 @@ import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 import type { ImageLayer, Layer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 
-// v4 Group D D-4a: EditOpsPanel テスト (undo/redo + 順序変更 + 削除/複製 + 透明度)。
+// v4 Group D D-4a: EditOpsPanel テスト (undo/redo + 削除/複製 + 透明度)。
+// 注: レイヤー順序変更 (bring-forward / bring-to-front / send-backward / send-to-back) は
+// ui微修正で LayerListPanel へ移設されたため、当該テストは layerListPanel.test.tsx に集約。
 
 const baseTransform = {
 	transX: 0,
@@ -132,7 +134,7 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="bring-to-front"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled,
 		).toBe(true);
 		expect(
 			container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled,
@@ -140,12 +142,12 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		expect(container.textContent).toContain("レイヤーを選択してください");
 	});
 
-	it("選択 layer ありで順序変更 / 複製 / 削除ボタンが有効化される", () => {
+	it("選択 layer ありで複製 / 削除ボタンが有効化される", () => {
 		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
 		render();
 		selectLayer("u-1");
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="bring-forward"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="duplicate"]')?.disabled,
 		).toBe(false);
 		expect(
 			container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled,
@@ -157,37 +159,9 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		render();
 		selectLayer("u-1");
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="bring-to-front"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled,
 		).toBe(true);
 		expect(container.textContent).toContain("ロックされています");
-	});
-
-	it("bring-forward ボタンで layer 順序が 1 段上がり、履歴 1 件", () => {
-		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2"), makeImageLayer(3, "u-3")]);
-		render();
-		selectLayer("u-1");
-		clickByOp("bring-forward");
-		const order = useSlideStore.getState().slides[0].layers.map((l) => l.uuid);
-		expect(order).toEqual(["u-2", "u-1", "u-3"]);
-		expect(useHistoryStore.getState().past.length).toBe(1);
-	});
-
-	it("bring-to-front ボタンで layer が最後尾 (前面) に移動", () => {
-		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2"), makeImageLayer(3, "u-3")]);
-		render();
-		selectLayer("u-1");
-		clickByOp("bring-to-front");
-		const order = useSlideStore.getState().slides[0].layers.map((l) => l.uuid);
-		expect(order).toEqual(["u-2", "u-3", "u-1"]);
-	});
-
-	it("send-to-back ボタンで layer が先頭 (背面) に移動", () => {
-		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2"), makeImageLayer(3, "u-3")]);
-		render();
-		selectLayer("u-3");
-		clickByOp("send-to-back");
-		const order = useSlideStore.getState().slides[0].layers.map((l) => l.uuid);
-		expect(order).toEqual(["u-3", "u-1", "u-2"]);
 	});
 
 	it("duplicate ボタンで layer が複製される (uuid は新規)", () => {
@@ -223,19 +197,19 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 	});
 
 	it("操作後 undo が有効、押すと巻き戻る、redo が有効化", () => {
-		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
+		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
 		render();
 		selectLayer("u-1");
-		clickByOp("bring-forward");
-		expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["u-2", "u-1"]);
+		clickByOp("rotate-right");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
 		// undo
 		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(false);
 		clickByOp("undo");
-		expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["u-1", "u-2"]);
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
 		// redo
 		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(false);
 		clickByOp("redo");
-		expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["u-2", "u-1"]);
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
 	});
 
 	it("opacity スライダーで透明度が更新される", () => {
@@ -251,10 +225,10 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 	});
 
 	it("履歴カウンタ表示: 1 / 1 (1 件 past, 0 件 future) など", () => {
-		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
+		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
 		render();
 		selectLayer("u-1");
-		clickByOp("bring-forward");
+		clickByOp("rotate-right");
 		// past = 1, future = 0 → "1 / 1"
 		expect(container.textContent).toContain("1 / 1");
 		clickByOp("undo");
