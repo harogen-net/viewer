@@ -29,6 +29,8 @@ export interface UseLayerMutation {
 	/** テキストレイヤーを slide 中央付近に追加 (§6、legacy `.text` 相当)。 */
 	addTextLayer: (text: string, slideW: number, slideH: number) => void;
 	removeLayer: (layerIndex: number) => void;
+	/** 選択 layer + 連続隣接 shared 兄弟をまとめて削除 (§7、shared 連鎖削除)。 */
+	removeLayerWithSharedSiblings: (layerIndex: number) => void;
 	duplicateLayer: (layerIndex: number) => void;
 	/** 選択 layer を前後の連続スライドへ展開し shared 化 (§7、legacy spreadLayers)。 */
 	spreadLayer: (layerIndex: number) => void;
@@ -97,6 +99,13 @@ export const useLayerMutation = (): UseLayerMutation => {
 	const removeLayer = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("remove layer", (s) => layerOps.removeLayer(s, layerIndex)),
+		[applySlideChange]
+	);
+	const removeLayerWithSharedSiblings = useCallback(
+		(layerIndex: number) =>
+			applySlideChange("remove shared layers", (s) =>
+				layerOps.removeLayerWithSharedSiblings(s, layerIndex)
+			),
 		[applySlideChange]
 	);
 	const duplicateLayer = useCallback(
@@ -205,6 +214,7 @@ export const useLayerMutation = (): UseLayerMutation => {
 		addLayer,
 		addTextLayer,
 		removeLayer,
+		removeLayerWithSharedSiblings,
 		duplicateLayer,
 		spreadLayer,
 		reorderLayer,

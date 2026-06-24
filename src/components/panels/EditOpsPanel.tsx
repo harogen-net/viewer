@@ -22,6 +22,7 @@ import type { LayerBase } from "../../types/Layer";
 import type { SlideState } from "../../types/SlideState";
 import {
 	type AlignEdge,
+	sharedSiblingCount,
 	updateLayer as updateLayerOp,
 	updateTextLayer as updateTextLayerOp,
 } from "../../utils/layerOps";
@@ -99,6 +100,24 @@ export const EditOpsPanel: FC = () => {
 		)
 			return;
 		layer.spreadLayer(layerIndex);
+	};
+
+	// 削除 (§7 shared 連鎖): shared 兄弟があれば確認。
+	//   OK = 全スライド (連続隣接グループ) から削除 / キャンセル = このスライドのみ削除。
+	// legacy: confirm yes で兄弟連鎖削除、no でも当該 layer は削除される挙動に対応。
+	const handleRemove = () => {
+		if (!canEditLayer) return;
+		const sibCount = sharedSiblingCount({ slides, selectedIndex: selectedSlideIndex }, layerIndex);
+		if (sibCount > 0) {
+			const all = window.confirm(
+				`このレイヤーは他 ${sibCount} スライドと共有 (shared) されています。\n` +
+					"OK: 共有先も含め全て削除 / キャンセル: このスライドのみ削除"
+			);
+			if (all) layer.removeLayerWithSharedSiblings(layerIndex);
+			else layer.removeLayer(layerIndex);
+		} else {
+			layer.removeLayer(layerIndex);
+		}
 	};
 
 	// テキスト編集 (D-9、legacy VMHistoricalTextInput 基準): 選択中 TextLayer のみ textarea 表示。
@@ -251,7 +270,7 @@ export const EditOpsPanel: FC = () => {
 						<ActionIcon
 							variant="default"
 							color="red"
-							onClick={() => layer.removeLayer(layerIndex)}
+							onClick={handleRemove}
 							disabled={!canEditLayer}
 							data-edit-op="remove"
 							aria-label="remove">

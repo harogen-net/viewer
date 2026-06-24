@@ -12,6 +12,7 @@ import {
 	duplicateLayer,
 	fitToSlide,
 	removeLayer,
+	removeLayerWithSharedSiblings,
 	reorderLayer,
 	replaceImageId,
 	replaceImageIdAll,
@@ -20,6 +21,7 @@ import {
 	rotateBy,
 	sendBackward,
 	sendToBack,
+	sharedSiblingCount,
 	spreadLayer,
 	toggleMirrorH,
 	toggleMirrorV,
@@ -423,6 +425,62 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 			expect(spreadLayer(s, 9)).toBeNull();
 			const s2 = makeState([makeSlide([makeImageLayer(1, "src")], 1, "s0")], -1);
 			expect(spreadLayer(s2, 0)).toBeNull();
+		});
+	});
+
+	describe("sharedSiblingCount / removeLayerWithSharedSiblings (§7 D-17)", () => {
+		const threeShared = (): SlideState =>
+			makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "S", shared: true })], 2, "s1"),
+					makeSlide([makeImageLayer(3, "a2", { imageId: "S", shared: true })], 3, "s2"),
+				],
+				1
+			);
+
+		it("sharedSiblingCount: 連続隣接の shared 兄弟数 (自身は除く)", () => {
+			expect(sharedSiblingCount(threeShared(), 0)).toBe(2);
+		});
+
+		it("sharedSiblingCount: 非 shared は 0", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "a0", { imageId: "S" })], 1, "s0")], 0);
+			expect(sharedSiblingCount(s, 0)).toBe(0);
+		});
+
+		it("removeLayerWithSharedSiblings: 本体 + 連続隣接兄弟をまとめて削除", () => {
+			const r = removeLayerWithSharedSiblings(threeShared(), 0);
+			expect(r?.slides[0].layers).toHaveLength(0);
+			expect(r?.slides[1].layers).toHaveLength(0);
+			expect(r?.slides[2].layers).toHaveLength(0);
+		});
+
+		it("非 shared なら本体のみ削除 (兄弟は残る)", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: false })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "S", shared: true })], 2, "s1"),
+				],
+				0
+			);
+			const r = removeLayerWithSharedSiblings(s, 0);
+			expect(r?.slides[0].layers).toHaveLength(0); // 本体削除
+			expect(r?.slides[1].layers).toHaveLength(1); // 兄弟は残る
+		});
+
+		it("gap (別 imageId) の先は連鎖削除しない", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "OTHER", shared: true })], 2, "s1"),
+					makeSlide([makeImageLayer(3, "a2", { imageId: "S", shared: true })], 3, "s2"),
+				],
+				0
+			);
+			const r = removeLayerWithSharedSiblings(s, 0);
+			expect(r?.slides[0].layers).toHaveLength(0); // 本体
+			expect(r?.slides[1].layers).toHaveLength(1); // gap は残る
+			expect(r?.slides[2].layers).toHaveLength(1); // gap の先も残る
 		});
 	});
 

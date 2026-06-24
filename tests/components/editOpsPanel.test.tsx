@@ -219,6 +219,63 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		);
 	});
 
+	// shared layer の削除確認 (§7 D-17)。複数スライドに同 imageId + shared を seed する。
+	const seedSharedTwoSlides = (): void => {
+		useSlideStore.getState().setSlides([
+			{
+				id: 1,
+				uuid: "s0",
+				width: 1600,
+				height: 800,
+				durationRatio: 1,
+				joining: true,
+				disabled: false,
+				layers: [makeImageLayer(1, "u-1", { imageId: "S", shared: true })],
+			},
+			{
+				id: 2,
+				uuid: "s1",
+				width: 1600,
+				height: 800,
+				durationRatio: 1,
+				joining: true,
+				disabled: false,
+				layers: [makeImageLayer(2, "u-2", { imageId: "S", shared: true })],
+			},
+		]);
+		useSlideStore.getState().setSelectedIndex(0);
+	};
+
+	it("shared layer 削除: confirm OK で連鎖削除 (全スライドから消える)", () => {
+		const orig = window.confirm;
+		window.confirm = () => true;
+		try {
+			seedSharedTwoSlides();
+			render();
+			selectLayer("u-1");
+			clickByOp("remove");
+			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+			expect(useSlideStore.getState().slides[1].layers).toHaveLength(0);
+		} finally {
+			window.confirm = orig;
+		}
+	});
+
+	it("shared layer 削除: confirm キャンセルでこのスライドのみ削除 (兄弟は残る)", () => {
+		const orig = window.confirm;
+		window.confirm = () => false;
+		try {
+			seedSharedTwoSlides();
+			render();
+			selectLayer("u-1");
+			clickByOp("remove");
+			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+			expect(useSlideStore.getState().slides[1].layers).toHaveLength(1); // 兄弟は残る
+		} finally {
+			window.confirm = orig;
+		}
+	});
+
 	it("remove ボタンで layer が削除され、selectedLayer が null になる", () => {
 		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
 		render();

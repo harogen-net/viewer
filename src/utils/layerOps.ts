@@ -230,6 +230,46 @@ export const spreadLayer = (state: SlideState, layerIndex: number): SlideState |
 	return { slides: nextSlides, selectedIndex };
 };
 
+/**
+ * 選択 layer の「連続隣接スライドにある shared 兄弟」の数を返す (§7、削除確認 UI 用)。
+ * shared でない / 兄弟なしは 0。
+ */
+export const sharedSiblingCount = (state: SlideState, layerIndex: number): number => {
+	const { slides, selectedIndex } = state;
+	const layer = slides[selectedIndex]?.layers[layerIndex];
+	if (!layer || !layer.shared) return 0;
+	return findSharedSiblingPositions(slides, selectedIndex, layer).length;
+};
+
+/**
+ * 選択 layer とその連続隣接 shared 兄弟をまとめて削除する (§7、legacy shared 連鎖削除)。
+ * shared でなければ当該 layer のみ削除 (= removeLayer 相当)。範囲外 / 未選択は null。
+ */
+export const removeLayerWithSharedSiblings = (
+	state: SlideState,
+	layerIndex: number
+): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (selectedIndex < 0 || selectedIndex >= slides.length) return null;
+	const layer = slides[selectedIndex]?.layers[layerIndex];
+	if (!layer) return null;
+	const siblings = layer.shared ? findSharedSiblingPositions(slides, selectedIndex, layer) : [];
+	const removeBySlide = new Map<number, Set<number>>();
+	const mark = (si: number, li: number): void => {
+		const set = removeBySlide.get(si) ?? new Set<number>();
+		set.add(li);
+		removeBySlide.set(si, set);
+	};
+	mark(selectedIndex, layerIndex);
+	for (const { si, li } of siblings) mark(si, li);
+	const nextSlides = slides.map((slide, si) => {
+		const lis = removeBySlide.get(si);
+		if (!lis) return slide;
+		return { ...slide, layers: slide.layers.filter((_, li) => !lis.has(li)) };
+	});
+	return { slides: nextSlides, selectedIndex };
+};
+
 // --- ops (export) ---
 
 /**
