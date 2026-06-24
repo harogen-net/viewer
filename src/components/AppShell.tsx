@@ -2,6 +2,7 @@ import { Anchor, Box, Button, Group, MantineProvider, Stack, Text, Title } from 
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useImageDimensionBackfill } from "../hooks/useImageLibraryMutation";
+import { useRectSyncConfig } from "../hooks/useLayerMutation";
 import { useShellKeyboard } from "../hooks/useShellKeyboard";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
@@ -41,6 +42,8 @@ const NewSidePanel: FC = () => {
 	const [showImageLibrary, setShowImageLibrary] = useState(false);
 	// ロード済み画像の自然寸法を backfill (D-14、rectEdit の矩形一致判定の基盤)。
 	useImageDimensionBackfill();
+	// rectEdit トグル + 自然寸法を layerOps へ流し込む (D-18)。
+	useRectSyncConfig();
 
 	return (
 		<>

@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EditOpsPanel } from "../../src/components/panels/EditOpsPanel";
 import { useClipboardStore } from "../../src/state/clipboardStore";
+import { useEditViewStore } from "../../src/state/editViewStore";
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
@@ -711,5 +712,34 @@ describe("EditOpsPanel 数値プロパティ入力 (v4 Group D D-10, §12)", () 
 		render();
 		selectLayer("u-1");
 		expect(adjustInput("transX").disabled).toBe(true);
+	});
+});
+
+describe("EditOpsPanel rectEdit トグル (v4 Group D D-18)", () => {
+	afterEach(() => {
+		useEditViewStore.getState().setRectEdit(false);
+	});
+
+	it("トグルボタンで editViewStore.rectEdit が反転し、active 表示が切り替わる", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		const btn = () =>
+			container.querySelector<HTMLButtonElement>('[data-edit-op="toggle-rect-edit"]');
+		expect(useEditViewStore.getState().rectEdit).toBe(false);
+		expect(btn()?.getAttribute("data-active")).toBe("false");
+		clickByOp("toggle-rect-edit");
+		expect(useEditViewStore.getState().rectEdit).toBe(true);
+		expect(btn()?.getAttribute("data-active")).toBe("true");
+		clickByOp("toggle-rect-edit");
+		expect(useEditViewStore.getState().rectEdit).toBe(false);
+	});
+
+	it("選択 layer が無くてもトグルは操作できる (グローバルモード)", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		// 未選択でも disabled でない
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="toggle-rect-edit"]')?.disabled
+		).toBeFalsy();
 	});
 });

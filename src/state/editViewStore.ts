@@ -41,6 +41,10 @@ interface EditViewState {
 	zoomOut: () => void;
 	/** 全体表示 (zoom を既定値に戻す)。 */
 	showAll: () => void;
+	/** rectEdit (矩形連動編集) トグル (§7、legacy EditableSlideView._rectEdit / button.same)。 */
+	rectEdit: boolean;
+	setRectEdit: (on: boolean) => void;
+	toggleRectEdit: () => void;
 }
 
 export const useEditViewStore = create<EditViewState>()((set) => ({
@@ -49,4 +53,7 @@ export const useEditViewStore = create<EditViewState>()((set) => ({
 	zoomIn: () => set((s) => ({ zoom: clampZoom(s.zoom * ZOOM_STEP) })),
 	zoomOut: () => set((s) => ({ zoom: clampZoom(s.zoom / ZOOM_STEP) })),
 	showAll: () => set({ zoom: ZOOM_DEFAULT }),
+	rectEdit: false,
+	setRectEdit: (on) => set({ rectEdit: on }),
+	toggleRectEdit: () => set((s) => ({ rectEdit: !s.rectEdit })),
 }));

@@ -15,6 +15,7 @@ import { useRef } from "react";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
+import { useEditViewStore } from "../../state/editViewStore";
 import { useHistoryStore } from "../../state/historyStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
@@ -64,6 +65,9 @@ export const EditOpsPanel: FC = () => {
 	const canUndo = past.length > 0;
 	const canRedo = future.length > 0;
 	const lastLabel = past.length > 0 ? past[past.length - 1].label : null;
+
+	const rectEdit = useEditViewStore((s) => s.rectEdit);
+	const toggleRectEdit = useEditViewStore((s) => s.toggleRectEdit);
 
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
@@ -285,6 +289,18 @@ export const EditOpsPanel: FC = () => {
 							data-edit-op="spread"
 							aria-label="spread">
 							⇉
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="矩形連動編集 (rectEdit): 同じ位置・サイズの画像をまとめて変形">
+						<ActionIcon
+							variant={rectEdit ? "filled" : "default"}
+							color={rectEdit ? "blue" : undefined}
+							onClick={toggleRectEdit}
+							data-edit-op="toggle-rect-edit"
+							data-active={rectEdit ? "true" : "false"}
+							aria-label="toggle rect edit"
+							aria-pressed={rectEdit}>
+							▦
 						</ActionIcon>
 					</Tooltip>
 				</Group>

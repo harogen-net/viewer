@@ -1,4 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+import { useEditViewStore } from "../state/editViewStore";
+import { useImageLibraryStore } from "../state/imageLibraryStore";
 import type { ImageLayer, LayerBase, TextLayer } from "../types/Layer";
 import type { AlignEdge, NewLayer } from "../utils/layerOps";
 import * as layerOps from "../utils/layerOps";
@@ -233,4 +235,23 @@ export const useLayerMutation = (): UseLayerMutation => {
 		replaceImageId,
 		replaceImageIdAll,
 	};
+};
+
+/**
+ * rectEdit (§7 D-18) の実行時コンテキストを layerOps へ流し込む hook。
+ * editViewStore.rectEdit (トグル) と imageLibraryStore の自然寸法 (D-14) を集約し、
+ * layerOps.setRectSyncConfig に渡す。これにより layer プロパティ編集系 op が
+ * 「rectEdit 有効時、同矩形 image layer へ transform を連動」させられる。
+ * 新モードのルート (AppShell) で 1 回マウントする。
+ */
+export const useRectSyncConfig = (): void => {
+	const rectEdit = useEditViewStore((s) => s.rectEdit);
+	const imageById = useImageLibraryStore((s) => s.imageById);
+	useEffect(() => {
+		const dims: Record<string, { w: number; h: number }> = {};
+		for (const [id, e] of Object.entries(imageById)) {
+			if (e.width !== undefined && e.height !== undefined) dims[id] = { w: e.width, h: e.height };
+		}
+		layerOps.setRectSyncConfig({ enabled: rectEdit, dims });
+	}, [rectEdit, imageById]);
 };

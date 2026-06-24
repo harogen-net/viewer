@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { ImageLayer, Layer, TextLayer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 import type { SlideState } from "../../src/types/SlideState";
@@ -21,6 +21,7 @@ import {
 	rotateBy,
 	sendBackward,
 	sendToBack,
+	setRectSyncConfig,
 	sharedSiblingCount,
 	spreadLayer,
 	toggleMirrorH,
@@ -481,6 +482,94 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 			expect(r?.slides[0].layers).toHaveLength(0); // 本体
 			expect(r?.slides[1].layers).toHaveLength(1); // gap は残る
 			expect(r?.slides[2].layers).toHaveLength(1); // gap の先も残る
+		});
+	});
+
+	describe("rectEdit 連動同期 (§7 D-18)", () => {
+		// 自然寸法 dims を注入して rectEdit を有効化。各テスト後に無効へ戻す。
+		const enableRect = (dims: Record<string, { w: number; h: number }>): void =>
+			setRectSyncConfig({ enabled: true, dims });
+		afterEach(() => setRectSyncConfig({ enabled: false, dims: {} }));
+
+		it("有効時、同矩形 image layer へ transform を全スライド連動", () => {
+			enableRect({ A: { w: 100, h: 50 } });
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "A" })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "A" })], 2, "s1"),
+				],
+				0
+			);
+			const r = rotateBy(s, 0, 90);
+			expect(r?.slides[0].layers[0].rotation).toBe(90); // 編集対象
+			expect(r?.slides[1].layers[0].rotation).toBe(90); // 同矩形へ連動
+		});
+
+		it("rotation が異なっても同矩形と見なす (一致判定に rotation 含めない)", () => {
+			enableRect({ A: { w: 100, h: 50 } });
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "A", rotation: 0 })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "A", rotation: 45 })], 2, "s1"),
+				],
+				0
+			);
+			const r = updateLayer(s, 0, { transX: 30 });
+			expect(r?.slides[1].layers[0].transX).toBe(30); // 連動
+			expect(r?.slides[1].layers[0].rotation).toBe(45); // rotation は patch 外なので維持
+		});
+
+		it("位置が異なる layer には連動しない", () => {
+			enableRect({ A: { w: 100, h: 50 } });
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "A", transX: 0 })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "A", transX: 999 })], 2, "s1"),
+				],
+				0
+			);
+			const r = rotateBy(s, 0, 90);
+			expect(r?.slides[1].layers[0].rotation).toBe(0); // 別矩形 → 非連動
+		});
+
+		it("shared を優先 (shared 層では rect 連動しない)", () => {
+			// opacity は shared 同期対象だが rect 同期対象外。shared 層編集で opacity が伝播すれば shared 経路。
+			enableRect({ A: { w: 100, h: 50 } });
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "A", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "A", shared: true })], 2, "s1"),
+				],
+				0
+			);
+			const r = updateLayer(s, 0, { opacity: 0.5 });
+			expect(r?.slides[1].layers[0].opacity).toBe(0.5); // shared 経路で伝播
+		});
+
+		it("無効 (default) では連動しない", () => {
+			setRectSyncConfig({ enabled: false, dims: { A: { w: 100, h: 50 } } });
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "A" })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "A" })], 2, "s1"),
+				],
+				0
+			);
+			const r = rotateBy(s, 0, 90);
+			expect(r?.slides[1].layers[0].rotation).toBe(0); // 非連動
+		});
+
+		it("寸法未登録の image は対象外 (dims に無ければ非連動)", () => {
+			enableRect({}); // dims 空 → rectKey null
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "A" })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "A" })], 2, "s1"),
+				],
+				0
+			);
+			const r = rotateBy(s, 0, 90);
+			expect(r?.slides[1].layers[0].rotation).toBe(0);
 		});
 	});
 

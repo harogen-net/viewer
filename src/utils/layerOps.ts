@@ -19,12 +19,16 @@ export type NewLayer = DistributiveOmit<Layer, "id" | "uuid">;
 // 純関数 (副作用なし、入力 state を mutate しない)。
 // 主に「selected slide の layers」を操作する。例外:
 //   - プロパティ編集系 (updateLayer / updateImageLayer / updateTextLayer / rotateBy /
-//     resetRotation / toggleMirrorH/V / resetOpacity / fitToSlide / alignTo) は、編集対象が
-//     shared=true の場合 withSharedSync で「連続する隣接スライドの兄弟」へ変化分を伝播する (§7、D-15)。
+//     resetRotation / toggleMirrorH/V / resetOpacity / fitToSlide / alignTo) は withLayerSync で
+//     兄弟同期を後付けする (§7):
+//       - 編集対象が shared=true → 連続する隣接スライドの shared 兄弟へ変化分を伝播 (D-15)
+//       - shared でなく rectEdit 有効 → 全スライドの同矩形 image layer へ transform を伝播 (D-18)
+//     (shared を優先。legacy 同様 shared 層では rectEdit を無視)
 //
-// shared 兄弟の判定キー (legacy EditableSlideView.listSharedLayers 準拠):
-//   shared=true かつ 同 type かつ (image=imageId / text=text 一致)。uuid は使わない。
-//   走査は自スライドの前後へ連続する隣接スライドのみ (マッチが途切れたら打ち切り)。
+// shared 兄弟の判定キー (legacy listSharedLayers): shared=true かつ 同 type かつ
+//   (image=imageId / text=text 一致)。uuid は使わない。連続隣接のみ (途切れたら打ち切り)。
+// rect 兄弟の判定キー (legacy listRectLayers): image のみ、自然寸法 + transX/transY/scaleX/scaleY/
+//   mirrorH/mirrorV 一致 (rotation は判定外)。全スライド走査。自然寸法は setRectSyncConfig で注入。
 
 // --- 内部 helpers ---
 
@@ -138,6 +142,26 @@ const findSharedSiblingPositions = (
 	return positions;
 };
 
+// 指定位置群の layer に patch を当てた新 slides を返す (shared / rect 共通)。
+const applyPatchAtPositions = (
+	slides: Slide[],
+	positions: Array<{ si: number; li: number }>,
+	patch: Record<string, unknown>
+): Slide[] => {
+	const bySlide = new Map<number, Set<number>>();
+	for (const { si, li } of positions) {
+		const set = bySlide.get(si) ?? new Set<number>();
+		set.add(li);
+		bySlide.set(si, set);
+	}
+	return slides.map((slide, si) => {
+		const lis = bySlide.get(si);
+		if (!lis) return slide;
+		const layers = slide.layers.map((l, li) => (lis.has(li) ? ({ ...l, ...patch } as Layer) : l));
+		return { ...slide, layers };
+	});
+};
+
 // 編集済み next state の shared 兄弟へ、変化プロパティを伝播する。
 // 兄弟探索は編集前 layer の identity (旧 imageId/text) で行うため、imageId 変更時も
 // 旧 id でマッチした兄弟に新 id を patch する (legacy 挙動)。
@@ -155,29 +179,130 @@ const propagateToSharedSiblings = (
 	if (Object.keys(patch).length === 0) return nextState;
 	const positions = findSharedSiblingPositions(nextState.slides, slideIndex, prevLayer);
 	if (positions.length === 0) return nextState;
-	const bySlide = new Map<number, Set<number>>();
-	for (const { si, li } of positions) {
-		const set = bySlide.get(si) ?? new Set<number>();
-		set.add(li);
-		bySlide.set(si, set);
-	}
-	const slides = nextState.slides.map((slide, si) => {
-		const lis = bySlide.get(si);
-		if (!lis) return slide;
-		const layers = slide.layers.map((l, li) => (lis.has(li) ? ({ ...l, ...patch } as Layer) : l));
-		return { ...slide, layers };
-	});
-	return { slides, selectedIndex: nextState.selectedIndex };
+	return {
+		slides: applyPatchAtPositions(nextState.slides, positions, patch),
+		selectedIndex: nextState.selectedIndex,
+	};
 };
 
-// プロパティ編集系 op の結果に shared 兄弟同期を後付けするラッパ。
-// next が null (no-op) ならそのまま null。
-const withSharedSync = (
+// --- rectEdit (矩形連動編集、§7 D-18、legacy listRectLayers / _rectEdit) ---
+
+// rect 同期で兄弟へコピーする transform プロパティ (legacy flagForRect、rotation を含む)。
+const RECT_SYNC_KEYS = [
+	"transX",
+	"transY",
+	"scaleX",
+	"scaleY",
+	"mirrorH",
+	"mirrorV",
+	"rotation",
+] as const;
+
+// rectEdit の実行時コンテキスト: UI トグル + 画像自然寸法 (imageId → {w,h})。
+// 純粋な layer データだけでは originWidth/Height を判定できないため、
+// useRectSyncConfig hook が editViewStore.rectEdit + imageLibraryStore の寸法を流し込む。
+// default は無効 (enabled=false) なので、設定されない限り rect 同期は一切起きない。
+interface RectSyncConfig {
+	enabled: boolean;
+	dims: Record<string, { w: number; h: number }>;
+}
+let rectSyncConfig: RectSyncConfig = { enabled: false, dims: {} };
+export const setRectSyncConfig = (cfg: RectSyncConfig): void => {
+	rectSyncConfig = cfg;
+};
+
+// 矩形一致キー: image のみ。[自然幅, 自然高, transX, transY, scaleX, scaleY, mirrorH, mirrorV]。
+// rotation は一致判定に含めない (legacy listRectLayers と同じ)。寸法不明なら null。
+const rectKey = (
+	layer: Layer,
+	dims: RectSyncConfig["dims"]
+): [number, number, number, number, number, number, boolean, boolean] | null => {
+	if (layer.type !== LayerType.IMAGE) return null;
+	const d = dims[layer.imageId];
+	if (!d) return null;
+	return [
+		d.w,
+		d.h,
+		layer.transX,
+		layer.transY,
+		layer.scaleX,
+		layer.scaleY,
+		layer.mirrorH,
+		layer.mirrorV,
+	];
+};
+
+const rectKeyEq = (a: ReturnType<typeof rectKey>, b: ReturnType<typeof rectKey>): boolean => {
+	if (!a || !b) return false;
+	return a.every((v, i) => v === b[i]);
+};
+
+// 全スライドを走査し、編集前 layer と同矩形 (rectKey 一致) な image layer の位置を集める。
+// 自身 (slideIndex, layerIndex) は除外。1 スライド複数可 (legacy は break しない)。
+const findRectSiblingPositions = (
+	slides: Slide[],
+	slideIndex: number,
+	layerIndex: number,
+	refKey: ReturnType<typeof rectKey>
+): Array<{ si: number; li: number }> => {
+	const positions: Array<{ si: number; li: number }> = [];
+	if (!refKey) return positions;
+	for (let si = 0; si < slides.length; si++) {
+		const layers = slides[si].layers;
+		for (let li = 0; li < layers.length; li++) {
+			if (si === slideIndex && li === layerIndex) continue;
+			if (rectKeyEq(refKey, rectKey(layers[li], rectSyncConfig.dims))) {
+				positions.push({ si, li });
+			}
+		}
+	}
+	return positions;
+};
+
+// 編集済み next state の同矩形 layer へ transform 変化分を伝播する。
+const propagateToRectSiblings = (
+	prevState: SlideState,
+	nextState: SlideState,
+	slideIndex: number,
+	layerIndex: number
+): SlideState => {
+	if (slideIndex < 0) return nextState;
+	const prevLayer = prevState.slides[slideIndex]?.layers[layerIndex];
+	const nextLayer = nextState.slides[slideIndex]?.layers[layerIndex];
+	if (!prevLayer || !nextLayer || prevLayer.type !== LayerType.IMAGE) return nextState;
+	// 変化した rect 同期プロパティのみ patch
+	const p = prevLayer as unknown as Record<string, unknown>;
+	const n = nextLayer as unknown as Record<string, unknown>;
+	const patch: Record<string, unknown> = {};
+	for (const k of RECT_SYNC_KEYS) {
+		if (p[k] !== n[k]) patch[k] = n[k];
+	}
+	if (Object.keys(patch).length === 0) return nextState;
+	// 兄弟探索は編集前の矩形で行う (next では編集対象だけが動いている)。
+	const refKey = rectKey(prevLayer, rectSyncConfig.dims);
+	const positions = findRectSiblingPositions(nextState.slides, slideIndex, layerIndex, refKey);
+	if (positions.length === 0) return nextState;
+	return {
+		slides: applyPatchAtPositions(nextState.slides, positions, patch),
+		selectedIndex: nextState.selectedIndex,
+	};
+};
+
+// プロパティ編集系 op の結果に「shared 兄弟同期」または「rect 連動同期」を後付けするラッパ。
+// shared を優先 (legacy: shared 層では rectEdit を無視)。next が null (no-op) ならそのまま null。
+const withLayerSync = (
 	prev: SlideState,
 	layerIndex: number,
 	next: SlideState | null
-): SlideState | null =>
-	next ? propagateToSharedSiblings(prev, next, prev.selectedIndex, layerIndex) : null;
+): SlideState | null => {
+	if (!next) return null;
+	const si = prev.selectedIndex;
+	const prevLayer = prev.slides[si]?.layers[layerIndex];
+	if (!prevLayer) return next;
+	if (prevLayer.shared) return propagateToSharedSiblings(prev, next, si, layerIndex);
+	if (rectSyncConfig.enabled) return propagateToRectSiblings(prev, next, si, layerIndex);
+	return next;
+};
 
 /**
  * 選択 slide の layer を前後の連続スライドへ「展開 (spread)」する (§7、legacy spreadLayers)。
@@ -282,7 +407,7 @@ export const updateLayer = (
 	layerIndex: number,
 	patch: Partial<LayerBase>
 ): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -307,7 +432,7 @@ export const updateImageLayer = (
 	layerIndex: number,
 	patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>
 ): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -324,7 +449,7 @@ export const updateTextLayer = (
 	layerIndex: number,
 	patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>
 ): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -575,7 +700,7 @@ export const rotateBy = (
 	layerIndex: number,
 	deltaDeg: number
 ): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -590,7 +715,7 @@ export const rotateBy = (
 
 /** rotation = 0。すでに 0 なら null。 */
 export const resetRotation = (state: SlideState, layerIndex: number): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -603,7 +728,7 @@ export const resetRotation = (state: SlideState, layerIndex: number): SlideState
 
 /** mirrorH を toggle。 */
 export const toggleMirrorH = (state: SlideState, layerIndex: number): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -617,7 +742,7 @@ export const toggleMirrorH = (state: SlideState, layerIndex: number): SlideState
 
 /** mirrorV を toggle。 */
 export const toggleMirrorV = (state: SlideState, layerIndex: number): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -631,7 +756,7 @@ export const toggleMirrorV = (state: SlideState, layerIndex: number): SlideState
 
 /** opacity = 1。すでに 1 なら null。 */
 export const resetOpacity = (state: SlideState, layerIndex: number): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -660,7 +785,7 @@ export const fitToSlide = (
 	contentW: number,
 	contentH: number
 ): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
@@ -762,7 +887,7 @@ export const alignTo = (
 	contentW: number,
 	contentH: number
 ): SlideState | null =>
-	withSharedSync(
+	withLayerSync(
 		state,
 		layerIndex,
 		transformSelectedSlideLayers(state, (layers) => {
