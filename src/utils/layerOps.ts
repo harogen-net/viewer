@@ -1,5 +1,6 @@
 import type { ImageLayer, Layer, LayerBase, TextLayer } from "../types/Layer";
 import { LayerType } from "../types/Layer";
+import type { Slide } from "../types/Slide";
 import type { SlideState } from "../types/SlideState";
 
 // distributive Omit: union 型に対し各 member ごとに Omit を適用
@@ -17,10 +18,13 @@ export type NewLayer = DistributiveOmit<Layer, "id" | "uuid">;
 //
 // 純関数 (副作用なし、入力 state を mutate しない)。
 // 主に「selected slide の layers」を操作する。例外:
-//   - updateSharedLayer は全 slide を走査して shared layer に patch を当てる (兄弟更新)
+//   - プロパティ編集系 (updateLayer / updateImageLayer / updateTextLayer / rotateBy /
+//     resetRotation / toggleMirrorH/V / resetOpacity / fitToSlide / alignTo) は、編集対象が
+//     shared=true の場合 withSharedSync で「連続する隣接スライドの兄弟」へ変化分を伝播する (§7、D-15)。
 //
-// 注: shared layer の判定キーは現状 layer.uuid (HVD 非保存の React 識別子) + shared=true。
-// 実際の legacy 仕様は image 同一性 / id 等別キーの可能性あり、別タスクで再調査予定。
+// shared 兄弟の判定キー (legacy EditableSlideView.listSharedLayers 準拠):
+//   shared=true かつ 同 type かつ (image=imageId / text=text 一致)。uuid は使わない。
+//   走査は自スライドの前後へ連続する隣接スライドのみ (マッチが途切れたら打ち切り)。
 
 // --- 内部 helpers ---
 
@@ -58,6 +62,120 @@ const transformSelectedSlideLayers = (
 	return { slides: nextSlides, selectedIndex };
 };
 
+// --- shared layer 連動 (§7、legacy EditableSlideView.listSharedLayers / multipleLayerOperation) ---
+
+// 兄弟へ同期するプロパティ (legacy multipleLayerOperation の flag セット準拠)。
+// name / id / uuid は同期しない。
+const SHARED_SYNC_KEYS = [
+	"transX",
+	"transY",
+	"scaleX",
+	"scaleY",
+	"rotation",
+	"mirrorH",
+	"mirrorV",
+	"visible",
+	"locked",
+	"opacity",
+	"imageId",
+	"clipRect",
+	"isText",
+	"text",
+] as const;
+
+const valueEq = (a: unknown, b: unknown): boolean => {
+	if (Array.isArray(a) && Array.isArray(b)) {
+		return a.length === b.length && a.every((v, i) => v === b[i]);
+	}
+	return a === b;
+};
+
+// 編集前後の layer を比較し、同期対象プロパティのうち変化したものだけを patch にする。
+const diffSyncedProps = (prev: Layer, next: Layer): Record<string, unknown> => {
+	const p = prev as unknown as Record<string, unknown>;
+	const n = next as unknown as Record<string, unknown>;
+	const patch: Record<string, unknown> = {};
+	for (const k of SHARED_SYNC_KEYS) {
+		if (k in n && !valueEq(p[k], n[k])) patch[k] = n[k];
+	}
+	return patch;
+};
+
+// shared の「兄弟」判定: shared=true かつ 同 type かつ (image=imageId / text=text 一致)。
+const matchesShared = (ref: Layer, candidate: Layer): boolean => {
+	if (!candidate.shared) return false;
+	if (ref.type !== candidate.type) return false;
+	if (ref.type === LayerType.IMAGE && candidate.type === LayerType.IMAGE) {
+		return ref.imageId === candidate.imageId;
+	}
+	if (ref.type === LayerType.TEXT && candidate.type === LayerType.TEXT) {
+		return ref.text === candidate.text;
+	}
+	return false;
+};
+
+// 自スライドの前後へ「連続する隣接スライド」のみ走査し、各スライドで最初にマッチした
+// shared 兄弟の位置を集める (マッチが途切れたスライドで打ち切り、legacy listSharedLayers)。
+const findSharedSiblingPositions = (
+	slides: Slide[],
+	slideIndex: number,
+	ref: Layer
+): Array<{ si: number; li: number }> => {
+	const positions: Array<{ si: number; li: number }> = [];
+	if (!ref.shared) return positions;
+	const scan = (step: number): void => {
+		for (let si = slideIndex + step; si >= 0 && si < slides.length; si += step) {
+			const li = slides[si].layers.findIndex((l) => matchesShared(ref, l));
+			if (li < 0) break; // 連続が途切れたら打ち切り
+			positions.push({ si, li });
+		}
+	};
+	scan(1);
+	scan(-1);
+	return positions;
+};
+
+// 編集済み next state の shared 兄弟へ、変化プロパティを伝播する。
+// 兄弟探索は編集前 layer の identity (旧 imageId/text) で行うため、imageId 変更時も
+// 旧 id でマッチした兄弟に新 id を patch する (legacy 挙動)。
+const propagateToSharedSiblings = (
+	prevState: SlideState,
+	nextState: SlideState,
+	slideIndex: number,
+	layerIndex: number
+): SlideState => {
+	if (slideIndex < 0) return nextState;
+	const prevLayer = prevState.slides[slideIndex]?.layers[layerIndex];
+	const nextLayer = nextState.slides[slideIndex]?.layers[layerIndex];
+	if (!prevLayer || !nextLayer || !prevLayer.shared) return nextState;
+	const patch = diffSyncedProps(prevLayer, nextLayer);
+	if (Object.keys(patch).length === 0) return nextState;
+	const positions = findSharedSiblingPositions(nextState.slides, slideIndex, prevLayer);
+	if (positions.length === 0) return nextState;
+	const bySlide = new Map<number, Set<number>>();
+	for (const { si, li } of positions) {
+		const set = bySlide.get(si) ?? new Set<number>();
+		set.add(li);
+		bySlide.set(si, set);
+	}
+	const slides = nextState.slides.map((slide, si) => {
+		const lis = bySlide.get(si);
+		if (!lis) return slide;
+		const layers = slide.layers.map((l, li) => (lis.has(li) ? ({ ...l, ...patch } as Layer) : l));
+		return { ...slide, layers };
+	});
+	return { slides, selectedIndex: nextState.selectedIndex };
+};
+
+// プロパティ編集系 op の結果に shared 兄弟同期を後付けするラッパ。
+// next が null (no-op) ならそのまま null。
+const withSharedSync = (
+	prev: SlideState,
+	layerIndex: number,
+	next: SlideState | null
+): SlideState | null =>
+	next ? propagateToSharedSiblings(prev, next, prev.selectedIndex, layerIndex) : null;
+
 // --- ops (export) ---
 
 /**
@@ -70,20 +188,24 @@ export const updateLayer = (
 	layerIndex: number,
 	patch: Partial<LayerBase>
 ): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex] as unknown as Record<string, unknown>;
-		// 値変化を簡易検出 (shallow compare)
-		let changed = false;
-		for (const key of Object.keys(patch)) {
-			if (cur[key] !== (patch as Record<string, unknown>)[key]) {
-				changed = true;
-				break;
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex] as unknown as Record<string, unknown>;
+			// 値変化を簡易検出 (shallow compare)
+			let changed = false;
+			for (const key of Object.keys(patch)) {
+				if (cur[key] !== (patch as Record<string, unknown>)[key]) {
+					changed = true;
+					break;
+				}
 			}
-		}
-		if (!changed) return null;
-		return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...patch } as Layer) : l));
-	});
+			if (!changed) return null;
+			return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...patch } as Layer) : l));
+		})
+	);
 
 /** image 専用 layer 更新 (clipRect 等含む)。type が image でなければ null。 */
 export const updateImageLayer = (
@@ -91,12 +213,16 @@ export const updateImageLayer = (
 	layerIndex: number,
 	patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>
 ): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex];
-		if (cur.type !== LayerType.IMAGE) return null;
-		return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...patch } as Layer) : l));
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex];
+			if (cur.type !== LayerType.IMAGE) return null;
+			return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...patch } as Layer) : l));
+		})
+	);
 
 /** text 専用 layer 更新。type が text でなければ null。 */
 export const updateTextLayer = (
@@ -104,12 +230,16 @@ export const updateTextLayer = (
 	layerIndex: number,
 	patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>
 ): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex];
-		if (cur.type !== LayerType.TEXT) return null;
-		return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...patch } as Layer) : l));
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex];
+			if (cur.type !== LayerType.TEXT) return null;
+			return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...patch } as Layer) : l));
+		})
+	);
 
 /**
  * 画像を slide に contain fit 配置する ImageLayer プロパティ (id/uuid 未採番) を生成 (D-11/D-12 共通)。
@@ -272,39 +402,6 @@ export const sendBackward = (state: SlideState, layerIndex: number): SlideState 
 	reorderLayer(state, layerIndex, layerIndex - 1);
 
 /**
- * shared layer の兄弟更新 (全 slide 走査)。
- * 同 uuid + shared=true な layer すべてに patch を当てる。
- * 該当 1 件もなければ null (no-op)。
- *
- * 注: 現状の判定キーは uuid + shared=true (最小実装)。
- * legacy 仕様の shared semantics は別タスクで再調査予定。
- */
-export const updateSharedLayer = (
-	state: SlideState,
-	sharedUuid: string,
-	patch: Partial<LayerBase>
-): SlideState | null => {
-	let anyChanged = false;
-	const nextSlides = state.slides.map((slide) => {
-		let slideChanged = false;
-		const nextLayers = slide.layers.map((l) => {
-			if (l.uuid === sharedUuid && l.shared) {
-				slideChanged = true;
-				return { ...l, ...patch } as Layer;
-			}
-			return l;
-		});
-		if (slideChanged) {
-			anyChanged = true;
-			return { ...slide, layers: nextLayers };
-		}
-		return slide;
-	});
-	if (!anyChanged) return null;
-	return { slides: nextSlides, selectedIndex: state.selectedIndex };
-};
-
-/**
  * 指定 imageId を参照する ImageLayer を全 slide から削除 (v4 Group D D-6a)。
  * legacy ImageManager.deleteImageById の cascade 削除相当 (shared layer も例外なく削除)。
  * 該当 0 件なら null。
@@ -384,52 +481,72 @@ export const rotateBy = (
 	layerIndex: number,
 	deltaDeg: number
 ): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		if (deltaDeg === 0) return null;
-		const cur = layers[layerIndex];
-		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, rotation: cur.rotation + deltaDeg } as Layer) : l
-		);
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			if (deltaDeg === 0) return null;
+			const cur = layers[layerIndex];
+			return layers.map((l, i) =>
+				i === layerIndex ? ({ ...cur, rotation: cur.rotation + deltaDeg } as Layer) : l
+			);
+		})
+	);
 
 /** rotation = 0。すでに 0 なら null。 */
 export const resetRotation = (state: SlideState, layerIndex: number): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex];
-		if (cur.rotation === 0) return null;
-		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, rotation: 0 } as Layer) : l));
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex];
+			if (cur.rotation === 0) return null;
+			return layers.map((l, i) => (i === layerIndex ? ({ ...cur, rotation: 0 } as Layer) : l));
+		})
+	);
 
 /** mirrorH を toggle。 */
 export const toggleMirrorH = (state: SlideState, layerIndex: number): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex];
-		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, mirrorH: !cur.mirrorH } as Layer) : l
-		);
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex];
+			return layers.map((l, i) =>
+				i === layerIndex ? ({ ...cur, mirrorH: !cur.mirrorH } as Layer) : l
+			);
+		})
+	);
 
 /** mirrorV を toggle。 */
 export const toggleMirrorV = (state: SlideState, layerIndex: number): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex];
-		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, mirrorV: !cur.mirrorV } as Layer) : l
-		);
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex];
+			return layers.map((l, i) =>
+				i === layerIndex ? ({ ...cur, mirrorV: !cur.mirrorV } as Layer) : l
+			);
+		})
+	);
 
 /** opacity = 1。すでに 1 なら null。 */
 export const resetOpacity = (state: SlideState, layerIndex: number): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex];
-		if (cur.opacity === 1) return null;
-		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, opacity: 1 } as Layer) : l));
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex];
+			if (cur.opacity === 1) return null;
+			return layers.map((l, i) => (i === layerIndex ? ({ ...cur, opacity: 1 } as Layer) : l));
+		})
+	);
 
 /**
  * slide 寸法に fit-to-area (aspect 維持で最大化、中央配置)。
@@ -449,47 +566,51 @@ export const fitToSlide = (
 	contentW: number,
 	contentH: number
 ): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		if (contentW <= 0 || contentH <= 0) return null;
-		const cur = layers[layerIndex];
-		const isQuarter = cur.rotation === 90 || cur.rotation === -90;
-		const sx = isQuarter ? slideW / contentH : slideW / contentW;
-		const sy = isQuarter ? slideH / contentW : slideH / contentH;
-		const scale1 = Math.min(sx, sy);
-		const scale2 = Math.max(sx, sy);
-		const slideCx = slideW / 2;
-		const slideCy = slideH / 2;
-		const curCx = cur.transX + contentW / 2;
-		const curCy = cur.transY + contentH / 2;
-		const isCentered = curCx === slideCx && curCy === slideCy;
-		// legacy compRatio (= 1e10) で scale 一致判定
-		const COMP_RATIO = 1e10;
-		const isScale1 = Math.round(cur.scaleX * COMP_RATIO) === Math.round(scale1 * COMP_RATIO);
-		const targetScale = isCentered && isScale1 ? scale2 : scale1;
-		const newTransX = slideCx - contentW / 2;
-		const newTransY = slideCy - contentH / 2;
-		// 値変化検出
-		if (
-			cur.scaleX === targetScale &&
-			cur.scaleY === targetScale &&
-			cur.transX === newTransX &&
-			cur.transY === newTransY
-		) {
-			return null;
-		}
-		return layers.map((l, i) =>
-			i === layerIndex
-				? ({
-						...cur,
-						scaleX: targetScale,
-						scaleY: targetScale,
-						transX: newTransX,
-						transY: newTransY,
-					} as Layer)
-				: l
-		);
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			if (contentW <= 0 || contentH <= 0) return null;
+			const cur = layers[layerIndex];
+			const isQuarter = cur.rotation === 90 || cur.rotation === -90;
+			const sx = isQuarter ? slideW / contentH : slideW / contentW;
+			const sy = isQuarter ? slideH / contentW : slideH / contentH;
+			const scale1 = Math.min(sx, sy);
+			const scale2 = Math.max(sx, sy);
+			const slideCx = slideW / 2;
+			const slideCy = slideH / 2;
+			const curCx = cur.transX + contentW / 2;
+			const curCy = cur.transY + contentH / 2;
+			const isCentered = curCx === slideCx && curCy === slideCy;
+			// legacy compRatio (= 1e10) で scale 一致判定
+			const COMP_RATIO = 1e10;
+			const isScale1 = Math.round(cur.scaleX * COMP_RATIO) === Math.round(scale1 * COMP_RATIO);
+			const targetScale = isCentered && isScale1 ? scale2 : scale1;
+			const newTransX = slideCx - contentW / 2;
+			const newTransY = slideCy - contentH / 2;
+			// 値変化検出
+			if (
+				cur.scaleX === targetScale &&
+				cur.scaleY === targetScale &&
+				cur.transX === newTransX &&
+				cur.transY === newTransY
+			) {
+				return null;
+			}
+			return layers.map((l, i) =>
+				i === layerIndex
+					? ({
+							...cur,
+							scaleX: targetScale,
+							scaleY: targetScale,
+							transX: newTransX,
+							transY: newTransY,
+						} as Layer)
+					: l
+			);
+		})
+	);
 
 export type AlignEdge = "top" | "right" | "bottom" | "left";
 
@@ -547,29 +668,33 @@ export const alignTo = (
 	contentW: number,
 	contentH: number
 ): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		if (contentW <= 0 || contentH <= 0) return null;
-		const cur = layers[layerIndex];
-		const bounds = getVisualBounds(contentW, contentH, cur.scaleX, cur.scaleY, cur.rotation);
-		let newTransX = cur.transX;
-		let newTransY = cur.transY;
-		switch (edge) {
-			case "top":
-				newTransY = bounds.h / 2 - contentH / 2;
-				break;
-			case "bottom":
-				newTransY = slideH - bounds.h / 2 - contentH / 2;
-				break;
-			case "left":
-				newTransX = bounds.w / 2 - contentW / 2;
-				break;
-			case "right":
-				newTransX = slideW - bounds.w / 2 - contentW / 2;
-				break;
-		}
-		if (cur.transX === newTransX && cur.transY === newTransY) return null;
-		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, transX: newTransX, transY: newTransY } as Layer) : l
-		);
-	});
+	withSharedSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			if (contentW <= 0 || contentH <= 0) return null;
+			const cur = layers[layerIndex];
+			const bounds = getVisualBounds(contentW, contentH, cur.scaleX, cur.scaleY, cur.rotation);
+			let newTransX = cur.transX;
+			let newTransY = cur.transY;
+			switch (edge) {
+				case "top":
+					newTransY = bounds.h / 2 - contentH / 2;
+					break;
+				case "bottom":
+					newTransY = slideH - bounds.h / 2 - contentH / 2;
+					break;
+				case "left":
+					newTransX = bounds.w / 2 - contentW / 2;
+					break;
+				case "right":
+					newTransX = slideW - bounds.w / 2 - contentW / 2;
+					break;
+			}
+			if (cur.transX === newTransX && cur.transY === newTransY) return null;
+			return layers.map((l, i) =>
+				i === layerIndex ? ({ ...cur, transX: newTransX, transY: newTransY } as Layer) : l
+			);
+		})
+	);

@@ -32,7 +32,11 @@ const baseTransform = {
 	mirrorH: false,
 	mirrorV: false,
 };
-const makeImageLayer = (id: number, uuid: string, overrides: Partial<ImageLayer> = {}): ImageLayer => ({
+const makeImageLayer = (
+	id: number,
+	uuid: string,
+	overrides: Partial<ImageLayer> = {}
+): ImageLayer => ({
 	id,
 	uuid,
 	name: "",
@@ -47,7 +51,12 @@ const makeImageLayer = (id: number, uuid: string, overrides: Partial<ImageLayer>
 	isText: false,
 	...overrides,
 });
-const makeTextLayer = (id: number, uuid: string, text: string, overrides: Partial<TextLayer> = {}): TextLayer => ({
+const makeTextLayer = (
+	id: number,
+	uuid: string,
+	text: string,
+	overrides: Partial<TextLayer> = {}
+): TextLayer => ({
 	id,
 	uuid,
 	name: "",
@@ -186,11 +195,7 @@ describe("useLayerMutation + useDocumentMutation (v4 Group D D-2)", () => {
 		});
 
 		it("bring/send order ops: 期待通り並び替え + history", () => {
-			seedSlideWithLayers([
-				makeImageLayer(1, "a"),
-				makeImageLayer(2, "b"),
-				makeImageLayer(3, "c"),
-			]);
+			seedSlideWithLayers([makeImageLayer(1, "a"), makeImageLayer(2, "b"), makeImageLayer(3, "c")]);
 
 			hooks.api.layer.bringToFront(0);
 			expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["b", "c", "a"]);
@@ -225,24 +230,33 @@ describe("useLayerMutation + useDocumentMutation (v4 Group D D-2)", () => {
 		});
 	});
 
-	describe("updateSharedLayer (兄弟更新)", () => {
-		it("複数 slide にまたがる同 uuid + shared=true な layer を一括更新", () => {
-			// 同 uuid を複数 slide に持たせる (テスト都合)
-			useSlideStore.getState().setSlides([
-				makeSlide(1, "s1", [makeImageLayer(10, "shared-X", { shared: true, opacity: 1 })]),
-				makeSlide(2, "s2", [makeImageLayer(11, "shared-X", { shared: true, opacity: 1 })]),
-			]);
+	describe("shared 連動更新 (§7 D-15、facade 経由 1 履歴)", () => {
+		it("shared layer の編集が連続隣接スライドの兄弟へ伝播し、履歴は 1 件", () => {
+			// 2 slide に同 imageId + shared=true。選択スライド 0 の layer を編集。
+			useSlideStore
+				.getState()
+				.setSlides([
+					makeSlide(1, "s1", [
+						makeImageLayer(10, "x0", { shared: true, imageId: "S", opacity: 1 }),
+					]),
+					makeSlide(2, "s2", [
+						makeImageLayer(11, "x1", { shared: true, imageId: "S", opacity: 1 }),
+					]),
+				]);
 			useSlideStore.getState().setSelectedIndex(0);
 			useViewerDocumentStore.getState().setModified(false);
 			useHistoryStore.getState().clear();
 
-			hooks.api.layer.updateSharedLayer("shared-X", { opacity: 0.3 });
+			act(() => {
+				hooks.api.layer.updateLayer(0, { opacity: 0.3 });
+			});
 
 			const slides = useSlideStore.getState().slides;
-			expect(slides[0].layers[0].opacity).toBe(0.3);
-			expect(slides[1].layers[0].opacity).toBe(0.3);
+			expect(slides[0].layers[0].opacity).toBe(0.3); // 編集対象
+			expect(slides[1].layers[0].opacity).toBe(0.3); // 兄弟へ伝播
+			// 兄弟同期込みで履歴 1 件 (undo で両方戻る)
 			expect(useHistoryStore.getState().past.length).toBe(1);
-			expect(useHistoryStore.getState().past[0].label).toBe("update shared layer");
+			expect(useHistoryStore.getState().past[0].label).toBe("update layer");
 		});
 	});
 

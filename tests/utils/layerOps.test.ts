@@ -24,7 +24,6 @@ import {
 	toggleMirrorV,
 	updateImageLayer,
 	updateLayer,
-	updateSharedLayer,
 	updateTextLayer,
 } from "../../src/utils/layerOps";
 
@@ -252,26 +251,108 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 		});
 	});
 
-	describe("updateSharedLayer (全 slide 走査)", () => {
-		it("複数 slide に同 uuid + shared=true な layer があれば一括更新", () => {
-			// uuid=X が 2 slide に出現するセットアップ (テスト都合)
-			const s = makeState([
-				makeSlide([makeImageLayer(1, "X", { shared: true, opacity: 1 })], 1, "s1"),
-				makeSlide([makeImageLayer(2, "X", { shared: true, opacity: 1 })], 2, "s2"),
-			]);
-			const r = updateSharedLayer(s, "X", { opacity: 0.5 });
+	describe("shared 連動更新 (§7 D-15、連続隣接走査)", () => {
+		it("shared layer の opacity 編集が前後の連続隣接スライドの兄弟へ伝播", () => {
+			// 3 slide すべてに同 imageId + shared=true。選択は中央 (index 1)。
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "S", shared: true })], 2, "s1"),
+					makeSlide([makeImageLayer(3, "a2", { imageId: "S", shared: true })], 3, "s2"),
+				],
+				1
+			);
+			const r = updateLayer(s, 0, { opacity: 0.5 });
+			expect(r?.slides[0].layers[0].opacity).toBe(0.5); // 前隣接
+			expect(r?.slides[1].layers[0].opacity).toBe(0.5); // 編集対象
+			expect(r?.slides[2].layers[0].opacity).toBe(0.5); // 後隣接
+		});
+
+		it("shared=false の layer 編集は兄弟へ伝播しない", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: false })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "S", shared: true })], 2, "s1"),
+				],
+				0
+			);
+			const r = updateLayer(s, 0, { opacity: 0.5 });
 			expect(r?.slides[0].layers[0].opacity).toBe(0.5);
-			expect(r?.slides[1].layers[0].opacity).toBe(0.5);
+			expect(r?.slides[1].layers[0].opacity).toBe(1); // 非伝播
 		});
 
-		it("shared=false の layer はスキップ", () => {
-			const s = makeState([makeSlide([makeImageLayer(1, "X", { shared: false })], 1, "s1")]);
-			expect(updateSharedLayer(s, "X", { opacity: 0.5 })).toBeNull();
+		it("連続が途切れたスライドで打ち切り (gap の先へは伝播しない)", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "OTHER", shared: true })], 2, "s1"),
+					makeSlide([makeImageLayer(3, "a2", { imageId: "S", shared: true })], 3, "s2"),
+				],
+				0
+			);
+			const r = updateLayer(s, 0, { opacity: 0.5 });
+			expect(r?.slides[0].layers[0].opacity).toBe(0.5); // 編集対象
+			expect(r?.slides[1].layers[0].opacity).toBe(1); // gap (別 imageId)
+			expect(r?.slides[2].layers[0].opacity).toBe(1); // gap の先 → 打ち切り
 		});
 
-		it("該当 0 件は null", () => {
-			const s = makeState([makeSlide([makeImageLayer(1, "Y", { shared: true })])]);
-			expect(updateSharedLayer(s, "X", { opacity: 0.5 })).toBeNull();
+		it("transform op (rotateBy) も兄弟へ伝播", () => {
+			const s = makeState(
+				[
+					makeSlide(
+						[makeImageLayer(1, "a0", { imageId: "S", shared: true, rotation: 0 })],
+						1,
+						"s0"
+					),
+					makeSlide(
+						[makeImageLayer(2, "a1", { imageId: "S", shared: true, rotation: 0 })],
+						2,
+						"s1"
+					),
+				],
+				0
+			);
+			const r = rotateBy(s, 0, 90);
+			expect(r?.slides[1].layers[0].rotation).toBe(90);
+		});
+
+		it("imageId 変更は旧 imageId でマッチした兄弟へ新 id を伝播", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "OLD", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "OLD", shared: true })], 2, "s1"),
+				],
+				0
+			);
+			const r = updateImageLayer(s, 0, { imageId: "NEW" });
+			expect((r?.slides[0].layers[0] as ImageLayer).imageId).toBe("NEW");
+			expect((r?.slides[1].layers[0] as ImageLayer).imageId).toBe("NEW");
+		});
+
+		it("text layer は text 一致で兄弟判定、text 編集を伝播", () => {
+			const s = makeState(
+				[
+					makeSlide([makeTextLayer(1, "t0", { text: "hello", shared: true })], 1, "s0"),
+					makeSlide([makeTextLayer(2, "t1", { text: "hello", shared: true })], 2, "s1"),
+				],
+				0
+			);
+			const r = updateTextLayer(s, 0, { text: "world" });
+			expect((r?.slides[0].layers[0] as TextLayer).text).toBe("world");
+			expect((r?.slides[1].layers[0] as TextLayer).text).toBe("world");
+		});
+
+		it("name は同期対象外 (兄弟へ伝播しない)", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "S", shared: true })], 2, "s1"),
+				],
+				0
+			);
+			const r = updateLayer(s, 0, { name: "renamed" });
+			expect(r?.slides[0].layers[0].name).toBe("renamed");
+			expect(r?.slides[1].layers[0].name).toBe(""); // 非同期
 		});
 	});
 

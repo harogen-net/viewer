@@ -19,11 +19,11 @@ export interface UseLayerMutation {
 	updateLayer: (layerIndex: number, patch: Partial<LayerBase>) => void;
 	updateImageLayer: (
 		layerIndex: number,
-		patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>,
+		patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>
 	) => void;
 	updateTextLayer: (
 		layerIndex: number,
-		patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>,
+		patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>
 	) => void;
 	addLayer: (layer: NewLayer) => void;
 	/** テキストレイヤーを slide 中央付近に追加 (§6、legacy `.text` 相当)。 */
@@ -35,7 +35,6 @@ export interface UseLayerMutation {
 	sendToBack: (layerIndex: number) => void;
 	bringForward: (layerIndex: number) => void;
 	sendBackward: (layerIndex: number) => void;
-	updateSharedLayer: (sharedUuid: string, patch: Partial<LayerBase>) => void;
 	rotateBy: (layerIndex: number, deltaDeg: number) => void;
 	resetRotation: (layerIndex: number) => void;
 	toggleMirrorH: (layerIndex: number) => void;
@@ -46,7 +45,7 @@ export interface UseLayerMutation {
 		slideW: number,
 		slideH: number,
 		contentW: number,
-		contentH: number,
+		contentH: number
 	) => void;
 	alignTo: (
 		layerIndex: number,
@@ -54,7 +53,7 @@ export interface UseLayerMutation {
 		slideW: number,
 		slideH: number,
 		contentW: number,
-		contentH: number,
+		contentH: number
 	) => void;
 	/** 指定 imageId を参照する ImageLayer を全 slide から削除 (D-6a)。 */
 	removeLayersByImageId: (imageId: string) => void;
@@ -70,105 +69,95 @@ export const useLayerMutation = (): UseLayerMutation => {
 	const updateLayer = useCallback(
 		(layerIndex: number, patch: Partial<LayerBase>) =>
 			applySlideChange("update layer", (s) => layerOps.updateLayer(s, layerIndex, patch)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const updateImageLayer = useCallback(
 		(layerIndex: number, patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>) =>
 			applySlideChange("update image layer", (s) =>
-				layerOps.updateImageLayer(s, layerIndex, patch),
+				layerOps.updateImageLayer(s, layerIndex, patch)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const updateTextLayer = useCallback(
 		(layerIndex: number, patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>) =>
-			applySlideChange("update text layer", (s) =>
-				layerOps.updateTextLayer(s, layerIndex, patch),
-			),
-		[applySlideChange],
+			applySlideChange("update text layer", (s) => layerOps.updateTextLayer(s, layerIndex, patch)),
+		[applySlideChange]
 	);
 	const addLayer = useCallback(
-		(layer: NewLayer) =>
-			applySlideChange("add layer", (s) => layerOps.addLayer(s, layer)),
-		[applySlideChange],
+		(layer: NewLayer) => applySlideChange("add layer", (s) => layerOps.addLayer(s, layer)),
+		[applySlideChange]
 	);
 	const addTextLayer = useCallback(
 		(text: string, slideW: number, slideH: number) =>
 			applySlideChange("add text layer", (s) => layerOps.addTextLayer(s, text, slideW, slideH)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const removeLayer = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("remove layer", (s) => layerOps.removeLayer(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const duplicateLayer = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("duplicate layer", (s) => layerOps.duplicateLayer(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const reorderLayer = useCallback(
 		(fromIndex: number, toIndex: number) =>
 			applySlideChange("reorder layer", (s) => layerOps.reorderLayer(s, fromIndex, toIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const bringToFront = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("bring layer to front", (s) => layerOps.bringToFront(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const sendToBack = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("send layer to back", (s) => layerOps.sendToBack(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const bringForward = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("bring layer forward", (s) => layerOps.bringForward(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const sendBackward = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("send layer backward", (s) => layerOps.sendBackward(s, layerIndex)),
-		[applySlideChange],
-	);
-	const updateSharedLayer = useCallback(
-		(sharedUuid: string, patch: Partial<LayerBase>) =>
-			applySlideChange("update shared layer", (s) =>
-				layerOps.updateSharedLayer(s, sharedUuid, patch),
-			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const rotateBy = useCallback(
 		(layerIndex: number, deltaDeg: number) =>
 			applySlideChange("rotate layer", (s) => layerOps.rotateBy(s, layerIndex, deltaDeg)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const resetRotation = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("reset rotation", (s) => layerOps.resetRotation(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const toggleMirrorH = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("toggle mirror h", (s) => layerOps.toggleMirrorH(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const toggleMirrorV = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("toggle mirror v", (s) => layerOps.toggleMirrorV(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const resetOpacity = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("reset opacity", (s) => layerOps.resetOpacity(s, layerIndex)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const fitToSlide = useCallback(
 		(layerIndex: number, slideW: number, slideH: number, contentW: number, contentH: number) =>
 			applySlideChange("fit to slide", (s) =>
-				layerOps.fitToSlide(s, layerIndex, slideW, slideH, contentW, contentH),
+				layerOps.fitToSlide(s, layerIndex, slideW, slideH, contentW, contentH)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const alignTo = useCallback(
 		(
@@ -177,33 +166,29 @@ export const useLayerMutation = (): UseLayerMutation => {
 			slideW: number,
 			slideH: number,
 			contentW: number,
-			contentH: number,
+			contentH: number
 		) =>
 			applySlideChange(`align ${edge}`, (s) =>
-				layerOps.alignTo(s, layerIndex, edge, slideW, slideH, contentW, contentH),
+				layerOps.alignTo(s, layerIndex, edge, slideW, slideH, contentW, contentH)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const removeLayersByImageId = useCallback(
 		(imageId: string) =>
-			applySlideChange("remove layers by image", (s) =>
-				layerOps.removeLayersByImageId(s, imageId),
-			),
-		[applySlideChange],
+			applySlideChange("remove layers by image", (s) => layerOps.removeLayersByImageId(s, imageId)),
+		[applySlideChange]
 	);
 	const replaceImageId = useCallback(
 		(layerIndex: number, newImageId: string) =>
-			applySlideChange("replace image", (s) =>
-				layerOps.replaceImageId(s, layerIndex, newImageId),
-			),
-		[applySlideChange],
+			applySlideChange("replace image", (s) => layerOps.replaceImageId(s, layerIndex, newImageId)),
+		[applySlideChange]
 	);
 	const replaceImageIdAll = useCallback(
 		(oldImageId: string, newImageId: string) =>
 			applySlideChange("replace image (all)", (s) =>
-				layerOps.replaceImageIdAll(s, oldImageId, newImageId),
+				layerOps.replaceImageIdAll(s, oldImageId, newImageId)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 
 	return {
@@ -219,7 +204,6 @@ export const useLayerMutation = (): UseLayerMutation => {
 		sendToBack,
 		bringForward,
 		sendBackward,
-		updateSharedLayer,
 		rotateBy,
 		resetRotation,
 		toggleMirrorH,
