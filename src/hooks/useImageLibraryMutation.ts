@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useImageLibraryStore } from "../state/imageLibraryStore";
 import { useLayerStore } from "../state/layerStore";
 import { useSlideStore } from "../state/slideStore";
@@ -158,4 +158,39 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 		placeImageOnSlide,
 		placeImageAsNewSlide,
 	};
+};
+
+/**
+ * imageLibraryStore のうち自然寸法 (width/height) 未設定の entry を読み込んで backfill する hook (D-14)。
+ * HVD/HVZ/PNG ロード (setImageLibrary) は dataURL のみで dims を持たないため、ロード後に
+ * 画像を実 load して naturalWidth/Height を store へ書き戻す。rectEdit (§7) の矩形一致判定が
+ * これを legacy originWidth/originHeight として参照する。
+ *
+ * 新モードのルート (AppShell) で 1 回マウントする。imageById 変化のたびに欠落分のみ補う。
+ */
+export const useImageDimensionBackfill = (): void => {
+	const imageById = useImageLibraryStore((s) => s.imageById);
+	const setImageDimensions = useImageLibraryStore((s) => s.setImageDimensions);
+
+	useEffect(() => {
+		const missing = Object.entries(imageById).filter(
+			([, e]) => e.width === undefined || e.height === undefined
+		);
+		if (missing.length === 0) return;
+		let cancelled = false;
+		(async () => {
+			for (const [id, entry] of missing) {
+				try {
+					const { w, h } = await loadImageNaturalSize(entry.dataURL);
+					if (cancelled) return;
+					setImageDimensions(id, w, h);
+				} catch {
+					// 読み込み失敗時はスキップ (dims 未設定のまま、rectEdit は当該 layer を対象外にする)
+				}
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [imageById, setImageDimensions]);
 };

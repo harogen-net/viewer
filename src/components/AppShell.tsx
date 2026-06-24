@@ -1,6 +1,7 @@
 import { Anchor, Box, Button, Group, MantineProvider, Stack, Text, Title } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useImageDimensionBackfill } from "../hooks/useImageLibraryMutation";
 import { useShellKeyboard } from "../hooks/useShellKeyboard";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
@@ -17,8 +18,7 @@ import { SlideshowShell } from "./SlideshowShell";
 // 新側モードでは Group A の build 中につき placeholder を出す。
 // 通常モード (レガシー) では従来通り ProgressBar のみ。
 const isNewMode =
-	typeof window !== "undefined" &&
-	new URLSearchParams(window.location.search).get("new") === "1";
+	typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1";
 
 // dev 専用の左右モード切替リンク (v3 開発中の手動確認用、Group D 末尾で削除)。
 const modeSwitchLinkStyle: CSSProperties = {
@@ -39,6 +39,8 @@ const NewSidePanel: FC = () => {
 	const slideCount = useSlideStore((s) => s.slides.length);
 	const [showSlideshow, setShowSlideshow] = useState(false);
 	const [showImageLibrary, setShowImageLibrary] = useState(false);
+	// ロード済み画像の自然寸法を backfill (D-14、rectEdit の矩形一致判定の基盤)。
+	useImageDimensionBackfill();
 
 	return (
 		<>
@@ -51,15 +53,13 @@ const NewSidePanel: FC = () => {
 						<Button
 							color="green"
 							onClick={() => setShowSlideshow(true)}
-							disabled={slideCount === 0}
-						>
+							disabled={slideCount === 0}>
 							▶ slideshow 開始
 						</Button>
 						<Button
 							variant="default"
 							onClick={() => setShowImageLibrary(true)}
-							data-open-image-library
-						>
+							data-open-image-library>
 							🖼 画像ライブラリ
 						</Button>
 						{slideCount === 0 && (
@@ -71,10 +71,7 @@ const NewSidePanel: FC = () => {
 				</Stack>
 			</Box>
 			<SlideshowShell open={showSlideshow} onClose={() => setShowSlideshow(false)} />
-			<ImageLibraryPanel
-				opened={showImageLibrary}
-				onClose={() => setShowImageLibrary(false)}
-			/>
+			<ImageLibraryPanel opened={showImageLibrary} onClose={() => setShowImageLibrary(false)} />
 		</>
 	);
 };
@@ -191,4 +188,3 @@ export const AppShell: FC = () => (
 		<ProgressBar />
 	</MantineProvider>
 );
-

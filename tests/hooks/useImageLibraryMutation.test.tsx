@@ -1,7 +1,10 @@
 import { act, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useImageLibraryMutation } from "../../src/hooks/useImageLibraryMutation";
+import {
+	useImageDimensionBackfill,
+	useImageLibraryMutation,
+} from "../../src/hooks/useImageLibraryMutation";
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useLayerStore } from "../../src/state/layerStore";
@@ -58,7 +61,7 @@ const Probe = () => {
 	// slideStore に依存して re-render させるため (削除 cascade 確認用)
 	useSyncExternalStore(
 		(cb) => useSlideStore.subscribe(cb),
-		() => useSlideStore.getState().slides.length,
+		() => useSlideStore.getState().slides.length
 	);
 	hookRef.api = api;
 	return null;
@@ -90,8 +93,10 @@ const makeFile = (dataUrl: string, name = "test.png", type = "image/png"): File 
 	return new File([bytes], name, { type });
 };
 
-const dummyImage1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgAAIAAAUAAeImBZsAAAAASUVORK5CYII=";
-const dummyImage2 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2P4////fwAJ+wP9BUNFygAAAABJRU5ErkJggg==";
+const dummyImage1 =
+	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgAAIAAAUAAeImBZsAAAAASUVORK5CYII=";
+const dummyImage2 =
+	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2P4////fwAJ+wP9BUNFygAAAABJRU5ErkJggg==";
 
 describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 	it("addImageFile: File → imageLibraryStore に登録される", async () => {
@@ -152,13 +157,12 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 			id = await hookRef.api!.addImageDataUrl(dummyImage1);
 		});
 		// 該当 layer を 2 slide に配置
-		useSlideStore.getState().setSlides([
-			makeSlide(1, "s1", [
-				makeImageLayer(1, "u-1", id),
-				makeImageLayer(2, "u-2", "other-id"),
-			]),
-			makeSlide(2, "s2", [makeImageLayer(3, "u-3", id)]),
-		]);
+		useSlideStore
+			.getState()
+			.setSlides([
+				makeSlide(1, "s1", [makeImageLayer(1, "u-1", id), makeImageLayer(2, "u-2", "other-id")]),
+				makeSlide(2, "s2", [makeImageLayer(3, "u-3", id)]),
+			]);
 		useSlideStore.getState().setSelectedIndex(0);
 
 		let count = -1;
@@ -232,9 +236,20 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 				id = await hookRef.api!.addImageDataUrl(dummyImage1, "photo.png");
 			});
 			// slide 1600x800 (16:8 = 2:1)、image 400x200 (2:1)
-			useSlideStore.getState().setSlides([
-				{ id: 1, uuid: "s1", width: 1600, height: 800, durationRatio: 1, joining: true, disabled: false, layers: [] },
-			]);
+			useSlideStore
+				.getState()
+				.setSlides([
+					{
+						id: 1,
+						uuid: "s1",
+						width: 1600,
+						height: 800,
+						durationRatio: 1,
+						joining: true,
+						disabled: false,
+						layers: [],
+					},
+				]);
 			useSlideStore.getState().setSelectedIndex(0);
 
 			let result: boolean | null = null;
@@ -268,9 +283,20 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 			await act(async () => {
 				id = await hookRef.api!.addImageDataUrl(dummyImage1);
 			});
-			useSlideStore.getState().setSlides([
-				{ id: 1, uuid: "s1", width: 800, height: 1600, durationRatio: 1, joining: true, disabled: false, layers: [] },
-			]);
+			useSlideStore
+				.getState()
+				.setSlides([
+					{
+						id: 1,
+						uuid: "s1",
+						width: 800,
+						height: 1600,
+						durationRatio: 1,
+						joining: true,
+						disabled: false,
+						layers: [],
+					},
+				]);
 			useSlideStore.getState().setSelectedIndex(0);
 
 			await act(async () => {
@@ -305,9 +331,20 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 			await act(async () => {
 				id = await hookRef.api!.addImageDataUrl(dummyImage1);
 			});
-			useSlideStore.getState().setSlides([
-				{ id: 1, uuid: "s1", width: 1000, height: 1000, durationRatio: 1, joining: true, disabled: false, layers: [] },
-			]);
+			useSlideStore
+				.getState()
+				.setSlides([
+					{
+						id: 1,
+						uuid: "s1",
+						width: 1000,
+						height: 1000,
+						durationRatio: 1,
+						joining: true,
+						disabled: false,
+						layers: [],
+					},
+				]);
 			useSlideStore.getState().setSelectedIndex(0);
 
 			await act(async () => {
@@ -320,4 +357,73 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 			expect(layer.scaleX).toBe(10);
 		});
 	});
+});
+
+describe("useImageDimensionBackfill (v4 Group D D-14)", () => {
+	let __origNW: PropertyDescriptor | undefined;
+	let __origNH: PropertyDescriptor | undefined;
+	beforeEach(() => {
+		__origNW = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "naturalWidth");
+		__origNH = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "naturalHeight");
+		Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", {
+			configurable: true,
+			get() {
+				return 400;
+			},
+		});
+		Object.defineProperty(HTMLImageElement.prototype, "naturalHeight", {
+			configurable: true,
+			get() {
+				return 200;
+			},
+		});
 	});
+	afterEach(() => {
+		if (__origNW) Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", __origNW);
+		if (__origNH) Object.defineProperty(HTMLImageElement.prototype, "naturalHeight", __origNH);
+	});
+
+	const mountBackfill = (): { unmount: () => void } => {
+		const div = document.createElement("div");
+		document.body.appendChild(div);
+		const r = createRoot(div);
+		const Probe = (): null => {
+			useImageDimensionBackfill();
+			return null;
+		};
+		act(() => r.render(<Probe />));
+		return {
+			unmount: () => {
+				act(() => r.unmount());
+				div.remove();
+			},
+		};
+	};
+
+	it("dims 未設定の entry を読み込んで naturalWidth/Height を backfill する", async () => {
+		useImageLibraryStore.setState({ imageById: { x: { dataURL: dummyImage1 } } });
+		const m = mountBackfill();
+		// image load (microtask) + 逐次 backfill の完了待ち
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
+		const e = useImageLibraryStore.getState().imageById.x;
+		expect(e.width).toBe(400);
+		expect(e.height).toBe(200);
+		m.unmount();
+	});
+
+	it("dims 設定済み entry は再読み込みしない (値を維持)", async () => {
+		useImageLibraryStore.setState({
+			imageById: { y: { dataURL: dummyImage2, width: 10, height: 20 } },
+		});
+		const m = mountBackfill();
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
+		const e = useImageLibraryStore.getState().imageById.y;
+		expect(e.width).toBe(10);
+		expect(e.height).toBe(20);
+		m.unmount();
+	});
+});

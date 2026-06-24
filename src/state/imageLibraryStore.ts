@@ -11,6 +11,10 @@ interface ImageEntry {
 	dataURL: string;
 	/** 画像ファイル名 (HVD には載らないが、レガシー UI 互換のため optional)。 */
 	name?: string;
+	/** 画像自然寸法 (px)。HVD には載らないので add 時計測 or ロード後 backfill で埋める。
+	 *  rectEdit (§7) の矩形一致判定が legacy originWidth/originHeight としてこれを使う。 */
+	width?: number;
+	height?: number;
 }
 
 interface ImageLibraryState {
@@ -21,6 +25,8 @@ interface ImageLibraryState {
 	addImage: (id: string, entry: ImageEntry | string) => void;
 	/** 個別削除 (D-6a 画像マネージャからの削除)。該当なしは no-op。 */
 	removeImage: (id: string) => void;
+	/** 既存 entry に自然寸法を後付けする (D-14 backfill)。該当なし / 同値は no-op。 */
+	setImageDimensions: (id: string, width: number, height: number) => void;
 }
 
 function normalize(entry: ImageEntry | string): ImageEntry {
@@ -41,5 +47,12 @@ export const useImageLibraryStore = create<ImageLibraryState>()((set) => ({
 			const next = { ...s.imageById };
 			delete next[id];
 			return { imageById: next };
+		}),
+	setImageDimensions: (id, width, height) =>
+		set((s) => {
+			const entry = s.imageById[id];
+			if (!entry) return s;
+			if (entry.width === width && entry.height === height) return s;
+			return { imageById: { ...s.imageById, [id]: { ...entry, width, height } } };
 		}),
 }));
