@@ -101,9 +101,8 @@ const diffSyncedProps = (prev: Layer, next: Layer): Record<string, unknown> => {
 	return patch;
 };
 
-// shared の「兄弟」判定: shared=true かつ 同 type かつ (image=imageId / text=text 一致)。
-const matchesShared = (ref: Layer, candidate: Layer): boolean => {
-	if (!candidate.shared) return false;
+// 内容同一性判定: 同 type かつ (image=imageId / text=text 一致)。shared フラグは見ない。
+const matchesIdentity = (ref: Layer, candidate: Layer): boolean => {
 	if (ref.type !== candidate.type) return false;
 	if (ref.type === LayerType.IMAGE && candidate.type === LayerType.IMAGE) {
 		return ref.imageId === candidate.imageId;
@@ -113,6 +112,10 @@ const matchesShared = (ref: Layer, candidate: Layer): boolean => {
 	}
 	return false;
 };
+
+// shared の「兄弟」判定: shared=true かつ 内容同一。
+const matchesShared = (ref: Layer, candidate: Layer): boolean =>
+	candidate.shared && matchesIdentity(ref, candidate);
 
 // 自スライドの前後へ「連続する隣接スライド」のみ走査し、各スライドで最初にマッチした
 // shared 兄弟の位置を集める (マッチが途切れたスライドで打ち切り、legacy listSharedLayers)。
@@ -175,6 +178,57 @@ const withSharedSync = (
 	next: SlideState | null
 ): SlideState | null =>
 	next ? propagateToSharedSiblings(prev, next, prev.selectedIndex, layerIndex) : null;
+
+/**
+ * 選択 slide の layer を前後の連続スライドへ「展開 (spread)」する (§7、legacy spreadLayers)。
+ *   - source を shared=true 化
+ *   - 前後それぞれの隣接スライドを走査し、各スライドで内容同一な layer を探す:
+ *       - 見つからなければ source の clone (新 id/uuid、shared=true) を source と同じ index に挿入
+ *       - 非 shared なマッチ層があれば shared=true 化
+ *       - 既に shared なマッチ層に到達したらその方向の走査を打ち切り (展開済みグループの端)
+ * 変化が無ければ null (no-op)。
+ */
+export const spreadLayer = (state: SlideState, layerIndex: number): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (selectedIndex < 0 || selectedIndex >= slides.length) return null;
+	const source = slides[selectedIndex].layers[layerIndex];
+	if (!source) return null;
+
+	// 各 slide の layers を浅コピーした作業バッファ (layer オブジェクトは変更時のみ差し替え)。
+	const buf: Layer[][] = slides.map((s) => [...s.layers]);
+	let changed = !source.shared; // source を shared 化したら変化扱い
+
+	// source を shared=true に
+	buf[selectedIndex][layerIndex] = { ...source, shared: true };
+	const insertIndex = layerIndex;
+
+	const walk = (step: number): void => {
+		for (let si = selectedIndex + step; si >= 0 && si < slides.length; si += step) {
+			const layers = buf[si];
+			const li = layers.findIndex((l) => matchesIdentity(source, l));
+			if (li >= 0) {
+				if (layers[li].shared) break; // 既存 shared に到達 → 打ち切り
+				layers[li] = { ...layers[li], shared: true };
+				changed = true;
+			} else {
+				const clone = {
+					...source,
+					id: nextLayerId(layers),
+					uuid: newUuid(),
+					shared: true,
+				} as Layer;
+				layers.splice(Math.min(insertIndex, layers.length), 0, clone);
+				changed = true;
+			}
+		}
+	};
+	walk(1);
+	walk(-1);
+
+	if (!changed) return null;
+	const nextSlides = slides.map((s, i) => ({ ...s, layers: buf[i] }));
+	return { slides: nextSlides, selectedIndex };
+};
 
 // --- ops (export) ---
 

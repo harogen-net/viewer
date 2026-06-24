@@ -24,7 +24,11 @@ const baseTransform = {
 	mirrorH: false,
 	mirrorV: false,
 };
-const makeImageLayer = (id: number, uuid: string, overrides: Partial<ImageLayer> = {}): ImageLayer => ({
+const makeImageLayer = (
+	id: number,
+	uuid: string,
+	overrides: Partial<ImageLayer> = {}
+): ImageLayer => ({
 	id,
 	uuid,
 	name: "",
@@ -75,7 +79,7 @@ const render = (): void => {
 		root.render(
 			<MantineProvider>
 				<EditOpsPanel />
-			</MantineProvider>,
+			</MantineProvider>
 		);
 	});
 };
@@ -134,11 +138,11 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled
 		).toBe(true);
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled,
-		).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled).toBe(
+			true
+		);
 		expect(container.textContent).toContain("レイヤーを選択してください");
 	});
 
@@ -146,12 +150,12 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
 		render();
 		selectLayer("u-1");
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="duplicate"]')?.disabled,
-		).toBe(false);
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled,
-		).toBe(false);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="duplicate"]')?.disabled).toBe(
+			false
+		);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled).toBe(
+			false
+		);
 	});
 
 	it("locked layer は op ボタンが disabled で案内表示", () => {
@@ -159,7 +163,7 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		render();
 		selectLayer("u-1");
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled
 		).toBe(true);
 		expect(container.textContent).toContain("ロックされています");
 	});
@@ -177,6 +181,44 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		expect(useHistoryStore.getState().past.length).toBe(1);
 	});
 
+	it("spread ボタン: confirm OK で選択 layer が shared 化、履歴 1 件", () => {
+		const orig = window.confirm;
+		window.confirm = () => true;
+		try {
+			seedSlide([makeImageLayer(1, "u-1")]);
+			render();
+			selectLayer("u-1");
+			clickByOp("spread");
+			expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(true);
+			expect(useHistoryStore.getState().past.length).toBe(1);
+		} finally {
+			window.confirm = orig;
+		}
+	});
+
+	it("spread ボタン: confirm キャンセルでは何もしない", () => {
+		const orig = window.confirm;
+		window.confirm = () => false;
+		try {
+			seedSlide([makeImageLayer(1, "u-1")]);
+			render();
+			selectLayer("u-1");
+			clickByOp("spread");
+			expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(false);
+			expect(useHistoryStore.getState().past.length).toBe(0);
+		} finally {
+			window.confirm = orig;
+		}
+	});
+
+	it("選択なしでは spread ボタンが disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="spread"]')?.disabled).toBe(
+			true
+		);
+	});
+
 	it("remove ボタンで layer が削除され、selectedLayer が null になる", () => {
 		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
 		render();
@@ -192,8 +234,12 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 	it("undo / redo: 初期は両方 disabled", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(true);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(
+			true
+		);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(
+			true
+		);
 	});
 
 	it("操作後 undo が有効、押すと巻き戻る、redo が有効化", () => {
@@ -203,11 +249,15 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		clickByOp("rotate-right");
 		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
 		// undo
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(false);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(
+			false
+		);
 		clickByOp("undo");
 		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
 		// redo
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(false);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(
+			false
+		);
 		clickByOp("redo");
 		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
 	});
@@ -281,11 +331,11 @@ describe("EditOpsPanel (v4 Group D D-4b) - transform ops", () => {
 		render();
 		selectLayer("u-1");
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled
 		).toBe(true);
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled,
-		).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled).toBe(
+			true
+		);
 		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="fit"]')?.disabled).toBe(true);
 	});
 
@@ -305,9 +355,7 @@ describe("EditOpsPanel (v4 Group D D-4b) - transform ops", () => {
 		render();
 		selectLayer("u-1");
 		for (const edge of ["top", "right", "bottom", "left"] as const) {
-			const btn = container.querySelector<HTMLButtonElement>(
-				`[data-edit-op="align-${edge}"]`,
-			);
+			const btn = container.querySelector<HTMLButtonElement>(`[data-edit-op="align-${edge}"]`);
 			expect(btn).not.toBeNull();
 			expect(btn?.disabled).toBe(false);
 		}
@@ -364,19 +412,27 @@ describe("EditOpsPanel clipboard ボタン (v4 Group D D-8)", () => {
 	it("選択なしでは copy/cut/copy-transform が disabled、paste/paste-transform も disabled", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="copy"]')?.disabled).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="copy"]')?.disabled).toBe(
+			true
+		);
 		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="cut"]')?.disabled).toBe(true);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(
+			true
+		);
 	});
 
 	it("copy ボタンで clipboard に積まれ paste が有効化される", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
 		selectLayer("u-1");
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(true);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(
+			true
+		);
 		clickByOp("copy");
 		expect(useClipboardStore.getState().layer?.uuid).toBe("u-1");
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(false);
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(
+			false
+		);
 	});
 
 	it("copy → paste ボタンで layer が複製される (履歴 1 件)", () => {
@@ -390,16 +446,13 @@ describe("EditOpsPanel clipboard ボタン (v4 Group D D-8)", () => {
 	});
 
 	it("copy-transform → paste-transform ボタンで変形が複写される", () => {
-		seedSlide([
-			makeImageLayer(1, "u-1", { transX: 33, rotation: 90 }),
-			makeImageLayer(2, "u-2"),
-		]);
+		seedSlide([makeImageLayer(1, "u-1", { transX: 33, rotation: 90 }), makeImageLayer(2, "u-2")]);
 		render();
 		selectLayer("u-1");
 		clickByOp("copy-transform");
 		selectLayer("u-2");
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="paste-transform"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="paste-transform"]')?.disabled
 		).toBe(false);
 		clickByOp("paste-transform");
 		const after = useSlideStore.getState().slides[0].layers[1] as ImageLayer;
@@ -413,7 +466,7 @@ describe("EditOpsPanel テキスト (v4 Group D D-9)", () => {
 		seedSlide([]);
 		render();
 		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="add-text"]')?.disabled).toBe(
-			false,
+			false
 		);
 	});
 
@@ -579,12 +632,20 @@ describe("EditOpsPanel 数値プロパティ入力 (v4 Group D D-10, §12)", () 
 		selectLayer("u-1");
 		const x = adjustInput("transX");
 		act(() => x.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
-		act(() => x.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true })));
+		act(() =>
+			x.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true })
+			)
+		);
 		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(-100); // invert + shiftStep
 		// rotation は Shift 無効 + invert なし → 通常 step 5 (正方向)
 		const r = adjustInput("rotation");
 		act(() => r.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
-		act(() => r.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true })));
+		act(() =>
+			r.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true })
+			)
+		);
 		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(5);
 	});
 

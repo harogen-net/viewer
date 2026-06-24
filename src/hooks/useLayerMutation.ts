@@ -30,6 +30,8 @@ export interface UseLayerMutation {
 	addTextLayer: (text: string, slideW: number, slideH: number) => void;
 	removeLayer: (layerIndex: number) => void;
 	duplicateLayer: (layerIndex: number) => void;
+	/** 選択 layer を前後の連続スライドへ展開し shared 化 (§7、legacy spreadLayers)。 */
+	spreadLayer: (layerIndex: number) => void;
 	reorderLayer: (fromIndex: number, toIndex: number) => void;
 	bringToFront: (layerIndex: number) => void;
 	sendToBack: (layerIndex: number) => void;
@@ -100,6 +102,11 @@ export const useLayerMutation = (): UseLayerMutation => {
 	const duplicateLayer = useCallback(
 		(layerIndex: number) =>
 			applySlideChange("duplicate layer", (s) => layerOps.duplicateLayer(s, layerIndex)),
+		[applySlideChange]
+	);
+	const spreadLayer = useCallback(
+		(layerIndex: number) =>
+			applySlideChange("spread layer", (s) => layerOps.spreadLayer(s, layerIndex)),
 		[applySlideChange]
 	);
 	const reorderLayer = useCallback(
@@ -199,6 +206,7 @@ export const useLayerMutation = (): UseLayerMutation => {
 		addTextLayer,
 		removeLayer,
 		duplicateLayer,
+		spreadLayer,
 		reorderLayer,
 		bringToFront,
 		sendToBack,

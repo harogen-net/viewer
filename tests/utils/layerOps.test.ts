@@ -20,6 +20,7 @@ import {
 	rotateBy,
 	sendBackward,
 	sendToBack,
+	spreadLayer,
 	toggleMirrorH,
 	toggleMirrorV,
 	updateImageLayer,
@@ -353,6 +354,75 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 			const r = updateLayer(s, 0, { name: "renamed" });
 			expect(r?.slides[0].layers[0].name).toBe("renamed");
 			expect(r?.slides[1].layers[0].name).toBe(""); // 非同期
+		});
+	});
+
+	describe("spreadLayer (§7 D-16)", () => {
+		it("空きスライドへ clone 展開し source + clone をすべて shared 化", () => {
+			const s = makeState(
+				[
+					makeSlide([], 1, "s0"),
+					makeSlide([makeImageLayer(1, "src", { imageId: "S" })], 2, "s1"),
+					makeSlide([], 3, "s2"),
+				],
+				1
+			);
+			const r = spreadLayer(s, 0);
+			expect(r).not.toBeNull();
+			// source は shared 化
+			expect(r?.slides[1].layers[0].shared).toBe(true);
+			// 前後の空きスライドへ clone (新 uuid、shared、同 imageId)
+			expect(r?.slides[0].layers).toHaveLength(1);
+			expect(r?.slides[0].layers[0].shared).toBe(true);
+			expect((r?.slides[0].layers[0] as ImageLayer).imageId).toBe("S");
+			expect(r?.slides[0].layers[0].uuid).not.toBe("src");
+			expect(r?.slides[2].layers).toHaveLength(1);
+			expect(r?.slides[2].layers[0].shared).toBe(true);
+		});
+
+		it("非 shared マッチ層は shared 化し、重複 clone しない", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "src", { imageId: "S" })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "b", { imageId: "S" })], 2, "s1"),
+				],
+				0
+			);
+			const r = spreadLayer(s, 0);
+			expect(r?.slides[1].layers).toHaveLength(1); // 重複追加なし
+			expect(r?.slides[1].layers[0].shared).toBe(true);
+			expect(r?.slides[1].layers[0].uuid).toBe("b"); // 既存を流用
+		});
+
+		it("既存 shared マッチ層に到達したら打ち切り (先のスライドは未変更)", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "src", { imageId: "S" })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "b", { imageId: "S" })], 2, "s1"),
+					makeSlide([makeImageLayer(3, "c", { imageId: "S", shared: true })], 3, "s2"),
+					makeSlide([makeImageLayer(4, "d", { imageId: "S" })], 4, "s3"),
+				],
+				0
+			);
+			const r = spreadLayer(s, 0);
+			expect(r?.slides[1].layers[0].shared).toBe(true); // 非shared→shared化
+			expect(r?.slides[2].layers[0].shared).toBe(true); // 既shared (打ち切り点)
+			expect(r?.slides[3].layers[0].shared).toBe(false); // 打ち切りの先 → 未変更
+		});
+
+		it("source が既 shared かつ隣接に展開対象なしは null (no-op)", () => {
+			const s = makeState(
+				[makeSlide([makeImageLayer(1, "src", { imageId: "S", shared: true })], 1, "s0")],
+				0
+			);
+			expect(spreadLayer(s, 0)).toBeNull();
+		});
+
+		it("範囲外 layerIndex / 未選択は null", () => {
+			const s = makeState([makeSlide([makeImageLayer(1, "src")], 1, "s0")], 0);
+			expect(spreadLayer(s, 9)).toBeNull();
+			const s2 = makeState([makeSlide([makeImageLayer(1, "src")], 1, "s0")], -1);
+			expect(spreadLayer(s2, 0)).toBeNull();
 		});
 	});
 
