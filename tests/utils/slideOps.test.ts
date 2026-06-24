@@ -1,19 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { Slide } from "../../src/types/Slide";
 import type { SlideState } from "../../src/types/SlideState";
+import type { NewLayer } from "../../src/utils/layerOps";
 import {
-    addSlide,
-    decrementSlideDurationRatio,
-    deleteAllDisabled,
-    deleteSlide,
-    duplicateSlide,
-    incrementSlideDurationRatio,
-    moveSlide,
-    setAllDisabled,
-    setAllJoining,
-    setSlideDisabled,
-    setSlideDurationRatio,
-    setSlideJoining,
+	addImageSlide,
+	addSlide,
+	decrementSlideDurationRatio,
+	deleteAllDisabled,
+	deleteSlide,
+	duplicateSlide,
+	incrementSlideDurationRatio,
+	moveSlide,
+	setAllDisabled,
+	setAllJoining,
+	setSlideDisabled,
+	setSlideDurationRatio,
+	setSlideJoining,
 } from "../../src/utils/slideOps";
 
 // v4 Group C refactor: 純関数 slideOps の単体テスト。
@@ -131,7 +133,10 @@ describe("slideOps (v4 Group C 純関数)", () => {
 
 	describe("setSlideJoining / setSlideDisabled", () => {
 		it("対象 slide のみ更新", () => {
-			const s = makeState([makeSlide(1, "a", { joining: true }), makeSlide(2, "b", { joining: true })]);
+			const s = makeState([
+				makeSlide(1, "a", { joining: true }),
+				makeSlide(2, "b", { joining: true }),
+			]);
 			const r = setSlideJoining(s, 0, false);
 			expect(r?.slides[0].joining).toBe(false);
 			expect(r?.slides[1].joining).toBe(true);
@@ -183,7 +188,7 @@ describe("slideOps (v4 Group C 純関数)", () => {
 					makeSlide(2, "b", { disabled: true }),
 					makeSlide(3, "c", { disabled: false }),
 				],
-				2, // "c" 選択
+				2 // "c" 選択
 			);
 			const r = deleteAllDisabled(s);
 			expect(r?.slides.map((x) => x.uuid)).toEqual(["a", "c"]);
@@ -250,6 +255,51 @@ describe("slideOps (v4 Group C 純関数)", () => {
 		it("decrementSlideDurationRatio: v > 2 で -1", () => {
 			const s = makeState([makeSlide(1, "a", { durationRatio: 5 })]);
 			expect(decrementSlideDurationRatio(s, 0)?.slides[0].durationRatio).toBe(4);
+		});
+	});
+
+	describe("addImageSlide (D-12)", () => {
+		const imageLayer: NewLayer = {
+			name: "pic",
+			opacity: 1,
+			locked: false,
+			visible: true,
+			shared: false,
+			transX: 10,
+			transY: 20,
+			scaleX: 0.5,
+			scaleY: 0.5,
+			rotation: 0,
+			mirrorH: false,
+			mirrorV: false,
+			type: "image",
+			imageId: "sha-pic",
+			clipRect: [0, 0, 0, 0],
+			isText: false,
+		};
+
+		it("画像 1 枚を持つ slide を末尾に追加し、それを選択する", () => {
+			const s = makeState([makeSlide(1, "a"), makeSlide(2, "b")], 0);
+			const next = addImageSlide(s, 1280, 720, imageLayer);
+			expect(next.slides).toHaveLength(3);
+			expect(next.selectedIndex).toBe(2); // 新規 slide を選択
+			const added = next.slides[2];
+			expect(added.width).toBe(1280);
+			expect(added.height).toBe(720);
+			expect(added.id).toBe(3); // nextSlideId = max(1,2)+1
+			expect(added.layers).toHaveLength(1);
+			const layer = added.layers[0];
+			expect(layer.type).toBe("image");
+			expect((layer as { imageId: string }).imageId).toBe("sha-pic");
+			expect(layer.id).toBe(1); // 新規 slide 内 layer は id=1
+			expect(layer.transX).toBe(10);
+		});
+
+		it("空の slides でも追加でき、selectedIndex=0", () => {
+			const next = addImageSlide(makeState([]), 800, 600, imageLayer);
+			expect(next.slides).toHaveLength(1);
+			expect(next.selectedIndex).toBe(0);
+			expect(next.slides[0].id).toBe(1);
 		});
 	});
 });

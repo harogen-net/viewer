@@ -1,4 +1,6 @@
+import type { Layer } from "../types/Layer";
 import type { Slide } from "../types/Slide";
+import type { NewLayer } from "./layerOps";
 
 // Slide 生成 / 複製 / id 採番のための pure helpers (v4 Group C build C-1)。
 // レガシー `src/model/Slide.ts` (EventDispatcher 派生 class、jQuery 連動) は
@@ -39,6 +41,26 @@ export const createEmptySlide = (width: number, height: number, id: number): Sli
 	joining: true,
 	disabled: false,
 	layers: [],
+});
+
+/**
+ * 画像 1 枚を持つ新規 slide を生成 (D-12、legacy ListViewController drop 相当)。
+ * layer は id/uuid 未採番の NewLayer を受け取り、slide 内 layer id=1 + 新規 uuid を採番する。
+ */
+export const createImageSlide = (
+	width: number,
+	height: number,
+	id: number,
+	layer: NewLayer
+): Slide => ({
+	id,
+	uuid: newUuid(),
+	width,
+	height,
+	durationRatio: 1,
+	joining: true,
+	disabled: false,
+	layers: [{ ...layer, id: 1, uuid: newUuid() } as Layer],
 });
 
 /**

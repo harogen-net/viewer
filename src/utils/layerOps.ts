@@ -46,7 +46,7 @@ const nextLayerId = (layers: Layer[]): number => {
  */
 const transformSelectedSlideLayers = (
 	state: SlideState,
-	updater: (layers: Layer[]) => Layer[] | null,
+	updater: (layers: Layer[]) => Layer[] | null
 ): SlideState | null => {
 	const { slides, selectedIndex } = state;
 	if (selectedIndex < 0 || selectedIndex >= slides.length) return null;
@@ -68,7 +68,7 @@ const transformSelectedSlideLayers = (
 export const updateLayer = (
 	state: SlideState,
 	layerIndex: number,
-	patch: Partial<LayerBase>,
+	patch: Partial<LayerBase>
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
@@ -89,7 +89,7 @@ export const updateLayer = (
 export const updateImageLayer = (
 	state: SlideState,
 	layerIndex: number,
-	patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>,
+	patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
@@ -102,7 +102,7 @@ export const updateImageLayer = (
 export const updateTextLayer = (
 	state: SlideState,
 	layerIndex: number,
-	patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>,
+	patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
@@ -112,13 +112,50 @@ export const updateTextLayer = (
 	});
 
 /**
+ * 画像を slide に contain fit 配置する ImageLayer プロパティ (id/uuid 未採番) を生成 (D-11/D-12 共通)。
+ * legacy EditableSlideView drop / ListViewController drop の配置ロジックを移植:
+ *   - 0° と -90° の contain scale を比較し、より大きく収まる向きを採用 (縦長画像の自動回転)
+ *     (legacy `originHeight > originWidth*1.2` で -90° を、scale 比較に一般化)
+ *   - visual center を slide 中央に配置 (transform-origin 50% 50%、回転は中心軸)
+ * scale 同点なら 0° (無回転) を優先。
+ */
+export const buildFitImageLayer = (
+	slideW: number,
+	slideH: number,
+	imgW: number,
+	imgH: number,
+	imageId: string,
+	name = ""
+): NewLayer => {
+	const scale0 = Math.min(slideW / imgW, slideH / imgH);
+	const scaleR = Math.min(slideW / imgH, slideH / imgW);
+	const useRotation = scaleR > scale0;
+	const scale = useRotation ? scaleR : scale0;
+	return {
+		name,
+		opacity: 1,
+		locked: false,
+		visible: true,
+		shared: false,
+		transX: slideW / 2 - imgW / 2,
+		transY: slideH / 2 - imgH / 2,
+		scaleX: scale,
+		scaleY: scale,
+		rotation: useRotation ? -90 : 0,
+		mirrorH: false,
+		mirrorV: false,
+		type: "image",
+		imageId,
+		clipRect: [0, 0, 0, 0],
+		isText: false,
+	};
+};
+
+/**
  * 末尾 (前面) に layer 追加。id / uuid は自動採番。
  * 引数 layer は id / uuid 以外の完全な layer データ (type 識別子で discriminated)。
  */
-export const addLayer = (
-	state: SlideState,
-	layer: NewLayer,
-): SlideState | null =>
+export const addLayer = (state: SlideState, layer: NewLayer): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		const newLayer = {
 			...layer,
@@ -138,7 +175,7 @@ export const addTextLayer = (
 	state: SlideState,
 	text: string,
 	slideW: number,
-	slideH: number,
+	slideH: number
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		const newLayer: TextLayer = {
@@ -188,7 +225,7 @@ export const duplicateLayer = (state: SlideState, layerIndex: number): SlideStat
 export const reorderLayer = (
 	state: SlideState,
 	fromIndex: number,
-	toIndex: number,
+	toIndex: number
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (
@@ -245,7 +282,7 @@ export const sendBackward = (state: SlideState, layerIndex: number): SlideState 
 export const updateSharedLayer = (
 	state: SlideState,
 	sharedUuid: string,
-	patch: Partial<LayerBase>,
+	patch: Partial<LayerBase>
 ): SlideState | null => {
 	let anyChanged = false;
 	const nextSlides = state.slides.map((slide) => {
@@ -272,14 +309,11 @@ export const updateSharedLayer = (
  * legacy ImageManager.deleteImageById の cascade 削除相当 (shared layer も例外なく削除)。
  * 該当 0 件なら null。
  */
-export const removeLayersByImageId = (
-	state: SlideState,
-	imageId: string,
-): SlideState | null => {
+export const removeLayersByImageId = (state: SlideState, imageId: string): SlideState | null => {
 	let anyChanged = false;
 	const nextSlides = state.slides.map((slide) => {
 		const filtered = slide.layers.filter(
-			(l) => !(l.type === LayerType.IMAGE && l.imageId === imageId),
+			(l) => !(l.type === LayerType.IMAGE && l.imageId === imageId)
 		);
 		if (filtered.length !== slide.layers.length) {
 			anyChanged = true;
@@ -299,7 +333,7 @@ export const removeLayersByImageId = (
 export const replaceImageId = (
 	state: SlideState,
 	layerIndex: number,
-	newImageId: string,
+	newImageId: string
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
@@ -307,7 +341,7 @@ export const replaceImageId = (
 		if (cur.type !== LayerType.IMAGE) return null;
 		if (cur.imageId === newImageId) return null;
 		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, imageId: newImageId } as Layer) : l,
+			i === layerIndex ? ({ ...cur, imageId: newImageId } as Layer) : l
 		);
 	});
 
@@ -319,7 +353,7 @@ export const replaceImageId = (
 export const replaceImageIdAll = (
 	state: SlideState,
 	oldImageId: string,
-	newImageId: string,
+	newImageId: string
 ): SlideState | null => {
 	if (oldImageId === newImageId) return null;
 	let anyChanged = false;
@@ -345,13 +379,17 @@ export const replaceImageIdAll = (
 // --- transform ops (v4 Group D D-4b) ---
 
 /** rotation += deltaDeg。値変化なし (delta=0) は null。 */
-export const rotateBy = (state: SlideState, layerIndex: number, deltaDeg: number): SlideState | null =>
+export const rotateBy = (
+	state: SlideState,
+	layerIndex: number,
+	deltaDeg: number
+): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
 		if (deltaDeg === 0) return null;
 		const cur = layers[layerIndex];
 		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, rotation: cur.rotation + deltaDeg } as Layer) : l,
+			i === layerIndex ? ({ ...cur, rotation: cur.rotation + deltaDeg } as Layer) : l
 		);
 	});
 
@@ -369,7 +407,9 @@ export const toggleMirrorH = (state: SlideState, layerIndex: number): SlideState
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
 		const cur = layers[layerIndex];
-		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, mirrorH: !cur.mirrorH } as Layer) : l));
+		return layers.map((l, i) =>
+			i === layerIndex ? ({ ...cur, mirrorH: !cur.mirrorH } as Layer) : l
+		);
 	});
 
 /** mirrorV を toggle。 */
@@ -377,7 +417,9 @@ export const toggleMirrorV = (state: SlideState, layerIndex: number): SlideState
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
 		const cur = layers[layerIndex];
-		return layers.map((l, i) => (i === layerIndex ? ({ ...cur, mirrorV: !cur.mirrorV } as Layer) : l));
+		return layers.map((l, i) =>
+			i === layerIndex ? ({ ...cur, mirrorV: !cur.mirrorV } as Layer) : l
+		);
 	});
 
 /** opacity = 1。すでに 1 なら null。 */
@@ -405,7 +447,7 @@ export const fitToSlide = (
 	slideW: number,
 	slideH: number,
 	contentW: number,
-	contentH: number,
+	contentH: number
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
@@ -445,7 +487,7 @@ export const fitToSlide = (
 						transX: newTransX,
 						transY: newTransY,
 					} as Layer)
-				: l,
+				: l
 		);
 	});
 
@@ -461,7 +503,7 @@ const getVisualBounds = (
 	contentH: number,
 	scaleX: number,
 	scaleY: number,
-	rotationDeg: number,
+	rotationDeg: number
 ): { w: number; h: number } => {
 	const halfW = (contentW * Math.abs(scaleX)) / 2;
 	const halfH = (contentH * Math.abs(scaleY)) / 2;
@@ -503,7 +545,7 @@ export const alignTo = (
 	slideW: number,
 	slideH: number,
 	contentW: number,
-	contentH: number,
+	contentH: number
 ): SlideState | null =>
 	transformSelectedSlideLayers(state, (layers) => {
 		if (layerIndex < 0 || layerIndex >= layers.length) return null;
@@ -528,6 +570,6 @@ export const alignTo = (
 		}
 		if (cur.transX === newTransX && cur.transY === newTransY) return null;
 		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, transX: newTransX, transY: newTransY } as Layer) : l,
+			i === layerIndex ? ({ ...cur, transX: newTransX, transY: newTransY } as Layer) : l
 		);
 	});

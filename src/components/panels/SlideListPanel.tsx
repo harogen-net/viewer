@@ -13,8 +13,10 @@ import {
 	sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
-import type { FC } from "react";
+import type { CSSProperties, FC } from "react";
 import { Fragment } from "react";
+import { useDrop } from "../../hooks/useDrop";
+import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useSlideMutation } from "../../hooks/useSlideMutation";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
@@ -46,9 +48,16 @@ export const SlideListPanel: FC = () => {
 	const setSelectedIndex = useSlideStore((s) => s.setSelectedIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const bgColor = meta?.bgColor;
-	const { moveSlide, addSlide, duplicateSlide, deleteSlide,
-		setSlideJoining, setSlideDisabled,
-		incrementSlideDurationRatio, decrementSlideDurationRatio } = useSlideMutation();
+	const {
+		moveSlide,
+		addSlide,
+		duplicateSlide,
+		deleteSlide,
+		setSlideJoining,
+		setSlideDisabled,
+		incrementSlideDurationRatio,
+		decrementSlideDurationRatio,
+	} = useSlideMutation();
 
 	const isEmpty = slides.length === 0;
 	const canMovePrev = selectedIndex > 0;
@@ -59,7 +68,7 @@ export const SlideListPanel: FC = () => {
 	// DnD sensors: PointerSensor は 8px 移動するまで click 扱い (= サムネクリックで選択が成立)
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
 	);
 
 	const handleDragEnd = (event: DragEndEvent): void => {
@@ -97,9 +106,50 @@ export const SlideListPanel: FC = () => {
 		deleteSlide(selectedIndex);
 	};
 
+	// 画像のドラッグ&ドロップ (D-12、legacy ListViewController drop 相当)。
+	// imageId/ファイルいずれも「画像 1 枚を持つ新規 slide」を末尾に追加する。
+	// document 未ロード時 (!meta) は drop を受け付けない。
+	const { placeImageAsNewSlide, addImageFile } = useImageLibraryMutation();
+	const { isOver, dropProps } = useDrop({
+		disabled: !meta,
+		onImageId: async (id) => {
+			await placeImageAsNewSlide(id);
+		},
+		onFile: async (f) => {
+			const id = await addImageFile(f);
+			await placeImageAsNewSlide(id);
+		},
+	});
+	const dropOverlayStyle: CSSProperties = {
+		position: "absolute",
+		inset: 0,
+		zIndex: 20,
+		display: isOver ? "flex" : "none",
+		alignItems: "center",
+		justifyContent: "center",
+		background: "rgba(34,139,230,0.12)",
+		border: "2px dashed #228be6",
+		borderRadius: 8,
+		color: "#1971c2",
+		fontSize: 14,
+		fontWeight: 600,
+		pointerEvents: "none",
+	};
+
 	return (
 		<SlideListContextMenu>
-			<Paper withBorder p="sm" radius="sm">
+			<Paper
+				withBorder
+				p="sm"
+				radius="sm"
+				style={{ position: "relative" }}
+				onDragOver={dropProps.onDragOver}
+				onDragLeave={dropProps.onDragLeave}
+				onDrop={dropProps.onDrop}
+				data-slide-list-drop-zone>
+				<div style={dropOverlayStyle} data-slide-list-drop-overlay>
+					ドロップで画像スライドを追加
+				</div>
 				<Stack gap="xs">
 					<Group justify="space-between" align="center">
 						<Title order={5}>Slide List</Title>
@@ -111,8 +161,7 @@ export const SlideListPanel: FC = () => {
 									onClick={handleMovePrev}
 									disabled={!canMovePrev}
 									aria-label="前に移動"
-									data-action="move-prev"
-								>
+									data-action="move-prev">
 									◀
 								</ActionIcon>
 							</Tooltip>
@@ -123,8 +172,7 @@ export const SlideListPanel: FC = () => {
 									onClick={handleMoveNext}
 									disabled={!canMoveNext}
 									aria-label="後ろに移動"
-									data-action="move-next"
-								>
+									data-action="move-next">
 									▶
 								</ActionIcon>
 							</Tooltip>
@@ -136,8 +184,7 @@ export const SlideListPanel: FC = () => {
 									onClick={handleAddSlide}
 									disabled={!canAdd}
 									aria-label="スライド追加"
-									data-action="add"
-								>
+									data-action="add">
 									➕
 								</ActionIcon>
 							</Tooltip>
@@ -148,8 +195,7 @@ export const SlideListPanel: FC = () => {
 									onClick={handleDuplicate}
 									disabled={!canModifySelected}
 									aria-label="スライド複製"
-									data-action="duplicate"
-								>
+									data-action="duplicate">
 									⧉
 								</ActionIcon>
 							</Tooltip>
@@ -161,8 +207,7 @@ export const SlideListPanel: FC = () => {
 									onClick={handleDelete}
 									disabled={!canModifySelected}
 									aria-label="スライド削除"
-									data-action="delete"
-								>
+									data-action="delete">
 									🗑
 								</ActionIcon>
 							</Tooltip>
@@ -179,12 +224,10 @@ export const SlideListPanel: FC = () => {
 							onDragEnd={handleDragEnd}
 							// drag 中の自動スクロールは完全に無効化 (祖先要素に波及してページ縦スクロールが起きるため)。
 							// 端まで運ぶ場合はユーザが先に手動スクロールしてからドラッグ。
-							autoScroll={false}
-						>
+							autoScroll={false}>
 							<SortableContext
 								items={slides.map((s) => s.uuid)}
-								strategy={horizontalListSortingStrategy}
-							>
+								strategy={horizontalListSortingStrategy}>
 								<ScrollArea type="auto" scrollbarSize={8}>
 									<div
 										style={{
@@ -195,8 +238,7 @@ export const SlideListPanel: FC = () => {
 											paddingBottom: 4,
 											minHeight: THUMB_HEIGHT + 12,
 										}}
-										data-slide-count={slides.length}
-									>
+										data-slide-count={slides.length}>
 										{slides.map((slide, i) => (
 											<Fragment key={slide.uuid}>
 												<SortableSlideThumb
@@ -205,14 +247,14 @@ export const SlideListPanel: FC = () => {
 													index={i}
 													selected={i === selectedIndex}
 													bgColor={bgColor}
-													onClick={() => setSelectedIndex(i)}												onIncrementDuration={() => incrementSlideDurationRatio(i)}
-												onDecrementDuration={() => decrementSlideDurationRatio(i)}
-												onToggleJoining={() => setSlideJoining(i, !slide.joining)}
-												onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}													thumbHeight={THUMB_HEIGHT}
+													onClick={() => setSelectedIndex(i)}
+													onIncrementDuration={() => incrementSlideDurationRatio(i)}
+													onDecrementDuration={() => decrementSlideDurationRatio(i)}
+													onToggleJoining={() => setSlideJoining(i, !slide.joining)}
+													onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
+													thumbHeight={THUMB_HEIGHT}
 												/>
-												{i < slides.length - 1 && (
-													<SlideJoinIndicator joining={slide.joining} />
-												)}
+												{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
 											</Fragment>
 										))}
 									</div>

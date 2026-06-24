@@ -2,8 +2,11 @@ import { useCallback } from "react";
 import { useImageLibraryStore } from "../state/imageLibraryStore";
 import { useLayerStore } from "../state/layerStore";
 import { useSlideStore } from "../state/slideStore";
+import { useViewerDocumentStore } from "../state/viewerDocumentStore";
+import { buildFitImageLayer } from "../utils/layerOps";
 import { sha256DataUrl } from "../utils/imageHash";
 import { useLayerMutation } from "./useLayerMutation";
+import { useSlideMutation } from "./useSlideMutation";
 
 // 画像ライブラリの consumer facade (v4 Group D D-6a)。
 // レガシー src/utils/ImageManager.ts (jQuery + singleton) は import せず新規実装。
@@ -38,6 +41,12 @@ export interface UseImageLibraryMutation {
 	 * @returns true = 配置成功 / false = 選択 slide 無し or 画像本体未ロード
 	 */
 	placeImageOnSlide: (imageId: string) => Promise<boolean>;
+	/**
+	 * imageId の画像 1 枚を持つ新規 slide を末尾に追加し選択する (D-12、一覧への drop)。
+	 * slide 寸法は document meta (width/height) を使用。中央 contain 配置 + 縦長自動回転。
+	 * @returns true = 追加成功 / false = document 未ロード or 画像本体未ロード
+	 */
+	placeImageAsNewSlide: (imageId: string) => Promise<boolean>;
 }
 
 const readFileAsDataUrl = (file: File): Promise<string> =>
@@ -60,6 +69,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 	const addImage = useImageLibraryStore((s) => s.addImage);
 	const removeImage = useImageLibraryStore((s) => s.removeImage);
 	const { addLayer, removeLayersByImageId } = useLayerMutation();
+	const { addImageSlide } = useSlideMutation();
 
 	const addImageDataUrl = useCallback(
 		async (dataUrl: string, name?: string): Promise<string> => {
@@ -69,7 +79,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 			addImage(id, { dataURL: dataUrl, name });
 			return id;
 		},
-		[addImage],
+		[addImage]
 	);
 
 	const addImageFile = useCallback(
@@ -80,7 +90,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 			const dataUrl = await readFileAsDataUrl(file);
 			return addImageDataUrl(dataUrl, name ?? file.name);
 		},
-		[addImageDataUrl],
+		[addImageDataUrl]
 	);
 
 	const deleteImage = useCallback(
@@ -99,7 +109,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 			removeImage(imageId);
 			return count;
 		},
-		[removeImage, removeLayersByImageId],
+		[removeImage, removeLayersByImageId]
 	);
 
 	const placeImageOnSlide = useCallback(
@@ -111,44 +121,41 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 			const slide = slides[selectedIndex];
 			const { w, h } = await loadImageNaturalSize(entry.dataURL);
 			if (w <= 0 || h <= 0) return false;
-			// 自動向き決定: 0° と -90° を比較し、より大きく fit する向き (= slide aspect に近い方) を選ぶ。
-			// legacy EditableSlideView の drop ハンドラ相当 (`originHeight > originWidth * 1.2` で -90°)
-			// を、より一般的な「contain scale が大きい方を選ぶ」基準に拡張。
-			//   - rotation=0: contain scale = min(slideW/w, slideH/h)
-			//   - rotation=-90°: 効果的に (h, w) を slide に fit → scale = min(slideW/h, slideH/w)
-			// scale 同点なら 0° (デフォルト無変換) を優先。
-			const scale0 = Math.min(slide.width / w, slide.height / h);
-			const scaleR = Math.min(slide.width / h, slide.height / w);
-			const useRotation = scaleR > scale0;
-			const rotation = useRotation ? -90 : 0;
-			const scale = useRotation ? scaleR : scale0;
-			// visual center を slide 中央へ: transX = slideW/2 - imgW/2 (transform-origin: 50% 50%、回転は中心軸)
-			addLayer({
-				name: entry.name ?? "",
-				opacity: 1,
-				locked: false,
-				visible: true,
-				shared: false,
-				transX: slide.width / 2 - w / 2,
-				transY: slide.height / 2 - h / 2,
-				scaleX: scale,
-				scaleY: scale,
-				rotation,
-				mirrorH: false,
-				mirrorV: false,
-				type: "image",
-				imageId,
-				clipRect: [0, 0, 0, 0],
-				isText: false,
-			});
+			// 中央 contain 配置 + 縦長自動回転 (buildFitImageLayer に集約、D-11/D-12 共通)。
+			addLayer(buildFitImageLayer(slide.width, slide.height, w, h, imageId, entry.name));
 			// 追加後の last layer (新規 追加された layer) を選択状態にする
 			const updatedSlide = useSlideStore.getState().slides[selectedIndex];
 			const added = updatedSlide?.layers[updatedSlide.layers.length - 1];
 			if (added) useLayerStore.getState().setSelectedLayer(added);
 			return true;
 		},
-		[addLayer],
+		[addLayer]
 	);
 
-	return { addImageFile, addImageDataUrl, deleteImage, placeImageOnSlide };
+	const placeImageAsNewSlide = useCallback(
+		async (imageId: string): Promise<boolean> => {
+			const entry = useImageLibraryStore.getState().imageById[imageId];
+			if (!entry) return false;
+			const meta = useViewerDocumentStore.getState().meta;
+			if (!meta) return false;
+			const { w, h } = await loadImageNaturalSize(entry.dataURL);
+			if (w <= 0 || h <= 0) return false;
+			// document 寸法の新規 slide に中央 contain 配置 (legacy ListViewController drop 相当)。
+			addImageSlide(
+				meta.width,
+				meta.height,
+				buildFitImageLayer(meta.width, meta.height, w, h, imageId, entry.name)
+			);
+			return true;
+		},
+		[addImageSlide]
+	);
+
+	return {
+		addImageFile,
+		addImageDataUrl,
+		deleteImage,
+		placeImageOnSlide,
+		placeImageAsNewSlide,
+	};
 };

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import type { NewLayer } from "../utils/layerOps";
 import * as slideOps from "../utils/slideOps";
 import { useDocumentMutation } from "./useDocumentMutation";
 
@@ -9,6 +10,8 @@ import { useDocumentMutation } from "./useDocumentMutation";
 export interface UseSlideMutation {
 	moveSlide: (from: number, to: number) => void;
 	addSlide: (width: number, height: number, atIndex?: number) => void;
+	/** 画像 1 枚を持つ新規 slide を末尾に追加 (D-12、drop で生成)。 */
+	addImageSlide: (width: number, height: number, layer: NewLayer) => void;
 	deleteSlide: (index: number) => void;
 	duplicateSlide: (index: number) => void;
 	setSlideJoining: (index: number, joining: boolean) => void;
@@ -27,87 +30,81 @@ export const useSlideMutation = (): UseSlideMutation => {
 	const moveSlide = useCallback(
 		(from: number, to: number) =>
 			applySlideChange("move slide", (s) => slideOps.moveSlide(s, from, to)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const addSlide = useCallback(
 		(width: number, height: number, atIndex?: number) =>
 			applySlideChange("add slide", (s) => slideOps.addSlide(s, width, height, atIndex)),
-		[applySlideChange],
+		[applySlideChange]
+	);
+	const addImageSlide = useCallback(
+		(width: number, height: number, layer: NewLayer) =>
+			applySlideChange("add image slide", (s) => slideOps.addImageSlide(s, width, height, layer)),
+		[applySlideChange]
 	);
 	const deleteSlide = useCallback(
-		(index: number) =>
-			applySlideChange("delete slide", (s) => slideOps.deleteSlide(s, index)),
-		[applySlideChange],
+		(index: number) => applySlideChange("delete slide", (s) => slideOps.deleteSlide(s, index)),
+		[applySlideChange]
 	);
 	const duplicateSlide = useCallback(
 		(index: number) =>
 			applySlideChange("duplicate slide", (s) => slideOps.duplicateSlide(s, index)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const setSlideJoining = useCallback(
 		(index: number, joining: boolean) =>
-			applySlideChange(
-				joining ? "join slide" : "split slide",
-				(s) => slideOps.setSlideJoining(s, index, joining),
+			applySlideChange(joining ? "join slide" : "split slide", (s) =>
+				slideOps.setSlideJoining(s, index, joining)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const setSlideDisabled = useCallback(
 		(index: number, disabled: boolean) =>
-			applySlideChange(
-				disabled ? "disable slide" : "enable slide",
-				(s) => slideOps.setSlideDisabled(s, index, disabled),
+			applySlideChange(disabled ? "disable slide" : "enable slide", (s) =>
+				slideOps.setSlideDisabled(s, index, disabled)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const setAllJoining = useCallback(
 		(joining: boolean) =>
-			applySlideChange(
-				joining ? "join all slides" : "split all slides",
-				(s) => slideOps.setAllJoining(s, joining),
+			applySlideChange(joining ? "join all slides" : "split all slides", (s) =>
+				slideOps.setAllJoining(s, joining)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const setAllDisabled = useCallback(
 		(disabled: boolean) =>
-			applySlideChange(
-				disabled ? "disable all slides" : "enable all slides",
-				(s) => slideOps.setAllDisabled(s, disabled),
+			applySlideChange(disabled ? "disable all slides" : "enable all slides", (s) =>
+				slideOps.setAllDisabled(s, disabled)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const deleteAllDisabled = useCallback(
 		() => applySlideChange("delete disabled slides", (s) => slideOps.deleteAllDisabled(s)),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const setSlideDurationRatio = useCallback(
 		(index: number, ratio: number) =>
-			applySlideChange(
-				"set duration ratio",
-				(s) => slideOps.setSlideDurationRatio(s, index, ratio),
+			applySlideChange("set duration ratio", (s) =>
+				slideOps.setSlideDurationRatio(s, index, ratio)
 			),
-		[applySlideChange],
+		[applySlideChange]
 	);
 	const incrementSlideDurationRatio = useCallback(
 		(index: number) =>
-			applySlideChange(
-				"duration up",
-				(s) => slideOps.incrementSlideDurationRatio(s, index),
-			),
-		[applySlideChange],
+			applySlideChange("duration up", (s) => slideOps.incrementSlideDurationRatio(s, index)),
+		[applySlideChange]
 	);
 	const decrementSlideDurationRatio = useCallback(
 		(index: number) =>
-			applySlideChange(
-				"duration down",
-				(s) => slideOps.decrementSlideDurationRatio(s, index),
-			),
-		[applySlideChange],
+			applySlideChange("duration down", (s) => slideOps.decrementSlideDurationRatio(s, index)),
+		[applySlideChange]
 	);
 
 	return {
 		moveSlide,
 		addSlide,
+		addImageSlide,
 		deleteSlide,
 		duplicateSlide,
 		setSlideJoining,

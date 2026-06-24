@@ -43,7 +43,7 @@ const render = (): void => {
 		root.render(
 			<MantineProvider>
 				<SlideListPanel />
-			</MantineProvider>,
+			</MantineProvider>
 		);
 	});
 };
@@ -55,11 +55,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 	});
 
 	it("3 slides で 3 個の thumb item が data-slide-index 付きで描画される", () => {
-		useSlideStore.getState().setSlides([
-			makeSlide(1, "a"),
-			makeSlide(2, "b"),
-			makeSlide(3, "c"),
-		]);
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
 		render();
 		const items = container.querySelectorAll<HTMLElement>("[data-slide-index]");
 		expect(items.length).toBe(3);
@@ -68,10 +64,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 	});
 
 	it("選択中 slide は data-selected=true、それ以外は false", () => {
-		useSlideStore.getState().setSlides([
-			makeSlide(1, "a"),
-			makeSlide(2, "b"),
-		]);
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
 		useSlideStore.getState().setSelectedIndex(1);
 		render();
 		const items = container.querySelectorAll<HTMLElement>("[data-slide-index]");
@@ -80,10 +73,9 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 	});
 
 	it("disabled slide は data-disabled=true、opacity が下がる", () => {
-		useSlideStore.getState().setSlides([
-			makeSlide(1, "a", { disabled: false }),
-			makeSlide(2, "b", { disabled: true }),
-		]);
+		useSlideStore
+			.getState()
+			.setSlides([makeSlide(1, "a", { disabled: false }), makeSlide(2, "b", { disabled: true })]);
 		render();
 		const items = container.querySelectorAll<HTMLElement>("[data-slide-index]");
 		expect(items[0].getAttribute("data-disabled")).toBe("false");
@@ -92,11 +84,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 	});
 
 	it("thumb クリックで selectedIndex が変わる", () => {
-		useSlideStore.getState().setSlides([
-			makeSlide(1, "a"),
-			makeSlide(2, "b"),
-			makeSlide(3, "c"),
-		]);
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
 		render();
 		const items = container.querySelectorAll<HTMLElement>("[data-slide-index]");
 		act(() => {
@@ -106,11 +94,13 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 	});
 
 	it("joining=true で接続線 (data-join=true) が隣接間に出る", () => {
-		useSlideStore.getState().setSlides([
-			makeSlide(1, "a", { joining: true }),
-			makeSlide(2, "b", { joining: false }),
-			makeSlide(3, "c"),
-		]);
+		useSlideStore
+			.getState()
+			.setSlides([
+				makeSlide(1, "a", { joining: true }),
+				makeSlide(2, "b", { joining: false }),
+				makeSlide(3, "c"),
+			]);
 		render();
 		const joins = container.querySelectorAll<HTMLElement>("[data-join]");
 		// 末尾以外の slide 数 = 2 個の indicator
@@ -170,11 +160,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		});
 
 		it("後ボタンクリックで selected を 1 つ後ろに移動 + uuid 追従", () => {
-			useSlideStore.getState().setSlides([
-				makeSlide(1, "a"),
-				makeSlide(2, "b"),
-				makeSlide(3, "c"),
-			]);
+			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
 			useSlideStore.getState().setSelectedIndex(0); // "a"
 			render();
 			act(() => {
@@ -186,11 +172,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		});
 
 		it("前ボタンクリックで selected を 1 つ前に移動", () => {
-			useSlideStore.getState().setSlides([
-				makeSlide(1, "a"),
-				makeSlide(2, "b"),
-				makeSlide(3, "c"),
-			]);
+			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
 			useSlideStore.getState().setSelectedIndex(2); // "c"
 			render();
 			act(() => {
@@ -322,7 +304,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(target).not.toBeNull();
 			act(() => {
 				target!.dispatchEvent(
-					new MouseEvent("contextmenu", { bubbles: true, clientX: 10, clientY: 10 }),
+					new MouseEvent("contextmenu", { bubbles: true, clientX: 10, clientY: 10 })
 				);
 			});
 		};
@@ -338,10 +320,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		});
 
 		it("slide 右クリックで per-slide メニュー (toggle-joining 等) が表示される", () => {
-			seedDoc([
-				makeSlide(1, "a", { joining: true }),
-				makeSlide(2, "b", { joining: false }),
-			]);
+			seedDoc([makeSlide(1, "a", { joining: true }), makeSlide(2, "b", { joining: false })]);
 			render();
 			const slideEl = container.querySelector<HTMLElement>("[data-slide-index='1']");
 			fireContextMenu(slideEl);
@@ -377,10 +356,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		});
 
 		it("「すべて結合 / すべて分割」が現在の全体状態でラベル切替 + setAllJoining 呼出", () => {
-			seedDoc([
-				makeSlide(1, "a", { joining: true }),
-				makeSlide(2, "b", { joining: true }),
-			]);
+			seedDoc([makeSlide(1, "a", { joining: true }), makeSlide(2, "b", { joining: true })]);
 			render();
 			fireContextMenu(container.querySelector("[data-slide-index='0']"));
 
@@ -430,5 +406,43 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(useSlideStore.getState().slides.map((s) => s.uuid)).toEqual(["a", "c"]);
 			spy.mockRestore();
 		});
+	});
+});
+
+describe("SlideListPanel ドラッグ&ドロップ (v4 Group D D-12)", () => {
+	const seedDoc = (): void => {
+		const doc: ViewerDocument = {
+			title: "test",
+			width: 1280,
+			height: 720,
+			createTime: 0,
+			editTime: 0,
+			slides: [],
+		};
+		useViewerDocumentStore.getState().setDocument(doc);
+	};
+
+	it("drop overlay は既定で hidden、document ロード時は dragover で表示される", () => {
+		seedDoc();
+		render();
+		const overlay = container.querySelector<HTMLElement>("[data-slide-list-drop-overlay]");
+		expect(overlay).not.toBeNull();
+		expect(overlay?.style.display).toBe("none");
+		const zone = container.querySelector<HTMLElement>("[data-slide-list-drop-zone]");
+		act(() => {
+			zone?.dispatchEvent(new Event("dragover", { bubbles: true, cancelable: true }));
+		});
+		expect(overlay?.style.display).toBe("flex");
+	});
+
+	it("document 未ロード (meta 無し) では dragover しても overlay を出さない (disabled)", () => {
+		// setDocument(null) のまま render → useDrop disabled
+		render();
+		const overlay = container.querySelector<HTMLElement>("[data-slide-list-drop-overlay]");
+		const zone = container.querySelector<HTMLElement>("[data-slide-list-drop-zone]");
+		act(() => {
+			zone?.dispatchEvent(new Event("dragover", { bubbles: true, cancelable: true }));
+		});
+		expect(overlay?.style.display).toBe("none");
 	});
 });

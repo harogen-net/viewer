@@ -1,6 +1,7 @@
 import type { Slide } from "../types/Slide";
 import type { SlideState } from "../types/SlideState";
-import { cloneSlide, createEmptySlide, nextSlideId } from "./slideFactory";
+import type { NewLayer } from "./layerOps";
+import { cloneSlide, createEmptySlide, createImageSlide, nextSlideId } from "./slideFactory";
 
 // Slide 階層 mutation の純関数群 (v4 Group C 設計コア)。
 // (state, args) => state | null の形に統一:
@@ -21,18 +22,12 @@ const reselectByUuid = (next: Slide[], prevUuid: string | null): number => {
 };
 
 const getSelectedUuid = (state: SlideState): string | null =>
-	state.selectedIndex >= 0 ? state.slides[state.selectedIndex]?.uuid ?? null : null;
+	state.selectedIndex >= 0 ? (state.slides[state.selectedIndex]?.uuid ?? null) : null;
 
 /** from を to 位置に移動。範囲外 / 同 index は null。 */
 export const moveSlide = (state: SlideState, from: number, to: number): SlideState | null => {
 	const { slides } = state;
-	if (
-		from === to ||
-		from < 0 ||
-		from >= slides.length ||
-		to < 0 ||
-		to >= slides.length
-	) {
+	if (from === to || from < 0 || from >= slides.length || to < 0 || to >= slides.length) {
 		return null;
 	}
 	const selectedUuid = getSelectedUuid(state);
@@ -47,7 +42,7 @@ export const addSlide = (
 	state: SlideState,
 	width: number,
 	height: number,
-	atIndex?: number,
+	atIndex?: number
 ): SlideState => {
 	const { slides, selectedIndex } = state;
 	const newSlide = createEmptySlide(width, height, nextSlideId(slides));
@@ -58,6 +53,21 @@ export const addSlide = (
 	const newSelected =
 		selectedIndex >= 0 && insertAt <= selectedIndex ? selectedIndex + 1 : selectedIndex;
 	return { slides: next, selectedIndex: newSelected };
+};
+
+/**
+ * 画像 1 枚を持つ新規 slide を末尾に追加し、それを選択する (D-12、legacy ListViewController drop 相当)。
+ * 常に変化するので null は返さない。
+ */
+export const addImageSlide = (
+	state: SlideState,
+	width: number,
+	height: number,
+	layer: NewLayer
+): SlideState => {
+	const newSlide = createImageSlide(width, height, nextSlideId(state.slides), layer);
+	const next = [...state.slides, newSlide];
+	return { slides: next, selectedIndex: next.length - 1 };
 };
 
 /** index の slide を削除。範囲外は null。選択中 slide 消失時は同 index の次 (無ければ前)。 */
@@ -90,7 +100,7 @@ export const duplicateSlide = (state: SlideState, index: number): SlideState | n
 export const setSlideJoining = (
 	state: SlideState,
 	index: number,
-	joining: boolean,
+	joining: boolean
 ): SlideState | null => {
 	const { slides, selectedIndex } = state;
 	if (index < 0 || index >= slides.length) return null;
@@ -103,7 +113,7 @@ export const setSlideJoining = (
 export const setSlideDisabled = (
 	state: SlideState,
 	index: number,
-	disabled: boolean,
+	disabled: boolean
 ): SlideState | null => {
 	const { slides, selectedIndex } = state;
 	if (index < 0 || index >= slides.length) return null;
@@ -176,7 +186,7 @@ const MAX_DURATION = 9;
 export const setSlideDurationRatio = (
 	state: SlideState,
 	index: number,
-	ratio: number,
+	ratio: number
 ): SlideState | null => {
 	const { slides, selectedIndex } = state;
 	if (index < 0 || index >= slides.length) return null;
@@ -189,7 +199,7 @@ export const setSlideDurationRatio = (
 /** durationRatio を 1 ステップ増加 (legacy ThumbSlideView 互換ステップ)。 */
 export const incrementSlideDurationRatio = (
 	state: SlideState,
-	index: number,
+	index: number
 ): SlideState | null => {
 	const { slides } = state;
 	if (index < 0 || index >= slides.length) return null;
@@ -201,7 +211,7 @@ export const incrementSlideDurationRatio = (
 /** durationRatio を 1 ステップ減少。 */
 export const decrementSlideDurationRatio = (
 	state: SlideState,
-	index: number,
+	index: number
 ): SlideState | null => {
 	const { slides } = state;
 	if (index < 0 || index >= slides.length) return null;

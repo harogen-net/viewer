@@ -3,28 +3,29 @@ import type { ImageLayer, Layer, TextLayer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 import type { SlideState } from "../../src/types/SlideState";
 import {
-    addLayer,
-    addTextLayer,
-    alignTo,
-    bringForward,
-    bringToFront,
-    duplicateLayer,
-    fitToSlide,
-    removeLayer,
-    reorderLayer,
-    replaceImageId,
-    replaceImageIdAll,
-    resetOpacity,
-    resetRotation,
-    rotateBy,
-    sendBackward,
-    sendToBack,
-    toggleMirrorH,
-    toggleMirrorV,
-    updateImageLayer,
-    updateLayer,
-    updateSharedLayer,
-    updateTextLayer,
+	addLayer,
+	addTextLayer,
+	alignTo,
+	bringForward,
+	buildFitImageLayer,
+	bringToFront,
+	duplicateLayer,
+	fitToSlide,
+	removeLayer,
+	reorderLayer,
+	replaceImageId,
+	replaceImageIdAll,
+	resetOpacity,
+	resetRotation,
+	rotateBy,
+	sendBackward,
+	sendToBack,
+	toggleMirrorH,
+	toggleMirrorV,
+	updateImageLayer,
+	updateLayer,
+	updateSharedLayer,
+	updateTextLayer,
 } from "../../src/utils/layerOps";
 
 // v4 Group D D-2: layerOps 純関数の単体テスト。
@@ -40,7 +41,11 @@ const baseTransform = {
 	mirrorV: false,
 };
 
-const makeImageLayer = (id: number, uuid: string, overrides: Partial<ImageLayer> = {}): ImageLayer => ({
+const makeImageLayer = (
+	id: number,
+	uuid: string,
+	overrides: Partial<ImageLayer> = {}
+): ImageLayer => ({
 	id,
 	uuid,
 	name: "",
@@ -55,7 +60,11 @@ const makeImageLayer = (id: number, uuid: string, overrides: Partial<ImageLayer>
 	isText: false,
 	...overrides,
 });
-const makeTextLayer = (id: number, uuid: string, overrides: Partial<TextLayer> = {}): TextLayer => ({
+const makeTextLayer = (
+	id: number,
+	uuid: string,
+	overrides: Partial<TextLayer> = {}
+): TextLayer => ({
 	id,
 	uuid,
 	name: "",
@@ -256,9 +265,7 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 		});
 
 		it("shared=false の layer はスキップ", () => {
-			const s = makeState([
-				makeSlide([makeImageLayer(1, "X", { shared: false })], 1, "s1"),
-			]);
+			const s = makeState([makeSlide([makeImageLayer(1, "X", { shared: false })], 1, "s1")]);
 			expect(updateSharedLayer(s, "X", { opacity: 0.5 })).toBeNull();
 		});
 
@@ -301,11 +308,7 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 
 		it("replaceImageIdAll: 全 slide で oldId 参照 layer の imageId を newId に置換", () => {
 			const s = makeState([
-				makeSlide(
-					[makeImageLayer(1, "a"), makeImageLayer(2, "b")],
-					1,
-					"s1",
-				),
+				makeSlide([makeImageLayer(1, "a"), makeImageLayer(2, "b")], 1, "s1"),
 				makeSlide([makeImageLayer(3, "c")], 2, "s2"),
 			]);
 			// makeImageLayer は imageId = `img-${id}` を生成
@@ -392,9 +395,7 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 				// rotation=90: scaleX = slideW/contentH = 1600/400 = 4, scaleY = slideH/contentW = 800/800 = 1
 				// scale1 = 1
 				const s = makeState([
-					makeSlide([
-						makeImageLayer(1, "a", { rotation: 90, scaleX: 0.5, scaleY: 0.5 }),
-					]),
+					makeSlide([makeImageLayer(1, "a", { rotation: 90, scaleX: 0.5, scaleY: 0.5 })]),
 				]);
 				const r = fitToSlide(s, 0, 1600, 800, 800, 400);
 				const layer = r?.slides[0].layers[0];
@@ -453,9 +454,7 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 			it("rotation 90°: bbox の幅高が swap (visual bbox = 200x400)", () => {
 				// rotation 90: 4 corner rotate → visual bbox = (contentH, contentW) = (200, 400)
 				// top: transY = bounds.h/2 - contentH/2 = 200 - 100 = 100
-				const s = makeState([
-					makeSlide([makeImageLayer(1, "a", { rotation: 90, transY: 500 })]),
-				]);
+				const s = makeState([makeSlide([makeImageLayer(1, "a", { rotation: 90, transY: 500 })])]);
 				const r = alignTo(s, 0, "top", 1600, 800, 400, 200);
 				expect(r?.slides[0].layers[0].transY).toBe(100);
 			});
@@ -478,6 +477,38 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 				const s = makeState([makeSlide([makeImageLayer(1, "a")])]);
 				expect(alignTo(s, 0, "top", 1600, 800, 0, 200)).toBeNull();
 			});
+		});
+	});
+
+	describe("buildFitImageLayer (D-11/D-12)", () => {
+		it("横長 slide に横長画像 → 無回転で contain fit + 中央配置", () => {
+			// slide 1600x800, 画像 800x400 → scale0 = min(2, 2) = 2, scaleR = min(4,1)=1 → 0° 採用
+			const l = buildFitImageLayer(1600, 800, 800, 400, "sha-x", "pic");
+			expect(l.type).toBe("image");
+			expect(l.rotation).toBe(0);
+			expect(l.scaleX).toBe(2);
+			expect(l.scaleY).toBe(2);
+			// 中央配置: transX = 1600/2 - 800/2 = 400, transY = 800/2 - 400/2 = 200
+			expect(l.transX).toBe(400);
+			expect(l.transY).toBe(200);
+			expect((l as { imageId: string }).imageId).toBe("sha-x");
+			expect(l.name).toBe("pic");
+		});
+
+		it("横長 slide に縦長画像 → -90° 回転でより大きく fit", () => {
+			// slide 1600x800, 画像 400x800 (縦長) → scale0 = min(4,1)=1, scaleR = min(2,2)=2 → -90° 採用
+			const l = buildFitImageLayer(1600, 800, 400, 800, "sha-y");
+			expect(l.rotation).toBe(-90);
+			expect(l.scaleX).toBe(2);
+			expect(l.name).toBe(""); // name 省略時は空
+		});
+
+		it("clipRect は [0,0,0,0]、mirror は false で初期化", () => {
+			const l = buildFitImageLayer(800, 600, 400, 300, "sha-z");
+			expect((l as { clipRect: number[] }).clipRect).toEqual([0, 0, 0, 0]);
+			expect(l.mirrorH).toBe(false);
+			expect(l.mirrorV).toBe(false);
+			expect(l.opacity).toBe(1);
 		});
 	});
 });
