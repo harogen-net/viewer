@@ -1,5 +1,7 @@
 import type { CSSProperties, FC } from "react";
 import { useEffect, useState } from "react";
+import { useDrop } from "../../hooks/useDrop";
+import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useLayerGesture } from "../../hooks/useLayerGesture";
 import { useEditViewStore } from "../../state/editViewStore";
 import { LayerEditOverlay } from "./LayerEditOverlay";
@@ -18,6 +20,12 @@ import { SlideView, type SlideViewProps } from "./SlideView";
 //   - 実効描画 scale = fit-to-area scale × editViewStore.zoom
 //   - wheel で zoom 増減 (legacy EditableSlideView obj.on("wheel") 互換)
 //   - 右下に − / 全体表示 / + コントロールを overlay
+//
+// D-11: ドラッグ&ドロップ (function-list §5/§11/§13、legacy EditableSlideView の DropHelper 相当)。
+//   - パレットからドラッグした imageId → placeImageOnSlide で中央 fit 配置
+//   - OS ファイル (image/*) → addImageFile で library 登録 → placeImageOnSlide
+//   - ドラッグ中は fit area 全体に半透明 overlay でハイライト
+//   - 配置ロジックは useImageLibraryMutation、drop 振り分けは useDrop が担当
 //
 // fit-to-area: scaleX/scaleY の最小値を採用 (aspect 維持)。zoom=1.0 が「全体表示」基準。
 // AppShell の左列 (stage) に配置される想定。
@@ -77,8 +85,20 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 	const { live, onPointerDown, onPointerMove, onPointerEnd } = useLayerGesture(
 		slide,
 		scale,
-		scaledEl,
+		scaledEl
 	);
+
+	// 画像のドラッグ&ドロップ (D-11)。imageId/ファイルいずれも中央 fit 配置。
+	const { placeImageOnSlide, addImageFile } = useImageLibraryMutation();
+	const { isOver, dropProps } = useDrop({
+		onImageId: async (id) => {
+			await placeImageOnSlide(id);
+		},
+		onFile: async (f) => {
+			const id = await addImageFile(f);
+			await placeImageOnSlide(id);
+		},
+	});
 
 	// 外側 = fit area いっぱい、中央配置 (zoom コントロール overlay の基準に position:relative)
 	const outerStyle: CSSProperties = {
@@ -128,6 +148,21 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 		userSelect: "none",
 	};
 	const zoomPercent = Math.round(zoom * 100);
+	// ドラッグ中ハイライト overlay (fit area 全体、drop イベントは下層 outer が拾う)
+	const dropOverlayStyle: CSSProperties = {
+		position: "absolute",
+		inset: 0,
+		zIndex: 20,
+		display: isOver ? "flex" : "none",
+		alignItems: "center",
+		justifyContent: "center",
+		background: "rgba(34,139,230,0.12)",
+		border: "2px dashed #228be6",
+		color: "#1971c2",
+		fontSize: 14,
+		fontWeight: 600,
+		pointerEvents: "none",
+	};
 	// 内側 = 縮小後の slide 寸法ボックス
 	const stageStyle: CSSProperties = {
 		position: "relative",
@@ -149,7 +184,16 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 	};
 
 	return (
-		<div style={outerStyle} data-slide-edit-area ref={setOuterEl}>
+		<div
+			style={outerStyle}
+			data-slide-edit-area
+			ref={setOuterEl}
+			onDragOver={dropProps.onDragOver}
+			onDragLeave={dropProps.onDragLeave}
+			onDrop={dropProps.onDrop}>
+			<div style={dropOverlayStyle} data-slide-drop-overlay>
+				ここにドロップして画像を追加
+			</div>
 			<div style={stageStyle} data-slide-edit-stage>
 				<div
 					style={scaledStyle}
@@ -158,15 +202,9 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 					onPointerDown={onPointerDown}
 					onPointerMove={onPointerMove}
 					onPointerUp={onPointerEnd}
-					onPointerCancel={onPointerEnd}
-				>
+					onPointerCancel={onPointerEnd}>
 					<SlideView slide={slide} bgColor={bgColor} />
-					<LayerEditOverlay
-						slide={slide}
-						stageScale={scale}
-						stageRoot={scaledEl}
-						live={live}
-					/>
+					<LayerEditOverlay slide={slide} stageScale={scale} stageRoot={scaledEl} live={live} />
 				</div>
 			</div>
 			<div style={zoomBarStyle} data-zoom-bar>
@@ -176,8 +214,7 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 					onClick={zoomOut}
 					data-zoom-op="zoom-out"
 					aria-label="zoom out"
-					title="ズームアウト"
-				>
+					title="ズームアウト">
 					−
 				</button>
 				<button
@@ -186,8 +223,7 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 					onClick={showAll}
 					data-zoom-op="show-all"
 					aria-label="show all"
-					title="全体表示"
-				>
+					title="全体表示">
 					{zoomPercent}%
 				</button>
 				<button
@@ -196,8 +232,7 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 					onClick={zoomIn}
 					data-zoom-op="zoom-in"
 					aria-label="zoom in"
-					title="ズームイン"
-				>
+					title="ズームイン">
 					＋
 				</button>
 			</div>

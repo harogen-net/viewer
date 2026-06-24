@@ -1,17 +1,17 @@
 import {
-    ActionIcon,
-    Box,
-    Button,
-    Drawer,
-    FileButton,
-    Group,
-    Paper,
-    ScrollArea,
-    SegmentedControl,
-    SimpleGrid,
-    Stack,
-    Text,
-    Tooltip
+	ActionIcon,
+	Box,
+	Button,
+	Drawer,
+	FileButton,
+	Group,
+	Paper,
+	ScrollArea,
+	SegmentedControl,
+	SimpleGrid,
+	Stack,
+	Text,
+	Tooltip,
 } from "@mantine/core";
 import type { CSSProperties, FC, DragEvent as ReactDragEvent } from "react";
 import { useState } from "react";
@@ -179,8 +179,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	};
 
 	// mode 別の click 可否・案内文
-	const tileActiveForMode =
-		mode === "place" ? canPlace : canReplace;
+	const tileActiveForMode = mode === "place" ? canPlace : canReplace;
 	const modeHintText = (() => {
 		if (mode === "place") {
 			return canPlace
@@ -228,25 +227,19 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				size="80%"
 				padding="md"
 				data-image-library-panel
-				keepMounted={false}
-			>
+				keepMounted={false}>
 				<Box
 					style={wrapStyle}
 					onDrop={handleDrop}
 					onDragOver={handleDragOver}
 					onDragLeave={handleDragLeave}
-					data-image-library-drop-zone
-				>
+					data-image-library-drop-zone>
 					<Stack gap="md">
 						<Group justify="space-between" align="center">
 							<Text size="sm" c="dimmed">
 								{entries.length} 件
 							</Text>
-							<FileButton
-								onChange={handleFilePicker}
-								accept="image/*"
-								multiple
-							>
+							<FileButton onChange={handleFilePicker} accept="image/*" multiple>
 								{(props) => (
 									<Button {...props} variant="filled" size="sm" data-image-add-button>
 										＋ 画像を追加
@@ -276,26 +269,14 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 
 						{/* mode 別インジケータ (画像 click 時の動作を告知) */}
 						{entries.length > 0 && (
-							<Text
-								size="xs"
-								c={tileActiveForMode ? "blue" : "dimmed"}
-								data-image-place-hint
-							>
+							<Text size="xs" c={tileActiveForMode ? "blue" : "dimmed"} data-image-place-hint>
 								{modeHintText}
 							</Text>
 						)}
 
 						{entries.length === 0 ? (
-							<Paper
-								withBorder
-								p="xl"
-								radius="sm"
-								style={{ textAlign: "center" }}
-								data-image-empty
-							>
-								<Text c="dimmed">
-									ファイルをここにドロップ または「画像を追加」ボタンで追加
-								</Text>
+							<Paper withBorder p="xl" radius="sm" style={{ textAlign: "center" }} data-image-empty>
+								<Text c="dimmed">ファイルをここにドロップ または「画像を追加」ボタンで追加</Text>
 							</Paper>
 						) : (
 							<ScrollArea h="calc(100vh - 200px)" type="auto" scrollbarSize={8}>
@@ -309,7 +290,11 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 											onDelete={() => requestDelete(id)}
 											onAction={tileActiveForMode ? () => handleTileClick(id) : undefined}
 											onDownload={() => handleDownload(id, entry.dataURL, entry.name)}
-											actionTooltip={tileActiveForMode ? actionTooltipForMode(mode) : actionDisabledTooltipForMode(mode)}
+											actionTooltip={
+												tileActiveForMode
+													? actionTooltipForMode(mode)
+													: actionDisabledTooltipForMode(mode)
+											}
 										/>
 									))}
 								</SimpleGrid>
@@ -409,6 +394,12 @@ const ImageTile: FC<{
 	const handleTileClick = () => {
 		if (onAction) onAction();
 	};
+	// ドラッグ元 (§11、legacy: dataTransfer.setData("imageId"))。
+	// tile を編集 canvas へドラッグ → SlideEditView の useDrop が imageId を受けて配置 (D-11)。
+	const handleDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
+		e.dataTransfer.setData("imageId", imageId);
+		e.dataTransfer.effectAllowed = "copy";
+	};
 	return (
 		<Tooltip label={actionTooltip}>
 			<div
@@ -416,8 +407,9 @@ const ImageTile: FC<{
 				data-image-tile
 				data-image-id={imageId}
 				data-actionable={actionable ? "true" : "false"}
-				onClick={actionable ? handleTileClick : undefined}
-			>
+				draggable
+				onDragStart={handleDragStart}
+				onClick={actionable ? handleTileClick : undefined}>
 				<img src={dataURL} alt={name ?? imageId.slice(0, 8)} style={imgStyle} draggable={false} />
 				<div style={topRightGroupStyle}>
 					<Tooltip label="DL (別タブダウンロード)">
@@ -430,8 +422,7 @@ const ImageTile: FC<{
 								onDownload();
 							}}
 							data-image-download
-							aria-label="download image"
-						>
+							aria-label="download image">
 							↓
 						</ActionIcon>
 					</Tooltip>
@@ -446,8 +437,7 @@ const ImageTile: FC<{
 								onDelete();
 							}}
 							data-image-delete
-							aria-label="delete image"
-						>
+							aria-label="delete image">
 							✕
 						</ActionIcon>
 					</Tooltip>

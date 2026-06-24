@@ -36,7 +36,7 @@ afterEach(() => {
 const render = (slide: Slide, fitAreaWidth: number, fitAreaHeight: number): void => {
 	act(() => {
 		root.render(
-			<SlideEditView slide={slide} fitAreaWidth={fitAreaWidth} fitAreaHeight={fitAreaHeight} />,
+			<SlideEditView slide={slide} fitAreaWidth={fitAreaWidth} fitAreaHeight={fitAreaHeight} />
 		);
 	});
 };
@@ -90,5 +90,21 @@ describe("SlideEditView (v4 Group D D-1)", () => {
 		render(makeSlide({ id: 42 }), 800, 600);
 		// SlideView は data-slide-id を持つ
 		expect(container.querySelector("[data-slide-id='42']")).not.toBeNull();
+	});
+});
+
+describe("SlideEditView ドラッグ&ドロップ (v4 Group D D-11)", () => {
+	it("drop overlay は既定で hidden、edit area への dragover で表示される", () => {
+		render(makeSlide(), 800, 600);
+		const overlay = container.querySelector<HTMLElement>("[data-slide-drop-overlay]");
+		expect(overlay).not.toBeNull();
+		// 既定 (ドラッグ無し) は display:none
+		expect(overlay?.style.display).toBe("none");
+		// edit area へ dragover → isOver=true → overlay 表示
+		const area = container.querySelector<HTMLElement>("[data-slide-edit-area]");
+		act(() => {
+			area?.dispatchEvent(new Event("dragover", { bubbles: true, cancelable: true }));
+		});
+		expect(overlay?.style.display).toBe("flex");
 	});
 });
