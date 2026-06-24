@@ -1,5 +1,6 @@
-import { Paper, ScrollArea, Stack, Text, Title } from "@mantine/core";
+import { ActionIcon, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
+import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
 import type { Layer } from "../../types/Layer";
@@ -87,8 +88,7 @@ const LayerRow: FC<LayerRowProps> = ({ layer, displayIndex, selected, onClick })
 			data-layer-uuid={layer.uuid}
 			data-layer-id={layer.id}
 			data-selected={selected ? "true" : "false"}
-			onClick={onClick}
-		>
+			onClick={onClick}>
 			<span style={indexBadgeStyle}>{displayIndex}</span>
 			<span style={iconStyle}>{iconOf(layer)}</span>
 			<span style={labelStyle}>{labelOf(layer)}</span>
@@ -123,10 +123,64 @@ export const LayerListPanel: FC = () => {
 	// 配列順 = 描画順 (先頭=背面、末尾=前面)。UI では上=前面に見せる。
 	const reversed = [...layers].reverse();
 
+	const layerMutation = useLayerMutation();
+	const slides = useSlideStore((s) => s.slides);
+	const selectedSlide = selectedSlideIndex >= 0 ? slides[selectedSlideIndex] : null;
+	const layerIndex =
+		selectedSlide && selectedLayer
+			? selectedSlide.layers.findIndex((l) => l.uuid === selectedLayer.uuid)
+			: -1;
+	const hasSelection = layerIndex >= 0;
+	const isLocked = selectedLayer?.locked ?? false;
+	const canEditLayer = hasSelection && !isLocked;
+
 	return (
 		<Paper withBorder p="sm" radius="sm">
 			<Stack gap="xs">
 				<Title order={5}>Layer List</Title>
+				{/* Layer 順序変更 */}
+				<ActionIcon.Group>
+					<Tooltip label="最前面">
+						<ActionIcon
+							variant="default"
+							onClick={() => layerMutation.bringToFront(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="bring-to-front"
+							aria-label="bring to front">
+							⤒
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="1 段上げる">
+						<ActionIcon
+							variant="default"
+							onClick={() => layerMutation.bringForward(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="bring-forward"
+							aria-label="bring forward">
+							↑
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="1 段下げる">
+						<ActionIcon
+							variant="default"
+							onClick={() => layerMutation.sendBackward(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="send-backward"
+							aria-label="send backward">
+							↓
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="最背面">
+						<ActionIcon
+							variant="default"
+							onClick={() => layerMutation.sendToBack(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="send-to-back"
+							aria-label="send to back">
+							⤓
+						</ActionIcon>
+					</Tooltip>
+				</ActionIcon.Group>
 				{noSlide ? (
 					<Text size="xs" c="dimmed">
 						スライドを選択してください
