@@ -34,7 +34,12 @@ const baseLayerProps = (id: number, uuid: string, overrides: Partial<Layer> = {}
 	...baseTransform,
 	...overrides,
 });
-const makeImageLayer = (id: number, uuid: string, imageId: string, overrides: Partial<ImageLayer> = {}): ImageLayer => ({
+const makeImageLayer = (
+	id: number,
+	uuid: string,
+	imageId: string,
+	overrides: Partial<ImageLayer> = {}
+): ImageLayer => ({
 	...baseLayerProps(id, uuid, overrides),
 	type: "image",
 	imageId,
@@ -42,7 +47,12 @@ const makeImageLayer = (id: number, uuid: string, imageId: string, overrides: Pa
 	isText: false,
 	...overrides,
 });
-const makeTextLayer = (id: number, uuid: string, text: string, overrides: Partial<TextLayer> = {}): TextLayer => ({
+const makeTextLayer = (
+	id: number,
+	uuid: string,
+	text: string,
+	overrides: Partial<TextLayer> = {}
+): TextLayer => ({
 	...baseLayerProps(id, uuid, overrides),
 	type: "text",
 	text,
@@ -82,7 +92,7 @@ const render = (): void => {
 		root.render(
 			<MantineProvider>
 				<LayerListPanel />
-			</MantineProvider>,
+			</MantineProvider>
 		);
 	});
 };
@@ -140,16 +150,21 @@ describe("LayerListPanel (v4 Group D D-5)", () => {
 		expect(container.textContent).toContain('"this is a long text …"');
 	});
 
-	it("non-visible / locked / shared インジケータを行内に表示", () => {
+	it("各行に visible/locked/shared トグルを描画し、状態を data-on に反映 (D-19)", () => {
 		seedSlide([
-			makeImageLayer(1, "a", "img-1", { visible: false }),
-			makeImageLayer(2, "b", "img-2", { locked: true }),
-			makeImageLayer(3, "c", "img-3", { shared: true }),
+			makeImageLayer(1, "a", "img-1", { visible: false, locked: true, shared: true }),
+			makeImageLayer(2, "b", "img-2"), // すべて既定 (visible=true/locked=false/shared=false)
 		]);
 		render();
-		expect(container.querySelector("[data-indicator='hidden']")).not.toBeNull();
-		expect(container.querySelector("[data-indicator='locked']")).not.toBeNull();
-		expect(container.querySelector("[data-indicator='shared']")).not.toBeNull();
+		const rowA = container.querySelector<HTMLElement>("[data-layer-uuid='a']");
+		const rowB = container.querySelector<HTMLElement>("[data-layer-uuid='b']");
+		// トグルは常に存在 (インジケータ表示のみではなく操作可能)
+		expect(rowA?.querySelector("[data-toggle='visible']")?.getAttribute("data-on")).toBe("false");
+		expect(rowA?.querySelector("[data-toggle='locked']")?.getAttribute("data-on")).toBe("true");
+		expect(rowA?.querySelector("[data-toggle='shared']")?.getAttribute("data-on")).toBe("true");
+		expect(rowB?.querySelector("[data-toggle='visible']")?.getAttribute("data-on")).toBe("true");
+		expect(rowB?.querySelector("[data-toggle='locked']")?.getAttribute("data-on")).toBe("false");
+		expect(rowB?.querySelector("[data-toggle='shared']")?.getAttribute("data-on")).toBe("false");
 	});
 
 	it("行クリックで setSelectedLayer が呼ばれる", () => {
@@ -207,16 +222,15 @@ describe("LayerListPanel 順序変更 (reorder ops)", () => {
 		});
 	};
 
-	const order = (): string[] =>
-		useSlideStore.getState().slides[0].layers.map((l) => l.uuid);
+	const order = (): string[] => useSlideStore.getState().slides[0].layers.map((l) => l.uuid);
 
 	it("選択 layer なしでは順序変更ボタンが disabled", () => {
 		seedSlide([makeImageLayer(1, "u-1", "img-1"), makeImageLayer(2, "u-2", "img-2")]);
 		render();
 		for (const op of ["bring-to-front", "bring-forward", "send-backward", "send-to-back"]) {
-			expect(
-				container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled,
-			).toBe(true);
+			expect(container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled).toBe(
+				true
+			);
 		}
 	});
 
@@ -225,9 +239,9 @@ describe("LayerListPanel 順序変更 (reorder ops)", () => {
 		render();
 		selectLayer("u-1");
 		for (const op of ["bring-to-front", "bring-forward", "send-backward", "send-to-back"]) {
-			expect(
-				container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled,
-			).toBe(false);
+			expect(container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled).toBe(
+				false
+			);
 		}
 	});
 
@@ -236,7 +250,7 @@ describe("LayerListPanel 順序変更 (reorder ops)", () => {
 		render();
 		selectLayer("u-1");
 		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="bring-to-front"]')?.disabled,
+			container.querySelector<HTMLButtonElement>('[data-edit-op="bring-to-front"]')?.disabled
 		).toBe(true);
 	});
 
@@ -287,5 +301,79 @@ describe("LayerListPanel 順序変更 (reorder ops)", () => {
 		selectLayer("u-3");
 		clickByOp("send-to-back");
 		expect(order()).toEqual(["u-3", "u-1", "u-2"]);
+	});
+});
+
+// visible / locked / shared 行内トグル (v4 Group D D-19、§7「レイヤー可視/ロック (UI 経由)」+ shared)。
+describe("LayerListPanel 行内トグル (v4 Group D D-19)", () => {
+	const clickToggle = (uuid: string, toggle: "visible" | "locked" | "shared"): void => {
+		const btn = container.querySelector<HTMLButtonElement>(
+			`[data-layer-uuid='${uuid}'] [data-toggle='${toggle}']`
+		);
+		if (!btn) throw new Error(`toggle not found: ${uuid}/${toggle}`);
+		act(() => {
+			btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+	};
+
+	it("visible トグルで slide の layer.visible が反転し履歴 1 件", () => {
+		seedSlide([makeImageLayer(1, "a", "img-1")]);
+		render();
+		clickToggle("a", "visible");
+		expect(useSlideStore.getState().slides[0].layers[0].visible).toBe(false);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("locked トグルは locked 層でも操作でき、解除できる", () => {
+		seedSlide([makeImageLayer(1, "a", "img-1", { locked: true })]);
+		render();
+		clickToggle("a", "locked");
+		expect(useSlideStore.getState().slides[0].layers[0].locked).toBe(false);
+	});
+
+	it("shared トグルで shared が反転 (兄弟連鎖は起きない = shared は同期対象外)", () => {
+		seedSlide([makeImageLayer(1, "a", "img-1")]);
+		render();
+		clickToggle("a", "shared");
+		expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(true);
+	});
+
+	it("トグルクリックでは行選択 (setSelectedLayer) は起きない (stopPropagation)", () => {
+		seedSlide([makeImageLayer(1, "a", "img-1"), makeImageLayer(2, "b", "img-2")]);
+		render();
+		clickToggle("b", "visible");
+		// 選択は変わらない (toggle は stopPropagation)
+		expect(useLayerStore.getState().selectedLayer).toBeNull();
+	});
+
+	it("shared 層の visible トグルは連続隣接スライドの兄弟へ伝播", () => {
+		// 2 slide に同 imageId + shared=true。slide 0 を選択中。
+		useSlideStore.getState().setSlides([
+			{
+				id: 1,
+				uuid: "s0",
+				width: 800,
+				height: 600,
+				durationRatio: 1,
+				joining: true,
+				disabled: false,
+				layers: [makeImageLayer(1, "a", "S", { shared: true })],
+			},
+			{
+				id: 2,
+				uuid: "s1",
+				width: 800,
+				height: 600,
+				durationRatio: 1,
+				joining: true,
+				disabled: false,
+				layers: [makeImageLayer(2, "b", "S", { shared: true })],
+			},
+		]);
+		useSlideStore.getState().setSelectedIndex(0);
+		render();
+		clickToggle("a", "visible");
+		expect(useSlideStore.getState().slides[0].layers[0].visible).toBe(false);
+		expect(useSlideStore.getState().slides[1].layers[0].visible).toBe(false); // 兄弟へ伝播
 	});
 });

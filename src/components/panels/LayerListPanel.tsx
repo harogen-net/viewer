@@ -13,14 +13,14 @@ import { LayerType } from "../../types/Layer";
 // D-5 スコープ (本ファイル):
 //   - 選択 slide の layers を縦リスト表示
 //   - 表示順は **配列を反転**: 上=前面 (描画順末尾) / 下=背面 (描画順先頭)
-//   - 1 row に type アイコン / ラベル / visible/locked/shared インジケータ
+//   - 1 row に type アイコン / ラベル / visible/locked/shared トグル (D-19)
 //   - クリックで setSelectedLayer (layerStore)
 //   - 選択 layer に青枠ハイライト (SlideListPanel と同色)
+//   - 順序変更 (bring/send) は選択 layer 対象 (上部ボタン群)
 //
-// 後の chunk で追加予定:
-//   - D-2: visible/locked toggle, レイヤー削除, レイヤー順序変更などの mutation
-//   - D-3: SlideEditView 側の選択枠表示 (本パネルで select → canvas に枠出る)
-//   - DnD で順序変更 (D-2 ops + dnd-kit)
+// D-19 (§7「レイヤー可視/ロック (UI 経由)」+ shared):
+//   - 各行の visible / locked / shared を行内トグルで切替 (updateLayer 経由 = 1 履歴)
+//   - shared 層の visible/locked は連動更新で兄弟へ伝播 (withLayerSync、locked 行でも操作可)
 
 // ラベル生成: 種別 + #id + 内容スニペット
 const labelOf = (layer: Layer): string => {
@@ -45,9 +45,20 @@ interface LayerRowProps {
 	displayIndex: number; // 1-indexed (UI 上の順位、反転表示後)
 	selected: boolean;
 	onClick: () => void;
+	onToggleVisible: () => void;
+	onToggleLocked: () => void;
+	onToggleShared: () => void;
 }
 
-const LayerRow: FC<LayerRowProps> = ({ layer, displayIndex, selected, onClick }) => {
+const LayerRow: FC<LayerRowProps> = ({
+	layer,
+	displayIndex,
+	selected,
+	onClick,
+	onToggleVisible,
+	onToggleLocked,
+	onToggleShared,
+}) => {
 	const rowStyle: CSSProperties = {
 		display: "flex",
 		alignItems: "center",
@@ -76,10 +87,23 @@ const LayerRow: FC<LayerRowProps> = ({ layer, displayIndex, selected, onClick })
 		overflow: "hidden",
 		textOverflow: "ellipsis",
 	};
-	const indicatorStyle: CSSProperties = {
-		minWidth: 14,
+	// 行内トグルボタン (visible / locked / shared)。on=有効時に不透明、off で淡色。
+	const toggleBtnStyle = (on: boolean): CSSProperties => ({
+		minWidth: 18,
+		height: 18,
+		lineHeight: "16px",
 		textAlign: "center",
-		opacity: 0.7,
+		padding: 0,
+		border: "none",
+		background: "transparent",
+		cursor: "pointer",
+		fontSize: 12,
+		opacity: on ? 1 : 0.28,
+	});
+	// 行 onClick (選択) を起こさないよう stopPropagation してからトグル実行。
+	const stop = (fn: () => void) => (e: { stopPropagation: () => void }) => {
+		e.stopPropagation();
+		fn();
 	};
 
 	return (
@@ -92,21 +116,36 @@ const LayerRow: FC<LayerRowProps> = ({ layer, displayIndex, selected, onClick })
 			<span style={indexBadgeStyle}>{displayIndex}</span>
 			<span style={iconStyle}>{iconOf(layer)}</span>
 			<span style={labelStyle}>{labelOf(layer)}</span>
-			{!layer.visible && (
-				<span style={indicatorStyle} title="非表示" data-indicator="hidden">
-					🚫
-				</span>
-			)}
-			{layer.locked && (
-				<span style={indicatorStyle} title="ロック中" data-indicator="locked">
-					🔒
-				</span>
-			)}
-			{layer.shared && (
-				<span style={indicatorStyle} title="shared" data-indicator="shared">
-					🔗
-				</span>
-			)}
+			<button
+				type="button"
+				style={toggleBtnStyle(layer.visible)}
+				title={layer.visible ? "表示中 (クリックで非表示)" : "非表示 (クリックで表示)"}
+				data-toggle="visible"
+				data-on={layer.visible ? "true" : "false"}
+				aria-label="toggle visible"
+				onClick={stop(onToggleVisible)}>
+				{layer.visible ? "👁" : "🚫"}
+			</button>
+			<button
+				type="button"
+				style={toggleBtnStyle(layer.locked)}
+				title={layer.locked ? "ロック中 (クリックで解除)" : "未ロック (クリックでロック)"}
+				data-toggle="locked"
+				data-on={layer.locked ? "true" : "false"}
+				aria-label="toggle locked"
+				onClick={stop(onToggleLocked)}>
+				{layer.locked ? "🔒" : "🔓"}
+			</button>
+			<button
+				type="button"
+				style={toggleBtnStyle(layer.shared)}
+				title={layer.shared ? "shared (クリックで解除)" : "非 shared (クリックで shared 化)"}
+				data-toggle="shared"
+				data-on={layer.shared ? "true" : "false"}
+				aria-label="toggle shared"
+				onClick={stop(onToggleShared)}>
+				🔗
+			</button>
 		</div>
 	);
 };
@@ -192,15 +231,28 @@ export const LayerListPanel: FC = () => {
 				) : (
 					<ScrollArea type="auto" scrollbarSize={8} mah={240}>
 						<Stack gap={2} data-layer-count={layers.length}>
-							{reversed.map((layer, displayIdx) => (
-								<LayerRow
-									key={layer.uuid}
-									layer={layer}
-									displayIndex={displayIdx + 1}
-									selected={selectedLayer?.uuid === layer.uuid}
-									onClick={() => setSelectedLayer(layer)}
-								/>
-							))}
+							{reversed.map((layer, displayIdx) => {
+								// reversed 表示なので slide.layers 内の実 index は末尾からの距離。
+								const realIndex = layers.length - 1 - displayIdx;
+								return (
+									<LayerRow
+										key={layer.uuid}
+										layer={layer}
+										displayIndex={displayIdx + 1}
+										selected={selectedLayer?.uuid === layer.uuid}
+										onClick={() => setSelectedLayer(layer)}
+										onToggleVisible={() =>
+											layerMutation.updateLayer(realIndex, { visible: !layer.visible })
+										}
+										onToggleLocked={() =>
+											layerMutation.updateLayer(realIndex, { locked: !layer.locked })
+										}
+										onToggleShared={() =>
+											layerMutation.updateLayer(realIndex, { shared: !layer.shared })
+										}
+									/>
+								);
+							})}
 						</Stack>
 					</ScrollArea>
 				)}
