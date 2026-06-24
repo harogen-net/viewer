@@ -1,7 +1,9 @@
+import JSZip from "jszip";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useFileIO, type UseFileIO } from "../../src/hooks/useFileIO";
+import type { Slide } from "../../src/types/Slide";
 import type { ViewerDocument } from "../../src/types/ViewerDocument";
 
 // v4 Group B 完了テスト: useFileIO の round-trip 統合 (FileIOPanel 経由相当)。
@@ -190,7 +192,7 @@ describe("useFileIO round-trip (v4 Group B 完了テスト)", () => {
 			],
 		};
 		const imageMap = {
-			"img1": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=",
+			img1: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=",
 		};
 		await hook.api.exportHvd(doc, imageMap);
 
@@ -202,5 +204,90 @@ describe("useFileIO round-trip (v4 Group B 完了テスト)", () => {
 		const result = await hook.api.importFile(file);
 		expect(result).not.toBeNull();
 		expect(result?.imageData.img1).toBe(imageMap.img1);
+	});
+});
+
+// スライド画像出力 (§4/§10)。jsdom には canvas 2d context / toBlob が無いため、
+// 描画自体は no-op スタブで通し、制御フロー (命名 / disabled 除外 / ガード) を検証する。
+describe("useFileIO スライド画像出力 (v4 Group D output系)", () => {
+	const makeSlide = (id: number, uuid: string, disabled = false): Slide => ({
+		id,
+		uuid,
+		width: 800,
+		height: 600,
+		durationRatio: 1,
+		joining: true,
+		disabled,
+		layers: [],
+	});
+	const makeMultiDoc = (title: string): ViewerDocument => ({
+		title,
+		width: 800,
+		height: 600,
+		createTime: 0,
+		editTime: 0,
+		bgColor: "#112233",
+		// index 0 有効 / 1 disabled / 2 有効
+		slides: [makeSlide(1, "a"), makeSlide(2, "b", true), makeSlide(3, "c")],
+	});
+
+	// 元実装を退避し、テスト後に復元する。
+	let origGetContext: typeof HTMLCanvasElement.prototype.getContext;
+	let origToBlob: typeof HTMLCanvasElement.prototype.toBlob;
+
+	beforeEach(() => {
+		origGetContext = HTMLCanvasElement.prototype.getContext;
+		origToBlob = HTMLCanvasElement.prototype.toBlob;
+		// drawSlideToCanvas が触る API のみ持つ no-op context (CanvasRenderingContext2D 全体は満たさない)。
+		const stubCtx = {
+			fillStyle: "",
+			globalAlpha: 1,
+			fillRect: () => {},
+			clearRect: () => {},
+			scale: () => {},
+			translate: () => {},
+			rotate: () => {},
+			drawImage: () => {},
+			resetTransform: () => {},
+		};
+		HTMLCanvasElement.prototype.getContext = (() =>
+			stubCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+		// PNG っぽい Blob を返す (中身は検証しない)。
+		HTMLCanvasElement.prototype.toBlob = function (cb: BlobCallback): void {
+			cb(new Blob(["\x89PNG"], { type: "image/png" }));
+		};
+	});
+
+	afterEach(() => {
+		HTMLCanvasElement.prototype.getContext = origGetContext;
+		HTMLCanvasElement.prototype.toBlob = origToBlob;
+	});
+
+	it("exportSlidePng: index 0 → '{title}_1.png' を image/png Blob で download", async () => {
+		const msg = await hook.api.exportSlidePng(makeMultiDoc("imgexp"), {}, 0);
+		expect(msg).toBe("exported: imgexp_1.png");
+		const blob = capture.getBlob();
+		expect(blob?.type).toBe("image/png");
+	});
+
+	it("exportSlidePng: 範囲外 index は throw", async () => {
+		await expect(hook.api.exportSlidePng(makeMultiDoc("imgexp"), {}, 9)).rejects.toThrow();
+	});
+
+	it("exportAllSlidesZip: 有効スライドのみ、元 index 基準で命名した ZIP を出力", async () => {
+		const msg = await hook.api.exportAllSlidesZip(makeMultiDoc("imgexp"), {});
+		expect(msg).toBe("exported: imgexp.zip");
+		const blob = capture.getBlob();
+		expect(blob).not.toBeNull();
+		// 生成された zip を読み戻し、disabled(index1) を除いた _1 / _3 のみであることを確認
+		const zip = await JSZip.loadAsync(await blob!.arrayBuffer());
+		const names = Object.keys(zip.files).sort();
+		expect(names).toEqual(["imgexp_1.png", "imgexp_3.png"]);
+	});
+
+	it("exportAllSlidesZip: 有効スライドが 0 枚なら throw", async () => {
+		const doc = makeMultiDoc("imgexp");
+		for (const s of doc.slides) s.disabled = true;
+		await expect(hook.api.exportAllSlidesZip(doc, {})).rejects.toThrow();
 	});
 });

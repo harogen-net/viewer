@@ -1,4 +1,14 @@
-import { ActionIcon, Button, Group, Paper, Select, Stack, Text, Title, Tooltip } from "@mantine/core";
+import {
+	ActionIcon,
+	Button,
+	Group,
+	Paper,
+	Select,
+	Stack,
+	Text,
+	Title,
+	Tooltip,
+} from "@mantine/core";
 import type { ChangeEvent, FC } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFileIO } from "../../hooks/useFileIO";
@@ -30,10 +40,12 @@ const collectImageMap = (): Record<string, string> => {
 
 export const FileIOPanel: FC = () => {
 	const { listTitles, loadByTitle, save, deleteByTitle } = useStorage();
-	const { exportHvd, exportHvz, exportPng, importFile } = useFileIO();
+	const { exportHvd, exportHvz, exportPng, importFile, exportSlidePng, exportAllSlidesZip } =
+		useFileIO();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slides = useSlideStore((s) => s.slides);
+	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
@@ -116,6 +128,22 @@ export const FileIOPanel: FC = () => {
 		}
 		setMsg(await exportPng({ ...meta, slides }, collectImageMap()));
 	});
+	// 現在選択中のスライドを画像 PNG で書き出す (§4、背景は doc.bgColor)。
+	const handleExportSlidePng = wrap(async () => {
+		if (!meta || selectedIndex < 0) {
+			setMsg("スライドを選択してください");
+			return;
+		}
+		setMsg(await exportSlidePng({ ...meta, slides }, collectImageMap(), selectedIndex));
+	});
+	// 有効スライドを全て画像 PNG 化して ZIP 書き出し (§10)。
+	const handleExportZip = wrap(async () => {
+		if (!meta) {
+			setMsg("document が未ロード");
+			return;
+		}
+		setMsg(await exportAllSlidesZip({ ...meta, slides }, collectImageMap()));
+	});
 
 	const onFileSelected = (e: ChangeEvent<HTMLInputElement>): void => {
 		const file = e.target.files?.[0];
@@ -148,6 +176,7 @@ export const FileIOPanel: FC = () => {
 
 	const canOverride = !!meta && meta.title !== "" && meta.title !== "(new)";
 	const hasSlides = slides.length > 0;
+	const hasEnabledSlide = slides.some((s) => !s.disabled);
 	const selectData = titles.map((t) => ({ value: t.title, label: t.title }));
 
 	return (
@@ -188,8 +217,7 @@ export const FileIOPanel: FC = () => {
 						variant="filled"
 						color="blue"
 						onClick={handleSave(false)}
-						disabled={!hasSlides}
-					>
+						disabled={!hasSlides}>
 						💾 保存 (新規)
 					</Button>
 					<Tooltip label="現在の document に上書き" disabled={canOverride}>
@@ -198,33 +226,17 @@ export const FileIOPanel: FC = () => {
 							variant="filled"
 							color="blue"
 							onClick={handleSave(true)}
-							disabled={!canOverride || !hasSlides}
-						>
+							disabled={!canOverride || !hasSlides}>
 							💾 上書き
 						</Button>
 					</Tooltip>
-					<Button
-						size="xs"
-						variant="default"
-						onClick={handleExportHvd}
-						disabled={!hasSlides}
-					>
+					<Button size="xs" variant="default" onClick={handleExportHvd} disabled={!hasSlides}>
 						⬇ HVD
 					</Button>
-					<Button
-						size="xs"
-						variant="default"
-						onClick={handleExportHvz}
-						disabled={!hasSlides}
-					>
+					<Button size="xs" variant="default" onClick={handleExportHvz} disabled={!hasSlides}>
 						⬇ HVZ
 					</Button>
-					<Button
-						size="xs"
-						variant="default"
-						onClick={handleExportPng}
-						disabled={!hasSlides}
-					>
+					<Button size="xs" variant="default" onClick={handleExportPng} disabled={!hasSlides}>
 						⬇ PNG
 					</Button>
 					<ActionIcon
@@ -233,10 +245,32 @@ export const FileIOPanel: FC = () => {
 						color="red"
 						onClick={handleDelete}
 						disabled={!selectedTitle}
-						aria-label="削除"
-					>
+						aria-label="削除">
 						🗑
 					</ActionIcon>
+				</Group>
+				{/* スライド画像出力 (§4/§10): 単ページ PNG / 全ページ ZIP。背景は doc.bgColor。 */}
+				<Group gap="xs" wrap="wrap">
+					<Tooltip label="選択中スライドを PNG 画像で保存" disabled={selectedIndex >= 0}>
+						<Button
+							size="xs"
+							variant="default"
+							onClick={handleExportSlidePng}
+							disabled={selectedIndex < 0}
+							data-action="export-slide-png">
+							🖼 スライド PNG
+						</Button>
+					</Tooltip>
+					<Tooltip label="有効な全スライドを ZIP で保存" disabled={hasEnabledSlide}>
+						<Button
+							size="xs"
+							variant="default"
+							onClick={handleExportZip}
+							disabled={!hasEnabledSlide}
+							data-action="export-all-zip">
+							🗜 全スライド ZIP
+						</Button>
+					</Tooltip>
 				</Group>
 				{msg && (
 					<Text size="xs" c="dimmed" ff="monospace">

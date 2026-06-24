@@ -1,6 +1,7 @@
+import JSZip from "jszip";
 import { useCallback } from "react";
 import type { ViewerDocument } from "../types/ViewerDocument";
-import { generateSlideThumbnailDataURL } from "../utils/slideThumbnail";
+import { drawSlideToCanvas, generateSlideThumbnailDataURL } from "../utils/slideThumbnail";
 import {
 	parseHvd,
 	parseHvz,
@@ -30,6 +31,15 @@ const downloadBlob = (blob: Blob, filename: string): void => {
 	URL.revokeObjectURL(url);
 };
 
+/** canvas → PNG Blob (toDataURL ではなく toBlob でメモリ効率よく)。 */
+const canvasToPngBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
+	new Promise((resolve, reject) => {
+		canvas.toBlob(
+			(blob) => (blob ? resolve(blob) : reject(new Error("canvas.toBlob が null を返しました"))),
+			"image/png"
+		);
+	});
+
 export interface ImportResult {
 	doc: ViewerDocument;
 	imageData: Record<string, string>;
@@ -40,6 +50,21 @@ export interface UseFileIO {
 	exportHvz: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string>;
 	exportPng: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string>;
 	importFile: (file: File) => Promise<ImportResult | null>;
+	/**
+	 * 指定 index のスライドを native 寸法 PNG で書き出す (§4/§10、legacy downloadImage(index))。
+	 * 背景は doc.bgColor を使用 (透明出力はオミット)。filename = `{title}_{index+1}.png`。
+	 */
+	exportSlidePng: (
+		doc: ViewerDocument,
+		imageMap: Record<string, string>,
+		index: number
+	) => Promise<string>;
+	/**
+	 * 有効 (非 disabled) な全スライドを PNG 化し ZIP で書き出す (§10、legacy downloadImage(-1))。
+	 * 背景は doc.bgColor。ファイル名は元の index で `{title}_{index+1}.png` (disabled はスキップ)。
+	 * 有効スライドが 0 枚なら throw。
+	 */
+	exportAllSlidesZip: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string>;
 }
 
 export const useFileIO = (): UseFileIO => {
@@ -50,7 +75,7 @@ export const useFileIO = (): UseFileIO => {
 			downloadBlob(new Blob([json], { type: "application/json" }), filename);
 			return `exported: ${filename}`;
 		},
-		[],
+		[]
 	);
 
 	const exportHvz = useCallback(
@@ -60,7 +85,7 @@ export const useFileIO = (): UseFileIO => {
 			downloadBlob(new Blob([u8a], { type: "application/zip" }), filename);
 			return `exported: ${filename}`;
 		},
-		[],
+		[]
 	);
 
 	// PNG は legacy SlideStorage 互換でファイル名先頭に `[hv]` prefix。
@@ -74,7 +99,50 @@ export const useFileIO = (): UseFileIO => {
 			downloadBlob(new Blob([u8a], { type: "image/png" }), filename);
 			return `exported: ${filename}`;
 		},
-		[],
+		[]
+	);
+
+	// スライド 1 枚を native 寸法 PNG で書き出す (§4/§10)。背景は doc.bgColor。
+	const exportSlidePng = useCallback(
+		async (
+			doc: ViewerDocument,
+			imageMap: Record<string, string>,
+			index: number
+		): Promise<string> => {
+			const slide = doc.slides[index];
+			if (!slide) throw new Error(`invalid slide index: ${index}`);
+			const canvas = await drawSlideToCanvas(slide, doc.bgColor, imageMap);
+			const blob = await canvasToPngBlob(canvas);
+			const filename = `${doc.title || "document"}_${index + 1}.png`;
+			downloadBlob(blob, filename);
+			return `exported: ${filename}`;
+		},
+		[]
+	);
+
+	// 有効スライドを全て PNG 化して ZIP 出力 (§10)。命名は元 index 基準 (disabled はスキップ)。
+	const exportAllSlidesZip = useCallback(
+		async (doc: ViewerDocument, imageMap: Record<string, string>): Promise<string> => {
+			const enabledCount = doc.slides.filter((s) => !s.disabled).length;
+			if (enabledCount === 0) {
+				throw new Error("有効なスライドがありません (最低 1 枚を有効化してください)");
+			}
+			const zip = new JSZip();
+			const title = doc.title || "document";
+			// foreach で同時 toBlob すると不安定なため逐次 await (legacy DropHelper 同様の方針)。
+			for (let i = 0; i < doc.slides.length; i++) {
+				const slide = doc.slides[i];
+				if (slide.disabled) continue;
+				const canvas = await drawSlideToCanvas(slide, doc.bgColor, imageMap);
+				const blob = await canvasToPngBlob(canvas);
+				zip.file(`${title}_${i + 1}.png`, blob);
+			}
+			const out = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+			const filename = `${title}.zip`;
+			downloadBlob(out, filename);
+			return `exported: ${filename}`;
+		},
+		[]
 	);
 
 	// .hvd / .hvz / .png ファイルを parse して {doc, imageData} を返す。
@@ -97,5 +165,12 @@ export const useFileIO = (): UseFileIO => {
 		return null;
 	}, []);
 
-	return { exportHvd, exportHvz, exportPng, importFile };
+	return {
+		exportHvd,
+		exportHvz,
+		exportPng,
+		importFile,
+		exportSlidePng,
+		exportAllSlidesZip,
+	};
 };
