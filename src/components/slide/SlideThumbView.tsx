@@ -47,11 +47,13 @@ const computeDurationCorrection = (ratio: number): number => {
 };
 
 // 親要素への click 伝播を止めるラッパー (duration ボタン等で thumb 選択が走らないように)。
-const stopClick = (handler: () => void) => (e: ReactMouseEvent): void => {
-	e.stopPropagation();
-	e.preventDefault();
-	handler();
-};
+const stopClick =
+	(handler: () => void) =>
+	(e: ReactMouseEvent): void => {
+		e.stopPropagation();
+		e.preventDefault();
+		handler();
+	};
 
 export const SlideThumbView: FC<SlideThumbViewProps> = ({
 	slide,
@@ -85,21 +87,36 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		return map;
 	}, [imageById]);
 
-	// canvas 描画 (legacy CanvasSlideView 相当、in-place 描画でメモリ節約 + debounce)。
+	// canvas 描画 (legacy CanvasSlideView 相当、debounce)。
 	// legacy `CanvasSlideView.refresh()` は setTimeout 100ms で連続更新を間引いている。
 	// 同等にするため effect で前回 timer を clear → 100ms 後に描画。
+	//
+	// チラツキ対策: drawSlideToCanvas は画像ロード完了後の「完成 canvas」を返す。
+	// それを可視 canvas へ 1 回の drawImage で同期転写するため、可視 canvas に
+	// 「クリア → ロード待ち」の空白フレームが生じない (直接 in-place 描画していた頃の真っ白対策)。
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
+		let cancelled = false;
 		const tid = window.setTimeout(() => {
 			drawSlideToCanvas(slide, bgColor, imageMap, {
-				targetCanvas: canvas,
 				targetWidth: canvasW,
 				targetHeight: canvasH,
-			}).catch((e) => console.warn("[SlideThumbView] draw failed:", e));
+			})
+				.then((off) => {
+					if (cancelled) return;
+					const ctx = canvas.getContext("2d");
+					if (!ctx) return;
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					ctx.drawImage(off, 0, 0);
+				})
+				.catch((e) => console.warn("[SlideThumbView] draw failed:", e));
 		}, DEBOUNCE_MS);
-		return () => window.clearTimeout(tid);
+		return () => {
+			cancelled = true;
+			window.clearTimeout(tid);
+		};
 	}, [slide, bgColor, imageMap, canvasW, canvasH]);
 
 	const itemStyle: CSSProperties = {
@@ -201,8 +218,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 			data-disabled={slide.disabled ? "true" : "false"}
 			data-joining={slide.joining ? "true" : "false"}
 			data-duration-ratio={slide.durationRatio}
-			onClick={onClick}
-		>
+			onClick={onClick}>
 			<canvas
 				ref={canvasRef}
 				width={canvasW}
@@ -228,8 +244,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 				style={joinArrowStyle}
 				data-thumb-control="join-arrow"
 				aria-label={slide.joining ? "結合解除" : "結合"}
-				title={slide.joining ? "結合解除" : "結合"}
-			>
+				title={slide.joining ? "結合解除" : "結合"}>
 				{slide.joining ? "▶" : "▷"}
 			</button>
 
@@ -239,8 +254,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 					onClick={stopClick(onDecrementDuration)}
 					style={durationBtnStyle}
 					data-thumb-control="duration-down"
-					aria-label="durationRatio 減少"
-				>
+					aria-label="durationRatio 減少">
 					−
 				</button>
 				<span data-thumb-control="duration-label" style={{ minWidth: 24, textAlign: "center" }}>
@@ -251,8 +265,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 					onClick={stopClick(onIncrementDuration)}
 					style={durationBtnStyle}
 					data-thumb-control="duration-up"
-					aria-label="durationRatio 増加"
-				>
+					aria-label="durationRatio 増加">
 					+
 				</button>
 			</div>
