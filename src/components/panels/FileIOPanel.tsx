@@ -18,6 +18,7 @@ import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import type { ViewerDocument } from "../../types/ViewerDocument";
+import { adjacentTitleIndex } from "../../utils/fileNavOps";
 import { createNewViewerDocument } from "../../utils/viewerDocumentFactory";
 
 // ファイル IO パネル (v3 Group B build、§0-10 新側内製、Mantine UI)。
@@ -75,18 +76,34 @@ export const FileIOPanel: FC = () => {
 		}
 	};
 
+	// 現在 document を置き換える操作 (新規 / ロード / import) の前に、未保存変更があれば確認する。
+	// modified は最新を getState() で読む (load/new/import 後は setDocument が false にリセット)。
+	const confirmDiscardIfModified = async (): Promise<boolean> => {
+		if (!useViewerDocumentStore.getState().modified) return true;
+		return alert.confirm("未保存の変更があります。破棄して続行しますか?", {
+			okLabel: "破棄して続行",
+			cancelLabel: "キャンセル",
+		});
+	};
+
 	const handleNew = wrap(async () => {
+		if (!(await confirmDiscardIfModified())) return;
 		setDocument(createNewViewerDocument());
 		setMsg("new document created");
 		setSelectedTitle(null);
 	});
 
 	// title を選んだ瞬間にロードする (レガシー FileSelector と同挙動)。
-	// null クリア時はロードしない (選択のみ解除)。
+	// null クリア時はロードしない (選択のみ解除)。未保存変更があれば確認し、
+	// キャンセル時は選択も変えない (Select は controlled なので元の値に戻る)。
 	const handleSelectChange = (v: string | null): void => {
-		setSelectedTitle(v);
-		if (!v) return;
+		if (!v) {
+			setSelectedTitle(null);
+			return;
+		}
 		wrap(async () => {
+			if (!(await confirmDiscardIfModified())) return;
+			setSelectedTitle(v);
 			const doc = await loadByTitle(v);
 			if (doc) {
 				setDocument(doc);
@@ -152,6 +169,7 @@ export const FileIOPanel: FC = () => {
 		e.target.value = ""; // 同じファイルを連続選択できるよう reset
 		if (!file) return;
 		wrap(async () => {
+			if (!(await confirmDiscardIfModified())) return;
 			const result = await importFile(file);
 			if (!result) {
 				setMsg(`未対応拡張子: ${file.name}`);
@@ -181,6 +199,16 @@ export const FileIOPanel: FC = () => {
 	const hasEnabledSlide = slides.some((s) => !s.disabled);
 	const selectData = titles.map((t) => ({ value: t.title, label: t.title }));
 
+	// 保存ファイルの前後移動 (レガシー FileSelector の .fileSelect.up / .down 相当)。
+	// 一覧 (update 降順) を 1 件ずつ移動して即ロード。端ではボタン無効 (ラップしない)。
+	const currentTitleIndex = selectedTitle ? titles.findIndex((t) => t.title === selectedTitle) : -1;
+	const prevIndex = adjacentTitleIndex(titles.length, currentTitleIndex, "prev");
+	const nextIndex = adjacentTitleIndex(titles.length, currentTitleIndex, "next");
+	const goToIndex = (target: number): void => {
+		if (target < 0) return;
+		handleSelectChange(titles[target].title);
+	};
+
 	return (
 		<Paper withBorder p="md" radius="sm">
 			<Stack gap="xs">
@@ -204,16 +232,40 @@ export const FileIOPanel: FC = () => {
 						onChange={onFileSelected}
 						style={{ display: "none" }}
 					/>
-					<Select
-						placeholder="開くファイルを選択"
-						value={selectedTitle}
-						onChange={handleSelectChange}
-						data={selectData}
-						clearable
-						size="xs"
-						w={260}
-						nothingFoundMessage="(該当なし)"
-					/>
+					<Group gap={4} wrap="nowrap">
+						<Tooltip label="前の保存ファイル">
+							<ActionIcon
+								size="lg"
+								variant="default"
+								onClick={() => goToIndex(prevIndex)}
+								disabled={prevIndex < 0}
+								data-file-nav="prev"
+								aria-label="前の保存ファイル">
+								◀
+							</ActionIcon>
+						</Tooltip>
+						<Select
+							placeholder="開くファイルを選択"
+							value={selectedTitle}
+							onChange={handleSelectChange}
+							data={selectData}
+							clearable
+							size="xs"
+							w={260}
+							nothingFoundMessage="(該当なし)"
+						/>
+						<Tooltip label="次の保存ファイル">
+							<ActionIcon
+								size="lg"
+								variant="default"
+								onClick={() => goToIndex(nextIndex)}
+								disabled={nextIndex < 0}
+								data-file-nav="next"
+								aria-label="次の保存ファイル">
+								▶
+							</ActionIcon>
+						</Tooltip>
+					</Group>
 					<Button
 						size="xs"
 						variant="filled"
