@@ -1,6 +1,7 @@
 import { Menu } from "@mantine/core";
 import type { FC, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useState } from "react";
+import { useAlert } from "../../hooks/useAlert";
 import { useSlideMutation } from "../../hooks/useSlideMutation";
 import { useSlideStore } from "../../state/slideStore";
 
@@ -32,14 +33,16 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 		setAllDisabled,
 		deleteAllDisabled,
 	} = useSlideMutation();
+	const alert = useAlert();
 
-	const [ctxMenu, setCtxMenu] = useState<
-		{ x: number; y: number; targetIndex: number | null } | null
-	>(null);
+	const [ctxMenu, setCtxMenu] = useState<{
+		x: number;
+		y: number;
+		targetIndex: number | null;
+	} | null>(null);
 	const closeCtxMenu = (): void => setCtxMenu(null);
 
-	const targetSlide =
-		ctxMenu?.targetIndex != null ? slides[ctxMenu.targetIndex] ?? null : null;
+	const targetSlide = ctxMenu?.targetIndex != null ? (slides[ctxMenu.targetIndex] ?? null) : null;
 	const allJoined = slides.length > 0 && slides.every((s) => s.joining);
 	const hasDisabled = slides.some((s) => s.disabled);
 
@@ -63,16 +66,17 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 		if (ctxMenu?.targetIndex == null) return;
 		duplicateSlide(ctxMenu.targetIndex);
 	};
-	const handleDeleteTarget = (): void => {
+	const handleDeleteTarget = async (): Promise<void> => {
 		if (ctxMenu?.targetIndex == null) return;
-		if (!window.confirm(`スライド #${ctxMenu.targetIndex + 1} を削除しますか?`)) return;
-		deleteSlide(ctxMenu.targetIndex);
+		const idx = ctxMenu.targetIndex;
+		if (!(await alert.confirm(`スライド #${idx + 1} を削除しますか?`))) return;
+		deleteSlide(idx);
 	};
 	const handleToggleAllJoining = (): void => setAllJoining(!allJoined);
 	const handleEnableAll = (): void => setAllDisabled(false);
 	const handleDisableAll = (): void => setAllDisabled(true);
-	const handleDeleteAllDisabled = (): void => {
-		if (!window.confirm("無効スライドをすべて削除しますか?")) return;
+	const handleDeleteAllDisabled = async (): Promise<void> => {
+		if (!(await alert.confirm("無効スライドをすべて削除しますか?"))) return;
 		deleteAllDisabled();
 	};
 
@@ -86,8 +90,7 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 				position="bottom-start"
 				withinPortal
 				shadow="md"
-				transitionProps={{ duration: 0 }}
-			>
+				transitionProps={{ duration: 0 }}>
 				<Menu.Target>
 					<div
 						aria-hidden
@@ -105,29 +108,16 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 					{targetSlide && ctxMenu?.targetIndex != null && (
 						<>
 							<Menu.Label>スライド #{ctxMenu.targetIndex + 1}</Menu.Label>
-							<Menu.Item
-								onClick={handleToggleSlideJoining}
-								data-ctx-action="toggle-joining"
-							>
+							<Menu.Item onClick={handleToggleSlideJoining} data-ctx-action="toggle-joining">
 								{targetSlide.joining ? "結合解除" : "結合"}
 							</Menu.Item>
-							<Menu.Item
-								onClick={handleToggleSlideDisabled}
-								data-ctx-action="toggle-disabled"
-							>
+							<Menu.Item onClick={handleToggleSlideDisabled} data-ctx-action="toggle-disabled">
 								{targetSlide.disabled ? "有効化" : "無効化"}
 							</Menu.Item>
-							<Menu.Item
-								onClick={handleDuplicateTarget}
-								data-ctx-action="duplicate-target"
-							>
+							<Menu.Item onClick={handleDuplicateTarget} data-ctx-action="duplicate-target">
 								複製
 							</Menu.Item>
-							<Menu.Item
-								onClick={handleDeleteTarget}
-								data-ctx-action="delete-target"
-								color="red"
-							>
+							<Menu.Item onClick={handleDeleteTarget} data-ctx-action="delete-target" color="red">
 								削除
 							</Menu.Item>
 							<Menu.Divider />
@@ -147,8 +137,7 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 						onClick={handleDeleteAllDisabled}
 						data-ctx-action="delete-disabled"
 						color="red"
-						disabled={!hasDisabled}
-					>
+						disabled={!hasDisabled}>
 						無効スライドを一括削除
 					</Menu.Item>
 				</Menu.Dropdown>

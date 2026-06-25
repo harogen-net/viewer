@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EditToolbar } from "../../src/components/panels/EditToolbar";
+import { useAlertStore } from "../../src/state/alertStore";
 import { useClipboardStore } from "../../src/state/clipboardStore";
 import { useEditViewStore } from "../../src/state/editViewStore";
 import { useHistoryStore } from "../../src/state/historyStore";
@@ -64,6 +65,7 @@ beforeEach(() => {
 	useHistoryStore.getState().clear();
 	useClipboardStore.getState().clear();
 	useEditViewStore.getState().setRectEdit(false);
+	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	container = document.createElement("div");
 	document.body.appendChild(container);
@@ -107,6 +109,13 @@ const clickByOp = (op: string): void => {
 	});
 };
 
+// useAlert (モーダル) は非同期。ハンドラが積んだ pending リクエストを store 経由で resolve する。
+const resolveAlert = async (value: boolean | string | null): Promise<void> => {
+	await act(async () => {
+		useAlertStore.getState().request?.resolve(value);
+	});
+};
+
 describe("EditToolbar undo / redo + 履歴カウンタ", () => {
 	it("初期は undo/redo 両方 disabled、カウンタ 0 / 0", () => {
 		seedSlide([]);
@@ -120,31 +129,26 @@ describe("EditToolbar undo / redo + 履歴カウンタ", () => {
 		expect(container.textContent).toContain("0 / 0");
 	});
 
-	it("操作後 undo 有効 → 巻き戻し → redo 有効化 (add-text を履歴源に使用)", () => {
-		const orig = window.prompt;
-		window.prompt = () => "hi";
-		try {
-			seedSlide([]);
-			render();
-			clickByOp("add-text");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
-			expect(container.textContent).toContain("1 / 1"); // past=1, future=0
-			// undo
-			expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(
-				false
-			);
-			clickByOp("undo");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-			expect(container.textContent).toContain("0 / 1"); // past=0, future=1
-			// redo
-			expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(
-				false
-			);
-			clickByOp("redo");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
-		} finally {
-			window.prompt = orig;
-		}
+	it("操作後 undo 有効 → 巻き戻し → redo 有効化 (add-text を履歴源に使用)", async () => {
+		seedSlide([]);
+		render();
+		clickByOp("add-text");
+		await resolveAlert("hi");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
+		expect(container.textContent).toContain("1 / 1"); // past=1, future=0
+		// undo
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(
+			false
+		);
+		clickByOp("undo");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+		expect(container.textContent).toContain("0 / 1"); // past=0, future=1
+		// redo
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(
+			false
+		);
+		clickByOp("redo");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
 	});
 });
 
@@ -157,39 +161,29 @@ describe("EditToolbar add-text (テキストレイヤー追加)", () => {
 		);
 	});
 
-	it("prompt の入力テキストで追加され選択される、履歴 1 件 (legacy 基準)", () => {
-		const orig = window.prompt;
-		window.prompt = () => "hello";
-		try {
-			seedSlide([]);
-			render();
-			clickByOp("add-text");
-			const layers = useSlideStore.getState().slides[0].layers;
-			expect(layers).toHaveLength(1);
-			expect(layers[0].type).toBe("text");
-			expect((layers[0] as { text: string }).text).toBe("hello");
-			expect(useLayerStore.getState().selectedLayer?.uuid).toBe(layers[0].uuid);
-			expect(useHistoryStore.getState().past.length).toBe(1);
-		} finally {
-			window.prompt = orig;
-		}
+	it("prompt の入力テキストで追加され選択される、履歴 1 件 (legacy 基準)", async () => {
+		seedSlide([]);
+		render();
+		clickByOp("add-text"); // handler が alert.prompt を await → リクエスト pending
+		await resolveAlert("hello");
+		const layers = useSlideStore.getState().slides[0].layers;
+		expect(layers).toHaveLength(1);
+		expect(layers[0].type).toBe("text");
+		expect((layers[0] as { text: string }).text).toBe("hello");
+		expect(useLayerStore.getState().selectedLayer?.uuid).toBe(layers[0].uuid);
+		expect(useHistoryStore.getState().past.length).toBe(1);
 	});
 
-	it("prompt キャンセル (null) / 空文字では追加しない", () => {
-		const orig = window.prompt;
-		try {
-			window.prompt = () => null;
-			seedSlide([]);
-			render();
-			clickByOp("add-text");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-			window.prompt = () => "";
-			clickByOp("add-text");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-			expect(useHistoryStore.getState().past.length).toBe(0);
-		} finally {
-			window.prompt = orig;
-		}
+	it("prompt キャンセル (null) / 空文字では追加しない", async () => {
+		seedSlide([]);
+		render();
+		clickByOp("add-text");
+		await resolveAlert(null); // キャンセル
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+		clickByOp("add-text");
+		await resolveAlert(""); // 空文字サブミット
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+		expect(useHistoryStore.getState().past.length).toBe(0);
 	});
 });
 

@@ -1,5 +1,6 @@
 import { ActionIcon, Button, Group, Paper, Text, Tooltip } from "@mantine/core";
 import type { FC } from "react";
+import { useAlert } from "../../hooks/useAlert";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
@@ -21,6 +22,7 @@ export const EditToolbar: FC = () => {
 	const { undo, redo } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
+	const alert = useAlert();
 
 	const past = useHistoryStore((s) => s.past);
 	const future = useHistoryStore((s) => s.future);
@@ -43,9 +45,9 @@ export const EditToolbar: FC = () => {
 	const toggleRectEdit = useEditViewStore((s) => s.toggleRectEdit);
 
 	// テキストレイヤー追加 (legacy `.text` 基準): prompt の初期テキストで追加し、当該 layer を選択。
-	const handleAddText = () => {
+	const handleAddText = async () => {
 		if (!selectedSlide) return;
-		const input = window.prompt("テキストを入力:", "");
+		const input = await alert.prompt("テキストを入力:", "");
 		if (input === null || input === "") return;
 		layer.addTextLayer(input, selectedSlide.width, selectedSlide.height);
 		const updated = useSlideStore.getState().slides[selectedSlideIndex];

@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import type { ChangeEvent, FC } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAlert } from "../../hooks/useAlert";
 import { useFileIO } from "../../hooks/useFileIO";
 import { useStorage, type StoredSlideTitle } from "../../hooks/useStorage";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
@@ -46,6 +47,7 @@ export const FileIOPanel: FC = () => {
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
+	const alert = useAlert();
 
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
@@ -167,7 +169,7 @@ export const FileIOPanel: FC = () => {
 			setMsg("削除する title を選択してください");
 			return;
 		}
-		if (!window.confirm(`delete "${selectedTitle}" ?`)) return;
+		if (!(await alert.confirm(`delete "${selectedTitle}" ?`))) return;
 		await deleteByTitle(selectedTitle);
 		setMsg(`deleted: ${selectedTitle}`);
 		setSelectedTitle(null);

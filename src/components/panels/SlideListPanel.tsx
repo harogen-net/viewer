@@ -15,6 +15,7 @@ import {
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { Fragment } from "react";
+import { useAlert } from "../../hooks/useAlert";
 import { useDrop } from "../../hooks/useDrop";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useSlideMutation } from "../../hooks/useSlideMutation";
@@ -58,6 +59,7 @@ export const SlideListPanel: FC = () => {
 		incrementSlideDurationRatio,
 		decrementSlideDurationRatio,
 	} = useSlideMutation();
+	const alert = useAlert();
 
 	const isEmpty = slides.length === 0;
 	const canMovePrev = selectedIndex > 0;
@@ -100,9 +102,9 @@ export const SlideListPanel: FC = () => {
 		if (!canModifySelected) return;
 		duplicateSlide(selectedIndex);
 	};
-	const handleDelete = (): void => {
+	const handleDelete = async (): Promise<void> => {
 		if (!canModifySelected) return;
-		if (!window.confirm(`スライド #${selectedIndex + 1} を削除しますか?`)) return;
+		if (!(await alert.confirm(`スライド #${selectedIndex + 1} を削除しますか?`))) return;
 		deleteSlide(selectedIndex);
 	};
 

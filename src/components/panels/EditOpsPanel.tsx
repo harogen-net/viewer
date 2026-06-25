@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import type { FC } from "react";
 import { useRef } from "react";
+import { useAlert } from "../../hooks/useAlert";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
@@ -60,6 +61,7 @@ export const EditOpsPanel: FC = () => {
 	const { applySlideChangeLive, recordHistory, snapshot } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
+	const alert = useAlert();
 
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
@@ -75,25 +77,26 @@ export const EditOpsPanel: FC = () => {
 
 	// spread (§7、legacy spreadLayers): 選択 layer を前後の連続スライドへ展開し shared 化。
 	// legacy 同様 confirm を挟む (破壊的に複数スライドへ clone 追加するため)。
-	const handleSpread = () => {
+	const handleSpread = async () => {
 		if (!hasSelection) return;
-		if (
-			!window.confirm("選択レイヤーを前後の連続スライドへ展開 (shared 化) します。よろしいですか?")
-		)
-			return;
+		const ok = await alert.confirm(
+			"選択レイヤーを前後の連続スライドへ展開 (shared 化) します。よろしいですか?"
+		);
+		if (!ok) return;
 		layer.spreadLayer(layerIndex);
 	};
 
 	// 削除 (§7 shared 連鎖): shared 兄弟があれば確認。
 	//   OK = 全スライド (連続隣接グループ) から削除 / キャンセル = このスライドのみ削除。
 	// legacy: confirm yes で兄弟連鎖削除、no でも当該 layer は削除される挙動に対応。
-	const handleRemove = () => {
+	const handleRemove = async () => {
 		if (!canEditLayer) return;
 		const sibCount = sharedSiblingCount({ slides, selectedIndex: selectedSlideIndex }, layerIndex);
 		if (sibCount > 0) {
-			const all = window.confirm(
+			const all = await alert.confirm(
 				`このレイヤーは他 ${sibCount} スライドと共有 (shared) されています。\n` +
-					"OK: 共有先も含め全て削除 / キャンセル: このスライドのみ削除"
+					"OK: 共有先も含め全て削除 / キャンセル: このスライドのみ削除",
+				{ okLabel: "全て削除", cancelLabel: "このスライドのみ" }
 			);
 			if (all) layer.removeLayerWithSharedSiblings(layerIndex);
 			else layer.removeLayer(layerIndex);

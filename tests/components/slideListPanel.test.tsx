@@ -1,8 +1,9 @@
 import { MantineProvider } from "@mantine/core";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SlideListPanel } from "../../src/components/panels/SlideListPanel";
+import { useAlertStore } from "../../src/state/alertStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 import type { Slide } from "../../src/types/Slide";
@@ -28,6 +29,7 @@ let root: Root;
 beforeEach(() => {
 	useSlideStore.getState().setSlides([]);
 	useViewerDocumentStore.getState().setDocument(null);
+	useAlertStore.getState().clear();
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -37,6 +39,13 @@ afterEach(() => {
 	act(() => root.unmount());
 	container.remove();
 });
+
+// useAlert (モーダル) は非同期。ハンドラが積んだ pending リクエストを store 経由で resolve する。
+const resolveAlert = async (value: boolean | string | null): Promise<void> => {
+	await act(async () => {
+		useAlertStore.getState().request?.resolve(value);
+	});
+};
 
 const render = (): void => {
 	act(() => {
@@ -257,33 +266,30 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(s.slides[2].uuid).toBe("b");
 		});
 
-		it("削除ボタンは window.confirm が true なら deleteSlide を呼ぶ", () => {
+		it("削除ボタンは確認 OK なら deleteSlide を呼ぶ", async () => {
 			seedDoc([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")], 1);
-			const spy = vi.spyOn(window, "confirm").mockReturnValue(true);
 			render();
 
 			act(() => {
 				getBtn("delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
+			await resolveAlert(true);
 
-			expect(spy).toHaveBeenCalled();
 			const s = useSlideStore.getState();
 			expect(s.slides.map((x) => x.uuid)).toEqual(["a", "c"]);
-			spy.mockRestore();
 		});
 
-		it("削除ボタンは window.confirm が false なら no-op", () => {
+		it("削除ボタンは確認キャンセルなら no-op", async () => {
 			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")], 0);
-			const spy = vi.spyOn(window, "confirm").mockReturnValue(false);
 			render();
 
 			act(() => {
 				getBtn("delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
+			await resolveAlert(false);
 
 			const s = useSlideStore.getState();
 			expect(s.slides.length).toBe(2); // 削除されていない
-			spy.mockRestore();
 		});
 	});
 
@@ -388,13 +394,12 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(useSlideStore.getState().slides.every((s) => !s.disabled)).toBe(true);
 		});
 
-		it("「無効スライドを一括削除」は disabled なし時 disabled、confirm true で deleteAllDisabled 呼出", () => {
+		it("「無効スライドを一括削除」は disabled なし時 disabled、確認 OK で deleteAllDisabled 呼出", async () => {
 			seedDoc([
 				makeSlide(1, "a", { disabled: false }),
 				makeSlide(2, "b", { disabled: true }),
 				makeSlide(3, "c", { disabled: false }),
 			]);
-			const spy = vi.spyOn(window, "confirm").mockReturnValue(true);
 			render();
 			fireContextMenu(container.querySelector("[data-slide-index='0']"));
 
@@ -403,8 +408,8 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			act(() => {
 				item?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
+			await resolveAlert(true);
 			expect(useSlideStore.getState().slides.map((s) => s.uuid)).toEqual(["a", "c"]);
-			spy.mockRestore();
 		});
 	});
 });

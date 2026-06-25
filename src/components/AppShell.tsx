@@ -1,4 +1,14 @@
-import { Anchor, Box, Button, Flex, Group, MantineProvider, Stack, Text, Title } from "@mantine/core";
+import {
+	Anchor,
+	Box,
+	Button,
+	Flex,
+	Group,
+	MantineProvider,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useImageDimensionBackfill } from "../hooks/useImageLibraryMutation";
@@ -7,6 +17,7 @@ import { useShellKeyboard } from "../hooks/useShellKeyboard";
 import { useSlideshowStore } from "../state/slideshowStore";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
+import { AlertHost } from "./common/AlertHost";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { EditToolbar } from "./panels/EditToolbar";
 import { FileIOPanel } from "./panels/FileIOPanel";
@@ -204,5 +215,6 @@ export const AppShell: FC = () => (
 			</Anchor>
 		)}
 		<ProgressBar />
+		<AlertHost />
 	</MantineProvider>
 );

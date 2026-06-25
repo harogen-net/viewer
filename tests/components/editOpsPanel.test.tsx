@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EditOpsPanel } from "../../src/components/panels/EditOpsPanel";
+import { useAlertStore } from "../../src/state/alertStore";
 import { useClipboardStore } from "../../src/state/clipboardStore";
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useLayerStore } from "../../src/state/layerStore";
@@ -63,6 +64,7 @@ beforeEach(() => {
 	useLayerStore.getState().setSelectedLayer(null);
 	useHistoryStore.getState().clear();
 	useClipboardStore.getState().clear();
+	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	container = document.createElement("div");
 	document.body.appendChild(container);
@@ -102,6 +104,13 @@ const clickByOp = (op: string): void => {
 	if (!btn) throw new Error(`button not found: ${op}`);
 	act(() => {
 		btn.click();
+	});
+};
+
+// useAlert (モーダル) は非同期。ハンドラが積んだ pending リクエストを store 経由で resolve する。
+const resolveAlert = async (value: boolean | string | null): Promise<void> => {
+	await act(async () => {
+		useAlertStore.getState().request?.resolve(value);
 	});
 };
 
@@ -181,34 +190,24 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		expect(useHistoryStore.getState().past.length).toBe(1);
 	});
 
-	it("spread ボタン: confirm OK で選択 layer が shared 化、履歴 1 件", () => {
-		const orig = window.confirm;
-		window.confirm = () => true;
-		try {
-			seedSlide([makeImageLayer(1, "u-1")]);
-			render();
-			selectLayer("u-1");
-			clickByOp("spread");
-			expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(true);
-			expect(useHistoryStore.getState().past.length).toBe(1);
-		} finally {
-			window.confirm = orig;
-		}
+	it("spread ボタン: confirm OK で選択 layer が shared 化、履歴 1 件", async () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("spread");
+		await resolveAlert(true);
+		expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(true);
+		expect(useHistoryStore.getState().past.length).toBe(1);
 	});
 
-	it("spread ボタン: confirm キャンセルでは何もしない", () => {
-		const orig = window.confirm;
-		window.confirm = () => false;
-		try {
-			seedSlide([makeImageLayer(1, "u-1")]);
-			render();
-			selectLayer("u-1");
-			clickByOp("spread");
-			expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(false);
-			expect(useHistoryStore.getState().past.length).toBe(0);
-		} finally {
-			window.confirm = orig;
-		}
+	it("spread ボタン: confirm キャンセルでは何もしない", async () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("spread");
+		await resolveAlert(false);
+		expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(false);
+		expect(useHistoryStore.getState().past.length).toBe(0);
 	});
 
 	it("選択なしでは spread ボタンが disabled", () => {
@@ -246,34 +245,24 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		useSlideStore.getState().setSelectedIndex(0);
 	};
 
-	it("shared layer 削除: confirm OK で連鎖削除 (全スライドから消える)", () => {
-		const orig = window.confirm;
-		window.confirm = () => true;
-		try {
-			seedSharedTwoSlides();
-			render();
-			selectLayer("u-1");
-			clickByOp("remove");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-			expect(useSlideStore.getState().slides[1].layers).toHaveLength(0);
-		} finally {
-			window.confirm = orig;
-		}
+	it("shared layer 削除: confirm OK で連鎖削除 (全スライドから消える)", async () => {
+		seedSharedTwoSlides();
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		await resolveAlert(true);
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+		expect(useSlideStore.getState().slides[1].layers).toHaveLength(0);
 	});
 
-	it("shared layer 削除: confirm キャンセルでこのスライドのみ削除 (兄弟は残る)", () => {
-		const orig = window.confirm;
-		window.confirm = () => false;
-		try {
-			seedSharedTwoSlides();
-			render();
-			selectLayer("u-1");
-			clickByOp("remove");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-			expect(useSlideStore.getState().slides[1].layers).toHaveLength(1); // 兄弟は残る
-		} finally {
-			window.confirm = orig;
-		}
+	it("shared layer 削除: confirm キャンセルでこのスライドのみ削除 (兄弟は残る)", async () => {
+		seedSharedTwoSlides();
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		await resolveAlert(false);
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1); // 兄弟は残る
 	});
 
 	it("remove ボタンで layer が削除され、selectedLayer が null になる", () => {
