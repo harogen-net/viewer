@@ -93,6 +93,16 @@ describe("SlideEditView (v4 Group D D-1)", () => {
 		// SlideView は data-slide-id を持つ
 		expect(container.querySelector("[data-slide-id='42']")).not.toBeNull();
 	});
+
+	it("stage は absolute + translate(-50%,-50%) で中央寄せ (高倍率 overflow でも中央維持)", () => {
+		render(makeSlide(), 800, 600);
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
+		// flex の unsafe-center ではなく明示 translate 中央寄せ
+		expect(stage?.style.position).toBe("absolute");
+		expect(stage?.style.left).toBe("50%");
+		expect(stage?.style.top).toBe("50%");
+		expect(stage?.style.transform).toBe("translate(-50%, -50%)");
+	});
 });
 
 describe("SlideEditView ドラッグ&ドロップ (v4 Group D D-11)", () => {

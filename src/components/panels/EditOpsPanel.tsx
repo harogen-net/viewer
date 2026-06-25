@@ -24,6 +24,7 @@ import type { SlideState } from "../../types/SlideState";
 import {
 	type AlignEdge,
 	sharedSiblingCount,
+	updateImageLayer as updateImageLayerOp,
 	updateLayer as updateLayerOp,
 	updateTextLayer as updateTextLayerOp,
 } from "../../utils/layerOps";
@@ -168,13 +169,27 @@ export const EditOpsPanel: FC = () => {
 		applySlideChangeLive((s) => updateLayerOp(s, layerIndex, patch));
 	};
 
+	// スライダー (opacity / clip) は 1 ドラッグ = 1 履歴 (legacy VMHistoricalVariableInput の
+	// focus→blur 1 記録と同等)。onChange 中は applySlideChangeLive で履歴を積まず即時反映し、
+	// onChangeEnd (マウスアップ/キーアップ) で recordHistory を 1 件だけ残す。
+	// 最初の onChange で開始 snapshot を遅延取得する (Mantine Slider は focus 開始通知が無いため)。
+	const sliderEditStartRef = useRef<SlideState | null>(null);
+	const beginSliderEditIfNeeded = () => {
+		if (!sliderEditStartRef.current) sliderEditStartRef.current = snapshot();
+	};
+	const endSliderEdit = (label: string) => () => {
+		const before = sliderEditStartRef.current;
+		sliderEditStartRef.current = null;
+		if (before) recordHistory(label, before); // 変化なしは recordHistory 内で no-op
+	};
+
 	// 透明度は 0-100 の slider にする (Mantine の Slider は数値変換が楽)。
 	const opacityPercent = Math.round((selectedLayer?.opacity ?? 1) * 100);
 	const handleOpacityChange = (value: number) => {
 		if (layerIndex < 0) return;
 		const next = Math.max(0, Math.min(1, value / 100));
-		// 値変化なしの場合は layerOps.updateLayer が null を返し no-op + history 記録なし
-		layer.updateLayer(layerIndex, { opacity: next });
+		beginSliderEditIfNeeded();
+		applySlideChangeLive((s) => updateLayerOp(s, layerIndex, { opacity: next }));
 	};
 
 	// fit: layer wrapper の DOM を検索し content size を実測 (scaled 上で querySelector)
@@ -219,7 +234,8 @@ export const EditOpsPanel: FC = () => {
 		if (!imageLayer || layerIndex < 0) return;
 		const next: [number, number, number, number] = [...imageLayer.clipRect];
 		next[edgeIndex] = Math.max(0, Math.floor(value));
-		layer.updateImageLayer(layerIndex, { clipRect: next });
+		beginSliderEditIfNeeded();
+		applySlideChangeLive((s) => updateImageLayerOp(s, layerIndex, { clipRect: next }));
 	};
 	const handleClipReset = () => {
 		if (!imageLayer || layerIndex < 0) return;
@@ -578,6 +594,7 @@ export const EditOpsPanel: FC = () => {
 					<Slider
 						value={opacityPercent}
 						onChange={handleOpacityChange}
+						onChangeEnd={endSliderEdit("edit opacity")}
 						disabled={!canEditLayer}
 						min={0}
 						max={100}
@@ -659,6 +676,7 @@ export const EditOpsPanel: FC = () => {
 								<Slider
 									value={imageLayer.clipRect[row.idx]}
 									onChange={(v) => handleClipChange(row.idx, v)}
+									onChangeEnd={endSliderEdit("edit clip")}
 									disabled={!canEditLayer || row.max <= 0}
 									min={0}
 									max={Math.max(row.max, 1)}

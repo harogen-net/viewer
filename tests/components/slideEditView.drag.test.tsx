@@ -22,7 +22,11 @@ const baseTransform = {
 	mirrorH: false,
 	mirrorV: false,
 };
-const makeImageLayer = (id: number, uuid: string, overrides: Partial<ImageLayer> = {}): ImageLayer => ({
+const makeImageLayer = (
+	id: number,
+	uuid: string,
+	overrides: Partial<ImageLayer> = {}
+): ImageLayer => ({
 	id,
 	uuid,
 	name: "",
@@ -94,7 +98,7 @@ const RenderHost = () => {
 		() => {
 			const s = useSlideStore.getState();
 			return s.slides[s.selectedIndex] ?? null;
-		},
+		}
 	);
 	if (!slide) return null;
 	return <SlideEditView slide={slide} fitAreaWidth={800} fitAreaHeight={600} />;
@@ -116,7 +120,7 @@ const renderHost = (): void => {
 const dispatchPointer = (
 	el: HTMLElement,
 	type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel",
-	props: { clientX: number; clientY: number; pointerId?: number; button?: number },
+	props: { clientX: number; clientY: number; pointerId?: number; button?: number }
 ): void => {
 	const ev = new Event(type, { bubbles: true, cancelable: true });
 	Object.defineProperty(ev, "clientX", { value: props.clientX });
@@ -252,5 +256,53 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 		dispatchPointer(stage!, "pointerdown", { clientX: 0, clientY: 0 });
 		expect(useLayerStore.getState().selectedLayer).toBeNull();
+	});
+});
+
+// 選択枠 (最上位 overlay) 経由の直接 drag。
+// legacy: 操作用 AdjustView が常に最上位 → 選択 layer が上位レイヤーに覆われても操作可。
+describe("SlideEditView 選択枠経由の直接 drag (覆われても操作可)", () => {
+	it("上位レイヤーに覆われた選択 layer を、選択枠 pointerdown で直接 drag できる", () => {
+		const lower = makeImageLayer(1, "u-1", { transX: 50, transY: 30 });
+		const upper = makeImageLayer(2, "u-2"); // 配列末尾 = 前面 (u-1 を覆う)
+		seed([lower, upper]);
+		renderHost();
+		// 下位の u-1 を選択
+		act(() => useLayerStore.getState().setSelectedLayer(lower));
+		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
+		expect(frame).not.toBeNull();
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+
+		// 選択枠本体への pointerdown → ヒットテストせず u-1 を直接 drag (u-2 を選択しない)
+		dispatchPointer(frame!, "pointerdown", { clientX: 0, clientY: 0 });
+		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("u-1");
+		expect(frame!.dataset.gesturing).toBe("true");
+
+		dispatchPointer(stage!, "pointermove", { clientX: 40, clientY: 20 });
+		dispatchPointer(stage!, "pointerup", { clientX: 40, clientY: 20 });
+
+		// stageScale 0.5 → delta 80,40。u-1 のみ移動 (u-2 不変)
+		const u1 = useSlideStore.getState().slides[0].layers.find((l) => l.uuid === "u-1");
+		const u2 = useSlideStore.getState().slides[0].layers.find((l) => l.uuid === "u-2");
+		expect(u1?.transX).toBe(130);
+		expect(u1?.transY).toBe(70);
+		expect(u2?.transX).toBe(0);
+		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("u-1");
+	});
+
+	it("locked 選択 layer は選択枠 pointerdown でも drag せず、選択は維持 (解除しない)", () => {
+		const lower = makeImageLayer(1, "u-1", { transX: 50, transY: 30, locked: true });
+		seed([lower]);
+		renderHost();
+		act(() => useLayerStore.getState().setSelectedLayer(lower));
+		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		dispatchPointer(frame!, "pointerdown", { clientX: 0, clientY: 0 });
+		dispatchPointer(stage!, "pointermove", { clientX: 40, clientY: 20 });
+		dispatchPointer(stage!, "pointerup", { clientX: 40, clientY: 20 });
+		// 移動なし・履歴なし・選択維持
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(50);
+		expect(useHistoryStore.getState().past.length).toBe(0);
+		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("u-1");
 	});
 });

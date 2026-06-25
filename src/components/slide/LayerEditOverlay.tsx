@@ -102,9 +102,7 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 			setMeasured(null);
 			return;
 		}
-		const wrapper = stageRoot.querySelector<HTMLElement>(
-			`[data-layer-id="${selectedLayer.id}"]`,
-		);
+		const wrapper = stageRoot.querySelector<HTMLElement>(`[data-layer-id="${selectedLayer.id}"]`);
 		if (!wrapper) {
 			setMeasured(null);
 			return;
@@ -147,9 +145,7 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 	// transform: translate (visual center 合わせ) → rotate のみ。scale は frame サイズへ展開済み
 	const transform = `translate(${transX + offX}px, ${transY + offY}px) rotate(${rotation}deg)`;
 	const outlinePx =
-		stageScale > 0
-			? Math.max(OUTLINE_THICKNESS_PX / stageScale, 1)
-			: OUTLINE_THICKNESS_PX;
+		stageScale > 0 ? Math.max(OUTLINE_THICKNESS_PX / stageScale, 1) : OUTLINE_THICKNESS_PX;
 	// stage 全体が scale(stageScale) されているため、ハンドルの「画面上 px 固定」化に逆補正
 	const handlePx = stageScale > 0 ? HANDLE_SIZE_PX / stageScale : HANDLE_SIZE_PX;
 	const rotateGapPx = stageScale > 0 ? ROTATE_HANDLE_GAP_PX / stageScale : ROTATE_HANDLE_GAP_PX;
@@ -166,8 +162,14 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 		// outline: `${outlinePx}px solid rgba(255, 0, 0, 0.5)`,
 		outlineOffset: `-${outlinePx}px`,
 		boxSizing: "border-box",
-		// visual only: pointer events は親 (SlideEditView の useLayerGesture) で扱う
-		pointerEvents: "none",
+		// 操作面として pointer を捕捉する (legacy の最上位 AdjustView 相当)。
+		// オーバーレイは content より上に描画されるため、選択 layer が上位レイヤーに
+		// 覆われていても枠上の pointerdown で drag できる (吸われない)。
+		// 枠上の pointerdown は useLayerGesture が data-edit-selection-frame を見て
+		// 「選択 layer の直接 drag」に振り分ける (locked は drag 抑止)。
+		pointerEvents: "auto",
+		cursor: selectedLayer.locked ? "default" : "move",
+		touchAction: "none",
 	};
 
 	// legacy .slide.editable .anchor: 20x20, background-color のみ、border なし
@@ -210,8 +212,7 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 				data-edit-selection-frame
 				data-selected-layer-id={selectedLayer.id}
 				data-selected-layer-uuid={selectedLayer.uuid}
-				data-gesturing={useLive ? "true" : "false"}
-			>
+				data-gesturing={useLive ? "true" : "false"}>
 				{showHandles && (
 					<>
 						{ANCHORS.map((a) => (

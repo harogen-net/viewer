@@ -175,9 +175,17 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 		fontWeight: 600,
 		pointerEvents: "none",
 	};
-	// 内側 = 縮小後の slide 寸法ボックス
+	// 内側 = 縮小後の slide 寸法ボックス。
+	// 中央寄せは flex (justify/align center) ではなく absolute + translate(-50%,-50%) で行う。
+	// 理由: ズームインで stage が outer より大きくなると、flex の "unsafe center" 挙動で
+	// 開始端 (左上) 側のオーバーフローがクリップされ、中央が画面中央に保たれず
+	// 中央配置レイヤーが右下へ抜けて見切れる。translate 中央寄せは stage の中心を常に
+	// outer の中心へ固定し、overflow:hidden で左右対称にクリップするため倍率に依らず中央が残る。
 	const stageStyle: CSSProperties = {
-		position: "relative",
+		position: "absolute",
+		left: "50%",
+		top: "50%",
+		transform: "translate(-50%, -50%)",
 		width: displayW,
 		height: displayH,
 		boxShadow: "0 0 0 1px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.15)",

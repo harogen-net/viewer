@@ -124,7 +124,7 @@ const toSlideCoord = (
 	clientY: number,
 	stageLeft: number,
 	stageTop: number,
-	stageScale: number,
+	stageScale: number
 ): { x: number; y: number } => {
 	const s = stageScale > 0 ? stageScale : 1;
 	return {
@@ -194,7 +194,7 @@ const computeLive = (g: Gesture): LiveTransform => {
 export const useLayerGesture = (
 	slide: Slide,
 	stageScale: number,
-	stageRoot: HTMLElement | null,
+	stageRoot: HTMLElement | null
 ): UseLayerGesture => {
 	const setSelectedLayer = useLayerStore((s) => s.setSelectedLayer);
 	const { updateLayer } = useLayerMutation();
@@ -204,16 +204,14 @@ export const useLayerGesture = (
 		(
 			e: ReactPointerEvent<HTMLDivElement>,
 			mode: "resize" | "rotate",
-			anchor: ResizeAnchor | null,
+			anchor: ResizeAnchor | null
 		): boolean => {
 			const sel = useLayerStore.getState().selectedLayer;
 			if (!sel || sel.locked) return false;
 			const layer = slide.layers.find((l) => l.uuid === sel.uuid);
 			if (!layer) return false;
 			if (!stageRoot) return false;
-			const wrapper = stageRoot.querySelector<HTMLElement>(
-				`[data-layer-id="${layer.id}"]`,
-			);
+			const wrapper = stageRoot.querySelector<HTMLElement>(`[data-layer-id="${layer.id}"]`);
 			if (!wrapper) return false;
 			const contentW = wrapper.offsetWidth;
 			const contentH = wrapper.offsetHeight;
@@ -285,7 +283,39 @@ export const useLayerGesture = (
 			}
 			return true;
 		},
-		[slide, stageScale, stageRoot],
+		[slide, stageScale, stageRoot]
+	);
+
+	// 選択枠 (LayerEditOverlay の data-edit-selection-frame) 本体への pointerdown で、
+	// ヒットテストを介さず「現在の選択 layer」を直接ドラッグ開始する。
+	// legacy は操作用 AdjustView が常に最上位にあり、選択 layer が上位レイヤーに覆われても
+	// 移動/変形できた。新側もオーバーレイ枠を最上位の操作面にすることで同等にする。
+	const startDragSelected = useCallback(
+		(e: ReactPointerEvent<HTMLDivElement>): boolean => {
+			const sel = useLayerStore.getState().selectedLayer;
+			if (!sel) return false;
+			const layer = slide.layers.find((l) => l.uuid === sel.uuid);
+			if (!layer || layer.locked) return false;
+			e.preventDefault();
+			e.stopPropagation();
+			try {
+				e.currentTarget.setPointerCapture(e.pointerId);
+			} catch {
+				// ignore
+			}
+			setGesture({
+				kind: "drag",
+				uuid: layer.uuid,
+				pointerId: e.pointerId,
+				base: baseOf(layer),
+				startX: e.clientX,
+				startY: e.clientY,
+				dx: 0,
+				dy: 0,
+			});
+			return true;
+		},
+		[slide]
 	);
 
 	const startDragOrHitTest = useCallback(
@@ -327,7 +357,7 @@ export const useLayerGesture = (
 				dy: 0,
 			});
 		},
-		[slide, setSelectedLayer],
+		[slide, setSelectedLayer]
 	);
 
 	const onPointerDown = useCallback(
@@ -345,9 +375,16 @@ export const useLayerGesture = (
 			if (rotateEl) {
 				if (startResizeOrRotate(e, "rotate", null)) return;
 			}
+			// 選択枠本体 (anchor/rotate より後にチェック): 覆われていても選択 layer を直接 drag
+			const frameEl = target?.closest<HTMLElement>("[data-edit-selection-frame]") ?? null;
+			if (frameEl) {
+				if (startDragSelected(e)) return;
+				// locked 等で drag 開始しない場合も、枠上のクリックでは選択解除しない
+				return;
+			}
 			startDragOrHitTest(e);
 		},
-		[startResizeOrRotate, startDragOrHitTest],
+		[startResizeOrRotate, startDragSelected, startDragOrHitTest]
 	);
 
 	const onPointerMove = useCallback(
@@ -396,7 +433,7 @@ export const useLayerGesture = (
 				return { ...cur, angleDeltaDeg: deltaDeg, snap };
 			});
 		},
-		[stageScale],
+		[stageScale]
 	);
 
 	const onPointerEnd = useCallback(
@@ -423,7 +460,7 @@ export const useLayerGesture = (
 				rotation: finalLive.rotation,
 			});
 		},
-		[gesture, slide, updateLayer],
+		[gesture, slide, updateLayer]
 	);
 
 	const live = gesture ? computeLive(gesture) : null;
