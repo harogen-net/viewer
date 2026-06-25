@@ -121,3 +121,90 @@ describe("useShellKeyboard (v4 Group D D-8)", () => {
 		expect(useClipboardStore.getState().layer?.uuid).toBe("a");
 	});
 });
+
+describe("useShellKeyboard 拡充: undo / redo", () => {
+	it("Ctrl+Z で undo、Ctrl+Shift+Z で redo", () => {
+		act(() => dispatchKey("c"));
+		act(() => dispatchKey("v")); // 2 layers
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(2);
+		act(() => dispatchKey("z")); // undo
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
+		act(() => dispatchKey("z", { shiftKey: true })); // redo
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(2);
+	});
+
+	it("Ctrl+Y で redo", () => {
+		act(() => dispatchKey("c"));
+		act(() => dispatchKey("v"));
+		act(() => dispatchKey("z")); // undo → 1
+		act(() => dispatchKey("y")); // redo → 2
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(2);
+	});
+});
+
+describe("useShellKeyboard 拡充: カーソルキー移動", () => {
+	it("→ で transX +25 (フィールドのカーソル上下と同一差分)", () => {
+		act(() => dispatchKey("ArrowRight", { ctrlKey: false }));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(25);
+	});
+
+	it("← で transX -25", () => {
+		act(() => dispatchKey("ArrowLeft", { ctrlKey: false }));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(-25);
+	});
+
+	it("Shift+↓ で transY +100 (粗調整)", () => {
+		act(() => dispatchKey("ArrowDown", { ctrlKey: false, shiftKey: true }));
+		expect(useSlideStore.getState().slides[0].layers[0].transY).toBe(100);
+	});
+
+	it("連続移動で加算される (→→ で 50、selectedLayer 再同期確認)", () => {
+		act(() => dispatchKey("ArrowRight", { ctrlKey: false }));
+		act(() => dispatchKey("ArrowRight", { ctrlKey: false }));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(50);
+	});
+
+	it("locked レイヤーは移動しない", () => {
+		useLayerStore.getState().setSelectedLayer({ ...makeImageLayer(1, "a"), locked: true });
+		act(() => dispatchKey("ArrowRight", { ctrlKey: false }));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(0);
+	});
+
+	it("未選択では何もしない", () => {
+		useLayerStore.getState().setSelectedLayer(null);
+		act(() => dispatchKey("ArrowRight", { ctrlKey: false }));
+		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(0);
+	});
+});
+
+describe("useShellKeyboard 拡充: レイヤー並べ替え (z 順)", () => {
+	const seedTwo = (): void => {
+		useSlideStore
+			.getState()
+			.setSlides([makeSlide([makeImageLayer(1, "a"), makeImageLayer(2, "b")])]);
+		useSlideStore.getState().setSelectedIndex(0);
+		useLayerStore.getState().setSelectedLayer(makeImageLayer(1, "a")); // index 0
+	};
+
+	// 判定は e.key (文字) ベース。JIS 配列で e.code が US とずれても効くようにするため。
+	it("Ctrl+[ で 1 段前面へ (index 0 → 1)", () => {
+		seedTwo();
+		act(() => dispatchKey("["));
+		expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["b", "a"]);
+	});
+
+	it("Ctrl+] で 1 段背面へ (index 1 → 0)", () => {
+		seedTwo();
+		useLayerStore.getState().setSelectedLayer(makeImageLayer(2, "b")); // index 1
+		act(() => dispatchKey("]"));
+		expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["b", "a"]);
+	});
+
+	// 最前面/最背面 (Shift+[ ]) は Chrome タブ切替と衝突し阻止不可のため廃止。
+	// Shift+[ は { に化けるので単段操作にも一致せず、何も起きないことを確認。
+	it("Ctrl+Shift+[ ({) は何もしない (最前面ショートカット廃止)", () => {
+		seedTwo();
+		act(() => dispatchKey("{", { shiftKey: true }));
+		expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["a", "b"]);
+	});
+});
