@@ -13,6 +13,7 @@ import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useImageDimensionBackfill } from "../hooks/useImageLibraryMutation";
 import { useRectSyncConfig } from "../hooks/useLayerMutation";
+import { useBeforeUnloadGuard } from "../hooks/useBeforeUnloadGuard";
 import { useShellKeyboard } from "../hooks/useShellKeyboard";
 import { useSlideshowStore } from "../state/slideshowStore";
 import { useSlideStore } from "../state/slideStore";
@@ -195,26 +196,30 @@ const sidePaneStyle: CSSProperties = {
 	borderBottom: "1px solid #dee2e6",
 };
 
-export const AppShell: FC = () => (
-	<MantineProvider>
-		{isNewMode ? (
-			<>
-				<div style={newModeLayoutStyle}>
-					<div style={sidePaneStyle}>
-						<NewSidePanel />
+export const AppShell: FC = () => {
+	// 未保存変更があるとタブ閉じ/リロードを警告 (アプリ内置換は FileIOPanel 側で確認)。
+	useBeforeUnloadGuard();
+	return (
+		<MantineProvider>
+			{isNewMode ? (
+				<>
+					<div style={newModeLayoutStyle}>
+						<div style={sidePaneStyle}>
+							<NewSidePanel />
+						</div>
+						<EditArea />
 					</div>
-					<EditArea />
-				</div>
-				<Anchor href="/" style={modeSwitchLinkStyle} underline="never">
-					→ legacy
+					<Anchor href="/" style={modeSwitchLinkStyle} underline="never">
+						→ legacy
+					</Anchor>
+				</>
+			) : (
+				<Anchor href="/?new=1" style={modeSwitchLinkStyle} underline="never">
+					→ new (v3)
 				</Anchor>
-			</>
-		) : (
-			<Anchor href="/?new=1" style={modeSwitchLinkStyle} underline="never">
-				→ new (v3)
-			</Anchor>
-		)}
-		<ProgressBar />
-		<AlertHost />
-	</MantineProvider>
-);
+			)}
+			<ProgressBar />
+			<AlertHost />
+		</MantineProvider>
+	);
+};
