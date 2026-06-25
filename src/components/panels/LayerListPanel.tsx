@@ -1,3 +1,19 @@
+import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	SortableContext,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { ActionIcon, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
@@ -150,6 +166,30 @@ const LayerRow: FC<LayerRowProps> = ({
 	);
 };
 
+// LayerRow を dnd-kit/sortable でラップする薄いブリッジ。
+// listeners は行全体に付与 (PointerSensor distance:8 でクリック=選択/トグルと両立)。
+const SortableLayerRow: FC<LayerRowProps> = (props) => {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+		id: props.layer.uuid,
+	});
+	const style: CSSProperties = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.4 : 1,
+		touchAction: "none",
+	};
+	return (
+		<div
+			ref={setNodeRef}
+			style={style}
+			{...attributes}
+			{...listeners}
+			data-sortable-layer={props.layer.uuid}>
+			<LayerRow {...props} />
+		</div>
+	);
+};
+
 export const LayerListPanel: FC = () => {
 	const layers = useLayerStore((s) => s.layers);
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
@@ -172,6 +212,24 @@ export const LayerListPanel: FC = () => {
 	const hasSelection = layerIndex >= 0;
 	const isLocked = selectedLayer?.locked ?? false;
 	const canEditLayer = hasSelection && !isLocked;
+
+	// DnD sensors: PointerSensor は 8px 移動するまで click 扱い (= 行クリックで選択/トグルが成立)。
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+	);
+
+	// reversed 表示でドラッグするが、reorderLayer は実 index 直接でよい
+	// (reorderLayer は splice+splice の arrayMove 互換なので、from/to を実 index で渡せば
+	//  表示の入れ替えと一致する)。
+	const handleDragEnd = (event: DragEndEvent): void => {
+		const { active, over } = event;
+		if (!over || active.id === over.id) return;
+		const from = layers.findIndex((l) => l.uuid === active.id);
+		const to = layers.findIndex((l) => l.uuid === over.id);
+		if (from < 0 || to < 0) return;
+		layerMutation.reorderLayer(from, to);
+	};
 
 	return (
 		<Paper withBorder p="sm" radius="sm">
@@ -230,30 +288,39 @@ export const LayerListPanel: FC = () => {
 					</Text>
 				) : (
 					<ScrollArea type="auto" scrollbarSize={8} mah={240}>
-						<Stack gap={2} data-layer-count={layers.length}>
-							{reversed.map((layer, displayIdx) => {
-								// reversed 表示なので slide.layers 内の実 index は末尾からの距離。
-								const realIndex = layers.length - 1 - displayIdx;
-								return (
-									<LayerRow
-										key={layer.uuid}
-										layer={layer}
-										displayIndex={displayIdx + 1}
-										selected={selectedLayer?.uuid === layer.uuid}
-										onClick={() => setSelectedLayer(layer)}
-										onToggleVisible={() =>
-											layerMutation.updateLayer(realIndex, { visible: !layer.visible })
-										}
-										onToggleLocked={() =>
-											layerMutation.updateLayer(realIndex, { locked: !layer.locked })
-										}
-										onToggleShared={() =>
-											layerMutation.updateLayer(realIndex, { shared: !layer.shared })
-										}
-									/>
-								);
-							})}
-						</Stack>
+						<DndContext
+							sensors={sensors}
+							collisionDetection={closestCenter}
+							onDragEnd={handleDragEnd}>
+							<SortableContext
+								items={reversed.map((l) => l.uuid)}
+								strategy={verticalListSortingStrategy}>
+								<Stack gap={2} data-layer-count={layers.length}>
+									{reversed.map((layer, displayIdx) => {
+										// reversed 表示なので slide.layers 内の実 index は末尾からの距離。
+										const realIndex = layers.length - 1 - displayIdx;
+										return (
+											<SortableLayerRow
+												key={layer.uuid}
+												layer={layer}
+												displayIndex={displayIdx + 1}
+												selected={selectedLayer?.uuid === layer.uuid}
+												onClick={() => setSelectedLayer(layer)}
+												onToggleVisible={() =>
+													layerMutation.updateLayer(realIndex, { visible: !layer.visible })
+												}
+												onToggleLocked={() =>
+													layerMutation.updateLayer(realIndex, { locked: !layer.locked })
+												}
+												onToggleShared={() =>
+													layerMutation.updateLayer(realIndex, { shared: !layer.shared })
+												}
+											/>
+										);
+									})}
+								</Stack>
+							</SortableContext>
+						</DndContext>
 					</ScrollArea>
 				)}
 				<Text size="xs" c="dimmed" ff="monospace">

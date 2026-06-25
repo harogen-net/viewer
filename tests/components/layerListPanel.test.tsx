@@ -377,3 +377,20 @@ describe("LayerListPanel 行内トグル (v4 Group D D-19)", () => {
 		expect(useSlideStore.getState().slides[1].layers[0].visible).toBe(false); // 兄弟へ伝播
 	});
 });
+
+describe("LayerListPanel D&D 並べ替え", () => {
+	it("各行が data-sortable-layer 付きで反転表示順に描画される", () => {
+		seedSlide([
+			makeImageLayer(1, "first", "img-1"), // 背面 → 下
+			makeImageLayer(2, "mid", "img-2"),
+			makeImageLayer(3, "last", "img-3"), // 前面 → 上
+		]);
+		render();
+		const sortables = container.querySelectorAll<HTMLElement>("[data-sortable-layer]");
+		expect(sortables.length).toBe(3);
+		// 表示は反転: last → mid → first
+		expect(sortables[0].getAttribute("data-sortable-layer")).toBe("last");
+		expect(sortables[1].getAttribute("data-sortable-layer")).toBe("mid");
+		expect(sortables[2].getAttribute("data-sortable-layer")).toBe("first");
+	});
+});
