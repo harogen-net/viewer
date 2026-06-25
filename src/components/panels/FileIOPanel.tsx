@@ -47,6 +47,7 @@ export const FileIOPanel: FC = () => {
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
+	const modified = useViewerDocumentStore((s) => s.modified);
 	const openNewDocSettings = useDocSettingsStore((s) => s.openNew);
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
@@ -115,6 +116,29 @@ export const FileIOPanel: FC = () => {
 			}
 		})();
 	};
+
+	// 現在開いているドキュメントを保存時の状態へ戻す (再読み込み)。
+	// 同一 title を Select で選び直しても onChange が発火しないため、専用導線を用意。
+	const handleReload = wrap(async () => {
+		if (!meta) return;
+		const title = meta.title;
+		const confirmed = await alert.confirm(
+			`"${title}" を保存時の状態に戻します。未保存の変更は失われます。`,
+			{
+				okLabel: "元に戻す",
+				cancelLabel: "キャンセル",
+			}
+		);
+		if (!confirmed) return;
+		const doc = await loadByTitle(title);
+		if (doc) {
+			setDocument(doc);
+			setSelectedTitle(doc.title);
+			setMsg(`reloaded: ${doc.title}`);
+		} else {
+			setMsg(`data missing for title: ${title}`);
+		}
+	});
 
 	const handleSave = (override: boolean) =>
 		wrap(async () => {
@@ -203,6 +227,9 @@ export const FileIOPanel: FC = () => {
 	const hasSlides = slides.length > 0;
 	const hasEnabledSlide = slides.some((s) => !s.disabled);
 	const selectData = titles.map((t) => ({ value: t.title, label: t.title }));
+	// 再読み込み可否: 現在の document が保存済み (titles に存在) かつ未保存変更がある時のみ。
+	const currentSaved = !!meta && titles.some((t) => t.title === meta.title);
+	const canReload = currentSaved && modified;
 
 	// 保存ファイルの前後移動 (レガシー FileSelector の .fileSelect.up / .down 相当)。
 	// 一覧 (update 降順) を 1 件ずつ移動して即ロード。端ではボタン無効 (ラップしない)。
@@ -271,6 +298,16 @@ export const FileIOPanel: FC = () => {
 							</ActionIcon>
 						</Tooltip>
 					</Group>
+					<Tooltip label="保存時の状態に戻す (未保存の変更を破棄)" disabled={canReload}>
+						<Button
+							size="xs"
+							variant="default"
+							onClick={handleReload}
+							disabled={!canReload}
+							data-action="reload">
+							↺ 元に戻す
+						</Button>
+					</Tooltip>
 					<Button
 						size="xs"
 						variant="filled"

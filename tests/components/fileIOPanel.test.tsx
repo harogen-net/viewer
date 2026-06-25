@@ -200,3 +200,50 @@ describe("FileIOPanel 保存で未保存状態を解除", () => {
 		expect(s.meta?.title).toBe("saved-2026");
 	});
 });
+
+describe("FileIOPanel 再読み込み (元に戻す)", () => {
+	it("保存済み + 未保存変更ありで有効、確認 OK で同一 title を再ロード", async () => {
+		await render();
+		// 現在 document を保存済み title "A" (一覧に存在) + 未保存状態にする
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+		});
+		const btn = container.querySelector<HTMLButtonElement>('[data-action="reload"]');
+		expect(btn?.disabled).toBe(false);
+		click(btn);
+		expect(useAlertStore.getState().request?.kind).toBe("confirm");
+		await resolveAlert(true);
+		await act(async () => {});
+		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+	});
+
+	it("確認キャンセルでは再ロードしない", async () => {
+		await render();
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+		});
+		click(container.querySelector<HTMLButtonElement>('[data-action="reload"]'));
+		await resolveAlert(false);
+		expect(loadByTitleMock).not.toHaveBeenCalled();
+	});
+
+	it("未保存変更が無ければ無効", async () => {
+		await render();
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+		});
+		expect(container.querySelector<HTMLButtonElement>('[data-action="reload"]')?.disabled).toBe(
+			true
+		);
+	});
+
+	it("未保存でも保存されていない title なら無効 ((new) は一覧に無い)", async () => {
+		await render();
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("(new)"), modified: true });
+		});
+		expect(container.querySelector<HTMLButtonElement>('[data-action="reload"]')?.disabled).toBe(
+			true
+		);
+	});
+});
