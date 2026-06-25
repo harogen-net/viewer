@@ -1,9 +1,10 @@
-import type { CSSProperties, FC } from "react";
+import type { CSSProperties, FC, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useState } from "react";
 import { useDrop } from "../../hooks/useDrop";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useLayerGesture } from "../../hooks/useLayerGesture";
 import { useEditViewStore } from "../../state/editViewStore";
+import { useLayerStore } from "../../state/layerStore";
 import { LayerEditOverlay } from "./LayerEditOverlay";
 import { SlideView, type SlideViewProps } from "./SlideView";
 
@@ -100,6 +101,17 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 		},
 	});
 
+	// キャンバスエリア外 (slide stage の外側マージン) の pointerdown で選択解除。
+	// legacy EditableSlideView の obj.on("mousedown", () => selectLayerView(null)) 相当。
+	// stage 内の空白クリック解除は useLayerGesture が担当するため、ここでは
+	// 「outer の素地 (e.target === currentTarget) を直接クリックした時」だけ解除する
+	// (zoom バーや stage 上のクリックは対象外)。
+	const setSelectedLayer = useLayerStore((s) => s.setSelectedLayer);
+	const handleOuterPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+		if (e.button !== 0) return;
+		if (e.target === e.currentTarget) setSelectedLayer(null);
+	};
+
 	// 外側 = fit area いっぱい、中央配置 (zoom コントロール overlay の基準に position:relative)
 	const outerStyle: CSSProperties = {
 		position: "relative",
@@ -188,9 +200,15 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 			style={outerStyle}
 			data-slide-edit-area
 			ref={setOuterEl}
+			onPointerDown={handleOuterPointerDown}
 			onDragOver={dropProps.onDragOver}
 			onDragLeave={dropProps.onDragLeave}
 			onDrop={dropProps.onDrop}>
+			{/* 編集モード限定のレイヤー画像ドロップシャドウ (legacy `.slide.editable .layerWrapper > img`)。
+			    data-slide-edit-scaled 配下の image layer にのみ適用 = slideshow/thumb は影なし。 */}
+			<style data-slide-edit-style>
+				{`[data-slide-edit-scaled] [data-layer-type="image"] img { filter: drop-shadow(0 0 8px rgba(0, 0, 0, 1)); }`}
+			</style>
 			<div style={dropOverlayStyle} data-slide-drop-overlay>
 				ここにドロップして画像を追加
 			</div>

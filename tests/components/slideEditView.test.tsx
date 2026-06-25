@@ -2,6 +2,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SlideEditView } from "../../src/components/slide/SlideEditView";
+import { useLayerStore } from "../../src/state/layerStore";
+import type { ImageLayer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 
 // v4 Group D D-1: SlideEditView の smoke + fit-to-area scale 計算検証。
@@ -106,5 +108,66 @@ describe("SlideEditView ドラッグ&ドロップ (v4 Group D D-11)", () => {
 			area?.dispatchEvent(new Event("dragover", { bubbles: true, cancelable: true }));
 		});
 		expect(overlay?.style.display).toBe("flex");
+	});
+});
+
+const dummyImageLayer = (uuid: string): ImageLayer => ({
+	id: 1,
+	uuid,
+	name: "",
+	opacity: 1,
+	locked: false,
+	visible: true,
+	shared: false,
+	transX: 0,
+	transY: 0,
+	scaleX: 1,
+	scaleY: 1,
+	rotation: 0,
+	mirrorH: false,
+	mirrorV: false,
+	type: "image",
+	imageId: "img-a",
+	clipRect: [0, 0, 0, 0],
+	isText: false,
+});
+
+describe("SlideEditView レイヤードロップシャドウ (legacy .slide.editable img)", () => {
+	it("edit scaled 配下の image layer に drop-shadow を適用する style を注入", () => {
+		render(makeSlide(), 800, 600);
+		const style = container.querySelector("[data-slide-edit-style]");
+		expect(style).not.toBeNull();
+		expect(style?.textContent).toContain("drop-shadow");
+		// slideshow/thumb に漏れないよう edit scaled にスコープされている
+		expect(style?.textContent).toContain("[data-slide-edit-scaled]");
+		expect(style?.textContent).toContain('[data-layer-type="image"]');
+	});
+});
+
+describe("SlideEditView 領域外クリックで選択解除", () => {
+	afterEach(() => {
+		useLayerStore.getState().setSelectedLayer(null);
+	});
+
+	it("キャンバスエリア素地 (outer) の pointerdown で選択解除", () => {
+		useLayerStore.getState().setSelectedLayer(dummyImageLayer("sel"));
+		render(makeSlide(), 800, 600);
+		const area = container.querySelector<HTMLElement>("[data-slide-edit-area]");
+		expect(useLayerStore.getState().selectedLayer).not.toBeNull();
+		act(() => {
+			area?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+		});
+		expect(useLayerStore.getState().selectedLayer).toBeNull();
+	});
+
+	it("子要素 (stage) クリックでは outer ハンドラで解除しない (target≠currentTarget)", () => {
+		useLayerStore.getState().setSelectedLayer(dummyImageLayer("sel"));
+		render(makeSlide(), 800, 600);
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
+		act(() => {
+			stage?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+		});
+		// outer の素地ではないので解除されない (stage 内の空白解除は useLayerGesture の担当)
+		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("sel");
 	});
 });
