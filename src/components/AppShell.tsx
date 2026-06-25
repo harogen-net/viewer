@@ -7,6 +7,7 @@ import { useShellKeyboard } from "../hooks/useShellKeyboard";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
+import { EditToolbar } from "./panels/EditToolbar";
 import { FileIOPanel } from "./panels/FileIOPanel";
 import { ImageLibraryPanel } from "./panels/ImageLibraryPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
@@ -112,6 +113,20 @@ const EditArea: FC = () => {
 		display: "flex",
 		flexDirection: "row",
 	};
+	// 左カラム = 上部ツールバー + canvas (縦積み)。canvas のみ ResizeObserver 計測対象。
+	const editMainStyle: CSSProperties = {
+		flex: 1,
+		minWidth: 0,
+		minHeight: 0,
+		display: "flex",
+		flexDirection: "column",
+	};
+	const toolbarRowStyle: CSSProperties = {
+		flex: "0 0 auto",
+		padding: 6,
+		borderBottom: "1px solid #dee2e6",
+		background: "#fff",
+	};
 	const stageStyle: CSSProperties = {
 		flex: 1,
 		minWidth: 0,
@@ -130,21 +145,27 @@ const EditArea: FC = () => {
 
 	return (
 		<div style={editAreaStyle} data-edit-area>
-			<div ref={stageRef} style={stageStyle} data-edit-stage-area>
-				{slide && size.w > 0 && size.h > 0 ? (
-					<SlideEditView
-						slide={slide}
-						bgColor={meta?.bgColor}
-						fitAreaWidth={size.w}
-						fitAreaHeight={size.h}
-					/>
-				) : (
-					<Box p="lg">
-						<Text size="sm" c="dimmed">
-							{slide ? "..." : "編集対象の slide を一覧から選択してください"}
-						</Text>
-					</Box>
-				)}
+			<div style={editMainStyle}>
+				{/* アプリ一般の編集操作 (undo/redo・テキスト追加・rectEdit) ツールバー */}
+				<div style={toolbarRowStyle}>
+					<EditToolbar />
+				</div>
+				<div ref={stageRef} style={stageStyle} data-edit-stage-area>
+					{slide && size.w > 0 && size.h > 0 ? (
+						<SlideEditView
+							slide={slide}
+							bgColor={meta?.bgColor}
+							fitAreaWidth={size.w}
+							fitAreaHeight={size.h}
+						/>
+					) : (
+						<Box p="lg">
+							<Text size="sm" c="dimmed">
+								{slide ? "..." : "編集対象の slide を一覧から選択してください"}
+							</Text>
+						</Box>
+					)}
+				</div>
 			</div>
 			<aside style={sideRailStyle} data-edit-side-rail>
 				<Stack gap="sm">

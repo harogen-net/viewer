@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Button,
 	Group,
 	Paper,
 	Slider,
@@ -15,8 +14,6 @@ import { useRef } from "react";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
-import { useEditViewStore } from "../../state/editViewStore";
-import { useHistoryStore } from "../../state/historyStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
 import type { LayerBase } from "../../types/Layer";
@@ -58,17 +55,11 @@ import { NumberAdjustInput } from "../common/NumberAdjustInput";
 // (LayerListPanel と異なり、こちらは index を直接 prop で受け取らないので毎回 findIndex する)
 
 export const EditOpsPanel: FC = () => {
-	const { undo, redo, applySlideChangeLive, recordHistory, snapshot } = useDocumentMutation();
+	// 選択中レイヤーの編集専用パネル。
+	// undo/redo・テキスト追加・rectEdit トグル等のアプリ一般操作は EditToolbar へ分離した。
+	const { applySlideChangeLive, recordHistory, snapshot } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
-	const past = useHistoryStore((s) => s.past);
-	const future = useHistoryStore((s) => s.future);
-	const canUndo = past.length > 0;
-	const canRedo = future.length > 0;
-	const lastLabel = past.length > 0 ? past[past.length - 1].label : null;
-
-	const rectEdit = useEditViewStore((s) => s.rectEdit);
-	const toggleRectEdit = useEditViewStore((s) => s.toggleRectEdit);
 
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
@@ -81,20 +72,6 @@ export const EditOpsPanel: FC = () => {
 	const hasSelection = layerIndex >= 0;
 	const isLocked = selectedLayer?.locked ?? false;
 	const canEditLayer = hasSelection && !isLocked;
-
-	// テキストレイヤー追加 (D-9、legacy `.text` 基準):
-	// まず prompt で初期テキストを受け付ける (legacy: new TextLayer(prompt(...)))。
-	// cancel (null) 時は追加しない。追加後は当該 layer を選択し、textarea で続けて編集可。
-	const handleAddText = () => {
-		if (!selectedSlide) return;
-		const input = window.prompt("テキストを入力:", "");
-		// cancel (null) または空文字サブミットは追加しない
-		if (input === null || input === "") return;
-		layer.addTextLayer(input, selectedSlide.width, selectedSlide.height);
-		const updated = useSlideStore.getState().slides[selectedSlideIndex];
-		const added = updated?.layers[updated.layers.length - 1];
-		if (added) useLayerStore.getState().setSelectedLayer(added);
-	};
 
 	// spread (§7、legacy spreadLayers): 選択 layer を前後の連続スライドへ展開し shared 化。
 	// legacy 同様 confirm を挟む (破壊的に複数スライドへ clone 追加するため)。
@@ -245,34 +222,7 @@ export const EditOpsPanel: FC = () => {
 	return (
 		<Paper withBorder p="sm" radius="sm">
 			<Stack gap="xs">
-				<Title order={5}>Edit Ops</Title>
-
-				{/* Undo / Redo */}
-				<Group gap={4}>
-					<Tooltip label={canUndo && lastLabel ? `Undo: ${lastLabel}` : "Undo"}>
-						<ActionIcon
-							variant="default"
-							onClick={undo}
-							disabled={!canUndo}
-							data-edit-op="undo"
-							aria-label="undo">
-							↶
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="Redo">
-						<ActionIcon
-							variant="default"
-							onClick={redo}
-							disabled={!canRedo}
-							data-edit-op="redo"
-							aria-label="redo">
-							↷
-						</ActionIcon>
-					</Tooltip>
-					<Text size="xs" c="dimmed" ff="monospace">
-						{past.length} / {past.length + future.length}
-					</Text>
-				</Group>
+				<Title order={5}>Layer Ops</Title>
 
 				{/* 複製 / 削除 */}
 				<Group gap={4}>
@@ -307,64 +257,11 @@ export const EditOpsPanel: FC = () => {
 							⇉
 						</ActionIcon>
 					</Tooltip>
-					<Tooltip label="矩形連動編集 (rectEdit): 同じ位置・サイズの画像をまとめて変形">
-						<ActionIcon
-							variant={rectEdit ? "filled" : "default"}
-							color={rectEdit ? "blue" : undefined}
-							onClick={toggleRectEdit}
-							data-edit-op="toggle-rect-edit"
-							data-active={rectEdit ? "true" : "false"}
-							aria-label="toggle rect edit"
-							aria-pressed={rectEdit}>
-							▦
-						</ActionIcon>
-					</Tooltip>
 				</Group>
 
-				{/* レイヤー追加 (D-9 テキスト) */}
+				{/* 変形 (形状) コピー / 貼付 (D-8)。レイヤー間の transform 複写は選択レイヤー操作なので
+				    EditOpsPanel に残す。汎用 clipboard (copy/cut/paste) は EditToolbar へ移設。 */}
 				<Group gap={4}>
-					<Button
-						size="xs"
-						variant="default"
-						onClick={handleAddText}
-						disabled={!selectedSlide}
-						data-edit-op="add-text">
-						＋ テキスト
-					</Button>
-				</Group>
-
-				{/* clipboard: コピー / カット / ペースト + 変形コピー/貼付 (D-8) */}
-				<Group gap={4}>
-					<Tooltip label="コピー (Ctrl+C)">
-						<ActionIcon
-							variant="default"
-							onClick={clipboard.copy}
-							disabled={!hasSelection}
-							data-edit-op="copy"
-							aria-label="copy">
-							⧉
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="カット (Ctrl+X)">
-						<ActionIcon
-							variant="default"
-							onClick={clipboard.cut}
-							disabled={!canEditLayer}
-							data-edit-op="cut"
-							aria-label="cut">
-							✂
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="ペースト (Ctrl+V)">
-						<ActionIcon
-							variant="default"
-							onClick={clipboard.paste}
-							disabled={!clipboard.canPaste}
-							data-edit-op="paste"
-							aria-label="paste">
-							📋
-						</ActionIcon>
-					</Tooltip>
 					<Tooltip label="変形情報コピー">
 						<ActionIcon
 							variant="default"

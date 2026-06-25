@@ -4,7 +4,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EditOpsPanel } from "../../src/components/panels/EditOpsPanel";
 import { useClipboardStore } from "../../src/state/clipboardStore";
-import { useEditViewStore } from "../../src/state/editViewStore";
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
@@ -289,36 +288,7 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		expect(useLayerStore.getState().selectedLayer).toBeNull();
 	});
 
-	it("undo / redo: 初期は両方 disabled", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(
-			true
-		);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(
-			true
-		);
-	});
-
-	it("操作後 undo が有効、押すと巻き戻る、redo が有効化", () => {
-		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
-		render();
-		selectLayer("u-1");
-		clickByOp("rotate-right");
-		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
-		// undo
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="undo"]')?.disabled).toBe(
-			false
-		);
-		clickByOp("undo");
-		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
-		// redo
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="redo"]')?.disabled).toBe(
-			false
-		);
-		clickByOp("redo");
-		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
-	});
+	// undo / redo / 履歴カウンタ は EditToolbar へ移設 (tests/components/editToolbar.test.tsx)。
 
 	it("opacity スライダーで透明度が更新される", () => {
 		seedSlide([makeImageLayer(1, "u-1", { opacity: 1 })]);
@@ -330,18 +300,6 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		// Slider の onChange を直接呼ぶのが難しいので、render 表示の % 値を確認 → 値変更は別経路。
 		// 代わりに表示値を確認 + slider の value 属性チェック
 		expect(container.textContent).toContain("100%");
-	});
-
-	it("履歴カウンタ表示: 1 / 1 (1 件 past, 0 件 future) など", () => {
-		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
-		render();
-		selectLayer("u-1");
-		clickByOp("rotate-right");
-		// past = 1, future = 0 → "1 / 1"
-		expect(container.textContent).toContain("1 / 1");
-		clickByOp("undo");
-		// past = 0, future = 1 → "0 / 1"
-		expect(container.textContent).toContain("0 / 1");
 	});
 });
 
@@ -466,41 +424,19 @@ describe("EditOpsPanel (v4 Group D D-6b) - clipRect", () => {
 	});
 });
 
-describe("EditOpsPanel clipboard ボタン (v4 Group D D-8)", () => {
-	it("選択なしでは copy/cut/copy-transform が disabled、paste/paste-transform も disabled", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="copy"]')?.disabled).toBe(
-			true
-		);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="cut"]')?.disabled).toBe(true);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(
-			true
-		);
-	});
+describe("EditOpsPanel 形状 (変形) clipboard ボタン (v4 Group D D-8)", () => {
+	// 汎用 clipboard (copy/cut/paste) は EditToolbar へ移設 (editToolbar.test.tsx)。
+	// 本 describe は選択レイヤーに残した「変形コピー/貼付」のみ扱う。
 
-	it("copy ボタンで clipboard に積まれ paste が有効化される", () => {
+	it("選択なしでは copy-transform / paste-transform が disabled", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
-		selectLayer("u-1");
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(
-			true
-		);
-		clickByOp("copy");
-		expect(useClipboardStore.getState().layer?.uuid).toBe("u-1");
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="paste"]')?.disabled).toBe(
-			false
-		);
-	});
-
-	it("copy → paste ボタンで layer が複製される (履歴 1 件)", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		selectLayer("u-1");
-		clickByOp("copy");
-		clickByOp("paste");
-		expect(useSlideStore.getState().slides[0].layers).toHaveLength(2);
-		expect(useHistoryStore.getState().past.length).toBe(1);
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="copy-transform"]')?.disabled
+		).toBe(true);
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="paste-transform"]')?.disabled
+		).toBe(true);
 	});
 
 	it("copy-transform → paste-transform ボタンで変形が複写される", () => {
@@ -519,60 +455,9 @@ describe("EditOpsPanel clipboard ボタン (v4 Group D D-8)", () => {
 	});
 });
 
-describe("EditOpsPanel テキスト (v4 Group D D-9)", () => {
-	it("slide 選択中なら add-text ボタンが有効", () => {
-		seedSlide([]);
-		render();
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="add-text"]')?.disabled).toBe(
-			false
-		);
-	});
-
-	it("add-text: prompt の入力テキストで追加され選択される (legacy 基準)", () => {
-		const orig = window.prompt;
-		window.prompt = () => "hello";
-		try {
-			seedSlide([]);
-			render();
-			clickByOp("add-text");
-			const layers = useSlideStore.getState().slides[0].layers;
-			expect(layers).toHaveLength(1);
-			expect(layers[0].type).toBe("text");
-			expect((layers[0] as { text: string }).text).toBe("hello");
-			expect(useLayerStore.getState().selectedLayer?.uuid).toBe(layers[0].uuid);
-			expect(useHistoryStore.getState().past.length).toBe(1);
-		} finally {
-			window.prompt = orig;
-		}
-	});
-
-	it("add-text: prompt キャンセル (null) では追加しない", () => {
-		const orig = window.prompt;
-		window.prompt = () => null;
-		try {
-			seedSlide([]);
-			render();
-			clickByOp("add-text");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-			expect(useHistoryStore.getState().past.length).toBe(0);
-		} finally {
-			window.prompt = orig;
-		}
-	});
-
-	it("add-text: 空文字サブミットでは追加しない", () => {
-		const orig = window.prompt;
-		window.prompt = () => "";
-		try {
-			seedSlide([]);
-			render();
-			clickByOp("add-text");
-			expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-			expect(useHistoryStore.getState().past.length).toBe(0);
-		} finally {
-			window.prompt = orig;
-		}
-	});
+describe("EditOpsPanel テキスト編集 (v4 Group D D-9)", () => {
+	// add-text (テキストレイヤー追加) は EditToolbar へ移設 (editToolbar.test.tsx)。
+	// 本 describe は選択中 TextLayer の textarea 編集 (= 選択レイヤー UI) のみ扱う。
 
 	it("textarea は TextLayer 選択時のみ表示 (ImageLayer では非表示)", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
@@ -606,9 +491,10 @@ describe("EditOpsPanel テキスト (v4 Group D D-9)", () => {
 		act(() => ta.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
 		expect((useSlideStore.getState().slides[0].layers[0] as { text: string }).text).toBe("after");
 		expect(useHistoryStore.getState().past.length).toBe(1);
-		// undo で開始テキストへ戻る (編集セッション全体で 1 undo)
-		clickByOp("undo");
-		expect((useSlideStore.getState().slides[0].layers[0] as { text: string }).text).toBe("before");
+		// 記録された before スナップショットが開始テキストを保持 (= undo で巻き戻せる)。
+		// undo 機構そのものは EditToolbar 側でテスト。
+		const before = useHistoryStore.getState().past[0].before;
+		expect((before.slides[0].layers[0] as { text: string }).text).toBe("before");
 	});
 
 	it("blur 時に開始テキストと同じなら history を積まない", () => {
@@ -680,8 +566,8 @@ describe("EditOpsPanel 数値プロパティ入力 (v4 Group D D-10, §12)", () 
 		act(() => el.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
 		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(10); // 5° × 2
 		expect(useHistoryStore.getState().past.length).toBe(1);
-		clickByOp("undo");
-		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
+		// 記録された before が開始 rotation=0 を保持 (= undo で巻き戻せる)。undo 機構は EditToolbar 側でテスト。
+		expect(useHistoryStore.getState().past[0].before.slides[0].layers[0].rotation).toBe(0);
 	});
 
 	it("位置 X は Shift+↑ で -100 (=shiftStep×invert)、rotation は Shift 無効 (5)", () => {
@@ -715,31 +601,4 @@ describe("EditOpsPanel 数値プロパティ入力 (v4 Group D D-10, §12)", () 
 	});
 });
 
-describe("EditOpsPanel rectEdit トグル (v4 Group D D-18)", () => {
-	afterEach(() => {
-		useEditViewStore.getState().setRectEdit(false);
-	});
-
-	it("トグルボタンで editViewStore.rectEdit が反転し、active 表示が切り替わる", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		const btn = () =>
-			container.querySelector<HTMLButtonElement>('[data-edit-op="toggle-rect-edit"]');
-		expect(useEditViewStore.getState().rectEdit).toBe(false);
-		expect(btn()?.getAttribute("data-active")).toBe("false");
-		clickByOp("toggle-rect-edit");
-		expect(useEditViewStore.getState().rectEdit).toBe(true);
-		expect(btn()?.getAttribute("data-active")).toBe("true");
-		clickByOp("toggle-rect-edit");
-		expect(useEditViewStore.getState().rectEdit).toBe(false);
-	});
-
-	it("選択 layer が無くてもトグルは操作できる (グローバルモード)", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		// 未選択でも disabled でない
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="toggle-rect-edit"]')?.disabled
-		).toBeFalsy();
-	});
-});
+// rectEdit トグル / add-text / undo-redo は EditToolbar へ移設 (editToolbar.test.tsx)。
