@@ -580,7 +580,7 @@ export const EditOpsPanel: FC = () => {
 									disabled={!canEditLayer || row.max <= 0}
 									min={0}
 									max={Math.max(row.max, 1)}
-									step={25}
+									step={1}
 									label={null}
 									data-edit-op={`clip-${row.key}`}
 									style={{ flex: 1 }}
