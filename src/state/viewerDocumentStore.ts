@@ -14,6 +14,8 @@ interface ViewerDocumentState {
 	progress: number | null;
 	setDocument: (doc: ViewerDocument | null) => void;
 	setModified: (modified: boolean) => void;
+	/** 保存完了をマーク: meta.title を保存名へ同期し modified を false に戻す (履歴/slides は触らない)。 */
+	markSaved: (title: string) => void;
 	setProgress: (progress: number | null) => void;
 }
 
@@ -37,5 +39,7 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 		}
 	},
 	setModified: (modified) => set({ modified }),
+	markSaved: (title) =>
+		set((s) => (s.meta ? { meta: { ...s.meta, title }, modified: false } : { modified: false })),
 	setProgress: (progress) => set({ progress }),
 }));

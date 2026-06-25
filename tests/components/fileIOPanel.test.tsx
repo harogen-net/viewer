@@ -38,10 +38,26 @@ vi.mock("../../src/hooks/useFileIO", () => ({ useFileIO: () => noopFileIO }));
 import { FileIOPanel } from "../../src/components/panels/FileIOPanel";
 import { AlertHost } from "../../src/components/common/AlertHost";
 import { useAlertStore } from "../../src/state/alertStore";
+import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
+import type { Slide } from "../../src/types/Slide";
 import { createNewViewerDocument } from "../../src/utils/viewerDocumentFactory";
 
 const makeDoc = (title: string) => ({ ...createNewViewerDocument(), title });
+const makeMeta = (title: string) => {
+	const { slides: _s, ...meta } = makeDoc(title);
+	return meta;
+};
+const makeSlide = (): Slide => ({
+	id: 1,
+	uuid: "s1",
+	width: 800,
+	height: 600,
+	durationRatio: 1,
+	joining: true,
+	disabled: false,
+	layers: [],
+});
 
 let container: HTMLDivElement;
 let root: Root;
@@ -85,8 +101,10 @@ beforeEach(() => {
 		{ id: 3, title: "C", update: 1 },
 	]);
 	loadByTitleMock.mockImplementation(async (title: string) => makeDoc(title));
+	saveMock.mockResolvedValue({ title: "saved-2026" });
 	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
+	useSlideStore.getState().setSlides([]);
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -160,5 +178,25 @@ describe("FileIOPanel 未保存ガード", () => {
 		await act(async () => {});
 		expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
 		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+	});
+});
+
+describe("FileIOPanel 保存で未保存状態を解除", () => {
+	const seedEditedDoc = (): void => {
+		act(() => {
+			useSlideStore.getState().setSlides([makeSlide()]);
+			useViewerDocumentStore.setState({ meta: makeMeta("(new)"), modified: true });
+		});
+	};
+
+	it("保存 (新規) 後に modified=false へ戻り、meta.title が保存名に同期される", async () => {
+		await render();
+		seedEditedDoc();
+		click(container.querySelector<HTMLButtonElement>('[data-action="save-new"]'));
+		await act(async () => {});
+		expect(saveMock).toHaveBeenCalled();
+		const s = useViewerDocumentStore.getState();
+		expect(s.modified).toBe(false);
+		expect(s.meta?.title).toBe("saved-2026");
 	});
 });

@@ -45,6 +45,7 @@ export const FileIOPanel: FC = () => {
 	const { exportHvd, exportHvz, exportPng, importFile, exportSlidePng, exportAllSlidesZip } =
 		useFileIO();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
+	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
@@ -122,6 +123,9 @@ export const FileIOPanel: FC = () => {
 			}
 			const doc: ViewerDocument = { ...meta, slides };
 			const { title } = await save(doc, { override });
+			// 保存名を meta へ同期し modified を解除 (beforeunload / 未保存ガードの誤発火を防ぐ。
+			// override 時は同名、新規時は採番された日付 title を反映 → 直後の上書きが正しい対象になる)。
+			markSaved(title);
 			setMsg(`saved as: ${title}`);
 			await refreshTitles();
 		});
@@ -271,7 +275,8 @@ export const FileIOPanel: FC = () => {
 						variant="filled"
 						color="blue"
 						onClick={handleSave(false)}
-						disabled={!hasSlides}>
+						disabled={!hasSlides}
+						data-action="save-new">
 						💾 保存 (新規)
 					</Button>
 					<Tooltip label="現在の document に上書き" disabled={canOverride}>
@@ -280,7 +285,8 @@ export const FileIOPanel: FC = () => {
 							variant="filled"
 							color="blue"
 							onClick={handleSave(true)}
-							disabled={!canOverride || !hasSlides}>
+							disabled={!canOverride || !hasSlides}
+							data-action="save-override">
 							💾 上書き
 						</Button>
 					</Tooltip>
