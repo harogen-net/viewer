@@ -15,10 +15,12 @@ import { useImageDimensionBackfill } from "../hooks/useImageLibraryMutation";
 import { useRectSyncConfig } from "../hooks/useLayerMutation";
 import { useBeforeUnloadGuard } from "../hooks/useBeforeUnloadGuard";
 import { useShellKeyboard } from "../hooks/useShellKeyboard";
+import { useDocSettingsStore } from "../state/docSettingsStore";
 import { useSlideshowStore } from "../state/slideshowStore";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { AlertHost } from "./common/AlertHost";
+import { DocumentSettingsModal } from "./panels/DocumentSettingsModal";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { EditToolbar } from "./panels/EditToolbar";
 import { FileIOPanel } from "./panels/FileIOPanel";
@@ -53,6 +55,7 @@ const modeSwitchLinkStyle: CSSProperties = {
 
 const NewSidePanel: FC = () => {
 	const [showImageLibrary, setShowImageLibrary] = useState(false);
+	const openDocSettings = useDocSettingsStore((s) => s.openEdit);
 	const slideshowRunning = useSlideshowStore((s) => s.running);
 	const stopSlideshow = useSlideshowStore((s) => s.stop);
 	// ロード済み画像の自然寸法を backfill (D-14、rectEdit の矩形一致判定の基盤)。
@@ -77,11 +80,15 @@ const NewSidePanel: FC = () => {
 							data-open-image-library>
 							🖼 画像ライブラリ
 						</Button>
+						<Button variant="default" onClick={openDocSettings} data-open-doc-settings>
+							⚙ ドキュメント設定
+						</Button>
 					</Group>
 				</Stack>
 			</Box>
 			<SlideshowShell open={slideshowRunning} onClose={stopSlideshow} />
 			<ImageLibraryPanel opened={showImageLibrary} onClose={() => setShowImageLibrary(false)} />
+			<DocumentSettingsModal />
 		</>
 	);
 };

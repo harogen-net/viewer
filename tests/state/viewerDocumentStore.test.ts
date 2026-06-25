@@ -30,3 +30,32 @@ describe("viewerDocumentStore.markSaved", () => {
 		expect(s.modified).toBe(false);
 	});
 });
+
+describe("viewerDocumentStore.patchMeta", () => {
+	it("meta の一部を更新し modified=true にする", () => {
+		useViewerDocumentStore.setState({ meta: makeMeta("(new)"), modified: false });
+		useViewerDocumentStore.getState().patchMeta({ title: "my-doc", bgColor: "#112233" });
+		const s = useViewerDocumentStore.getState();
+		expect(s.meta?.title).toBe("my-doc");
+		expect(s.meta?.bgColor).toBe("#112233");
+		expect(s.modified).toBe(true);
+	});
+
+	it("既存フィールドは保持される (部分更新)", () => {
+		useViewerDocumentStore.setState({ meta: makeMeta("keep"), modified: false });
+		const beforeWidth = useViewerDocumentStore.getState().meta?.width;
+		useViewerDocumentStore.getState().patchMeta({ isSensitive: true });
+		const s = useViewerDocumentStore.getState();
+		expect(s.meta?.title).toBe("keep");
+		expect(s.meta?.width).toBe(beforeWidth);
+		expect(s.meta?.isSensitive).toBe(true);
+	});
+
+	it("meta が null なら何もしない", () => {
+		useViewerDocumentStore.setState({ meta: null, modified: false });
+		useViewerDocumentStore.getState().patchMeta({ title: "x" });
+		const s = useViewerDocumentStore.getState();
+		expect(s.meta).toBeNull();
+		expect(s.modified).toBe(false);
+	});
+});

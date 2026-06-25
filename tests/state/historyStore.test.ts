@@ -109,4 +109,48 @@ describe("historyStore (v4 Group C)", () => {
 		expect(s.past[0].label).toBe("op50"); // 先頭 50 件が削られた
 		expect(s.past[199].label).toBe("op249");
 	});
+
+	describe("remapSlideSizes (キャンバスサイズ履歴外対応)", () => {
+		const stateWithSlide = (w: number, h: number): SlideState => ({
+			slides: [
+				{
+					id: 1,
+					uuid: "a",
+					width: w,
+					height: h,
+					durationRatio: 1,
+					joining: true,
+					disabled: false,
+					layers: [],
+				},
+			],
+			selectedIndex: 0,
+		});
+		const entry800 = (label: string): HistoryEntry => ({
+			label,
+			before: stateWithSlide(800, 600),
+			after: stateWithSlide(800, 600),
+		});
+
+		it("past / future 全 snapshot の slide サイズを新値へ書き換える", () => {
+			useHistoryStore.getState().push(entry800("a"));
+			useHistoryStore.getState().push(entry800("b"));
+			useHistoryStore.getState().popUndo(); // b を future へ (past=[a], future=[b])
+			useHistoryStore.getState().remapSlideSizes(1920, 1080);
+			const s = useHistoryStore.getState();
+			const sizes = [
+				...s.past.flatMap((e) => [e.before.slides[0], e.after.slides[0]]),
+				...s.future.flatMap((e) => [e.before.slides[0], e.after.slides[0]]),
+			].map((sl) => [sl.width, sl.height]);
+			expect(sizes.every(([w, h]) => w === 1920 && h === 1080)).toBe(true);
+		});
+
+		it("selectedIndex / layers は不変", () => {
+			useHistoryStore.getState().push(entry800("a"));
+			useHistoryStore.getState().remapSlideSizes(1024, 768);
+			const e = useHistoryStore.getState().past[0];
+			expect(e.before.selectedIndex).toBe(0);
+			expect(e.before.slides[0].layers).toEqual([]);
+		});
+	});
 });

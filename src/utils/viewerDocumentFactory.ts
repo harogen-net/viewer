@@ -25,6 +25,7 @@ function detectDisplaySize(): { width: number; height: number } {
  * 新規 ViewerDocument を生成する。
  * - title: "(new)"
  * - width/height: 実行環境のディスプレイ landscape 寸法
+ * - bgColor: 白 (#ffffff)。SlideView は bgColor 未指定時に白で描画するため、その既定と一致させる。
  * - createTime/editTime: 引数 now (省略時は Date.now())
  * - slides: 空配列
  */
@@ -34,6 +35,7 @@ export function createNewViewerDocument(now: number = Date.now()): ViewerDocumen
 		title: "(new)",
 		width,
 		height,
+		bgColor: "#ffffff",
 		createTime: now,
 		editTime: now,
 		slides: [],

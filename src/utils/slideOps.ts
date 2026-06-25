@@ -70,6 +70,22 @@ export const addImageSlide = (
 	return { slides: next, selectedIndex: next.length - 1 };
 };
 
+/**
+ * 全 slide の width/height を doc キャンバスサイズへ揃える (SSOT 再注入、D 補間)。
+ * レイヤーの transX/transY 等は変更しない (キャンバス枠のみリサイズ)。
+ * 変化なし (全 slide が既に同寸 / slide 0 枚) は null。
+ */
+export const resizeAllSlides = (
+	state: SlideState,
+	width: number,
+	height: number
+): SlideState | null => {
+	if (state.slides.length === 0) return null;
+	if (state.slides.every((s) => s.width === width && s.height === height)) return null;
+	const slides = state.slides.map((s) => ({ ...s, width, height }));
+	return { ...state, slides };
+};
+
 /** index の slide を削除。範囲外は null。選択中 slide 消失時は同 index の次 (無ければ前)。 */
 export const deleteSlide = (state: SlideState, index: number): SlideState | null => {
 	const { slides, selectedIndex } = state;

@@ -16,6 +16,9 @@ interface ViewerDocumentState {
 	setModified: (modified: boolean) => void;
 	/** 保存完了をマーク: meta.title を保存名へ同期し modified を false に戻す (履歴/slides は触らない)。 */
 	markSaved: (title: string) => void;
+	/** meta の一部を更新し modified=true にする (title / bgColor / width など document 設定の編集用)。
+	 *  履歴/slides は触らない。width/height は SSOT なので別途 slide へ再注入すること。 */
+	patchMeta: (patch: Partial<DocumentMeta>) => void;
 	setProgress: (progress: number | null) => void;
 }
 
@@ -41,5 +44,7 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 	setModified: (modified) => set({ modified }),
 	markSaved: (title) =>
 		set((s) => (s.meta ? { meta: { ...s.meta, title }, modified: false } : { modified: false })),
+	patchMeta: (patch) =>
+		set((s) => (s.meta ? { meta: { ...s.meta, ...patch }, modified: true } : {})),
 	setProgress: (progress) => set({ progress }),
 }));

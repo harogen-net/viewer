@@ -14,12 +14,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useFileIO } from "../../hooks/useFileIO";
 import { useStorage, type StoredSlideTitle } from "../../hooks/useStorage";
+import { useDocSettingsStore } from "../../state/docSettingsStore";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import type { ViewerDocument } from "../../types/ViewerDocument";
 import { adjacentTitleIndex } from "../../utils/fileNavOps";
-import { createNewViewerDocument } from "../../utils/viewerDocumentFactory";
 
 // ファイル IO パネル (v3 Group B build、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/file/FileSelector.ts (jQuery) + Viewer.ts の
@@ -47,6 +47,7 @@ export const FileIOPanel: FC = () => {
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
+	const openNewDocSettings = useDocSettingsStore((s) => s.openNew);
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const alert = useAlert();
@@ -87,11 +88,11 @@ export const FileIOPanel: FC = () => {
 		});
 	};
 
+	// 新規は doc 設定モーダル (mode="new") を開き、OK で作成する (UI を編集と共用)。
 	const handleNew = wrap(async () => {
 		if (!(await confirmDiscardIfModified())) return;
-		setDocument(createNewViewerDocument());
-		setMsg("new document created");
 		setSelectedTitle(null);
+		openNewDocSettings();
 	});
 
 	// title を選んだ瞬間にロードする (レガシー FileSelector と同挙動)。

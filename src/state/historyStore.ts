@@ -37,6 +37,13 @@ interface HistoryStoreState {
 	clear: () => void;
 	canUndo: () => boolean;
 	canRedo: () => boolean;
+	/**
+	 * 全 history snapshot (past/future の before/after) の slide width/height を揃える。
+	 * キャンバスサイズは ViewerDocument 管轄で undo/redo 対象外 (履歴外) のため、サイズ変更後に
+	 * これを呼び、過去/未来 snapshot のサイズも新値へ書き換えて undo/redo でサイズが巻き戻らない
+	 * ようにする (resurrection 防止)。slides 以外 (layers / selectedIndex) は不変。
+	 */
+	remapSlideSizes: (width: number, height: number) => void;
 }
 
 export const useHistoryStore = create<HistoryStoreState>()((set, get) => ({
@@ -78,4 +85,17 @@ export const useHistoryStore = create<HistoryStoreState>()((set, get) => ({
 
 	canUndo: () => get().past.length > 0,
 	canRedo: () => get().future.length > 0,
+
+	remapSlideSizes: (width, height) => {
+		const fixState = (st: SlideState): SlideState => ({
+			...st,
+			slides: st.slides.map((s) => ({ ...s, width, height })),
+		});
+		const fixEntry = (e: HistoryEntry): HistoryEntry => ({
+			...e,
+			before: fixState(e.before),
+			after: fixState(e.after),
+		});
+		set((s) => ({ past: s.past.map(fixEntry), future: s.future.map(fixEntry) }));
+	},
 }));

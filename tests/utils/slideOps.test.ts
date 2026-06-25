@@ -11,6 +11,7 @@ import {
 	duplicateSlide,
 	incrementSlideDurationRatio,
 	moveSlide,
+	resizeAllSlides,
 	setAllDisabled,
 	setAllJoining,
 	setSlideDisabled,
@@ -300,6 +301,34 @@ describe("slideOps (v4 Group C 純関数)", () => {
 			expect(next.slides).toHaveLength(1);
 			expect(next.selectedIndex).toBe(0);
 			expect(next.slides[0].id).toBe(1);
+		});
+	});
+
+	describe("resizeAllSlides", () => {
+		it("全 slide の width/height を揃える (layer は不変)", () => {
+			const s = makeState(
+				[
+					makeSlide(1, "a", { width: 800, height: 600 }),
+					makeSlide(2, "b", { width: 1024, height: 768 }),
+				],
+				1
+			);
+			const next = resizeAllSlides(s, 1920, 1080);
+			expect(next).not.toBeNull();
+			expect(next?.slides.map((sl) => [sl.width, sl.height])).toEqual([
+				[1920, 1080],
+				[1920, 1080],
+			]);
+			expect(next?.selectedIndex).toBe(1); // 選択は不変
+		});
+
+		it("全 slide が既に同寸なら null (変化なし)", () => {
+			const s = makeState([makeSlide(1, "a", { width: 1920, height: 1080 })]);
+			expect(resizeAllSlides(s, 1920, 1080)).toBeNull();
+		});
+
+		it("slide 0 枚なら null", () => {
+			expect(resizeAllSlides(makeState([]), 1920, 1080)).toBeNull();
 		});
 	});
 });
