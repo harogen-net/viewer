@@ -248,30 +248,30 @@ export const FileIOPanel: FC = () => {
 						aria-label="削除">
 						🗑
 					</ActionIcon>
+					<Group gap="xs" wrap="wrap">
+						<Tooltip label="選択中スライドを PNG 画像で保存" disabled={selectedIndex >= 0}>
+							<Button
+								size="xs"
+								variant="default"
+								onClick={handleExportSlidePng}
+								disabled={selectedIndex < 0}
+								data-action="export-slide-png">
+								🖼 スライド PNG
+							</Button>
+						</Tooltip>
+						<Tooltip label="有効な全スライドを ZIP で保存" disabled={hasEnabledSlide}>
+							<Button
+								size="xs"
+								variant="default"
+								onClick={handleExportZip}
+								disabled={!hasEnabledSlide}
+								data-action="export-all-zip">
+								🗜 全スライド ZIP
+							</Button>
+						</Tooltip>
+					</Group>
 				</Group>
 				{/* スライド画像出力 (§4/§10): 単ページ PNG / 全ページ ZIP。背景は doc.bgColor。 */}
-				<Group gap="xs" wrap="wrap">
-					<Tooltip label="選択中スライドを PNG 画像で保存" disabled={selectedIndex >= 0}>
-						<Button
-							size="xs"
-							variant="default"
-							onClick={handleExportSlidePng}
-							disabled={selectedIndex < 0}
-							data-action="export-slide-png">
-							🖼 スライド PNG
-						</Button>
-					</Tooltip>
-					<Tooltip label="有効な全スライドを ZIP で保存" disabled={hasEnabledSlide}>
-						<Button
-							size="xs"
-							variant="default"
-							onClick={handleExportZip}
-							disabled={!hasEnabledSlide}
-							data-action="export-all-zip">
-							🗜 全スライド ZIP
-						</Button>
-					</Tooltip>
-				</Group>
 				{msg && (
 					<Text size="xs" c="dimmed" ff="monospace">
 						{msg}

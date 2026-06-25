@@ -3,11 +3,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SlideshowShell } from "../../src/components/SlideshowShell";
 import { useSlideStore } from "../../src/state/slideStore";
+import { useSlideshowStore } from "../../src/state/slideshowStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 import type { Slide } from "../../src/types/Slide";
 
-// v3 Group A swap: SlideshowShell の主要 UI 操作テスト (§0-6 = 新側 vitest 同梱)。
-// jsdom + React 18 createRoot で render し、DOM 直接検査でアサート。
+// §9 スライドショー全画面シェルの UI 操作テスト (新エンジン useSlideshowPlayer ベース)。
+// タイムライン詳細 (ループ/durationRatio/keep 等) は useSlideshowPlayer.test.tsx で担保。
 
 function makeSlide(id: number, overrides: Partial<Slide> = {}): Slide {
 	return {
@@ -16,7 +17,7 @@ function makeSlide(id: number, overrides: Partial<Slide> = {}): Slide {
 		width: 800,
 		height: 600,
 		durationRatio: 1,
-		joining: true,
+		joining: false,
 		disabled: false,
 		layers: [],
 		...overrides,
@@ -26,13 +27,24 @@ function makeSlide(id: number, overrides: Partial<Slide> = {}): Slide {
 let container: HTMLDivElement;
 let root: Root;
 
+const ss = (key: string): HTMLButtonElement | null =>
+	container.querySelector<HTMLButtonElement>(`[data-ss="${key}"]`);
+
 beforeEach(() => {
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
-	// store reset
 	useSlideStore.getState().setSlides([]);
 	useViewerDocumentStore.getState().setDocument(null);
+	// slideshow 設定をデフォルトへ (store はシングルトンなのでテスト間で持ち越さない)
+	useSlideshowStore.setState({
+		running: false,
+		intervalMs: 6000,
+		durationMs: 2000,
+		flipX: false,
+		flipY: false,
+		startFullscreen: false,
+	});
 });
 
 afterEach(() => {
@@ -40,63 +52,80 @@ afterEach(() => {
 	container.remove();
 });
 
-describe("SlideshowShell (v3 Group A)", () => {
+describe("SlideshowShell (§9)", () => {
 	it("open=false で何も描画しない", () => {
-		act(() => {
-			root.render(<SlideshowShell open={false} onClose={() => {}} />);
-		});
+		act(() => root.render(<SlideshowShell open={false} onClose={() => {}} />));
 		expect(container.querySelector("button")).toBeNull();
 	});
 
-	it("slides 空 + open=true でメッセージ + close ボタンのみ表示", () => {
+	it("有効スライドが無いとき メッセージ + close のみ", () => {
 		const onClose = vi.fn();
-		act(() => {
-			root.render(<SlideshowShell open={true} onClose={onClose} />);
-		});
+		act(() => root.render(<SlideshowShell open={true} onClose={onClose} />));
 		expect(container.textContent).toContain("スライドがありません");
-		const closeBtn = container.querySelector("button");
-		expect(closeBtn).not.toBeNull();
-		act(() => {
-			closeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-		});
+		act(() => ss("close")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
-	it("slides 投入後 open=true で SlideView + コントロール表示", () => {
-		act(() => {
-			useSlideStore.getState().setSlides([makeSlide(1), makeSlide(2), makeSlide(3)]);
-		});
-		act(() => {
-			root.render(<SlideshowShell open={true} onClose={() => {}} />);
-		});
-		// "1 / 3" 表示確認
-		expect(container.textContent).toContain("1 / 3");
-		// 各 slide が data-slide-id を持つ <div> として描画されているか
-		expect(container.querySelector('[data-slide-id="1"]')).not.toBeNull();
-		// prev ボタンは index=0 なので disabled
-		const buttons = Array.from(container.querySelectorAll("button"));
-		const prev = buttons.find((b) => b.textContent?.includes("prev"));
-		expect(prev?.disabled).toBe(true);
-		const next = buttons.find((b) => b.textContent?.includes("next"));
-		expect(next?.disabled).toBe(false);
+	it("全 disabled も「有効スライド無し」扱い", () => {
+		act(() =>
+			useSlideStore
+				.getState()
+				.setSlides([makeSlide(1, { disabled: true }), makeSlide(2, { disabled: true })])
+		);
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+		expect(container.textContent).toContain("スライドがありません");
 	});
 
-	it("next ボタンで index が進む", () => {
-		act(() => {
-			useSlideStore.getState().setSlides([makeSlide(1), makeSlide(2), makeSlide(3)]);
-		});
-		act(() => {
-			root.render(<SlideshowShell open={true} onClose={() => {}} />);
-		});
+	it("slides 投入で stage + コントロール表示、位置 1 / 3", () => {
+		act(() => useSlideStore.getState().setSlides([makeSlide(1), makeSlide(2), makeSlide(3)]));
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
 		expect(container.textContent).toContain("1 / 3");
+		expect(container.querySelector('[data-slide-id="1"]')).not.toBeNull();
+		// ループするため prev/next は disabled にしない
+		expect(ss("prev")?.disabled).toBeFalsy();
+		expect(ss("next")?.disabled).toBeFalsy();
+		expect(ss("fullscreen")).not.toBeNull();
+		expect(ss("mirror-h")).not.toBeNull();
+		expect(ss("mirror-v")).not.toBeNull();
+	});
 
-		const next = Array.from(container.querySelectorAll("button")).find((b) =>
-			b.textContent?.includes("next"),
-		);
-		act(() => {
-			next?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-		});
+	it("next で位置が進む", () => {
+		act(() => useSlideStore.getState().setSlides([makeSlide(1), makeSlide(2), makeSlide(3)]));
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+		act(() => ss("next")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		expect(container.textContent).toContain("2 / 3");
 		expect(container.querySelector('[data-slide-id="2"]')).not.toBeNull();
+	});
+
+	it("disabled を除外して位置/総数に反映", () => {
+		act(() =>
+			useSlideStore
+				.getState()
+				.setSlides([makeSlide(1), makeSlide(2, { disabled: true }), makeSlide(3)])
+		);
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+		expect(container.textContent).toContain("1 / 2"); // 有効 2 枚
+		act(() => ss("next")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+		expect(container.textContent).toContain("2 / 2");
+		expect(container.querySelector('[data-slide-id="3"]')).not.toBeNull(); // disabled の 2 を飛ばす
+	});
+
+	it("stage は absolute + translate(-50%,-50%) 中央寄せ (狭い表示域でも中心がずれない)", () => {
+		act(() => useSlideStore.getState().setSlides([makeSlide(1)]));
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+		const stack = container.querySelector<HTMLElement>("[data-slideshow-stack]");
+		expect(stack?.style.position).toBe("absolute");
+		expect(stack?.style.left).toBe("50%");
+		expect(stack?.style.top).toBe("50%");
+		// flex 中央寄せ (unsafe-center) ではなく translate で明示中央寄せ
+		expect(stack?.style.transform).toContain("translate(-50%, -50%)");
+	});
+
+	it("mirror-h トグルで aria-pressed が反転", () => {
+		act(() => useSlideStore.getState().setSlides([makeSlide(1)]));
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+		expect(ss("mirror-h")?.getAttribute("aria-pressed")).toBe("false");
+		act(() => ss("mirror-h")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+		expect(ss("mirror-h")?.getAttribute("aria-pressed")).toBe("true");
 	});
 });

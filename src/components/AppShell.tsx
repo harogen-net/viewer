@@ -1,9 +1,10 @@
-import { Anchor, Box, Button, Group, MantineProvider, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Box, Button, Flex, Group, MantineProvider, Stack, Text, Title } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useImageDimensionBackfill } from "../hooks/useImageLibraryMutation";
 import { useRectSyncConfig } from "../hooks/useLayerMutation";
 import { useShellKeyboard } from "../hooks/useShellKeyboard";
+import { useSlideshowStore } from "../state/slideshowStore";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
@@ -12,6 +13,7 @@ import { FileIOPanel } from "./panels/FileIOPanel";
 import { ImageLibraryPanel } from "./panels/ImageLibraryPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
+import { SlideShowOpsPanel } from "./panels/SlideShowOpsPanel";
 import { ProgressBar } from "./ProgressBar";
 import { SlideEditView } from "./slide/SlideEditView";
 import { SlideshowShell } from "./SlideshowShell";
@@ -38,9 +40,9 @@ const modeSwitchLinkStyle: CSSProperties = {
 };
 
 const NewSidePanel: FC = () => {
-	const slideCount = useSlideStore((s) => s.slides.length);
-	const [showSlideshow, setShowSlideshow] = useState(false);
 	const [showImageLibrary, setShowImageLibrary] = useState(false);
+	const slideshowRunning = useSlideshowStore((s) => s.running);
+	const stopSlideshow = useSlideshowStore((s) => s.stop);
 	// ロード済み画像の自然寸法を backfill (D-14、rectEdit の矩形一致判定の基盤)。
 	useImageDimensionBackfill();
 	// rectEdit トグル + 自然寸法を layerOps へ流し込む (D-18)。
@@ -51,30 +53,22 @@ const NewSidePanel: FC = () => {
 			<Box p="lg">
 				<Stack gap="md">
 					<Title order={3}>v3 new side</Title>
-					<FileIOPanel />
+					<Flex gap="sm">
+						<SlideShowOpsPanel /> <FileIOPanel />
+					</Flex>
 					<SlideListPanel />
+
 					<Group gap="sm" align="center">
-						<Button
-							color="green"
-							onClick={() => setShowSlideshow(true)}
-							disabled={slideCount === 0}>
-							▶ slideshow 開始
-						</Button>
 						<Button
 							variant="default"
 							onClick={() => setShowImageLibrary(true)}
 							data-open-image-library>
 							🖼 画像ライブラリ
 						</Button>
-						{slideCount === 0 && (
-							<Text size="xs" c="dimmed">
-								document をロードしてから slideshow を開始
-							</Text>
-						)}
 					</Group>
 				</Stack>
 			</Box>
-			<SlideshowShell open={showSlideshow} onClose={() => setShowSlideshow(false)} />
+			<SlideshowShell open={slideshowRunning} onClose={stopSlideshow} />
 			<ImageLibraryPanel opened={showImageLibrary} onClose={() => setShowImageLibrary(false)} />
 		</>
 	);

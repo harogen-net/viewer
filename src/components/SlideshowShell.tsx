@@ -1,36 +1,41 @@
 import type { CSSProperties, FC } from "react";
-import { useEffect, useState } from "react";
-import { useSlideshow } from "../hooks/useSlideshow";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSlideshowPlayer } from "../hooks/useSlideshowPlayer";
 import { useSlideStore } from "../state/slideStore";
+import { useSlideshowStore } from "../state/slideshowStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
-import { SlideView } from "./slide/SlideView";
+import type { Slide } from "../types/Slide";
+import { SlideshowStage } from "./slide/SlideshowStage";
 
-// スライドショー全画面シェル (v3 Group A build 5、§0-10 新側内製)。
-// レガシー src/viewController/SlideShowViewController.ts (jQuery + new DOMSlideView)
-// は import せず新規実装。
-//
-// 役割: open=true でビューポート全面を黒で覆い、現在の slide を viewport に
-// 縮小フィットさせて描画し、prev / next / close / play・pause 操作を提供する。
-// auto-advance タイマーは build 6 で追加した hooks/useSlideshow に委譲。
+// スライドショー全画面シェル (§9、legacy SlideShowViewController 相当)。
+// タイムライン (選択開始/disabled除外/ループ/durationRatio/join keep/pause-resume/prev-next) は
+// useSlideshowPlayer に委譲。本シェルは view 操作を担う:
+//   - 全画面トグル (Fullscreen API)
+//   - ミラー H/V トグル (SlideshowStage の container 反転 + text avoidMirror)
+//   - カーソル自動非表示 (1 秒アイドルでカーソル + コントロール非表示)
+//   - クロスフェード (key 変化で新フレームが fade-in、旧フレームを下に残し fade 後に除去)
+//   - viewport フィット (短辺基準 scale、中央寄せ) + 背景色追従
+//   - stage クリックで pause/resume (legacy slideContainer.mousedown)
 
 interface SlideshowShellProps {
 	open: boolean;
 	onClose: () => void;
 }
 
-const overlayStyle: CSSProperties = {
+// interval / duration / flipX/Y / startFullscreen は SlideShowOpsPanel で編集し
+// slideshowStore に集約 (legacy のツールバー散在 UI を 1 箇所へ)。
+const CURSOR_IDLE_MS = 1000;
+
+const overlayStyle = (cursorHidden: boolean): CSSProperties => ({
 	position: "fixed",
 	inset: 0,
 	zIndex: 9999,
 	background: "#000",
-	display: "flex",
-	flexDirection: "column",
-	alignItems: "center",
-	justifyContent: "center",
 	overflow: "hidden",
-};
+	cursor: cursorHidden ? "none" : "default",
+});
 
-const controlsStyle: CSSProperties = {
+const controlsStyle = (visible: boolean): CSSProperties => ({
 	position: "fixed",
 	bottom: 16,
 	left: "50%",
@@ -45,7 +50,10 @@ const controlsStyle: CSSProperties = {
 	fontSize: 13,
 	borderRadius: 4,
 	userSelect: "none",
-};
+	opacity: visible ? 1 : 0,
+	transition: "opacity 200ms",
+	pointerEvents: visible ? "auto" : "none",
+});
 
 const btnStyle: CSSProperties = {
 	background: "transparent",
@@ -57,96 +65,253 @@ const btnStyle: CSSProperties = {
 
 export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	const slides = useSlideStore((s) => s.slides);
+	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const bgColor = meta?.bgColor;
-	const intervalMs = meta?.interval ?? 0;
-	const [index, setIndex] = useState(0);
-	const [playing, setPlaying] = useState(true);
+
+	// 再生設定は slideshowStore (SlideShowOpsPanel で編集)。
+	const intervalMs = useSlideshowStore((s) => s.intervalMs);
+	const fadeMs = useSlideshowStore((s) => s.durationMs);
+	const mirrorH = useSlideshowStore((s) => s.flipX);
+	const mirrorV = useSlideshowStore((s) => s.flipY);
+	const toggleFlipX = useSlideshowStore((s) => s.toggleFlipX);
+	const toggleFlipY = useSlideshowStore((s) => s.toggleFlipY);
+	const startFullscreen = useSlideshowStore((s) => s.startFullscreen);
+
+	const { frame, position, enabledCount, paused, togglePause, next, prev } = useSlideshowPlayer({
+		open,
+		slides,
+		startIndex: selectedIndex,
+		intervalMs,
+	});
+
+	const overlayRef = useRef<HTMLDivElement>(null);
+	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [cursorHidden, setCursorHidden] = useState(false);
 	const [scale, setScale] = useState(1);
 
-	const current = slides[index];
+	// クロスフェード: key 変化で旧フレームを下層に残し、新フレームを fade-in。
+	const [underSlide, setUnderSlide] = useState<Slide | null>(null);
+	const prevKeyRef = useRef<number | null>(null);
+	const prevSlideRef = useRef<Slide | null>(null);
+	const fadeTimerRef = useRef<number | null>(null);
 
-	// open になったら index/playing をリセット、slides が変わっても同様。
 	useEffect(() => {
-		if (open) {
-			setIndex(0);
-			setPlaying(true);
+		if (!frame) {
+			prevKeyRef.current = null;
+			prevSlideRef.current = null;
+			setUnderSlide(null);
+			return;
 		}
-	}, [open, slides]);
+		const prevKey = prevKeyRef.current;
+		if (prevKey !== null && prevKey !== frame.key && !frame.tween && prevSlideRef.current) {
+			// クロスフェード: 直前スライドを下層に残し fade 後に除去。
+			setUnderSlide(prevSlideRef.current);
+			if (fadeTimerRef.current !== null) window.clearTimeout(fadeTimerRef.current);
+			fadeTimerRef.current = window.setTimeout(() => setUnderSlide(null), fadeMs);
+		}
+		prevKeyRef.current = frame.key;
+		prevSlideRef.current = frame.slide;
+	}, [frame, fadeMs]);
 
-	// auto-advance タイマー (build 6 hooks/useSlideshow に委譲)。
-	useSlideshow({ enabled: open && playing, slides, index, setIndex, intervalMs });
-
-	// 現在 slide のサイズをビューポートにフィット (短辺基準で縮小、拡大はしない)。
+	// 起動時: カーソル表示をリセットし、設定で「全画面で開始」なら全画面化を試みる。
+	// (ミラーは slideshowStore の設定値をそのまま使うのでリセットしない)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: open 立ち上がりのみ
 	useEffect(() => {
-		if (!open || !current) return;
+		if (!open) return;
+		setCursorHidden(false);
+		if (startFullscreen) overlayRef.current?.requestFullscreen?.().catch(() => {});
+	}, [open]);
+
+	// viewport フィット (短辺基準 scale)。背景・サイズ追従 (resize)。
+	const slide = frame?.slide ?? null;
+	useEffect(() => {
+		if (!open || !slide) return;
 		const compute = () => {
-			const sx = window.innerWidth / current.width;
-			const sy = window.innerHeight / current.height;
-			setScale(Math.min(sx, sy, 1));
+			setScale(Math.min(window.innerWidth / slide.width, window.innerHeight / slide.height));
 		};
 		compute();
 		window.addEventListener("resize", compute);
 		return () => window.removeEventListener("resize", compute);
-	}, [open, current]);
+	}, [open, slide]);
 
-	// キーボード: ESC で閉じる、←/→ で前後。
+	// fullscreen 状態追従。
+	useEffect(() => {
+		if (!open) return;
+		const onFs = () => setIsFullscreen(document.fullscreenElement === overlayRef.current);
+		document.addEventListener("fullscreenchange", onFs);
+		return () => document.removeEventListener("fullscreenchange", onFs);
+	}, [open]);
+
+	// カーソル自動非表示: mousemove で表示、CURSOR_IDLE_MS アイドルで非表示。
+	const cursorTimerRef = useRef<number | null>(null);
+	const onPointerActivity = useCallback(() => {
+		setCursorHidden(false);
+		if (cursorTimerRef.current !== null) window.clearTimeout(cursorTimerRef.current);
+		cursorTimerRef.current = window.setTimeout(() => setCursorHidden(true), CURSOR_IDLE_MS);
+	}, []);
+	useEffect(() => {
+		if (!open) return;
+		onPointerActivity();
+		return () => {
+			if (cursorTimerRef.current !== null) window.clearTimeout(cursorTimerRef.current);
+		};
+	}, [open, onPointerActivity]);
+
+	// キーボード: ESC 閉じる / ←→ 前後。
 	useEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") onClose();
-			else if (e.key === "ArrowLeft") setIndex((i) => Math.max(0, i - 1));
-			else if (e.key === "ArrowRight") setIndex((i) => Math.min(slides.length - 1, i + 1));
+			else if (e.key === "ArrowLeft") prev();
+			else if (e.key === "ArrowRight") next();
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [open, onClose, slides.length]);
+	}, [open, onClose, prev, next]);
+
+	const toggleFullscreen = useCallback(() => {
+		const el = overlayRef.current;
+		if (!el) return;
+		if (document.fullscreenElement === el) {
+			document.exitFullscreen?.().catch(() => {});
+		} else {
+			el.requestFullscreen?.().catch(() => {});
+		}
+	}, []);
 
 	if (!open) return null;
 
-	if (slides.length === 0) {
+	if (enabledCount === 0 || !frame) {
 		return (
-			<div style={overlayStyle}>
-				<div style={{ color: "#fff", fontFamily: "monospace" }}>スライドがありません</div>
-				<div style={controlsStyle}>
-					<button type="button" style={btnStyle} onClick={onClose}>× close</button>
+			<div style={overlayStyle(false)} ref={overlayRef} data-slideshow-overlay>
+				<div
+					style={{
+						position: "absolute",
+						inset: 0,
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						color: "#fff",
+						fontFamily: "monospace",
+					}}>
+					表示できる (有効な) スライドがありません
+				</div>
+				<div style={controlsStyle(true)}>
+					<button type="button" style={btnStyle} onClick={onClose} data-ss="close">
+						× close
+					</button>
 				</div>
 			</div>
 		);
 	}
 
-	const slide = current ?? slides[0];
+	const tweenMs = Math.max(1, intervalMs * (frame.slide.durationRatio ?? 1));
+	// 中央寄せは flex ではなく absolute + translate(-50%,-50%) scale()。
+	// stack の **レイアウト寸法はスケール前の doc サイズ** (transform は layout に影響しない) のため、
+	// 表示領域が doc より狭いと flex の unsafe-center で中心がずれる (legacy は translate offset で
+	// 明示中央寄せだった)。translate 中央寄せは scale 後も中心を viewport 中心へ固定する。
+	const stackStyle: CSSProperties = {
+		position: "absolute",
+		left: "50%",
+		top: "50%",
+		width: frame.slide.width,
+		height: frame.slide.height,
+		transform: `translate(-50%, -50%) scale(${scale})`,
+		transformOrigin: "center center",
+	};
+	const frameWrapStyle = (z: number, fade: boolean): CSSProperties => ({
+		position: "absolute",
+		inset: 0,
+		zIndex: z,
+		// 新フレームは fade-in (key で remount 時に再生)。keep tween は key 不変 = 再生しない。
+		animation: fade ? `ssFadeIn ${fadeMs}ms ease both` : undefined,
+	});
 
 	return (
-		<div style={overlayStyle}>
-			<div style={{ transform: `scale(${scale})`, transformOrigin: "center center" }}>
-				<SlideView slide={slide} bgColor={bgColor} />
-			</div>
-			<div style={controlsStyle}>
-				<button type="button" style={btnStyle} onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0}>
+		<div
+			style={overlayStyle(cursorHidden)}
+			ref={overlayRef}
+			data-slideshow-overlay
+			onMouseMove={onPointerActivity}>
+			<style>{"@keyframes ssFadeIn { from { opacity: 0 } to { opacity: 1 } }"}</style>
+			{/* フィット中央寄せ + stage クリックで pause/resume (legacy slideContainer.mousedown) */}
+			<button
+				type="button"
+				onClick={togglePause}
+				aria-label="toggle pause"
+				style={{
+					position: "absolute",
+					inset: 0,
+					border: "none",
+					padding: 0,
+					background: "transparent",
+					cursor: cursorHidden ? "none" : "pointer",
+				}}>
+				<div style={stackStyle} data-slideshow-stack>
+					{underSlide && (
+						<div style={frameWrapStyle(1, false)} data-slideshow-under>
+							<SlideshowStage
+								slide={underSlide}
+								bgColor={bgColor}
+								tween={false}
+								tweenMs={tweenMs}
+								mirrorH={mirrorH}
+								mirrorV={mirrorV}
+							/>
+						</div>
+					)}
+					<div key={frame.key} style={frameWrapStyle(2, !frame.tween)} data-slideshow-top>
+						<SlideshowStage
+							slide={frame.slide}
+							bgColor={bgColor}
+							tween={frame.tween}
+							tweenMs={tweenMs}
+							mirrorH={mirrorH}
+							mirrorV={mirrorV}
+						/>
+					</div>
+				</div>
+			</button>
+
+			<div style={controlsStyle(!cursorHidden)} data-slideshow-controls>
+				<button type="button" style={btnStyle} onClick={prev} data-ss="prev">
 					← prev
 				</button>
 				<button
 					type="button"
 					style={btnStyle}
-					onClick={() => setPlaying((p) => !p)}
-					disabled={intervalMs <= 0}
-					title={intervalMs <= 0 ? "interval 未設定のため自動進行不可" : ""}
-				>
-					{playing ? "❚❚ pause" : "▶ play"}
+					onClick={togglePause}
+					disabled={enabledCount <= 1}
+					data-ss="pause">
+					{paused ? "▶ play" : "❚❚ pause"}
 				</button>
-				<span>
-					{index + 1} / {slides.length}
+				<span data-ss="position">
+					{position} / {enabledCount}
 				</span>
-				<button
-					type="button"
-					style={btnStyle}
-					onClick={() => setIndex((i) => Math.min(slides.length - 1, i + 1))}
-					disabled={index >= slides.length - 1}
-				>
+				<button type="button" style={btnStyle} onClick={next} data-ss="next">
 					next →
 				</button>
-				<button type="button" style={btnStyle} onClick={onClose}>
+				<button
+					type="button"
+					style={{ ...btnStyle, fontWeight: mirrorH ? 700 : 400 }}
+					onClick={toggleFlipX}
+					data-ss="mirror-h"
+					aria-pressed={mirrorH}>
+					⇄ H
+				</button>
+				<button
+					type="button"
+					style={{ ...btnStyle, fontWeight: mirrorV ? 700 : 400 }}
+					onClick={toggleFlipY}
+					data-ss="mirror-v"
+					aria-pressed={mirrorV}>
+					⇅ V
+				</button>
+				<button type="button" style={btnStyle} onClick={toggleFullscreen} data-ss="fullscreen">
+					{isFullscreen ? "⊡ exit" : "⛶ full"}
+				</button>
+				<button type="button" style={btnStyle} onClick={onClose} data-ss="close">
 					× close
 				</button>
 			</div>
