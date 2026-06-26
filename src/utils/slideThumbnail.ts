@@ -138,16 +138,30 @@ export const drawSlideToCanvas = async (
 };
 
 /**
- * ViewerDocument から代表スライドを 1 枚選んで PNG dataURL を返す。
- * 対象 slide が無い (空 doc) なら null。
+ * ViewerDocument から代表スライドを 1 枚選んで dataURL を返す。対象 slide が無ければ null。
+ * options:
+ *   - pages:    代表 slide 選択のページ指定 (既定は durationRatio 降順先頭)
+ *   - maxPx:    長辺をこの px に収める縮小 (ビジュアルピッカー用の軽量サムネ)。未指定は原寸
+ *   - mimeType: 出力形式 (既定 "image/png"。サムネは "image/jpeg" 推奨で軽量)
+ *   - quality:  jpeg/webp の品質 0..1
  */
 export const generateSlideThumbnailDataURL = async (
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	options?: { pages?: number[] }
+	options?: { pages?: number[]; maxPx?: number; mimeType?: string; quality?: number }
 ): Promise<string | null> => {
 	const slide = pickThumbnailSlide(doc, options?.pages);
 	if (!slide) return null;
-	const canvas = await drawSlideToCanvas(slide, doc.bgColor, imageDataMap);
-	return canvas.toDataURL("image/png");
+	let targetWidth: number | undefined;
+	let targetHeight: number | undefined;
+	if (options?.maxPx && options.maxPx > 0) {
+		const scale = Math.min(1, options.maxPx / Math.max(slide.width, slide.height));
+		targetWidth = Math.max(1, Math.round(slide.width * scale));
+		targetHeight = Math.max(1, Math.round(slide.height * scale));
+	}
+	const canvas = await drawSlideToCanvas(slide, doc.bgColor, imageDataMap, {
+		targetWidth,
+		targetHeight,
+	});
+	return canvas.toDataURL(options?.mimeType ?? "image/png", options?.quality);
 };

@@ -7,12 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // useStorage / useFileIO は IDB / ファイル依存のため hoisted mock で差し替える
 // (関数 ref を安定させ refreshTitles の effect が無限再実行しないようにする)。
 
-const { listTitlesMock, loadByTitleMock, saveMock, deleteMock } = vi.hoisted(() => ({
-	listTitlesMock: vi.fn(),
-	loadByTitleMock: vi.fn(),
-	saveMock: vi.fn(),
-	deleteMock: vi.fn(),
-}));
+const { listTitlesMock, loadByTitleMock, saveMock, deleteMock, loadThumbnailsMock } = vi.hoisted(
+	() => ({
+		listTitlesMock: vi.fn(),
+		loadByTitleMock: vi.fn(),
+		saveMock: vi.fn(),
+		deleteMock: vi.fn(),
+		loadThumbnailsMock: vi.fn(),
+	})
+);
 
 vi.mock("../../src/hooks/useStorage", () => ({
 	useStorage: () => ({
@@ -20,6 +23,7 @@ vi.mock("../../src/hooks/useStorage", () => ({
 		loadByTitle: loadByTitleMock,
 		save: saveMock,
 		deleteByTitle: deleteMock,
+		loadThumbnails: loadThumbnailsMock,
 	}),
 }));
 
@@ -102,6 +106,8 @@ beforeEach(() => {
 	]);
 	loadByTitleMock.mockImplementation(async (title: string) => makeDoc(title));
 	saveMock.mockResolvedValue({ title: "saved-2026" });
+	loadThumbnailsMock.mockReset();
+	loadThumbnailsMock.mockResolvedValue({ A: "data:image/jpeg;base64,T" }); // B/C はサムネ無し
 	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	useSlideStore.getState().setSlides([]);
@@ -245,5 +251,18 @@ describe("FileIOPanel 再読み込み (元に戻す)", () => {
 		expect(container.querySelector<HTMLButtonElement>('[data-action="reload"]')?.disabled).toBe(
 			true
 		);
+	});
+});
+
+describe("FileIOPanel ビジュアルピッカー", () => {
+	// Modal はアニメーション付きで jsdom 上は中身が同期マウントされないため、ここでは
+	// 「開く操作で loadThumbnails が呼ばれる」結線のみ検証する。カード描画/クリックは
+	// documentPickerGrid.test.tsx (Modal 非依存) で担保。
+	it("ギャラリーを開くと loadThumbnails が呼ばれる (サムネまとめ読み)", async () => {
+		await render();
+		expect(loadThumbnailsMock).not.toHaveBeenCalled();
+		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
+		await act(async () => {});
+		expect(loadThumbnailsMock).toHaveBeenCalled();
 	});
 });

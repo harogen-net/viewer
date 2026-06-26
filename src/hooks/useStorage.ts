@@ -9,17 +9,24 @@ import { parseHvd, serializeHvd } from "../utils/storageCodec";
 // レガシー src/utils/SlideStorage.ts (EventDispatcher class シングルトン) を
 // 1 ファイル / 1 hook で完全代替。
 //
-// IDB スキーマはレガシー互換:
-//   DB:    "viewer"
-//   store: "slideTitles" {id, title, update} (id autoIncrement)
-//   store: "slideData"   {title, data: HVD JSON string}
+// IDB スキーマ:
+//   DB:    "viewer" (version 2)
+//   store: "slideTitles"     {id, title, update} (id autoIncrement) … レガシー互換、一覧用
+//   store: "slideData"       {title, data: HVD JSON string}          … レガシー互換、本体
+//   store: "slideThumbnails" {title, thumb: dataURL}  (v2 で追加)     … ビジュアルピッカー用
+//
+// slideThumbnails は「見た目で保存ドキュメントを選ぶ」ギャラリー用。slideTitles を軽量に
+// 保ち、サムネはギャラリー表示時にまとめ読み (loadThumbnails)。IDB に JOIN は無いので
+// title をキーに JS 側でマージする。サムネ未生成の doc は単に欠落 (UI 側で n/a 表示)。
 //
 // 副作用: load 系は imageLibraryStore に画像 dataURL を投入する。
 // viewerDocumentStore / slideStore の更新は caller (AppShell 等) の責務。
 
 const DB_NAME = "viewer";
+const DB_VERSION = 2;
 const TITLES_STORE = "slideTitles";
 const DATA_STORE = "slideData";
+const THUMBS_STORE = "slideThumbnails";
 
 export interface StoredSlideTitle {
 	id: number;
@@ -32,9 +39,16 @@ interface StoredSlideData {
 	data: string;
 }
 
+interface StoredThumbnail {
+	title: string;
+	thumb: string;
+}
+
 function openDb(): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
-		const req = indexedDB.open(DB_NAME);
+		const req = indexedDB.open(DB_NAME, DB_VERSION);
+		// v1→v2: slideThumbnails store を追加。各 createObjectStore は contains ガードで冪等
+		// (新規作成・既存 DB のアップグレード両方で過不足なく揃う)。
 		req.onupgradeneeded = () => {
 			const db = req.result;
 			if (!db.objectStoreNames.contains(TITLES_STORE)) {
@@ -42,6 +56,9 @@ function openDb(): Promise<IDBDatabase> {
 			}
 			if (!db.objectStoreNames.contains(DATA_STORE)) {
 				db.createObjectStore(DATA_STORE, { keyPath: "title" });
+			}
+			if (!db.objectStoreNames.contains(THUMBS_STORE)) {
+				db.createObjectStore(THUMBS_STORE, { keyPath: "title" });
 			}
 		};
 		req.onsuccess = () => resolve(req.result);
@@ -75,9 +92,14 @@ export interface StorageApi {
 	 * editTime は呼び出し時刻で上書き (レガシー SlideStorage.save 互換挙動)。
 	 * 戻り値の title は実際に保存された title (新規時は生成されたもの)。
 	 */
-	save: (doc: ViewerDocument, options?: { override?: boolean }) => Promise<{ title: string }>;
+	save: (
+		doc: ViewerDocument,
+		options?: { override?: boolean; thumbnail?: string | null }
+	) => Promise<{ title: string }>;
 	/** タイトル指定で削除。該当なしも success 扱い。 */
 	deleteByTitle: (title: string) => Promise<void>;
+	/** 全サムネイルを {title: dataURL} で取得 (ビジュアルピッカー用)。未生成 title は欠落。 */
+	loadThumbnails: () => Promise<Record<string, string>>;
 }
 
 export function useStorage(): StorageApi {
@@ -110,7 +132,10 @@ export function useStorage(): StorageApi {
 	}, []);
 
 	const save = useCallback(
-		async (doc: ViewerDocument, options?: { override?: boolean }): Promise<{ title: string }> => {
+		async (
+			doc: ViewerDocument,
+			options?: { override?: boolean; thumbnail?: string | null }
+		): Promise<{ title: string }> => {
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
 			// imageLibraryStore から imageId→dataURL 抽出 (Record<string, ImageEntry> → Record<string, string>)
@@ -123,7 +148,7 @@ export function useStorage(): StorageApi {
 
 			const db = await openDb();
 			try {
-				const tx = db.transaction([TITLES_STORE, DATA_STORE], "readwrite");
+				const tx = db.transaction([TITLES_STORE, DATA_STORE, THUMBS_STORE], "readwrite");
 				const titlesStore = tx.objectStore(TITLES_STORE);
 				const dataStore = tx.objectStore(DATA_STORE);
 				const existing = (await reqToPromise(titlesStore.getAll())) as StoredSlideTitle[];
@@ -134,30 +159,48 @@ export function useStorage(): StorageApi {
 					await reqToPromise(titlesStore.add({ title, update: now }));
 				}
 				await reqToPromise(dataStore.put({ title, data: json }));
+				// サムネイルは渡された時のみ更新 (未指定なら既存を温存)。
+				if (options?.thumbnail) {
+					await reqToPromise(tx.objectStore(THUMBS_STORE).put({ title, thumb: options.thumbnail }));
+				}
 				await txComplete(tx);
 			} finally {
 				db.close();
 			}
 			return { title };
 		},
-		[],
+		[]
 	);
 
 	const deleteByTitle = useCallback(async (title: string): Promise<void> => {
 		const db = await openDb();
 		try {
-			const tx = db.transaction([TITLES_STORE, DATA_STORE], "readwrite");
+			const tx = db.transaction([TITLES_STORE, DATA_STORE, THUMBS_STORE], "readwrite");
 			const titlesStore = tx.objectStore(TITLES_STORE);
 			const dataStore = tx.objectStore(DATA_STORE);
 			const titles = (await reqToPromise(titlesStore.getAll())) as StoredSlideTitle[];
 			const found = titles.find((t) => t.title === title);
 			if (found) await reqToPromise(titlesStore.delete(found.id));
 			await reqToPromise(dataStore.delete(title));
+			await reqToPromise(tx.objectStore(THUMBS_STORE).delete(title));
 			await txComplete(tx);
 		} finally {
 			db.close();
 		}
 	}, []);
 
-	return { listTitles, loadByTitle, save, deleteByTitle };
+	const loadThumbnails = useCallback(async (): Promise<Record<string, string>> => {
+		const db = await openDb();
+		try {
+			const tx = db.transaction(THUMBS_STORE, "readonly");
+			const all = (await reqToPromise(tx.objectStore(THUMBS_STORE).getAll())) as StoredThumbnail[];
+			const map: Record<string, string> = {};
+			for (const t of all) map[t.title] = t.thumb;
+			return map;
+		} finally {
+			db.close();
+		}
+	}, []);
+
+	return { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails };
 }

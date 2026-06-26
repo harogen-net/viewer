@@ -20,6 +20,8 @@ import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import type { ViewerDocument } from "../../types/ViewerDocument";
 import { adjacentTitleIndex } from "../../utils/fileNavOps";
+import { generateSlideThumbnailDataURL } from "../../utils/slideThumbnail";
+import { DocumentPickerModal } from "./DocumentPickerModal";
 
 // ファイル IO パネル (v3 Group B build、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/file/FileSelector.ts (jQuery) + Viewer.ts の
@@ -41,7 +43,7 @@ const collectImageMap = (): Record<string, string> => {
 };
 
 export const FileIOPanel: FC = () => {
-	const { listTitles, loadByTitle, save, deleteByTitle } = useStorage();
+	const { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails } = useStorage();
 	const { exportHvd, exportHvz, exportPng, importFile, exportSlidePng, exportAllSlidesZip } =
 		useFileIO();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
@@ -56,6 +58,8 @@ export const FileIOPanel: FC = () => {
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
 	const [msg, setMsg] = useState<string | null>(null);
+	const [pickerOpen, setPickerOpen] = useState(false);
+	const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// title 一覧を refresh (update 降順)。
@@ -87,6 +91,18 @@ export const FileIOPanel: FC = () => {
 			okLabel: "破棄して続行",
 			cancelLabel: "キャンセル",
 		});
+	};
+
+	// ビジュアルピッカー: 一覧 + サムネをまとめ読みしてギャラリーを開く。
+	const handleOpenPicker = wrap(async () => {
+		await refreshTitles();
+		setThumbnails(await loadThumbnails());
+		setPickerOpen(true);
+	});
+	// ギャラリーでカードを選択 → 閉じてロード (未保存ガードは handleSelectChange 内)。
+	const handlePick = (title: string): void => {
+		setPickerOpen(false);
+		handleSelectChange(title);
 	};
 
 	// 新規は doc 設定モーダル (mode="new") を開き、OK で作成する (UI を編集と共用)。
@@ -147,7 +163,13 @@ export const FileIOPanel: FC = () => {
 				return;
 			}
 			const doc: ViewerDocument = { ...meta, slides };
-			const { title } = await save(doc, { override });
+			// ビジュアルピッカー用サムネを生成 (best-effort、失敗時は null = サムネ無し)。
+			const thumbnail = await generateSlideThumbnailDataURL(doc, collectImageMap(), {
+				maxPx: 240,
+				mimeType: "image/jpeg",
+				quality: 0.72,
+			}).catch(() => null);
+			const { title } = await save(doc, { override, thumbnail });
 			// 保存名を meta へ同期し modified を解除 (beforeunload / 未保存ガードの誤発火を防ぐ。
 			// override 時は同名、新規時は採番された日付 title を反映 → 直後の上書きが正しい対象になる)。
 			markSaved(title);
@@ -253,6 +275,9 @@ export const FileIOPanel: FC = () => {
 				<Group gap="xs" wrap="wrap">
 					<Button size="xs" variant="default" onClick={handleNew}>
 						📄 新規
+					</Button>
+					<Button size="xs" variant="default" onClick={handleOpenPicker} data-action="open-picker">
+						🖼 ギャラリーから開く
 					</Button>
 					<Button size="xs" variant="default" onClick={() => fileInputRef.current?.click()}>
 						📂 import
@@ -376,6 +401,14 @@ export const FileIOPanel: FC = () => {
 					</Text>
 				)}
 			</Stack>
+			<DocumentPickerModal
+				opened={pickerOpen}
+				onClose={() => setPickerOpen(false)}
+				titles={titles}
+				thumbnails={thumbnails}
+				selectedTitle={selectedTitle}
+				onPick={handlePick}
+			/>
 		</Paper>
 	);
 };
