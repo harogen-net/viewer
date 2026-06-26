@@ -10,8 +10,15 @@ export const AlertKind = {
 	ALERT: "alert",
 	CONFIRM: "confirm",
 	PROMPT: "prompt",
+	CHOICE: "choice",
 } as const;
 export type AlertKind = (typeof AlertKind)[keyof typeof AlertKind];
+
+/** choice ダイアログの 1 選択肢 (value = resolve される識別子、label = 表示文言)。 */
+export interface AlertChoice {
+	value: string;
+	label: string;
+}
 
 export interface AlertRequest {
 	kind: AlertKind;
@@ -21,7 +28,12 @@ export interface AlertRequest {
 	cancelLabel?: string;
 	/** prompt の初期値。 */
 	defaultValue?: string;
-	/** OK = (confirm:true / prompt:入力文字列 / alert:null) / キャンセル = (confirm:false / prompt:null)。 */
+	/** choice の選択肢 (kind=CHOICE のときのみ)。各ボタンが value で resolve する。 */
+	choices?: AlertChoice[];
+	/**
+	 * OK = (confirm:true / prompt:入力文字列 / alert:null) / キャンセル = (confirm:false / prompt:null)。
+	 * choice = 選んだ value (X/Esc/overlay での dismiss は null)。
+	 */
 	resolve: (value: boolean | string | null) => void;
 }
 

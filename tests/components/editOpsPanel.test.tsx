@@ -245,24 +245,44 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 		useSlideStore.getState().setSelectedIndex(0);
 	};
 
-	it("shared layer 削除: confirm OK で連鎖削除 (全スライドから消える)", async () => {
+	it("shared layer 削除: choice 'all' で連鎖削除 (全スライドから消える)", async () => {
 		seedSharedTwoSlides();
 		render();
 		selectLayer("u-1");
 		clickByOp("remove");
-		await resolveAlert(true);
+		await resolveAlert("all");
 		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
 		expect(useSlideStore.getState().slides[1].layers).toHaveLength(0);
 	});
 
-	it("shared layer 削除: confirm キャンセルでこのスライドのみ削除 (兄弟は残る)", async () => {
+	it("shared layer 削除: choice 'single' でこのスライドのみ削除 (兄弟は残る)", async () => {
 		seedSharedTwoSlides();
 		render();
 		selectLayer("u-1");
 		clickByOp("remove");
-		await resolveAlert(false);
+		await resolveAlert("single");
 		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
 		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1); // 兄弟は残る
+	});
+
+	it("shared layer 削除: choice 'cancel' では何も削除しない", async () => {
+		seedSharedTwoSlides();
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		await resolveAlert("cancel");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
+		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1);
+	});
+
+	it("shared layer 削除: dismiss (null) でも何も削除しない", async () => {
+		seedSharedTwoSlides();
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		await resolveAlert(null);
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
+		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1);
 	});
 
 	it("remove ボタンで layer が削除され、selectedLayer が null になる", () => {

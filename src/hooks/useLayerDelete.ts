@@ -16,13 +16,18 @@ export const useLayerDelete = (): ((layerIndex: number) => Promise<void>) => {
 			const { slides, selectedIndex } = useSlideStore.getState();
 			const sibCount = sharedSiblingCount({ slides, selectedIndex }, layerIndex);
 			if (sibCount > 0) {
-				const all = await alert.confirm(
-					`このレイヤーは他 ${sibCount} スライドと共有 (shared) されています。\n` +
-						"OK: 共有先も含め全て削除 / キャンセル: このスライドのみ削除",
-					{ okLabel: "全て削除", cancelLabel: "このスライドのみ" }
+				// 全削除 / このスライドのみ / キャンセル の 3 択 (X/Esc も削除中止扱い)。
+				const choice = await alert.choice(
+					`このレイヤーは他 ${sibCount} スライドと共有 (shared) されています。`,
+					[
+						{ value: "all", label: "全て削除" },
+						{ value: "single", label: "このスライドのみ" },
+						{ value: "cancel", label: "キャンセル" },
+					]
 				);
-				if (all) removeLayerWithSharedSiblings(layerIndex);
-				else removeLayer(layerIndex);
+				if (choice === "all") removeLayerWithSharedSiblings(layerIndex);
+				else if (choice === "single") removeLayer(layerIndex);
+				// "cancel" / null (dismiss) は削除を行わない。
 			} else {
 				removeLayer(layerIndex);
 			}

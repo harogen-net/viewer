@@ -58,14 +58,29 @@ export const AlertHost: FC = () => {
 					/>
 				)}
 				<Group justify="flex-end" gap="sm">
-					{kind !== AlertKind.ALERT && (
-						<Button variant="default" onClick={handleCancel} data-alert-cancel>
-							{request?.cancelLabel ?? "キャンセル"}
-						</Button>
+					{kind === AlertKind.CHOICE ? (
+						// N 択: 各選択肢を value で resolve するボタンに。dismiss (X/Esc) は null。
+						request?.choices?.map((c) => (
+							<Button
+								key={c.value}
+								variant="default"
+								onClick={() => settle(c.value)}
+								data-alert-choice={c.value}>
+								{c.label}
+							</Button>
+						))
+					) : (
+						<>
+							{kind !== AlertKind.ALERT && (
+								<Button variant="default" onClick={handleCancel} data-alert-cancel>
+									{request?.cancelLabel ?? "キャンセル"}
+								</Button>
+							)}
+							<Button onClick={handleOk} data-alert-ok>
+								{request?.okLabel ?? "OK"}
+							</Button>
+						</>
 					)}
-					<Button onClick={handleOk} data-alert-ok>
-						{request?.okLabel ?? "OK"}
-					</Button>
 				</Group>
 			</Stack>
 		</Modal>

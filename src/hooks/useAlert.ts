@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AlertKind, useAlertStore } from "../state/alertStore";
+import { type AlertChoice, AlertKind, useAlertStore } from "../state/alertStore";
 
 // window.alert / confirm / prompt の非同期 (Promise) 置換 hook。
 // AlertHost (Mantine Modal) が描画・応答する。呼び出し側は await して結果を受ける:
@@ -17,6 +17,14 @@ export interface UseAlert {
 	alert: (message: string, opts?: AlertOptions) => Promise<void>;
 	confirm: (message: string, opts?: AlertOptions) => Promise<boolean>;
 	prompt: (message: string, defaultValue?: string, opts?: AlertOptions) => Promise<string | null>;
+	/**
+	 * N 択ダイアログ。選んだ choice.value を返す。X/Esc/overlay での dismiss は null。
+	 */
+	choice: (
+		message: string,
+		choices: AlertChoice[],
+		opts?: Pick<AlertOptions, "title">
+	) => Promise<string | null>;
 }
 
 export const useAlert = (): UseAlert =>
@@ -42,6 +50,16 @@ export const useAlert = (): UseAlert =>
 						kind: AlertKind.PROMPT,
 						message,
 						defaultValue,
+						...opts,
+						resolve: (v) => res(typeof v === "string" ? v : null),
+					});
+				}),
+			choice: (message, choices, opts) =>
+				new Promise<string | null>((res) => {
+					setRequest({
+						kind: AlertKind.CHOICE,
+						message,
+						choices,
 						...opts,
 						resolve: (v) => res(typeof v === "string" ? v : null),
 					});
