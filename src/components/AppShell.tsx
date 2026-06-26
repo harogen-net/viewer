@@ -19,6 +19,7 @@ import { ImageLibraryPanel } from "./panels/ImageLibraryPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
 import { SlideShowOpsPanel } from "./panels/SlideShowOpsPanel";
+import { SlideshowSettingsModal } from "./panels/SlideshowSettingsModal";
 import { ProgressBar } from "./ProgressBar";
 import { SlideEditView } from "./slide/SlideEditView";
 import { SlideshowShell } from "./SlideshowShell";
@@ -30,6 +31,7 @@ import { SlideshowShell } from "./SlideshowShell";
 // editable=false (閲覧モード) では編集系トリガ (画像ライブラリ追加・ドキュメント設定) を隠す。
 const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 	const [showImageLibrary, setShowImageLibrary] = useState(false);
+	const [showSlideshowSettings, setShowSlideshowSettings] = useState(false);
 	const openDocSettings = useDocSettingsStore((s) => s.openEdit);
 	const slideshowRunning = useSlideshowStore((s) => s.running);
 	const stopSlideshow = useSlideshowStore((s) => s.stop);
@@ -68,6 +70,12 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 								data-open-image-library>
 								🖼 画像ライブラリ
 							</Button>
+							<Button
+								variant="default"
+								onClick={() => setShowSlideshowSettings(true)}
+								data-open-slideshow-settings>
+								🎬 スライドショー設定
+							</Button>
 						</Flex>
 					)}
 				</Flex>
@@ -77,6 +85,10 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 				<>
 					<ImageLibraryPanel opened={showImageLibrary} onClose={() => setShowImageLibrary(false)} />
 					<DocumentSettingsModal />
+					<SlideshowSettingsModal
+						opened={showSlideshowSettings}
+						onClose={() => setShowSlideshowSettings(false)}
+					/>
 				</>
 			)}
 		</>

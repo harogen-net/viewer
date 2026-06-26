@@ -7,7 +7,9 @@ import { useSlideStore } from "../../src/state/slideStore";
 import { useSlideshowStore } from "../../src/state/slideshowStore";
 import type { Slide } from "../../src/types/Slide";
 
-// §9 SlideShowOpsPanel: 開始ボタン + interval/duration + flipX/Y + 全画面 設定 UI。
+// §9 SlideShowOpsPanel: 実質スタートボタンのみ。
+// 設定 (interval/duration/flipX/Y/全画面) は SlideshowSettingsModal へ移設
+// (slideshowSettingsModal.test.tsx)。
 
 const makeSlide = (id: number): Slide => ({
 	id,
@@ -71,32 +73,12 @@ describe("SlideShowOpsPanel (§9)", () => {
 		expect(useSlideshowStore.getState().running).toBe(true);
 	});
 
-	it("flipX / flipY トグルで store が反転", () => {
-		act(() => useSlideStore.getState().setSlides([makeSlide(1)]));
+	it("設定 UI (interval/duration/flip/fullscreen) はパネルに無い (モーダルへ移設)", () => {
 		render();
-		const flipX = op("flip-x")?.querySelector<HTMLInputElement>("input");
-		const flipY = op("flip-y")?.querySelector<HTMLInputElement>("input");
-		if (!flipX || !flipY) throw new Error("flip switches not found");
-		act(() => flipX.click());
-		expect(useSlideshowStore.getState().flipX).toBe(true);
-		act(() => flipY.click());
-		expect(useSlideshowStore.getState().flipY).toBe(true);
-	});
-
-	it("全画面で開始トグルで store.startFullscreen が反転", () => {
-		render();
-		const fs = op("fullscreen")?.querySelector<HTMLInputElement>("input");
-		if (!fs) throw new Error("fullscreen switch not found");
-		act(() => fs.click());
-		expect(useSlideshowStore.getState().startFullscreen).toBe(true);
-	});
-
-	it("interval / duration 入力欄が現在値を表示する", () => {
-		useSlideshowStore.setState({ intervalMs: 3000, durationMs: 800 });
-		render();
-		const interval = op("interval")?.querySelector<HTMLInputElement>("input");
-		const duration = op("duration")?.querySelector<HTMLInputElement>("input");
-		expect(interval?.value).toContain("3000");
-		expect(duration?.value).toContain("800");
+		expect(op("interval")).toBeNull();
+		expect(op("duration")).toBeNull();
+		expect(op("flip-x")).toBeNull();
+		expect(op("flip-y")).toBeNull();
+		expect(op("fullscreen")).toBeNull();
 	});
 });
