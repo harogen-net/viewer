@@ -36,10 +36,12 @@ const cardStyle = (selected: boolean): CSSProperties => ({
 	textAlign: "left",
 	width: "100%",
 });
-// サムネ表示枠 (自由比率、contain で全体表示)。N/A も同枠で揃える。
+// サムネ表示枠の固定高さ。コマはこの枠内に contain (アスペクト保持・レターボックス) で収める。
+const THUMB_BOX_H = 160;
+// サムネ表示枠 (固定サイズ)。N/A も同枠で揃える。中身 (コマ) は中央 contain。
 const thumbBoxStyle: CSSProperties = {
 	width: "100%",
-	height: 160,
+	height: THUMB_BOX_H,
 	display: "flex",
 	alignItems: "center",
 	justifyContent: "center",
@@ -56,18 +58,47 @@ const titleStyle: CSSProperties = {
 };
 
 // 連結1枚サムネを 1 コマだけ見せ、ホバーで順次コマ送りする表示要素。
-// background-size 横 = frames*100% で 1 コマ = ボックス幅。position-x を frame/(frames-1) で送る。
+// コマは枠を cover (アスペクト保持で枠を埋め、はみ出しはクロップ) する:
+//   - 連結画像の自然寸法から 1 コマのアスペクト (naturalWidth/frames : naturalHeight) を取得。
+//   - 枠の実幅を ResizeObserver で計測し、固定高さ THUMB_BOX_H と合わせて cover 表示寸法を算出。
+//   - その寸法でスプライト (背景) を配置し、background-position(px) でコマ送り。枠 overflow:hidden でクロップ。
 const ThumbnailStrip: FC<{ thumb: string; frames: number; alt: string }> = ({
 	thumb,
 	frames,
 	alt,
 }) => {
 	const [frame, setFrame] = useState(0);
+	const [aspect, setAspect] = useState(0); // 1 コマの fw/fh (0=未取得)
+	const [boxW, setBoxW] = useState(0);
+	const boxRef = useRef<HTMLDivElement>(null);
 	const timerRef = useRef<number | null>(null);
+
 	// サムネ差し替え時は先頭コマへ。
 	useEffect(() => setFrame(0), [thumb]);
 	// アンマウント時に timer を必ず止める。
 	useEffect(() => () => stop(), []);
+	// 連結画像の自然寸法 → 1 コマのアスペクト。
+	useEffect(() => {
+		let cancelled = false;
+		const img = new Image();
+		img.onload = () => {
+			if (!cancelled && img.naturalHeight > 0) {
+				setAspect(img.naturalWidth / frames / img.naturalHeight);
+			}
+		};
+		img.src = thumb;
+		return () => {
+			cancelled = true;
+		};
+	}, [thumb, frames]);
+	// 枠の実幅を計測 (contain 計算用)。
+	useEffect(() => {
+		const el = boxRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver((entries) => setBoxW(entries[0].contentRect.width));
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, []);
 
 	function stop(): void {
 		if (timerRef.current != null) {
@@ -84,25 +115,32 @@ const ThumbnailStrip: FC<{ thumb: string; frames: number; alt: string }> = ({
 		setFrame(0);
 	};
 
-	const style: CSSProperties = {
-		...thumbBoxStyle,
-		background: undefined,
-		backgroundColor: "#f1f3f5",
-		backgroundImage: `url(${thumb})`,
-		backgroundRepeat: "no-repeat",
-		backgroundSize: `${frames * 100}% 100%`,
-		backgroundPosition: frames > 1 ? `${(frame / (frames - 1)) * 100}% 0` : "0 0",
-	};
+	// cover: アスペクト保持で枠を埋め、はみ出しは枠の overflow:hidden + 中央寄せでクロップ。
+	let spriteStyle: CSSProperties = { display: "none" };
+	if (aspect > 0 && boxW > 0) {
+		const dispH = Math.max(THUMB_BOX_H, boxW / aspect);
+		const dispW = dispH * aspect;
+		spriteStyle = {
+			width: dispW,
+			height: dispH,
+			backgroundImage: `url(${thumb})`,
+			backgroundRepeat: "no-repeat",
+			backgroundSize: `${dispW * frames}px ${dispH}px`,
+			backgroundPosition: `${-frame * dispW}px 0`,
+		};
+	}
 	return (
 		<div
-			style={style}
+			ref={boxRef}
+			style={thumbBoxStyle}
 			onMouseOver={start}
 			onMouseOut={reset}
 			data-picker-thumb
 			data-thumb-frames={frames}
 			data-thumb-frame={frame}
-			aria-label={alt}
-		/>
+			aria-label={alt}>
+			<div style={spriteStyle} data-thumb-sprite />
+		</div>
 	);
 };
 

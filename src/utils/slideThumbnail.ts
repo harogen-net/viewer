@@ -90,6 +90,9 @@ export const drawSlideToCanvas = async (
 	canvas.height = targetHeight;
 	const ctx = canvas.getContext("2d");
 	if (!ctx) throw new Error("canvas 2d context が取得できません");
+	// 縮小描画 (サムネ) の品質を上げる。既定 (low) だと細線がジャギる。
+	ctx.imageSmoothingEnabled = true;
+	ctx.imageSmoothingQuality = "high";
 
 	if (bgColor) {
 		ctx.fillStyle = bgColor;

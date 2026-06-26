@@ -167,10 +167,10 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 			const doc: ViewerDocument = { ...meta, slides };
 			// ビジュアルピッカー用の連結サムネ (active から均等ピック→横連結1枚+コマ数) を生成
 			// (best-effort、失敗時は null = サムネ無し)。
+			// PNG (可逆): 白地に細い色線の簡易イラストは JPEG だと滲み/ブロックで激しく劣化するため。
 			const thumbnail = await generateDocThumbnailStrip(doc, collectImageMap(), {
-				frameMaxPx: 240,
-				mimeType: "image/jpeg",
-				quality: 0.72,
+				frameMaxPx: 320,
+				mimeType: "image/png",
 			}).catch(() => null);
 			const { title } = await save(doc, { override, thumbnail });
 			// 保存名を meta へ同期し modified を解除 (beforeunload / 未保存ガードの誤発火を防ぐ。
