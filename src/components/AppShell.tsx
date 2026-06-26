@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Anchor,
 	Box,
 	Button,
 	Flex,
@@ -33,26 +32,8 @@ import { ProgressBar } from "./ProgressBar";
 import { SlideEditView } from "./slide/SlideEditView";
 import { SlideshowShell } from "./SlideshowShell";
 
-// `?new=1` 起動か判定 (v3 §0-8 dual entrypoint)。
-// 新側モードでは Group A の build 中につき placeholder を出す。
-// 通常モード (レガシー) では従来通り ProgressBar のみ。
-const isNewMode =
-	typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1";
-
-// dev 専用の左右モード切替リンク (v3 開発中の手動確認用、Group D 末尾で削除)。
-const modeSwitchLinkStyle: CSSProperties = {
-	position: "fixed",
-	bottom: 6,
-	right: 6,
-	zIndex: 99999,
-	padding: "4px 10px",
-	background: "rgba(0,0,0,0.7)",
-	color: "#fff",
-	textDecoration: "none",
-	fontFamily: "monospace",
-	fontSize: 12,
-	borderRadius: 4,
-};
+// dual entrypoint: 既定で新側、?legacy=1 でレガシー。AppShell は新側 (= !legacy) でのみ
+// mount される (index.html のブートストラップが ?legacy=1 のとき src/index.ts を読む)。
 
 // 上部グローバルバー (レガシー #menu 相当): スライドショー / ファイル IO / 画像ライブラリ・設定。
 // editable=false (閲覧モード) では編集系トリガ (画像ライブラリ追加・ドキュメント設定) を隠す。
@@ -274,27 +255,16 @@ export const AppShell: FC = () => {
 	const detailMode = editable && selectedIndex >= 0 && !!slides[selectedIndex];
 	return (
 		<MantineProvider>
-			{isNewMode ? (
-				<>
-					<div style={newModeLayoutStyle} data-viewer-mode={mode}>
-						<TopBar editable={editable} />
-						{detailMode && <MainArea editable={editable} />}
-						<div
-							style={detailMode ? listStripStyle : listExpandedStyle}
-							data-slide-list-area
-							data-list-expanded={detailMode ? "false" : "true"}>
-							<SlideListPanel readOnly={!editable} wrap={!detailMode} />
-						</div>
-					</div>
-					<Anchor href="/" style={modeSwitchLinkStyle} underline="never">
-						→ legacy
-					</Anchor>
-				</>
-			) : (
-				<Anchor href="/?new=1" style={modeSwitchLinkStyle} underline="never">
-					→ new (v3)
-				</Anchor>
-			)}
+			<div style={newModeLayoutStyle} data-viewer-mode={mode}>
+				<TopBar editable={editable} />
+				{detailMode && <MainArea editable={editable} />}
+				<div
+					style={detailMode ? listStripStyle : listExpandedStyle}
+					data-slide-list-area
+					data-list-expanded={detailMode ? "false" : "true"}>
+					<SlideListPanel readOnly={!editable} wrap={!detailMode} />
+				</div>
+			</div>
 			<ProgressBar />
 			<AlertHost />
 		</MantineProvider>
