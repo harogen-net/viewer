@@ -1,5 +1,5 @@
 import type { CSSProperties, FC } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSlideshowPlayer } from "../hooks/useSlideshowPlayer";
 import { useSlideStore } from "../state/slideStore";
 import { useSlideshowStore } from "../state/slideshowStore";
@@ -96,7 +96,10 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	const prevSlideRef = useRef<Slide | null>(null);
 	const fadeTimerRef = useRef<number | null>(null);
 
-	useEffect(() => {
+	// useEffect ではなく useLayoutEffect: underSlide のセットをペイント前に同期実行する。
+	// useEffect だと「新フレームが opacity 0 / underSlide 未挿入」の状態が 1 フレーム描画され、
+	// 切れ目で背景(黒)がちらつく。useLayoutEffect なら underSlide 挿入後に 1 回だけペイントされる。
+	useLayoutEffect(() => {
 		if (!frame) {
 			prevKeyRef.current = null;
 			prevSlideRef.current = null;
