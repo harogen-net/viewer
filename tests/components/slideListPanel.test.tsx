@@ -47,11 +47,11 @@ const resolveAlert = async (value: boolean | string | null): Promise<void> => {
 	});
 };
 
-const render = (): void => {
+const render = (readOnly = false, wrap = false): void => {
 	act(() => {
 		root.render(
 			<MantineProvider>
-				<SlideListPanel />
+				<SlideListPanel readOnly={readOnly} wrap={wrap} />
 			</MantineProvider>
 		);
 	});
@@ -449,5 +449,42 @@ describe("SlideListPanel ドラッグ&ドロップ (v4 Group D D-12)", () => {
 			zone?.dispatchEvent(new Event("dragover", { bubbles: true, cancelable: true }));
 		});
 		expect(overlay?.style.display).toBe("none");
+	});
+});
+
+describe("SlideListPanel 閲覧モード (readOnly)", () => {
+	it("編集ボタン・per-thumb コントロール・DnD を隠し、サムネ選択のみ可", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useSlideStore.getState().setSelectedIndex(0);
+		render(true);
+		// 編集ボタン群は非表示
+		for (const action of ["move-prev", "move-next", "add", "duplicate", "delete"]) {
+			expect(container.querySelector(`[data-action='${action}']`)).toBeNull();
+		}
+		// per-thumb 編集コントロール・DnD は無し
+		expect(container.querySelector("[data-thumb-control]")).toBeNull();
+		expect(container.querySelector("[data-sortable-id]")).toBeNull();
+		// サムネ自体は描画される (選択用)
+		expect(container.querySelectorAll("[data-thumb-canvas]").length).toBe(2);
+	});
+
+	it("編集モード (既定) では編集ボタンが出る", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		render(false);
+		expect(container.querySelector("[data-action='add']")).not.toBeNull();
+		expect(container.querySelector("[data-sortable-id]")).not.toBeNull();
+	});
+});
+
+describe("SlideListPanel wrap (複数行ギャラリー)", () => {
+	it("wrap=false は単一行 (nowrap)、wrap=true は複数行 (wrap)", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		render(false, false);
+		const row1 = container.querySelector<HTMLElement>("[data-slide-count]");
+		expect(row1?.style.flexWrap).toBe("nowrap");
+
+		render(false, true);
+		const row2 = container.querySelector<HTMLElement>("[data-slide-count]");
+		expect(row2?.style.flexWrap).toBe("wrap");
 	});
 });

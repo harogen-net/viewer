@@ -82,11 +82,11 @@ const resolveAlert = async (value: boolean): Promise<void> => {
 	});
 };
 
-const render = async (): Promise<void> => {
+const render = async (readOnly = false): Promise<void> => {
 	await act(async () => {
 		root.render(
 			<MantineProvider>
-				<FileIOPanel />
+				<FileIOPanel readOnly={readOnly} />
 				<AlertHost />
 			</MantineProvider>
 		);
@@ -265,5 +265,31 @@ describe("FileIOPanel ビジュアルピッカー", () => {
 		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
 		await act(async () => {});
 		expect(loadThumbnailsMock).toHaveBeenCalled();
+	});
+});
+
+describe("FileIOPanel 閲覧モード (readOnly)", () => {
+	const has = (sel: string): boolean => !!container.querySelector(sel);
+
+	it("書込系 (新規/保存/上書き/import/削除/元に戻す) を隠し、開く系・出力は残す", async () => {
+		await render(true);
+		// 書込系は非表示
+		expect(has('[data-action="new"]')).toBe(false);
+		expect(has('[data-action="import"]')).toBe(false);
+		expect(has('[data-action="save-new"]')).toBe(false);
+		expect(has('[data-action="save-override"]')).toBe(false);
+		expect(has('[data-action="reload"]')).toBe(false);
+		expect(has('[data-action="delete"]')).toBe(false);
+		// 開く系・出力は残す
+		expect(has('[data-action="open-picker"]')).toBe(true);
+		expect(has('[data-file-nav="prev"]')).toBe(true);
+		expect(has('[data-file-nav="next"]')).toBe(true);
+		expect(has('[data-action="export-all-zip"]')).toBe(true);
+	});
+
+	it("編集モード (既定) では書込系が出る", async () => {
+		await render(false);
+		expect(has('[data-action="save-new"]')).toBe(true);
+		expect(has('[data-action="new"]')).toBe(true);
 	});
 });

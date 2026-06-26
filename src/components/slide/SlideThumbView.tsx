@@ -31,6 +31,8 @@ interface SlideThumbViewProps extends SlideViewProps {
 	onToggleDisabled: () => void;
 	/** thumb の固定高さ (px)。デフォルト 110 (legacy THUMB_HEIGHT 互換)。 */
 	thumbHeight?: number;
+	/** 閲覧モード: 有効/無効・結合・duration の編集コントロールを隠す (選択のみ可)。 */
+	readOnly?: boolean;
 }
 
 // canvas 再描画 debounce ms (legacy CanvasSlideView.refresh の setTimeout 100ms 互換)。
@@ -66,6 +68,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 	onToggleJoining,
 	onToggleDisabled,
 	thumbHeight = 110,
+	readOnly = false,
 }) => {
 	const scale = thumbHeight / slide.height;
 	const correction = computeDurationCorrection(slide.durationRatio);
@@ -228,47 +231,52 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 			/>
 			<span style={indexLabelStyle}>{index + 1}</span>
 
-			<input
-				type="checkbox"
-				checked={!slide.disabled}
-				onChange={onToggleDisabled}
-				onClick={(e) => e.stopPropagation()}
-				style={enableCheckStyle}
-				data-thumb-control="enable-check"
-				aria-label="有効/無効切替"
-			/>
+			{/* 編集コントロール (有効/無効・結合・duration) は readOnly で非表示 (選択のみ可)。 */}
+			{!readOnly && (
+				<>
+					<input
+						type="checkbox"
+						checked={!slide.disabled}
+						onChange={onToggleDisabled}
+						onClick={(e) => e.stopPropagation()}
+						style={enableCheckStyle}
+						data-thumb-control="enable-check"
+						aria-label="有効/無効切替"
+					/>
 
-			<button
-				type="button"
-				onClick={stopClick(onToggleJoining)}
-				style={joinArrowStyle}
-				data-thumb-control="join-arrow"
-				aria-label={slide.joining ? "結合解除" : "結合"}
-				title={slide.joining ? "結合解除" : "結合"}>
-				{slide.joining ? "▶" : "▷"}
-			</button>
+					<button
+						type="button"
+						onClick={stopClick(onToggleJoining)}
+						style={joinArrowStyle}
+						data-thumb-control="join-arrow"
+						aria-label={slide.joining ? "結合解除" : "結合"}
+						title={slide.joining ? "結合解除" : "結合"}>
+						{slide.joining ? "▶" : "▷"}
+					</button>
 
-			<div style={durationControlStyle} data-thumb-control="duration">
-				<button
-					type="button"
-					onClick={stopClick(onDecrementDuration)}
-					style={durationBtnStyle}
-					data-thumb-control="duration-down"
-					aria-label="durationRatio 減少">
-					−
-				</button>
-				<span data-thumb-control="duration-label" style={{ minWidth: 24, textAlign: "center" }}>
-					{durationLabel}
-				</span>
-				<button
-					type="button"
-					onClick={stopClick(onIncrementDuration)}
-					style={durationBtnStyle}
-					data-thumb-control="duration-up"
-					aria-label="durationRatio 増加">
-					+
-				</button>
-			</div>
+					<div style={durationControlStyle} data-thumb-control="duration">
+						<button
+							type="button"
+							onClick={stopClick(onDecrementDuration)}
+							style={durationBtnStyle}
+							data-thumb-control="duration-down"
+							aria-label="durationRatio 減少">
+							−
+						</button>
+						<span data-thumb-control="duration-label" style={{ minWidth: 24, textAlign: "center" }}>
+							{durationLabel}
+						</span>
+						<button
+							type="button"
+							onClick={stopClick(onIncrementDuration)}
+							style={durationBtnStyle}
+							data-thumb-control="duration-up"
+							aria-label="durationRatio 増加">
+							+
+						</button>
+					</div>
+				</>
+			)}
 		</div>
 	);
 };

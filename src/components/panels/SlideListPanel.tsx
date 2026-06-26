@@ -9,6 +9,7 @@ import {
 } from "@dnd-kit/core";
 import {
 	horizontalListSortingStrategy,
+	rectSortingStrategy,
 	SortableContext,
 	sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
@@ -22,6 +23,7 @@ import { useSlideMutation } from "../../hooks/useSlideMutation";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import { SlideJoinIndicator } from "../slide/SlideJoinIndicator";
+import { SlideThumbView } from "../slide/SlideThumbView";
 import { SortableSlideThumb } from "../slide/SortableSlideThumb";
 import { SlideListContextMenu } from "./SlideListContextMenu";
 
@@ -43,7 +45,13 @@ import { SlideListContextMenu } from "./SlideListContextMenu";
 
 const THUMB_HEIGHT = 110;
 
-export const SlideListPanel: FC = () => {
+// readOnly (閲覧モード): 追加/複製/削除/前後移動ボタン・per-thumb 編集コントロール・
+// D&D 並べ替え・右クリックメニューを隠し、クリック選択のみ可にする。
+// wrap (ギャラリー表示): 単一行横スクロールでなく複数行に折り返す (未編集時に領域を広く使う)。
+export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
+	readOnly = false,
+	wrap = false,
+}) => {
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const setSelectedIndex = useSlideStore((s) => s.setSelectedIndex);
@@ -138,23 +146,35 @@ export const SlideListPanel: FC = () => {
 		pointerEvents: "none",
 	};
 
-	return (
-		<SlideListContextMenu>
-			<Paper
-				withBorder
-				p="sm"
-				radius="sm"
-				style={{ position: "relative" }}
-				onDragOver={dropProps.onDragOver}
-				onDragLeave={dropProps.onDragLeave}
-				onDrop={dropProps.onDrop}
-				data-slide-list-drop-zone>
+	// thumb コンテナは wrap=true (ギャラリー) で複数行へ折り返す。DnD も wrap 時は 2 次元 (rect) 戦略。
+	const sortStrategy = wrap ? rectSortingStrategy : horizontalListSortingStrategy;
+
+	// 閲覧モードは画像ドロップ追加・右クリックメニューも無効。
+	const body = (
+		<Paper
+			withBorder
+			p="sm"
+			radius="sm"
+			// wrap (ギャラリー) 時は領域の高さいっぱいに伸ばし、下に空白を残さない。
+			style={
+				wrap
+					? { position: "relative", height: "100%", display: "flex", flexDirection: "column" }
+					: { position: "relative" }
+			}
+			bg="gray.1"
+			onDragOver={readOnly ? undefined : dropProps.onDragOver}
+			onDragLeave={readOnly ? undefined : dropProps.onDragLeave}
+			onDrop={readOnly ? undefined : dropProps.onDrop}
+			data-slide-list-drop-zone>
+			{!readOnly && (
 				<div style={dropOverlayStyle} data-slide-list-drop-overlay>
 					ドロップで画像スライドを追加
 				</div>
-				<Stack gap="xs">
-					<Group justify="space-between" align="center">
-						<Title order={5}>Slide List</Title>
+			)}
+			<Stack gap="xs" style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
+				<Group justify="space-between" align="center">
+					<Title order={5}>Slide List</Title>
+					{!readOnly && (
 						<Group gap={4}>
 							<Tooltip label="前に移動" disabled={!canMovePrev}>
 								<ActionIcon
@@ -214,62 +234,102 @@ export const SlideListPanel: FC = () => {
 								</ActionIcon>
 							</Tooltip>
 						</Group>
-					</Group>
-					{isEmpty ? (
-						<Text size="xs" c="dimmed">
-							スライドがありません (document をロード or 新規作成)
-						</Text>
-					) : (
-						<DndContext
-							sensors={sensors}
-							collisionDetection={closestCenter}
-							onDragEnd={handleDragEnd}
-							// drag 中の自動スクロールは完全に無効化 (祖先要素に波及してページ縦スクロールが起きるため)。
-							// 端まで運ぶ場合はユーザが先に手動スクロールしてからドラッグ。
-							autoScroll={false}>
-							<SortableContext
-								items={slides.map((s) => s.uuid)}
-								strategy={horizontalListSortingStrategy}>
-								<ScrollArea type="auto" scrollbarSize={8}>
-									<div
-										style={{
-											display: "flex",
-											flexDirection: "row",
-											alignItems: "center",
-											gap: 4,
-											paddingBottom: 4,
-											minHeight: THUMB_HEIGHT + 12,
-										}}
-										data-slide-count={slides.length}>
-										{slides.map((slide, i) => (
-											<Fragment key={slide.uuid}>
-												<SortableSlideThumb
-													id={slide.uuid}
-													slide={slide}
-													index={i}
-													selected={i === selectedIndex}
-													bgColor={bgColor}
-													onClick={() => setSelectedIndex(i)}
-													onIncrementDuration={() => incrementSlideDurationRatio(i)}
-													onDecrementDuration={() => decrementSlideDurationRatio(i)}
-													onToggleJoining={() => setSlideJoining(i, !slide.joining)}
-													onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
-													thumbHeight={THUMB_HEIGHT}
-												/>
-												{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
-											</Fragment>
-										))}
-									</div>
-								</ScrollArea>
-							</SortableContext>
-						</DndContext>
 					)}
-					<Text size="xs" c="dimmed" ff="monospace">
-						{slides.length} slides
-						{selectedIndex >= 0 && ` / selected: #${selectedIndex + 1}`}
+				</Group>
+				{isEmpty ? (
+					<Text size="xs" c="dimmed">
+						スライドがありません (document をロード or 新規作成)
 					</Text>
-				</Stack>
-			</Paper>
-		</SlideListContextMenu>
+				) : readOnly ? (
+					// 閲覧モード: D&D 無し・編集コントロール無しの素の一覧 (クリック選択のみ)。
+					<ScrollArea
+						type="auto"
+						scrollbarSize={8}
+						style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
+						<div
+							style={{
+								display: "flex",
+								flexDirection: "row",
+								flexWrap: wrap ? "wrap" : "nowrap",
+								alignItems: wrap ? "flex-start" : "center",
+								gap: 4,
+								paddingBottom: 4,
+								minHeight: THUMB_HEIGHT + 12,
+							}}
+							data-slide-count={slides.length}>
+							{slides.map((slide, i) => (
+								<Fragment key={slide.uuid}>
+									<SlideThumbView
+										slide={slide}
+										index={i}
+										selected={i === selectedIndex}
+										bgColor={bgColor}
+										onClick={() => setSelectedIndex(i)}
+										onIncrementDuration={() => incrementSlideDurationRatio(i)}
+										onDecrementDuration={() => decrementSlideDurationRatio(i)}
+										onToggleJoining={() => setSlideJoining(i, !slide.joining)}
+										onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
+										thumbHeight={THUMB_HEIGHT}
+										readOnly
+									/>
+									{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
+								</Fragment>
+							))}
+						</div>
+					</ScrollArea>
+				) : (
+					<DndContext
+						sensors={sensors}
+						collisionDetection={closestCenter}
+						onDragEnd={handleDragEnd}
+						// drag 中の自動スクロールは完全に無効化 (祖先要素に波及してページ縦スクロールが起きるため)。
+						// 端まで運ぶ場合はユーザが先に手動スクロールしてからドラッグ。
+						autoScroll={false}>
+						<SortableContext items={slides.map((s) => s.uuid)} strategy={sortStrategy}>
+							<ScrollArea
+								type="auto"
+								scrollbarSize={8}
+								style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
+								<div
+									style={{
+										display: "flex",
+										flexDirection: "row",
+										flexWrap: wrap ? "wrap" : "nowrap",
+										alignItems: wrap ? "flex-start" : "center",
+										gap: 4,
+										paddingBottom: 4,
+										minHeight: THUMB_HEIGHT + 12,
+									}}
+									data-slide-count={slides.length}>
+									{slides.map((slide, i) => (
+										<Fragment key={slide.uuid}>
+											<SortableSlideThumb
+												id={slide.uuid}
+												slide={slide}
+												index={i}
+												selected={i === selectedIndex}
+												bgColor={bgColor}
+												onClick={() => setSelectedIndex(i)}
+												onIncrementDuration={() => incrementSlideDurationRatio(i)}
+												onDecrementDuration={() => decrementSlideDurationRatio(i)}
+												onToggleJoining={() => setSlideJoining(i, !slide.joining)}
+												onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
+												thumbHeight={THUMB_HEIGHT}
+											/>
+											{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
+										</Fragment>
+									))}
+								</div>
+							</ScrollArea>
+						</SortableContext>
+					</DndContext>
+				)}
+				<Text size="xs" c="dimmed" ff="monospace">
+					{slides.length} slides
+					{selectedIndex >= 0 && ` / selected: #${selectedIndex + 1}`}
+				</Text>
+			</Stack>
+		</Paper>
 	);
+	return readOnly ? body : <SlideListContextMenu>{body}</SlideListContextMenu>;
 };

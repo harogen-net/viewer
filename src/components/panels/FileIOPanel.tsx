@@ -13,11 +13,7 @@ import type { ChangeEvent, FC } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useFileIO } from "../../hooks/useFileIO";
-import {
-	useStorage,
-	type StoredDocThumbnail,
-	type StoredSlideTitle,
-} from "../../hooks/useStorage";
+import { useStorage, type StoredDocThumbnail, type StoredSlideTitle } from "../../hooks/useStorage";
 import { useDocSettingsStore } from "../../state/docSettingsStore";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useSlideStore } from "../../state/slideStore";
@@ -46,7 +42,9 @@ const collectImageMap = (): Record<string, string> => {
 	return imageMap;
 };
 
-export const FileIOPanel: FC = () => {
+// readOnly (閲覧モード) では書込系 (新規 / 保存 / 上書き / import / 削除 / 元に戻す) を隠し、
+// 開く (一覧 / 前後移動 / ギャラリー) と出力 (PNG/HVD/HVZ/ZIP) のみ残す。
+export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 	const { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails } = useStorage();
 	const { exportHvd, exportHvz, exportPng, importFile, exportSlidePng, exportAllSlidesZip } =
 		useFileIO();
@@ -278,15 +276,23 @@ export const FileIOPanel: FC = () => {
 					</Text>
 				</Group>
 				<Group gap="xs" wrap="wrap">
-					<Button size="xs" variant="default" onClick={handleNew}>
-						📄 新規
-					</Button>
+					{!readOnly && (
+						<Button size="xs" variant="default" onClick={handleNew} data-action="new">
+							📄 新規
+						</Button>
+					)}
 					<Button size="xs" variant="default" onClick={handleOpenPicker} data-action="open-picker">
 						🖼 ギャラリーから開く
 					</Button>
-					<Button size="xs" variant="default" onClick={() => fileInputRef.current?.click()}>
-						📂 import
-					</Button>
+					{!readOnly && (
+						<Button
+							size="xs"
+							variant="default"
+							onClick={() => fileInputRef.current?.click()}
+							data-action="import">
+							📂 import
+						</Button>
+					)}
 					<input
 						ref={fileInputRef}
 						type="file"
@@ -328,36 +334,40 @@ export const FileIOPanel: FC = () => {
 							</ActionIcon>
 						</Tooltip>
 					</Group>
-					<Tooltip label="保存時の状態に戻す (未保存の変更を破棄)" disabled={canReload}>
-						<Button
-							size="xs"
-							variant="default"
-							onClick={handleReload}
-							disabled={!canReload}
-							data-action="reload">
-							↺ 元に戻す
-						</Button>
-					</Tooltip>
-					<Button
-						size="xs"
-						variant="filled"
-						color="blue"
-						onClick={handleSave(false)}
-						disabled={!hasSlides}
-						data-action="save-new">
-						💾 保存 (新規)
-					</Button>
-					<Tooltip label="現在の document に上書き" disabled={canOverride}>
-						<Button
-							size="xs"
-							variant="filled"
-							color="blue"
-							onClick={handleSave(true)}
-							disabled={!canOverride || !hasSlides}
-							data-action="save-override">
-							💾 上書き
-						</Button>
-					</Tooltip>
+					{!readOnly && (
+						<>
+							<Tooltip label="保存時の状態に戻す (未保存の変更を破棄)" disabled={canReload}>
+								<Button
+									size="xs"
+									variant="default"
+									onClick={handleReload}
+									disabled={!canReload}
+									data-action="reload">
+									↺ 元に戻す
+								</Button>
+							</Tooltip>
+							<Button
+								size="xs"
+								variant="filled"
+								color="blue"
+								onClick={handleSave(false)}
+								disabled={!hasSlides}
+								data-action="save-new">
+								💾 保存 (新規)
+							</Button>
+							<Tooltip label="現在の document に上書き" disabled={canOverride}>
+								<Button
+									size="xs"
+									variant="filled"
+									color="blue"
+									onClick={handleSave(true)}
+									disabled={!canOverride || !hasSlides}
+									data-action="save-override">
+									💾 上書き
+								</Button>
+							</Tooltip>
+						</>
+					)}
 					<Button size="xs" variant="default" onClick={handleExportHvd} disabled={!hasSlides}>
 						⬇ HVD
 					</Button>
@@ -367,15 +377,18 @@ export const FileIOPanel: FC = () => {
 					<Button size="xs" variant="default" onClick={handleExportPng} disabled={!hasSlides}>
 						⬇ PNG
 					</Button>
-					<ActionIcon
-						size="lg"
-						variant="default"
-						color="red"
-						onClick={handleDelete}
-						disabled={!selectedTitle}
-						aria-label="削除">
-						🗑
-					</ActionIcon>
+					{!readOnly && (
+						<ActionIcon
+							size="lg"
+							variant="default"
+							color="red"
+							onClick={handleDelete}
+							disabled={!selectedTitle}
+							aria-label="削除"
+							data-action="delete">
+							🗑
+						</ActionIcon>
+					)}
 					<Group gap="xs" wrap="wrap">
 						<Tooltip label="選択中スライドを PNG 画像で保存" disabled={selectedIndex >= 0}>
 							<Button
@@ -400,11 +413,11 @@ export const FileIOPanel: FC = () => {
 					</Group>
 				</Group>
 				{/* スライド画像出力 (§4/§10): 単ページ PNG / 全ページ ZIP。背景は doc.bgColor。 */}
-				{msg && (
+				{/* {msg && (
 					<Text size="xs" c="dimmed" ff="monospace">
 						{msg}
 					</Text>
-				)}
+				)} */}
 			</Stack>
 			<DocumentPickerModal
 				opened={pickerOpen}
