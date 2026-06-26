@@ -107,7 +107,8 @@ beforeEach(() => {
 	loadByTitleMock.mockImplementation(async (title: string) => makeDoc(title));
 	saveMock.mockResolvedValue({ title: "saved-2026" });
 	loadThumbnailsMock.mockReset();
-	loadThumbnailsMock.mockResolvedValue({ A: "data:image/jpeg;base64,T" }); // B/C はサムネ無し
+	// A はサムネ有り (連結1枚+frames)、B/C は無し
+	loadThumbnailsMock.mockResolvedValue({ A: { thumb: "data:image/jpeg;base64,T", frames: 3 } });
 	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	useSlideStore.getState().setSlides([]);

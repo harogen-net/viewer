@@ -46,17 +46,72 @@ afterEach(() => {
 });
 
 describe("DocumentPickerGrid", () => {
-	it("各 title のカードが出る (サムネ有り=img / 無し=N/A)", () => {
+	it("各 title のカードが出る (サムネ有り=strip / 無し=N/A)", () => {
 		render({
 			titles,
-			thumbnails: { A: "data:image/jpeg;base64,T" }, // B/C はサムネ無し
+			thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 3 } }, // B/C はサムネ無し
 			selectedTitle: null,
 			onPick: () => {},
 		});
 		expect(container.querySelectorAll("[data-picker-item]").length).toBe(3);
-		expect(q('[data-picker-item="A"] [data-picker-thumb]')).not.toBeNull();
+		const aThumb = q('[data-picker-item="A"] [data-picker-thumb]');
+		expect(aThumb).not.toBeNull();
+		expect(aThumb?.getAttribute("data-thumb-frames")).toBe("3");
 		expect(q('[data-picker-item="B"] [data-picker-na]')).not.toBeNull();
 		expect(q('[data-picker-item="C"] [data-picker-na]')).not.toBeNull();
+	});
+
+	it("複数コマサムネはホバーでコマ送り、離脱で先頭へ戻る", () => {
+		vi.useFakeTimers();
+		try {
+			render({
+				titles,
+				thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 3 } },
+				selectedTitle: null,
+				onPick: () => {},
+			});
+			const strip = q('[data-picker-item="A"] [data-picker-thumb]');
+			expect(strip?.getAttribute("data-thumb-frame")).toBe("0");
+			act(() => {
+				strip?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+			});
+			act(() => {
+				vi.advanceTimersByTime(600);
+			});
+			expect(strip?.getAttribute("data-thumb-frame")).toBe("1");
+			act(() => {
+				vi.advanceTimersByTime(600);
+			});
+			expect(strip?.getAttribute("data-thumb-frame")).toBe("2");
+			act(() => {
+				strip?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+			});
+			expect(strip?.getAttribute("data-thumb-frame")).toBe("0"); // 離脱で先頭
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("1 コマサムネはホバーしてもコマ送りしない", () => {
+		vi.useFakeTimers();
+		try {
+			render({
+				titles,
+				thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 1 } },
+				selectedTitle: null,
+				onPick: () => {},
+			});
+			const strip = q('[data-picker-item="A"] [data-picker-thumb]');
+			act(() => {
+				strip?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+			});
+			act(() => {
+				vi.advanceTimersByTime(1800);
+			});
+			expect(strip?.getAttribute("data-thumb-frame")).toBe("0");
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("カードクリックで onPick(title) が呼ばれる", () => {

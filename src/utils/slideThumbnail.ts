@@ -137,31 +137,113 @@ export const drawSlideToCanvas = async (
 	return canvas;
 };
 
+// サムネ生成共通オプション。
+//   - maxPx:    長辺をこの px に収める縮小 (軽量サムネ用)。未指定は原寸
+//   - mimeType: 出力形式 (既定 "image/png"。サムネは "image/jpeg" 推奨で軽量)
+//   - quality:  jpeg/webp の品質 0..1
+export interface ThumbnailRenderOptions {
+	maxPx?: number;
+	mimeType?: string;
+	quality?: number;
+}
+
+// 1 slide を縮小サムネ dataURL に焼く (共通レンダラ)。
+const renderThumbDataURL = async (
+	slide: Slide,
+	bgColor: string | undefined,
+	imageDataMap: Record<string, string>,
+	opts?: ThumbnailRenderOptions
+): Promise<string> => {
+	let targetWidth: number | undefined;
+	let targetHeight: number | undefined;
+	if (opts?.maxPx && opts.maxPx > 0) {
+		const scale = Math.min(1, opts.maxPx / Math.max(slide.width, slide.height));
+		targetWidth = Math.max(1, Math.round(slide.width * scale));
+		targetHeight = Math.max(1, Math.round(slide.height * scale));
+	}
+	const canvas = await drawSlideToCanvas(slide, bgColor, imageDataMap, {
+		targetWidth,
+		targetHeight,
+	});
+	return canvas.toDataURL(opts?.mimeType ?? "image/png", opts?.quality);
+};
+
+/**
+ * total 個の要素から n 個を「両端含めて均等」に選んだ index 配列を返す (純関数)。
+ * - total/n が 0 以下なら []
+ * - n >= total なら全 index [0..total-1]
+ * - n == 1 なら [0]
+ * 例: pickEvenIndices(10, 5) → [0, 2, 5, 7, 9]
+ */
+export const pickEvenIndices = (total: number, n: number): number[] => {
+	if (total <= 0 || n <= 0) return [];
+	const k = Math.min(n, total);
+	if (k === 1) return [0];
+	return Array.from({ length: k }, (_, i) => Math.round((i * (total - 1)) / (k - 1)));
+};
+
+/** ドキュメントサムネのデフォルト最大枚数 (1..この値の範囲で均等ピック)。 */
+export const DEFAULT_MAX_THUMBNAILS = 8;
+
 /**
  * ViewerDocument から代表スライドを 1 枚選んで dataURL を返す。対象 slide が無ければ null。
- * options:
- *   - pages:    代表 slide 選択のページ指定 (既定は durationRatio 降順先頭)
- *   - maxPx:    長辺をこの px に収める縮小 (ビジュアルピッカー用の軽量サムネ)。未指定は原寸
- *   - mimeType: 出力形式 (既定 "image/png"。サムネは "image/jpeg" 推奨で軽量)
- *   - quality:  jpeg/webp の品質 0..1
+ * options.pages で代表 slide を指定 (既定は durationRatio 降順先頭)。
  */
 export const generateSlideThumbnailDataURL = async (
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	options?: { pages?: number[]; maxPx?: number; mimeType?: string; quality?: number }
+	options?: ThumbnailRenderOptions & { pages?: number[] }
 ): Promise<string | null> => {
 	const slide = pickThumbnailSlide(doc, options?.pages);
 	if (!slide) return null;
-	let targetWidth: number | undefined;
-	let targetHeight: number | undefined;
-	if (options?.maxPx && options.maxPx > 0) {
-		const scale = Math.min(1, options.maxPx / Math.max(slide.width, slide.height));
-		targetWidth = Math.max(1, Math.round(slide.width * scale));
-		targetHeight = Math.max(1, Math.round(slide.height * scale));
+	return renderThumbDataURL(slide, doc.bgColor, imageDataMap, options);
+};
+
+/** 連結サムネ (フィルムストリップ) 1 枚 + コマ数。 */
+export interface DocThumbnailStrip {
+	/** 横方向に frames コマを等幅連結した 1 枚画像 dataURL。 */
+	thumb: string;
+	/** 連結コマ数 (1..maxCount)。表示側はこれで 1 コマ幅を割り出してクロップ/切替する。 */
+	frames: number;
+}
+
+/**
+ * active (非 disabled) な slide から均等に最大 maxCount 枚ピックし、
+ * **横方向に連結した 1 枚のフィルムストリップ画像** + コマ数を返す。
+ * 各コマは frameMaxPx に収めた等寸。active が 0 枚なら null。
+ * (表示側は frames で 1 コマ幅を割り出し、通常 1 コマ目・ホバーで順次切替する)
+ */
+export const generateDocThumbnailStrip = async (
+	doc: ViewerDocument,
+	imageDataMap: Record<string, string>,
+	options?: { maxCount?: number; frameMaxPx?: number; mimeType?: string; quality?: number }
+): Promise<DocThumbnailStrip | null> => {
+	const active = doc.slides.filter((s) => !s.disabled);
+	if (active.length === 0) return null;
+	const picked = pickEvenIndices(active.length, options?.maxCount ?? DEFAULT_MAX_THUMBNAILS).map(
+		(i) => active[i]
+	);
+	// コマ寸法は先頭コマのアスペクトを frameMaxPx に収めて決定 (全コマ等寸でクロップを単純化)。
+	const base = picked[0];
+	const maxPx = options?.frameMaxPx ?? 240;
+	const scale = Math.min(1, maxPx / Math.max(base.width, base.height));
+	const frameW = Math.max(1, Math.round(base.width * scale));
+	const frameH = Math.max(1, Math.round(base.height * scale));
+
+	const strip = document.createElement("canvas");
+	strip.width = frameW * picked.length;
+	strip.height = frameH;
+	const ctx = strip.getContext("2d");
+	if (!ctx) throw new Error("canvas 2d context が取得できません");
+	for (let i = 0; i < picked.length; i++) {
+		const frame = await drawSlideToCanvas(picked[i], doc.bgColor, imageDataMap, {
+			targetWidth: frameW,
+			targetHeight: frameH,
+		});
+		ctx.drawImage(frame, i * frameW, 0);
 	}
-	const canvas = await drawSlideToCanvas(slide, doc.bgColor, imageDataMap, {
-		targetWidth,
-		targetHeight,
-	});
-	return canvas.toDataURL(options?.mimeType ?? "image/png", options?.quality);
+	return {
+		thumb: strip.toDataURL(options?.mimeType ?? "image/jpeg", options?.quality),
+		frames: picked.length,
+	};
 };

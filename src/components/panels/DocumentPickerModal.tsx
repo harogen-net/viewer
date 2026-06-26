@@ -1,12 +1,14 @@
 import { Modal, SimpleGrid, Text } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
-import type { StoredSlideTitle } from "../../hooks/useStorage";
+import { useEffect, useRef, useState } from "react";
+import type { StoredDocThumbnail, StoredSlideTitle } from "../../hooks/useStorage";
 
 // 保存ドキュメントを「見た目で選ぶ」ビジュアルピッカー (v4 Group D 補間、§0-10 新側内製)。
 // FileIOPanel の <Select> を補完する、サムネ + タイトルのギャラリー。
 //   - titles: 表示する一覧 (呼び出し側で update 降順ソート済みを渡す)
-//   - thumbnails: {title: dataURL}。サムネ未生成 (今後の保存分のみ生成) の title は欠落 → N/A 表示
+//   - thumbnails: {title: {thumb(連結1枚), frames(コマ数)}}。未生成 title は欠落 → N/A 表示
 //   - カードクリックで onPick(title) (呼び出し側でロード + close)
+//   - サムネは横連結1枚画像。通常 1 コマ目、ホバーで順次コマ送り (ThumbnailStrip)
 //
 // 責務分離 (SlideView/SortableSlideThumb と同方針):
 //   - DocumentPickerGrid  = カード描画コア (Modal を知らない = jsdom で素直にテストできる)
@@ -14,10 +16,13 @@ import type { StoredSlideTitle } from "../../hooks/useStorage";
 
 interface DocumentPickerGridProps {
 	titles: StoredSlideTitle[];
-	thumbnails: Record<string, string>;
+	thumbnails: Record<string, StoredDocThumbnail>;
 	selectedTitle: string | null;
 	onPick: (title: string) => void;
 }
+
+// ホバーでコマ送りする間隔 (ms)。
+const CYCLE_MS = 600;
 
 const cardStyle = (selected: boolean): CSSProperties => ({
 	display: "flex",
@@ -42,18 +47,63 @@ const thumbBoxStyle: CSSProperties = {
 	borderRadius: 4,
 	overflow: "hidden",
 };
-const imgStyle: CSSProperties = {
-	width: "100%",
-	height: "100%",
-	objectFit: "cover",
-	display: "block",
-};
 const titleStyle: CSSProperties = {
 	fontSize: 11,
 	fontFamily: "monospace",
 	whiteSpace: "nowrap",
 	overflow: "hidden",
 	textOverflow: "ellipsis",
+};
+
+// 連結1枚サムネを 1 コマだけ見せ、ホバーで順次コマ送りする表示要素。
+// background-size 横 = frames*100% で 1 コマ = ボックス幅。position-x を frame/(frames-1) で送る。
+const ThumbnailStrip: FC<{ thumb: string; frames: number; alt: string }> = ({
+	thumb,
+	frames,
+	alt,
+}) => {
+	const [frame, setFrame] = useState(0);
+	const timerRef = useRef<number | null>(null);
+	// サムネ差し替え時は先頭コマへ。
+	useEffect(() => setFrame(0), [thumb]);
+	// アンマウント時に timer を必ず止める。
+	useEffect(() => () => stop(), []);
+
+	function stop(): void {
+		if (timerRef.current != null) {
+			window.clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
+	}
+	const start = (): void => {
+		if (frames <= 1 || timerRef.current != null) return;
+		timerRef.current = window.setInterval(() => setFrame((f) => (f + 1) % frames), CYCLE_MS);
+	};
+	const reset = (): void => {
+		stop();
+		setFrame(0);
+	};
+
+	const style: CSSProperties = {
+		...thumbBoxStyle,
+		background: undefined,
+		backgroundColor: "#f1f3f5",
+		backgroundImage: `url(${thumb})`,
+		backgroundRepeat: "no-repeat",
+		backgroundSize: `${frames * 100}% 100%`,
+		backgroundPosition: frames > 1 ? `${(frame / (frames - 1)) * 100}% 0` : "0 0",
+	};
+	return (
+		<div
+			style={style}
+			onMouseOver={start}
+			onMouseOut={reset}
+			data-picker-thumb
+			data-thumb-frames={frames}
+			data-thumb-frame={frame}
+			aria-label={alt}
+		/>
+	);
 };
 
 export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
@@ -72,7 +122,7 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 	return (
 		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="sm" verticalSpacing="sm">
 			{titles.map((t) => {
-				const thumb = thumbnails[t.title];
+				const dt = thumbnails[t.title];
 				const selected = t.title === selectedTitle;
 				return (
 					<button
@@ -82,15 +132,15 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 						data-picker-item={t.title}
 						data-selected={selected ? "true" : "false"}
 						onClick={() => onPick(t.title)}>
-						<div style={thumbBoxStyle}>
-							{thumb ? (
-								<img src={thumb} alt={t.title} style={imgStyle} data-picker-thumb />
-							) : (
+						{dt ? (
+							<ThumbnailStrip thumb={dt.thumb} frames={dt.frames} alt={t.title} />
+						) : (
+							<div style={thumbBoxStyle}>
 								<Text size="xs" c="dimmed" data-picker-na>
 									N/A
 								</Text>
-							)}
-						</div>
+							</div>
+						)}
 						<span style={titleStyle}>{t.title}</span>
 					</button>
 				);

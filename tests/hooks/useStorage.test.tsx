@@ -183,21 +183,24 @@ describe("useStorage (v3 Group B build 3)", () => {
 		await expect(storage.api.deleteByTitle("nonexistent")).resolves.toBeUndefined();
 	});
 
-	it("save の thumbnail が loadThumbnails で取得でき、未指定 title は欠落", async () => {
+	it("save の thumbnail (連結1枚+frames) が loadThumbnails で取得でき、未指定 title は欠落", async () => {
 		await storage.api.save(makeDoc("withThumb"), {
 			override: true,
-			thumbnail: "data:image/jpeg;base64,THUMB",
+			thumbnail: { thumb: "data:image/jpeg;base64,THUMB", frames: 5 },
 		});
 		await storage.api.save(makeDoc("noThumb"), { override: true }); // thumbnail 未指定
 
 		const thumbs = await storage.api.loadThumbnails();
-		expect(thumbs.withThumb).toBe("data:image/jpeg;base64,THUMB");
+		expect(thumbs.withThumb).toEqual({ thumb: "data:image/jpeg;base64,THUMB", frames: 5 });
 		expect(thumbs.noThumb).toBeUndefined(); // 未生成は欠落 (UI で n/a)
 	});
 
 	it("deleteByTitle はサムネも削除する", async () => {
-		await storage.api.save(makeDoc("x"), { override: true, thumbnail: "data:image/jpeg;base64,T" });
-		expect((await storage.api.loadThumbnails()).x).toBe("data:image/jpeg;base64,T");
+		await storage.api.save(makeDoc("x"), {
+			override: true,
+			thumbnail: { thumb: "data:image/jpeg;base64,T", frames: 3 },
+		});
+		expect((await storage.api.loadThumbnails()).x?.frames).toBe(3);
 		await storage.api.deleteByTitle("x");
 		expect((await storage.api.loadThumbnails()).x).toBeUndefined();
 	});

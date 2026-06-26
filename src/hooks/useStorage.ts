@@ -39,9 +39,18 @@ interface StoredSlideData {
 	data: string;
 }
 
+/** 連結サムネ (フィルムストリップ) + コマ数。表示側が 1 コマ幅算出/切替に使う。 */
+export interface StoredDocThumbnail {
+	thumb: string;
+	frames: number;
+}
+
+// IDB 上の slideThumbnails レコード。frames は v2 初期の単一サムネ {title, thumb} には
+// 無いため optional とし、読み出し時に frames=1 とみなす (後方互換)。
 interface StoredThumbnail {
 	title: string;
 	thumb: string;
+	frames?: number;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -94,12 +103,12 @@ export interface StorageApi {
 	 */
 	save: (
 		doc: ViewerDocument,
-		options?: { override?: boolean; thumbnail?: string | null }
+		options?: { override?: boolean; thumbnail?: StoredDocThumbnail | null }
 	) => Promise<{ title: string }>;
 	/** タイトル指定で削除。該当なしも success 扱い。 */
 	deleteByTitle: (title: string) => Promise<void>;
-	/** 全サムネイルを {title: dataURL} で取得 (ビジュアルピッカー用)。未生成 title は欠落。 */
-	loadThumbnails: () => Promise<Record<string, string>>;
+	/** 全サムネイルを {title: {thumb, frames}} で取得 (ビジュアルピッカー用)。未生成 title は欠落。 */
+	loadThumbnails: () => Promise<Record<string, StoredDocThumbnail>>;
 }
 
 export function useStorage(): StorageApi {
@@ -134,7 +143,7 @@ export function useStorage(): StorageApi {
 	const save = useCallback(
 		async (
 			doc: ViewerDocument,
-			options?: { override?: boolean; thumbnail?: string | null }
+			options?: { override?: boolean; thumbnail?: StoredDocThumbnail | null }
 		): Promise<{ title: string }> => {
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
@@ -159,9 +168,15 @@ export function useStorage(): StorageApi {
 					await reqToPromise(titlesStore.add({ title, update: now }));
 				}
 				await reqToPromise(dataStore.put({ title, data: json }));
-				// サムネイルは渡された時のみ更新 (未指定なら既存を温存)。
+				// サムネイルは渡された時のみ更新 (未指定なら既存を温存)。連結1枚 + コマ数を保存。
 				if (options?.thumbnail) {
-					await reqToPromise(tx.objectStore(THUMBS_STORE).put({ title, thumb: options.thumbnail }));
+					await reqToPromise(
+						tx.objectStore(THUMBS_STORE).put({
+							title,
+							thumb: options.thumbnail.thumb,
+							frames: options.thumbnail.frames,
+						})
+					);
 				}
 				await txComplete(tx);
 			} finally {
@@ -189,13 +204,14 @@ export function useStorage(): StorageApi {
 		}
 	}, []);
 
-	const loadThumbnails = useCallback(async (): Promise<Record<string, string>> => {
+	const loadThumbnails = useCallback(async (): Promise<Record<string, StoredDocThumbnail>> => {
 		const db = await openDb();
 		try {
 			const tx = db.transaction(THUMBS_STORE, "readonly");
 			const all = (await reqToPromise(tx.objectStore(THUMBS_STORE).getAll())) as StoredThumbnail[];
-			const map: Record<string, string> = {};
-			for (const t of all) map[t.title] = t.thumb;
+			const map: Record<string, StoredDocThumbnail> = {};
+			// frames 欠落 (v2 初期の単一サムネ) は 1 コマとみなす (後方互換)。
+			for (const t of all) map[t.title] = { thumb: t.thumb, frames: t.frames ?? 1 };
 			return map;
 		} finally {
 			db.close();

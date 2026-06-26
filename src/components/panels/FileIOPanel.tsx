@@ -13,14 +13,18 @@ import type { ChangeEvent, FC } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useFileIO } from "../../hooks/useFileIO";
-import { useStorage, type StoredSlideTitle } from "../../hooks/useStorage";
+import {
+	useStorage,
+	type StoredDocThumbnail,
+	type StoredSlideTitle,
+} from "../../hooks/useStorage";
 import { useDocSettingsStore } from "../../state/docSettingsStore";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import type { ViewerDocument } from "../../types/ViewerDocument";
 import { adjacentTitleIndex } from "../../utils/fileNavOps";
-import { generateSlideThumbnailDataURL } from "../../utils/slideThumbnail";
+import { generateDocThumbnailStrip } from "../../utils/slideThumbnail";
 import { DocumentPickerModal } from "./DocumentPickerModal";
 
 // ファイル IO パネル (v3 Group B build、§0-10 新側内製、Mantine UI)。
@@ -59,7 +63,7 @@ export const FileIOPanel: FC = () => {
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
 	const [msg, setMsg] = useState<string | null>(null);
 	const [pickerOpen, setPickerOpen] = useState(false);
-	const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+	const [thumbnails, setThumbnails] = useState<Record<string, StoredDocThumbnail>>({});
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// title 一覧を refresh (update 降順)。
@@ -163,9 +167,10 @@ export const FileIOPanel: FC = () => {
 				return;
 			}
 			const doc: ViewerDocument = { ...meta, slides };
-			// ビジュアルピッカー用サムネを生成 (best-effort、失敗時は null = サムネ無し)。
-			const thumbnail = await generateSlideThumbnailDataURL(doc, collectImageMap(), {
-				maxPx: 240,
+			// ビジュアルピッカー用の連結サムネ (active から均等ピック→横連結1枚+コマ数) を生成
+			// (best-effort、失敗時は null = サムネ無し)。
+			const thumbnail = await generateDocThumbnailStrip(doc, collectImageMap(), {
+				frameMaxPx: 240,
 				mimeType: "image/jpeg",
 				quality: 0.72,
 			}).catch(() => null);
