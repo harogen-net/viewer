@@ -1,0 +1,62 @@
+name: Phase2 Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop2
+
+jobs:
+  phase2-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check fixtures
+        run: npm run check:phase2-fixtures
+
+      - name: Check compatibility
+        run: npm run check:phase2-compat
+
+      - name: Check core fields
+        run: npm run check:phase2-core-fields
+
+      - name: Check structure
+        env:
+          PHASE2_STRUCTURE_REPORT: artifacts/phase2/structure-check-report.json
+        run: npm run check:phase2-structure
+
+      - name: Check error cases
+        env:
+          PHASE2_ERROR_REPORT: artifacts/phase2/error-case-report.json
+        run: npm run check:phase2-error-cases
+
+      - name: Check error fixtures
+        env:
+          PHASE2_ERROR_FIXTURE_REPORT: artifacts/phase2/error-fixture-report.json
+        run: npm run check:phase2-error-fixtures
+
+      - name: Check report files
+        run: npm run check:phase2-reports
+
+      - name: Check sensitive fixture
+        run: npm run check:phase2-sensitive
+
+      - name: Upload phase2 reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-check-reports
+          path: artifacts/phase2/
+          if-no-files-found: warn
