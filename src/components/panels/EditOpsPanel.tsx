@@ -14,6 +14,7 @@ import { useRef } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
+import { useLayerDelete } from "../../hooks/useLayerDelete";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
@@ -21,7 +22,6 @@ import type { LayerBase } from "../../types/Layer";
 import type { SlideState } from "../../types/SlideState";
 import {
 	type AlignEdge,
-	sharedSiblingCount,
 	updateImageLayer as updateImageLayerOp,
 	updateLayer as updateLayerOp,
 	updateTextLayer as updateTextLayerOp,
@@ -88,21 +88,11 @@ export const EditOpsPanel: FC = () => {
 
 	// 削除 (§7 shared 連鎖): shared 兄弟があれば確認。
 	//   OK = 全スライド (連続隣接グループ) から削除 / キャンセル = このスライドのみ削除。
-	// legacy: confirm yes で兄弟連鎖削除、no でも当該 layer は削除される挙動に対応。
-	const handleRemove = async () => {
+	// 削除は共通フック (shared 連鎖確認) に委譲し、LayerListPanel の行削除と挙動を揃える。
+	const deleteLayer = useLayerDelete();
+	const handleRemove = () => {
 		if (!canEditLayer) return;
-		const sibCount = sharedSiblingCount({ slides, selectedIndex: selectedSlideIndex }, layerIndex);
-		if (sibCount > 0) {
-			const all = await alert.confirm(
-				`このレイヤーは他 ${sibCount} スライドと共有 (shared) されています。\n` +
-					"OK: 共有先も含め全て削除 / キャンセル: このスライドのみ削除",
-				{ okLabel: "全て削除", cancelLabel: "このスライドのみ" }
-			);
-			if (all) layer.removeLayerWithSharedSiblings(layerIndex);
-			else layer.removeLayer(layerIndex);
-		} else {
-			layer.removeLayer(layerIndex);
-		}
+		void deleteLayer(layerIndex);
 	};
 
 	// テキスト編集 (D-9、legacy VMHistoricalTextInput 基準): 選択中 TextLayer のみ textarea 表示。

@@ -16,6 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { ActionIcon, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
+import { useLayerDelete } from "../../hooks/useLayerDelete";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
@@ -58,22 +59,24 @@ const iconOf = (layer: Layer): string => {
 
 interface LayerRowProps {
 	layer: Layer;
-	displayIndex: number; // 1-indexed (UI 上の順位、反転表示後)
 	selected: boolean;
 	onClick: () => void;
 	onToggleVisible: () => void;
 	onToggleLocked: () => void;
 	onToggleShared: () => void;
+	onDelete: () => void;
 }
 
+// レガシー EditLayerListItem の行構成に寄せる:
+//   [種類アイコン] [状態トグル列 (visible / locked / shared)] [名前] [削除ボタン]
 const LayerRow: FC<LayerRowProps> = ({
 	layer,
-	displayIndex,
 	selected,
 	onClick,
 	onToggleVisible,
 	onToggleLocked,
 	onToggleShared,
+	onDelete,
 }) => {
 	const rowStyle: CSSProperties = {
 		display: "flex",
@@ -87,11 +90,6 @@ const LayerRow: FC<LayerRowProps> = ({
 		border: selected ? "1px solid #228be6" : "1px solid transparent",
 		background: selected ? "rgba(34,139,230,0.08)" : "transparent",
 		opacity: layer.visible ? 1 : 0.5,
-	};
-	const indexBadgeStyle: CSSProperties = {
-		minWidth: 20,
-		textAlign: "right",
-		color: "#868e96",
 	};
 	const iconStyle: CSSProperties = {
 		minWidth: 16,
@@ -116,7 +114,19 @@ const LayerRow: FC<LayerRowProps> = ({
 		fontSize: 12,
 		opacity: on ? 1 : 0.28,
 	});
-	// 行 onClick (選択) を起こさないよう stopPropagation してからトグル実行。
+	const deleteBtnStyle: CSSProperties = {
+		minWidth: 18,
+		height: 18,
+		lineHeight: "16px",
+		textAlign: "center",
+		padding: 0,
+		border: "none",
+		background: "transparent",
+		cursor: "pointer",
+		fontSize: 12,
+		color: "#e03131",
+	};
+	// 行 onClick (選択) を起こさないよう stopPropagation してからトグル/削除を実行。
 	const stop = (fn: () => void) => (e: { stopPropagation: () => void }) => {
 		e.stopPropagation();
 		fn();
@@ -129,9 +139,9 @@ const LayerRow: FC<LayerRowProps> = ({
 			data-layer-id={layer.id}
 			data-selected={selected ? "true" : "false"}
 			onClick={onClick}>
-			<span style={indexBadgeStyle}>{displayIndex}</span>
+			{/* 種類アイコン */}
 			<span style={iconStyle}>{iconOf(layer)}</span>
-			<span style={labelStyle}>{labelOf(layer)}</span>
+			{/* 状態トグル列 */}
 			<button
 				type="button"
 				style={toggleBtnStyle(layer.visible)}
@@ -161,6 +171,18 @@ const LayerRow: FC<LayerRowProps> = ({
 				aria-label="toggle shared"
 				onClick={stop(onToggleShared)}>
 				🔗
+			</button>
+			{/* 名前 */}
+			<span style={labelStyle}>{labelOf(layer)}</span>
+			{/* 削除ボタン (レガシー: その slide からこの layer を削除) */}
+			<button
+				type="button"
+				style={deleteBtnStyle}
+				title="このレイヤーを削除"
+				data-toggle="delete"
+				aria-label="delete layer"
+				onClick={stop(onDelete)}>
+				🗑
 			</button>
 		</div>
 	);
@@ -203,6 +225,8 @@ export const LayerListPanel: FC = () => {
 	const reversed = [...layers].reverse();
 
 	const layerMutation = useLayerMutation();
+	// 行削除は EditOpsPanel と同一の shared 連鎖確認ロジックを共有。
+	const deleteLayer = useLayerDelete();
 	const slides = useSlideStore((s) => s.slides);
 	const selectedSlide = selectedSlideIndex >= 0 ? slides[selectedSlideIndex] : null;
 	const layerIndex =
@@ -303,7 +327,6 @@ export const LayerListPanel: FC = () => {
 											<SortableLayerRow
 												key={layer.uuid}
 												layer={layer}
-												displayIndex={displayIdx + 1}
 												selected={selectedLayer?.uuid === layer.uuid}
 												onClick={() => setSelectedLayer(layer)}
 												onToggleVisible={() =>
@@ -315,6 +338,7 @@ export const LayerListPanel: FC = () => {
 												onToggleShared={() =>
 													layerMutation.updateLayer(realIndex, { shared: !layer.shared })
 												}
+												onDelete={() => void deleteLayer(realIndex)}
 											/>
 										);
 									})}

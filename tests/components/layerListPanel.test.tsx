@@ -394,3 +394,34 @@ describe("LayerListPanel D&D 並べ替え", () => {
 		expect(sortables[2].getAttribute("data-sortable-layer")).toBe("first");
 	});
 });
+
+describe("LayerListPanel 行削除ボタン (レガシ寄せ)", () => {
+	it("行の削除ボタンで該当レイヤーが slide から削除される", () => {
+		seedSlide([makeImageLayer(1, "a", "img-1"), makeImageLayer(2, "b", "img-2")]);
+		render();
+		const delBtn = container.querySelector<HTMLButtonElement>(
+			"[data-layer-uuid='a'] [data-toggle='delete']"
+		);
+		expect(delBtn).not.toBeNull();
+		act(() => {
+			delBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+		const layers = useSlideStore.getState().slides[0].layers;
+		expect(layers.map((l) => l.uuid)).toEqual(["b"]);
+	});
+
+	it("削除ボタンクリックでは行選択 (setSelectedLayer) は起きない (stopPropagation)", () => {
+		seedSlide([makeImageLayer(1, "a", "img-1"), makeImageLayer(2, "b", "img-2")]);
+		useLayerStore.getState().setSelectedLayer(null);
+		render();
+		const delBtn = container.querySelector<HTMLButtonElement>(
+			"[data-layer-uuid='b'] [data-toggle='delete']"
+		);
+		act(() => {
+			delBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+		// b が消え、選択は変わらず (null のまま)
+		expect(useSlideStore.getState().slides[0].layers.map((l) => l.uuid)).toEqual(["a"]);
+		expect(useLayerStore.getState().selectedLayer).toBeNull();
+	});
+});
