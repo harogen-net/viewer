@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Slide } from "../types/Slide";
 
 // スライドショー タイムラインエンジン (§9、legacy SlideShowViewController の再実装、§0-10)。
@@ -157,7 +157,9 @@ export const useSlideshowPlayer = ({
 	);
 
 	// open 時に開始位置から起動。close / slides 変化でリセット。
-	useEffect(() => {
+	// useLayoutEffect: frame をペイント前に確定させ、初回 1 フレームの「!frame 早期 return」
+	// (スライドがありませんメッセージ) のちらつきを防ぐ。
+	useLayoutEffect(() => {
 		if (!open || len === 0) {
 			clearTimer();
 			setFrame(null);

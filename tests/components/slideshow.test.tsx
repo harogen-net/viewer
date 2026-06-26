@@ -121,11 +121,11 @@ describe("SlideshowShell (§9)", () => {
 		expect(stack?.style.transform).toContain("translate(-50%, -50%)");
 	});
 
-	it("mirror-h トグルで aria-pressed が反転", () => {
+	it("mirror-h クリックで store の flipX がトグルされる (状態反映 UI は無し)", () => {
 		act(() => useSlideStore.getState().setSlides([makeSlide(1)]));
 		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
-		expect(ss("mirror-h")?.getAttribute("aria-pressed")).toBe("false");
+		expect(useSlideshowStore.getState().flipX).toBe(false);
 		act(() => ss("mirror-h")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-		expect(ss("mirror-h")?.getAttribute("aria-pressed")).toBe("true");
+		expect(useSlideshowStore.getState().flipX).toBe(true);
 	});
 });
