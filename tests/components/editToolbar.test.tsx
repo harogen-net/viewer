@@ -248,3 +248,170 @@ describe("EditToolbar 汎用 clipboard (copy / cut / paste)", () => {
 		expect(useHistoryStore.getState().past.length).toBe(1);
 	});
 });
+
+// EditOpsPanel から移設した「数値を伴わない」選択レイヤー操作
+// (複製 / 削除 / spread / 回転±90 / フィット / 整列) と slide PNG 出力。
+describe("EditToolbar 選択レイヤー操作 (移設)", () => {
+	// shared 削除確認用に、2 スライドへ同 imageId + shared を seed。
+	const seedSharedTwoSlides = (): void => {
+		useSlideStore.getState().setSlides([
+			{
+				id: 1,
+				uuid: "s0",
+				width: 1600,
+				height: 800,
+				durationRatio: 1,
+				joining: true,
+				disabled: false,
+				layers: [makeImageLayer(1, "u-1", { imageId: "S", shared: true })],
+			},
+			{
+				id: 2,
+				uuid: "s1",
+				width: 1600,
+				height: 800,
+				durationRatio: 1,
+				joining: true,
+				disabled: false,
+				layers: [makeImageLayer(2, "u-2", { imageId: "S", shared: true })],
+			},
+		]);
+		useSlideStore.getState().setSelectedIndex(0);
+	};
+
+	it("選択なしでは複製/削除/回転/フィット/整列/spread が disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		for (const op of [
+			"duplicate",
+			"remove",
+			"rotate-left",
+			"rotate-right",
+			"fit",
+			"align-top",
+			"spread",
+		]) {
+			expect(container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled).toBe(
+				true
+			);
+		}
+	});
+
+	it("duplicate ボタンで layer が複製される (uuid 新規、履歴 1 件)", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("duplicate");
+		const layers = useSlideStore.getState().slides[0].layers;
+		expect(layers.length).toBe(2);
+		expect(layers[0].uuid).toBe("u-1");
+		expect(layers[1].uuid).not.toBe("u-1");
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("remove ボタンで layer 削除、selectedLayer が null (非 shared)", () => {
+		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		const layers = useSlideStore.getState().slides[0].layers;
+		expect(layers.length).toBe(1);
+		expect(layers[0].uuid).toBe("u-2");
+		expect(useLayerStore.getState().selectedLayer).toBeNull();
+	});
+
+	it("rotate-left/right で rotation が ±90° 加算", () => {
+		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
+		render();
+		selectLayer("u-1");
+		clickByOp("rotate-right");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
+		clickByOp("rotate-left");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
+	});
+
+	it("spread: confirm OK で shared 化 + 履歴 1 件", async () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("spread");
+		await resolveAlert(true);
+		expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(true);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("spread: confirm キャンセルでは何もしない", async () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		clickByOp("spread");
+		await resolveAlert(false);
+		expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(false);
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
+	it("shared 削除: choice 'all' で連鎖削除", async () => {
+		seedSharedTwoSlides();
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		await resolveAlert("all");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+		expect(useSlideStore.getState().slides[1].layers).toHaveLength(0);
+	});
+
+	it("shared 削除: choice 'single' でこのスライドのみ", async () => {
+		seedSharedTwoSlides();
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		await resolveAlert("single");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
+		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1);
+	});
+
+	it("shared 削除: choice 'cancel' / dismiss(null) では削除しない", async () => {
+		seedSharedTwoSlides();
+		render();
+		selectLayer("u-1");
+		clickByOp("remove");
+		await resolveAlert("cancel");
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
+		clickByOp("remove");
+		await resolveAlert(null);
+		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
+		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1);
+	});
+
+	it("locked layer は移設 op が disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1", { locked: true })]);
+		render();
+		selectLayer("u-1");
+		for (const op of ["duplicate", "rotate-right", "fit", "align-top"]) {
+			expect(container.querySelector<HTMLButtonElement>(`[data-edit-op="${op}"]`)?.disabled).toBe(
+				true
+			);
+		}
+	});
+
+	it("fit / align は jsdom (offsetWidth=0) で no-op、エラーを投げない", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		expect(() => clickByOp("fit")).not.toThrow();
+		for (const edge of ["top", "right", "bottom", "left"]) {
+			expect(() => clickByOp(`align-${edge}`)).not.toThrow();
+		}
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
+	it("export-slide-png ボタンが slide 選択時に有効、クリックでエラーを投げない", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		const btn = container.querySelector<HTMLButtonElement>('[data-edit-op="export-slide-png"]');
+		expect(btn).not.toBeNull();
+		expect(btn?.disabled).toBe(false);
+		// meta=null (beforeEach) のため handler は早期 return = canvas に触れず no-op。
+		expect(() => clickByOp("export-slide-png")).not.toThrow();
+	});
+});

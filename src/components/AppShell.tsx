@@ -1,13 +1,4 @@
-import {
-	ActionIcon,
-	Box,
-	Button,
-	Flex,
-	MantineProvider,
-	Stack,
-	Text,
-	Tooltip,
-} from "@mantine/core";
+import { ActionIcon, Box, Button, Flex, MantineProvider, Text, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useBeforeUnloadGuard } from "../hooks/useBeforeUnloadGuard";
@@ -118,7 +109,16 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 		return () => ro.disconnect();
 	}, []);
 
+	// MainArea は縦積み: 上部ツールバー (全幅貫通) → 下に (canvas | 右レール) の行。
 	const mainAreaStyle: CSSProperties = {
+		flex: 1,
+		minWidth: 0,
+		minHeight: 0,
+		display: "flex",
+		flexDirection: "column",
+	};
+	// ツールバー下のコンテンツ行 (canvas + 右レール)。
+	const contentRowStyle: CSSProperties = {
 		flex: 1,
 		minWidth: 0,
 		minHeight: 0,
@@ -132,6 +132,7 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 		display: "flex",
 		flexDirection: "column",
 	};
+	// 最上段を貫通する全幅ツールバー (canvas + 右レールの両方の上に乗る)。
 	const toolbarRowStyle: CSSProperties = {
 		flex: "0 0 auto",
 		padding: 6,
@@ -145,13 +146,26 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 		position: "relative",
 		background: "#f1f3f5",
 	};
+	// 右レール: EditOpsPanel / LayerListPanel を縦 5:5 で並べる (各々が内部スクロール)。
 	const sideRailStyle: CSSProperties = {
 		flex: "0 0 320px",
 		width: 320,
 		borderLeft: "1px solid #dee2e6",
-		overflowY: "auto",
 		padding: 8,
 		background: "#fff",
+		display: "flex",
+		flexDirection: "column",
+		gap: 8,
+		minHeight: 0,
+		overflow: "hidden",
+	};
+	// 5:5 の各半分。flex:1 で等分。スクロールはパネル (Paper) 内部で行うので
+	// ラッパー側では overflow を持たせない (パネルが height:100% で半分を埋める)。
+	const railHalfStyle: CSSProperties = {
+		flex: 1,
+		minHeight: 0,
+		display: "flex",
+		flexDirection: "column",
 	};
 
 	// 編集 UI (ツールバー + 右レール) は「編集モード かつ スライド選択中」のみ表示 (レガシー .canvas 相当)。
@@ -160,49 +174,55 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 
 	return (
 		<div style={mainAreaStyle} data-main-area>
-			<div style={editMainStyle}>
-				{showEditUI && (
-					<div style={toolbarRowStyle}>
-						<Flex gap="sm" align="center" justify="space-between" wrap="nowrap">
-							<EditToolbar />
-							{/* 編集を閉じる = スライド選択解除 → 編集パネルを隠す (レガシー .canvas .close 相当)。 */}
-							<Tooltip label="編集を閉じる (選択解除)">
-								<ActionIcon
-									variant="default"
-									onClick={() => setSelectedIndex(-1)}
-									data-action="close-edit"
-									aria-label="編集を閉じる">
-									✕
-								</ActionIcon>
-							</Tooltip>
-						</Flex>
-					</div>
-				)}
-				<div ref={stageRef} style={stageStyle} data-edit-stage-area>
-					{slide && size.w > 0 && size.h > 0 ? (
-						<SlideEditView
-							slide={slide}
-							bgColor={meta?.bgColor}
-							fitAreaWidth={size.w}
-							fitAreaHeight={size.h}
-						/>
-					) : (
-						<Box p="lg">
-							<Text size="sm" c="dimmed">
-								{slide ? "..." : "スライドを一覧から選択してください"}
-							</Text>
-						</Box>
-					)}
-				</div>
-			</div>
+			{/* 最上段を貫通する全幅ツールバー */}
 			{showEditUI && (
-				<aside style={sideRailStyle} data-edit-side-rail>
-					<Stack gap="sm">
-						<EditOpsPanel />
-						<LayerListPanel />
-					</Stack>
-				</aside>
+				<div style={toolbarRowStyle}>
+					<Flex gap="sm" align="center" justify="space-between" wrap="nowrap">
+						<EditToolbar />
+						{/* 編集を閉じる = スライド選択解除 → 編集パネルを隠す (レガシー .canvas .close 相当)。 */}
+						<Tooltip label="編集を閉じる (選択解除)">
+							<ActionIcon
+								variant="default"
+								onClick={() => setSelectedIndex(-1)}
+								data-action="close-edit"
+								aria-label="編集を閉じる">
+								✕
+							</ActionIcon>
+						</Tooltip>
+					</Flex>
+				</div>
 			)}
+			<div style={contentRowStyle}>
+				<div style={editMainStyle}>
+					<div ref={stageRef} style={stageStyle} data-edit-stage-area>
+						{slide && size.w > 0 && size.h > 0 ? (
+							<SlideEditView
+								slide={slide}
+								bgColor={meta?.bgColor}
+								fitAreaWidth={size.w}
+								fitAreaHeight={size.h}
+							/>
+						) : (
+							<Box p="lg">
+								<Text size="sm" c="dimmed">
+									{slide ? "..." : "スライドを一覧から選択してください"}
+								</Text>
+							</Box>
+						)}
+					</div>
+				</div>
+				{showEditUI && (
+					<aside style={sideRailStyle} data-edit-side-rail>
+						{/* EditOpsPanel / LayerListPanel を縦 5:5 (各々内部スクロール)。 */}
+						<div style={railHalfStyle}>
+							<EditOpsPanel />
+						</div>
+						<div style={railHalfStyle}>
+							<LayerListPanel />
+						</div>
+					</aside>
+				)}
+			</div>
 		</div>
 	);
 };

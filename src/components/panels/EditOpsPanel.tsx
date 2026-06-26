@@ -11,17 +11,15 @@ import {
 } from "@mantine/core";
 import type { FC } from "react";
 import { useRef } from "react";
-import { useAlert } from "../../hooks/useAlert";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
-import { useLayerDelete } from "../../hooks/useLayerDelete";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
+import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
 import type { LayerBase } from "../../types/Layer";
 import type { SlideState } from "../../types/SlideState";
 import {
-	type AlignEdge,
 	updateImageLayer as updateImageLayerOp,
 	updateLayer as updateLayerOp,
 	updateTextLayer as updateTextLayerOp,
@@ -61,7 +59,6 @@ export const EditOpsPanel: FC = () => {
 	const { applySlideChangeLive, recordHistory, snapshot } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
-	const alert = useAlert();
 
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
@@ -74,26 +71,6 @@ export const EditOpsPanel: FC = () => {
 	const hasSelection = layerIndex >= 0;
 	const isLocked = selectedLayer?.locked ?? false;
 	const canEditLayer = hasSelection && !isLocked;
-
-	// spread (§7、legacy spreadLayers): 選択 layer を前後の連続スライドへ展開し shared 化。
-	// legacy 同様 confirm を挟む (破壊的に複数スライドへ clone 追加するため)。
-	const handleSpread = async () => {
-		if (!hasSelection) return;
-		const ok = await alert.confirm(
-			"選択レイヤーを前後の連続スライドへ展開 (shared 化) します。よろしいですか?"
-		);
-		if (!ok) return;
-		layer.spreadLayer(layerIndex);
-	};
-
-	// 削除 (§7 shared 連鎖): shared 兄弟があれば確認。
-	//   OK = 全スライド (連続隣接グループ) から削除 / キャンセル = このスライドのみ削除。
-	// 削除は共通フック (shared 連鎖確認) に委譲し、LayerListPanel の行削除と挙動を揃える。
-	const deleteLayer = useLayerDelete();
-	const handleRemove = () => {
-		if (!canEditLayer) return;
-		void deleteLayer(layerIndex);
-	};
 
 	// テキスト編集 (D-9、legacy VMHistoricalTextInput 基準): 選択中 TextLayer のみ textarea 表示。
 	//   - 入力中 (onChange): applySlideChangeLive でレイヤーへ即時反映 (history は積まない)
@@ -177,20 +154,6 @@ export const EditOpsPanel: FC = () => {
 		return { w, h };
 	};
 
-	const handleFit = () => {
-		if (!selectedLayer || !selectedSlide || layerIndex < 0) return;
-		const size = measureContentSize();
-		if (!size) return;
-		layer.fitToSlide(layerIndex, selectedSlide.width, selectedSlide.height, size.w, size.h);
-	};
-
-	const handleAlign = (edge: AlignEdge) => {
-		if (!selectedLayer || !selectedSlide || layerIndex < 0) return;
-		const size = measureContentSize();
-		if (!size) return;
-		layer.alignTo(layerIndex, edge, selectedSlide.width, selectedSlide.height, size.w, size.h);
-	};
-
 	// clipRect スライダー (D-6b、ImageLayer のみ) — [top, right, bottom, left]
 	const isImageLayer = selectedLayer?.type === "image";
 	const imageLayer = isImageLayer
@@ -212,45 +175,26 @@ export const EditOpsPanel: FC = () => {
 		layer.updateImageLayer(layerIndex, { clipRect: [0, 0, 0, 0] });
 	};
 
+	// 画像ダウンロード (ImageLayer のみ): 元画像 (imageLibrary の dataURL) をファイル保存。
+	// 編集操作ではないので locked でも実行可。
+	const handleDownloadImage = () => {
+		if (!imageLayer) return;
+		const entry = useImageLibraryStore.getState().imageById[imageLayer.imageId];
+		if (!entry) return;
+		const ext = entry.dataURL.match(/^data:image\/([a-z0-9.+-]+)/i)?.[1] ?? "png";
+		const a = document.createElement("a");
+		a.href = entry.dataURL;
+		a.download = `${entry.name || imageLayer.imageId}.${ext}`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+	};
+
 	return (
-		<Paper withBorder p="sm" radius="sm">
+		// レール半分 (5:5) を埋め、内容がはみ出したらパネル内部でスクロール。
+		<Paper withBorder p="sm" radius="sm" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
 			<Stack gap="xs">
 				<Title order={5}>Layer Ops</Title>
-
-				{/* 複製 / 削除 */}
-				<Group gap={4}>
-					<Tooltip label="複製">
-						<ActionIcon
-							variant="default"
-							onClick={() => layer.duplicateLayer(layerIndex)}
-							disabled={!canEditLayer}
-							data-edit-op="duplicate"
-							aria-label="duplicate">
-							⎘
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="削除">
-						<ActionIcon
-							variant="default"
-							color="red"
-							onClick={handleRemove}
-							disabled={!canEditLayer}
-							data-edit-op="remove"
-							aria-label="remove">
-							✕
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="全スライドへ展開 (spread)">
-						<ActionIcon
-							variant="default"
-							onClick={handleSpread}
-							disabled={!hasSelection}
-							data-edit-op="spread"
-							aria-label="spread">
-							⇉
-						</ActionIcon>
-					</Tooltip>
-				</Group>
 
 				{/* 変形 (形状) コピー / 貼付 (D-8)。レイヤー間の transform 複写は選択レイヤー操作なので
 				    EditOpsPanel に残す。汎用 clipboard (copy/cut/paste) は EditToolbar へ移設。 */}
@@ -277,41 +221,22 @@ export const EditOpsPanel: FC = () => {
 					</Tooltip>
 				</Group>
 
-				{/* 回転 (±90° / リセット) */}
-				<Group gap={4}>
-					<Tooltip label="左に 90°">
-						<ActionIcon
-							variant="default"
-							onClick={() => layer.rotateBy(layerIndex, -90)}
-							disabled={!canEditLayer}
-							data-edit-op="rotate-left"
-							aria-label="rotate left 90">
-							↺
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="右に 90°">
-						<ActionIcon
-							variant="default"
-							onClick={() => layer.rotateBy(layerIndex, 90)}
-							disabled={!canEditLayer}
-							data-edit-op="rotate-right"
-							aria-label="rotate right 90">
-							↻
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="回転リセット">
-						<ActionIcon
-							variant="default"
-							onClick={() => layer.resetRotation(layerIndex)}
-							disabled={!canEditLayer}
-							data-edit-op="reset-rotation"
-							aria-label="reset rotation">
-							↺0
-						</ActionIcon>
-					</Tooltip>
-				</Group>
+				{/* 画像ダウンロード (ImageLayer のみ): 元画像をファイル保存 */}
+				{imageLayer && (
+					<Group gap={4}>
+						<Tooltip label="この画像をダウンロード">
+							<ActionIcon
+								variant="default"
+								onClick={handleDownloadImage}
+								data-edit-op="download-image"
+								aria-label="download image">
+								⬇
+							</ActionIcon>
+						</Tooltip>
+					</Group>
+				)}
 
-				{/* 反転 H / V トグル + フィット */}
+				{/* 反転 H / V トグル (±90°/フィット/整列 は EditToolbar、回転リセットは回転入力に統合) */}
 				<Group gap={4}>
 					<Tooltip label="水平反転">
 						<ActionIcon
@@ -331,60 +256,6 @@ export const EditOpsPanel: FC = () => {
 							data-edit-op="mirror-v"
 							aria-label="toggle mirror vertical">
 							⇅
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="slide にフィット (中央配置、scale1↔scale2 toggle)">
-						<ActionIcon
-							variant="default"
-							onClick={handleFit}
-							disabled={!canEditLayer || !selectedSlide}
-							data-edit-op="fit"
-							aria-label="fit to slide">
-							⛶
-						</ActionIcon>
-					</Tooltip>
-				</Group>
-
-				{/* 位置揃え (上/右/下/左、visual bbox の端を slide 端に接する) */}
-				<Group gap={4}>
-					<Tooltip label="上端揃え">
-						<ActionIcon
-							variant="default"
-							onClick={() => handleAlign("top")}
-							disabled={!canEditLayer || !selectedSlide}
-							data-edit-op="align-top"
-							aria-label="align top">
-							↥
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="右端揃え">
-						<ActionIcon
-							variant="default"
-							onClick={() => handleAlign("right")}
-							disabled={!canEditLayer || !selectedSlide}
-							data-edit-op="align-right"
-							aria-label="align right">
-							↦
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="下端揃え">
-						<ActionIcon
-							variant="default"
-							onClick={() => handleAlign("bottom")}
-							disabled={!canEditLayer || !selectedSlide}
-							data-edit-op="align-bottom"
-							aria-label="align bottom">
-							↧
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="左端揃え">
-						<ActionIcon
-							variant="default"
-							onClick={() => handleAlign("left")}
-							disabled={!canEditLayer || !selectedSlide}
-							data-edit-op="align-left"
-							aria-label="align left">
-							↤
 						</ActionIcon>
 					</Tooltip>
 				</Group>
@@ -454,6 +325,16 @@ export const EditOpsPanel: FC = () => {
 								onAdjustStart={handlePropStart}
 								onAdjustEnd={() => handlePropEnd("edit rotation")}
 							/>
+							<Tooltip label="回転リセット (0°)">
+								<ActionIcon
+									variant="subtle"
+									onClick={() => layer.resetRotation(layerIndex)}
+									disabled={!canEditLayer}
+									data-edit-op="reset-rotation"
+									aria-label="reset rotation">
+									↺
+								</ActionIcon>
+							</Tooltip>
 						</Group>
 					</Stack>
 				)}

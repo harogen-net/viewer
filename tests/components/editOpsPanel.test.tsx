@@ -143,161 +143,27 @@ const typeInto = (ta: HTMLTextAreaElement, value: string): void => {
 };
 
 describe("EditOpsPanel (v4 Group D D-4a)", () => {
-	it("選択 layer なしでは undo/redo 以外の op ボタンが disabled", () => {
+	// 複製/削除/spread/回転±90/フィット/整列 は EditToolbar へ移設 (editToolbar.test.tsx)。
+	// 本パネルに残るのは mirror / 回転リセット / 透明度 / 変形コピペ / clip / テキスト / 数値入力。
+
+	it("選択 layer なしでは編集系ボタンが disabled で案内表示", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled
-		).toBe(true);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled).toBe(
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled).toBe(
 			true
 		);
 		expect(container.textContent).toContain("レイヤーを選択してください");
 	});
 
-	it("選択 layer ありで複製 / 削除ボタンが有効化される", () => {
-		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
-		render();
-		selectLayer("u-1");
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="duplicate"]')?.disabled).toBe(
-			false
-		);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="remove"]')?.disabled).toBe(
-			false
-		);
-	});
-
-	it("locked layer は op ボタンが disabled で案内表示", () => {
+	it("locked layer は編集系ボタンが disabled で案内表示", () => {
 		seedSlide([makeImageLayer(1, "u-1", { locked: true })]);
 		render();
 		selectLayer("u-1");
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled
-		).toBe(true);
-		expect(container.textContent).toContain("ロックされています");
-	});
-
-	it("duplicate ボタンで layer が複製される (uuid は新規)", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		selectLayer("u-1");
-		clickByOp("duplicate");
-		const layers = useSlideStore.getState().slides[0].layers;
-		expect(layers.length).toBe(2);
-		// 元 layer + 複製 (id/uuid は新規)
-		expect(layers[0].uuid).toBe("u-1");
-		expect(layers[1].uuid).not.toBe("u-1");
-		expect(useHistoryStore.getState().past.length).toBe(1);
-	});
-
-	it("spread ボタン: confirm OK で選択 layer が shared 化、履歴 1 件", async () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		selectLayer("u-1");
-		clickByOp("spread");
-		await resolveAlert(true);
-		expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(true);
-		expect(useHistoryStore.getState().past.length).toBe(1);
-	});
-
-	it("spread ボタン: confirm キャンセルでは何もしない", async () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		selectLayer("u-1");
-		clickByOp("spread");
-		await resolveAlert(false);
-		expect(useSlideStore.getState().slides[0].layers[0].shared).toBe(false);
-		expect(useHistoryStore.getState().past.length).toBe(0);
-	});
-
-	it("選択なしでは spread ボタンが disabled", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="spread"]')?.disabled).toBe(
+		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled).toBe(
 			true
 		);
+		expect(container.textContent).toContain("ロックされています");
 	});
-
-	// shared layer の削除確認 (§7 D-17)。複数スライドに同 imageId + shared を seed する。
-	const seedSharedTwoSlides = (): void => {
-		useSlideStore.getState().setSlides([
-			{
-				id: 1,
-				uuid: "s0",
-				width: 1600,
-				height: 800,
-				durationRatio: 1,
-				joining: true,
-				disabled: false,
-				layers: [makeImageLayer(1, "u-1", { imageId: "S", shared: true })],
-			},
-			{
-				id: 2,
-				uuid: "s1",
-				width: 1600,
-				height: 800,
-				durationRatio: 1,
-				joining: true,
-				disabled: false,
-				layers: [makeImageLayer(2, "u-2", { imageId: "S", shared: true })],
-			},
-		]);
-		useSlideStore.getState().setSelectedIndex(0);
-	};
-
-	it("shared layer 削除: choice 'all' で連鎖削除 (全スライドから消える)", async () => {
-		seedSharedTwoSlides();
-		render();
-		selectLayer("u-1");
-		clickByOp("remove");
-		await resolveAlert("all");
-		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-		expect(useSlideStore.getState().slides[1].layers).toHaveLength(0);
-	});
-
-	it("shared layer 削除: choice 'single' でこのスライドのみ削除 (兄弟は残る)", async () => {
-		seedSharedTwoSlides();
-		render();
-		selectLayer("u-1");
-		clickByOp("remove");
-		await resolveAlert("single");
-		expect(useSlideStore.getState().slides[0].layers).toHaveLength(0);
-		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1); // 兄弟は残る
-	});
-
-	it("shared layer 削除: choice 'cancel' では何も削除しない", async () => {
-		seedSharedTwoSlides();
-		render();
-		selectLayer("u-1");
-		clickByOp("remove");
-		await resolveAlert("cancel");
-		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
-		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1);
-	});
-
-	it("shared layer 削除: dismiss (null) でも何も削除しない", async () => {
-		seedSharedTwoSlides();
-		render();
-		selectLayer("u-1");
-		clickByOp("remove");
-		await resolveAlert(null);
-		expect(useSlideStore.getState().slides[0].layers).toHaveLength(1);
-		expect(useSlideStore.getState().slides[1].layers).toHaveLength(1);
-	});
-
-	it("remove ボタンで layer が削除され、selectedLayer が null になる", () => {
-		seedSlide([makeImageLayer(1, "u-1"), makeImageLayer(2, "u-2")]);
-		render();
-		selectLayer("u-1");
-		clickByOp("remove");
-		const layers = useSlideStore.getState().slides[0].layers;
-		expect(layers.length).toBe(1);
-		expect(layers[0].uuid).toBe("u-2");
-		// 削除された layer は selectedLayer から外れる (uuid 不一致で復元できない)
-		expect(useLayerStore.getState().selectedLayer).toBeNull();
-	});
-
-	// undo / redo / 履歴カウンタ は EditToolbar へ移設 (tests/components/editToolbar.test.tsx)。
 
 	it("opacity スライダーで透明度が更新される", () => {
 		seedSlide([makeImageLayer(1, "u-1", { opacity: 1 })]);
@@ -312,18 +178,10 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 	});
 });
 
-describe("EditOpsPanel (v4 Group D D-4b) - transform ops", () => {
-	it("rotate-left/right で rotation が ±90° 加算", () => {
-		seedSlide([makeImageLayer(1, "u-1", { rotation: 0 })]);
-		render();
-		selectLayer("u-1");
-		clickByOp("rotate-right");
-		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
-		clickByOp("rotate-left");
-		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
-	});
+describe("EditOpsPanel (v4 Group D D-4b) - transform ops (残留分)", () => {
+	// rotate ±90 / fit / align は EditToolbar へ移設。回転リセットは回転入力に統合済み。
 
-	it("reset-rotation で rotation = 0", () => {
+	it("reset-rotation (回転リセット) で rotation = 0", () => {
 		seedSlide([makeImageLayer(1, "u-1", { rotation: 45 })]);
 		render();
 		selectLayer("u-1");
@@ -351,49 +209,31 @@ describe("EditOpsPanel (v4 Group D D-4b) - transform ops", () => {
 		expect(useSlideStore.getState().slides[0].layers[0].opacity).toBe(1);
 	});
 
-	it("locked layer は transform op ボタンも disabled", () => {
+	it("locked layer は mirror も disabled", () => {
 		seedSlide([makeImageLayer(1, "u-1", { locked: true })]);
 		render();
 		selectLayer("u-1");
-		expect(
-			container.querySelector<HTMLButtonElement>('[data-edit-op="rotate-right"]')?.disabled
-		).toBe(true);
 		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled).toBe(
 			true
 		);
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="fit"]')?.disabled).toBe(true);
 	});
+});
 
-	it("fit ボタン: DOM 計測できないので no-op (jsdom 環境)、エラーは出ない", () => {
-		// jsdom では offsetWidth/Height は 0 を返すため fit は no-op (contentW<=0 で null)。
-		// エラーなく押せることだけ確認。
+describe("EditOpsPanel 画像ダウンロード", () => {
+	it("ImageLayer 選択時のみ download-image ボタンが描画される", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
+		// 未選択では出ない
+		expect(container.querySelector('[data-edit-op="download-image"]')).toBeNull();
 		selectLayer("u-1");
-		expect(() => clickByOp("fit")).not.toThrow();
-		// 履歴も増えない (no-op)
-		expect(useHistoryStore.getState().past.length).toBe(0);
+		expect(container.querySelector('[data-edit-op="download-image"]')).not.toBeNull();
 	});
 
-	it("align-top/right/bottom/left ボタンが描画されており、enabled になる", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
+	it("TextLayer 選択では download-image は出ない", () => {
+		seedTextLayer("hi");
 		render();
-		selectLayer("u-1");
-		for (const edge of ["top", "right", "bottom", "left"] as const) {
-			const btn = container.querySelector<HTMLButtonElement>(`[data-edit-op="align-${edge}"]`);
-			expect(btn).not.toBeNull();
-			expect(btn?.disabled).toBe(false);
-		}
-	});
-
-	it("align ボタンも jsdom 環境では no-op (offsetWidth=0)、エラーは出ない", () => {
-		seedSlide([makeImageLayer(1, "u-1")]);
-		render();
-		selectLayer("u-1");
-		for (const edge of ["top", "right", "bottom", "left"]) {
-			expect(() => clickByOp(`align-${edge}`)).not.toThrow();
-		}
-		expect(useHistoryStore.getState().past.length).toBe(0);
+		selectLayer("t-1");
+		expect(container.querySelector('[data-edit-op="download-image"]')).toBeNull();
 	});
 });
 

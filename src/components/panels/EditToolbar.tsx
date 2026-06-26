@@ -1,13 +1,18 @@
-import { ActionIcon, Button, Group, Paper, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Divider, Group, Paper, Text, Tooltip } from "@mantine/core";
 import type { FC } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
+import { useFileIO } from "../../hooks/useFileIO";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
+import { useLayerDelete } from "../../hooks/useLayerDelete";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useEditViewStore } from "../../state/editViewStore";
 import { useHistoryStore } from "../../state/historyStore";
+import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
+import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
+import type { AlignEdge } from "../../utils/layerOps";
 
 // 編集キャンバス上部ツールバー (アプリ一般の編集操作シェル)。
 // EditOpsPanel から「選択レイヤーに依存しない」操作を分離したもの:
@@ -22,7 +27,9 @@ export const EditToolbar: FC = () => {
 	const { undo, redo } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
+	const { exportSlidePng } = useFileIO();
 	const alert = useAlert();
+	const meta = useViewerDocumentStore((s) => s.meta);
 
 	const past = useHistoryStore((s) => s.past);
 	const future = useHistoryStore((s) => s.future);
@@ -43,6 +50,63 @@ export const EditToolbar: FC = () => {
 
 	const rectEdit = useEditViewStore((s) => s.rectEdit);
 	const toggleRectEdit = useEditViewStore((s) => s.toggleRectEdit);
+
+	// 選択レイヤー操作のうち「数値を伴わない」もの (複製/削除/spread/回転±90/フィット/整列) は
+	// EditOpsPanel から本ツールバーへ移設 (EditOpsPanel は数値編集 + リセット系に純化)。
+	const deleteLayer = useLayerDelete();
+
+	// fit / align は wrapper の content size を実測する必要がある (edit canvas の scaled 配下に限定)。
+	const measureContentSize = (): { w: number; h: number } | null => {
+		if (!selectedLayer) return null;
+		const wrapper = document.querySelector<HTMLElement>(
+			`[data-slide-edit-scaled] [data-layer-id="${selectedLayer.id}"]`
+		);
+		if (!wrapper) return null;
+		const w = wrapper.offsetWidth;
+		const h = wrapper.offsetHeight;
+		if (w <= 0 || h <= 0) return null;
+		return { w, h };
+	};
+
+	const handleSpread = async () => {
+		if (!hasSelection) return;
+		const ok = await alert.confirm(
+			"選択レイヤーを前後の連続スライドへ展開 (shared 化) します。よろしいですか?"
+		);
+		if (!ok) return;
+		layer.spreadLayer(layerIndex);
+	};
+	const handleRemove = () => {
+		if (!canEditLayer) return;
+		void deleteLayer(layerIndex);
+	};
+	const handleFit = () => {
+		if (!selectedLayer || !selectedSlide || layerIndex < 0) return;
+		const size = measureContentSize();
+		if (!size) return;
+		layer.fitToSlide(layerIndex, selectedSlide.width, selectedSlide.height, size.w, size.h);
+	};
+	const handleAlign = (edge: AlignEdge) => {
+		if (!selectedLayer || !selectedSlide || layerIndex < 0) return;
+		const size = measureContentSize();
+		if (!size) return;
+		layer.alignTo(layerIndex, edge, selectedSlide.width, selectedSlide.height, size.w, size.h);
+	};
+
+	// 選択中スライドを native 寸法 PNG で書き出す (§4、背景は doc.bgColor)。
+	// imageMap は imageLibrary から組み立てる (FileIOPanel.collectImageMap と同等)。
+	const handleExportSlidePng = async () => {
+		if (!meta || selectedSlideIndex < 0) return;
+		const imageMap: Record<string, string> = {};
+		for (const [id, entry] of Object.entries(useImageLibraryStore.getState().imageById)) {
+			imageMap[id] = entry.dataURL;
+		}
+		try {
+			await exportSlidePng({ ...meta, slides }, imageMap, selectedSlideIndex);
+		} catch (e) {
+			console.error("[EditToolbar] export slide png error:", e);
+		}
+	};
 
 	// テキストレイヤー追加 (legacy `.text` 基準): prompt の初期テキストで追加し、当該 layer を選択。
 	const handleAddText = async () => {
@@ -140,6 +204,138 @@ export const EditToolbar: FC = () => {
 						aria-label="toggle rect edit"
 						aria-pressed={rectEdit}>
 						▦
+					</ActionIcon>
+				</Tooltip>
+
+				<Divider orientation="vertical" />
+
+				{/* 選択レイヤー操作 (数値を伴わないもの。EditOpsPanel から移設)。 */}
+				{/* 複製 / 削除 / spread */}
+				<Group gap={4} align="center">
+					<Tooltip label="複製">
+						<ActionIcon
+							variant="default"
+							onClick={() => layer.duplicateLayer(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="duplicate"
+							aria-label="duplicate">
+							⎘
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="削除">
+						<ActionIcon
+							variant="default"
+							color="red"
+							onClick={handleRemove}
+							disabled={!canEditLayer}
+							data-edit-op="remove"
+							aria-label="remove">
+							✕
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="全スライドへ展開 (spread)">
+						<ActionIcon
+							variant="default"
+							onClick={handleSpread}
+							disabled={!hasSelection}
+							data-edit-op="spread"
+							aria-label="spread">
+							⇉
+						</ActionIcon>
+					</Tooltip>
+				</Group>
+
+				{/* 回転 ±90° (リセットは EditOpsPanel に残留) */}
+				<Group gap={4} align="center">
+					<Tooltip label="左に 90°">
+						<ActionIcon
+							variant="default"
+							onClick={() => layer.rotateBy(layerIndex, -90)}
+							disabled={!canEditLayer}
+							data-edit-op="rotate-left"
+							aria-label="rotate left 90">
+							↺
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="右に 90°">
+						<ActionIcon
+							variant="default"
+							onClick={() => layer.rotateBy(layerIndex, 90)}
+							disabled={!canEditLayer}
+							data-edit-op="rotate-right"
+							aria-label="rotate right 90">
+							↻
+						</ActionIcon>
+					</Tooltip>
+				</Group>
+
+				{/* slide フィット */}
+				<Tooltip label="slide にフィット (中央配置、scale1↔scale2 toggle)">
+					<ActionIcon
+						variant="default"
+						onClick={handleFit}
+						disabled={!canEditLayer || !selectedSlide}
+						data-edit-op="fit"
+						aria-label="fit to slide">
+						⛶
+					</ActionIcon>
+				</Tooltip>
+
+				{/* 位置揃え (上/右/下/左) */}
+				<Group gap={4} align="center">
+					<Tooltip label="上端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("top")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-top"
+							aria-label="align top">
+							↥
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="右端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("right")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-right"
+							aria-label="align right">
+							↦
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="下端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("bottom")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-bottom"
+							aria-label="align bottom">
+							↧
+						</ActionIcon>
+					</Tooltip>
+					<Tooltip label="左端揃え">
+						<ActionIcon
+							variant="default"
+							onClick={() => handleAlign("left")}
+							disabled={!canEditLayer || !selectedSlide}
+							data-edit-op="align-left"
+							aria-label="align left">
+							↤
+						</ActionIcon>
+					</Tooltip>
+				</Group>
+
+				<Divider orientation="vertical" />
+
+				{/* スライド PNG ダウンロード (slide 単位、レイヤー非依存。FileIOPanel から移設) */}
+				<Tooltip label="選択中スライドを PNG 画像で保存">
+					<ActionIcon
+						variant="default"
+						onClick={handleExportSlidePng}
+						disabled={!selectedSlide}
+						data-edit-op="export-slide-png"
+						aria-label="export slide png">
+						🖼
 					</ActionIcon>
 				</Tooltip>
 			</Group>

@@ -46,15 +46,13 @@ const collectImageMap = (): Record<string, string> => {
 // 開く (一覧 / 前後移動 / ギャラリー) と出力 (PNG/HVD/HVZ/ZIP) のみ残す。
 export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 	const { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails } = useStorage();
-	const { exportHvd, exportHvz, exportPng, importFile, exportSlidePng, exportAllSlidesZip } =
-		useFileIO();
+	const { exportHvd, exportHvz, exportPng, importFile, exportAllSlidesZip } = useFileIO();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const modified = useViewerDocumentStore((s) => s.modified);
 	const openNewDocSettings = useDocSettingsStore((s) => s.openNew);
 	const slides = useSlideStore((s) => s.slides);
-	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const alert = useAlert();
 
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
@@ -200,14 +198,6 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 			return;
 		}
 		setMsg(await exportPng({ ...meta, slides }, collectImageMap()));
-	});
-	// 現在選択中のスライドを画像 PNG で書き出す (§4、背景は doc.bgColor)。
-	const handleExportSlidePng = wrap(async () => {
-		if (!meta || selectedIndex < 0) {
-			setMsg("スライドを選択してください");
-			return;
-		}
-		setMsg(await exportSlidePng({ ...meta, slides }, collectImageMap(), selectedIndex));
 	});
 	// 有効スライドを全て画像 PNG 化して ZIP 書き出し (§10)。
 	const handleExportZip = wrap(async () => {
@@ -390,16 +380,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 						</ActionIcon>
 					)}
 					<Group gap="xs" wrap="wrap">
-						<Tooltip label="選択中スライドを PNG 画像で保存" disabled={selectedIndex >= 0}>
-							<Button
-								size="xs"
-								variant="default"
-								onClick={handleExportSlidePng}
-								disabled={selectedIndex < 0}
-								data-action="export-slide-png">
-								🖼 スライド PNG
-							</Button>
-						</Tooltip>
+						{/* 単スライド PNG は EditToolbar へ移設。ここは全スライド ZIP のみ。 */}
 						<Tooltip label="有効な全スライドを ZIP で保存" disabled={hasEnabledSlide}>
 							<Button
 								size="xs"

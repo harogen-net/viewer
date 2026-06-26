@@ -257,8 +257,13 @@ export const LayerListPanel: FC = () => {
 	};
 
 	return (
-		<Paper withBorder p="sm" radius="sm">
-			<Stack gap="xs">
+		// レール半分 (5:5) を埋める。Title/順序ボタンは固定、リスト部のみ内部スクロール。
+		<Paper
+			withBorder
+			p="sm"
+			radius="sm"
+			style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+			<Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
 				<Title order={5}>Layer List</Title>
 				{/* Layer 順序変更 */}
 				<ActionIcon.Group>
@@ -312,7 +317,7 @@ export const LayerListPanel: FC = () => {
 						このスライドにはレイヤーがありません
 					</Text>
 				) : (
-					<ScrollArea type="auto" scrollbarSize={8} mah={240}>
+					<ScrollArea type="auto" scrollbarSize={8} style={{ flex: 1, minHeight: 0 }}>
 						<DndContext
 							sensors={sensors}
 							collisionDetection={closestCenter}
