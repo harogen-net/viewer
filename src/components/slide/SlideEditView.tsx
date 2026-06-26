@@ -120,7 +120,7 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 		display: "flex",
 		alignItems: "center",
 		justifyContent: "center",
-		background: "#f1f3f5",
+		background: "black",
 		overflow: "hidden",
 	};
 	// 右下に固定するズームコントロール (scaled stage の外、unscaled)。
@@ -134,8 +134,8 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 		alignItems: "center",
 		gap: 4,
 		padding: 4,
-		background: "#fff",
-		border: "1px solid #dee2e6",
+		background: "rgba(0,0,0,0.5)",
+		border: "1px solid rgba(255,255,255,0.2)",
 		borderRadius: 4,
 		boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
 	};
@@ -144,20 +144,23 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 		height: 24,
 		lineHeight: "22px",
 		textAlign: "center",
-		border: "1px solid #ced4da",
+		border: "1px solid rgba(255,255,255,0.2)",
 		borderRadius: 4,
-		background: "#f8f9fa",
+		background: "rgba(0,0,0,0.5)",
 		cursor: "pointer",
 		padding: 0,
 		fontSize: 14,
+		color: "white",
 	};
 	const zoomPercentStyle: CSSProperties = {
 		width: 42,
 		textAlign: "center",
 		fontFamily: "monospace",
-		fontSize: 12,
+		fontSize: 14,
+		fontWeight: 600,
 		cursor: "pointer",
 		userSelect: "none",
+		color: "white",
 	};
 	const zoomPercent = Math.round(zoom * 100);
 	// ドラッグ中ハイライト overlay (fit area 全体、drop イベントは下層 outer が拾う)

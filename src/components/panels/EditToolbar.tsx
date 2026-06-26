@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Divider, Group, Paper, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Divider, Group, Text, Tooltip } from "@mantine/core";
 import type { FC } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
@@ -120,7 +120,7 @@ export const EditToolbar: FC = () => {
 	};
 
 	return (
-		<Paper withBorder p={6} radius="sm" data-edit-toolbar>
+		<Group data-edit-toolbar role="toolbar" gap="sm" align="center" wrap="wrap">
 			<Group gap="sm" align="center" wrap="wrap">
 				{/* Undo / Redo + 履歴カウンタ */}
 				<Group gap={4} align="center">
@@ -282,7 +282,7 @@ export const EditToolbar: FC = () => {
 				</Tooltip>
 
 				{/* 位置揃え (上/右/下/左) */}
-				<Group gap={4} align="center">
+				<ActionIcon.Group>
 					<Tooltip label="上端揃え">
 						<ActionIcon
 							variant="default"
@@ -323,7 +323,7 @@ export const EditToolbar: FC = () => {
 							↤
 						</ActionIcon>
 					</Tooltip>
-				</Group>
+				</ActionIcon.Group>
 
 				<Divider orientation="vertical" />
 
@@ -339,6 +339,6 @@ export const EditToolbar: FC = () => {
 					</ActionIcon>
 				</Tooltip>
 			</Group>
-		</Paper>
+		</Group >
 	);
 };

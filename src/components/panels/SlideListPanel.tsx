@@ -161,7 +161,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 					? { position: "relative", height: "100%", display: "flex", flexDirection: "column" }
 					: { position: "relative" }
 			}
-			bg="gray.1"
+			bg="gray.3"
 			onDragOver={readOnly ? undefined : dropProps.onDragOver}
 			onDragLeave={readOnly ? undefined : dropProps.onDragLeave}
 			onDrop={readOnly ? undefined : dropProps.onDrop}
@@ -173,7 +173,14 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 			)}
 			<Stack gap="xs" style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
 				<Group justify="space-between" align="center">
-					<Title order={5}>Slide List</Title>
+					<Group>
+						<Title order={5}>Slide List</Title>
+						<Text size="xs" c="dimmed" ff="monospace">
+							{slides.length} slides
+							{selectedIndex >= 0 && ` / selected: #${selectedIndex + 1}`}
+						</Text>
+					</Group>
+
 					{!readOnly && (
 						<Group gap={4}>
 							<Tooltip label="前に移動" disabled={!canMovePrev}>
@@ -324,10 +331,6 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 						</SortableContext>
 					</DndContext>
 				)}
-				<Text size="xs" c="dimmed" ff="monospace">
-					{slides.length} slides
-					{selectedIndex >= 0 && ` / selected: #${selectedIndex + 1}`}
-				</Text>
 			</Stack>
 		</Paper>
 	);

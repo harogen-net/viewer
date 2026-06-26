@@ -6,6 +6,19 @@
   --textGlowColor: black;
 }
 
+/* debug */
+.r {
+  border: 1px solid red !important;
+}
+
+.b {
+  border: 1px solid blue !important;
+}
+
+.g {
+  border: 1px solid green !important;
+}
+
 body,
 html {
   width: 100%;
@@ -28,19 +41,23 @@ html {
 #menu {
   height: 60px;
 }
+
 #main {
   height: calc(100% - 60px);
 }
+
 .canvas {
   height: 0;
   transition-property: height;
   transition-duration: 0.3s;
 }
+
 .list {
   height: 100%;
   transition-property: height;
   transition-duration: 0.3s;
 }
+
 label {
   cursor: pointer;
 }
@@ -59,7 +76,8 @@ label {
   top: 0;
   font-size: 0.8rem;
 }
-#pref > button {
+
+#pref>button {
   background: none;
   border: none;
   width: 40px;
@@ -72,16 +90,20 @@ label {
   z-index: 2147483645;
   cursor: pointer;
 }
-#pref > button:hover {
+
+#pref>button:hover {
   opacity: 0.5;
 }
-#pref > button:focus {
+
+#pref>button:focus {
   outline-style: none;
 }
-#pref > button:active {
+
+#pref>button:active {
   right: -1px;
   top: 1px;
 }
+
 #pref .menu {
   display: none;
   position: absolute;
@@ -92,21 +114,25 @@ label {
   background: rgba(255, 255, 255, 0.95);
   height: 100vh;
 }
-#pref .menu > dl {
+
+#pref .menu>dl {
   white-space: nowrap;
 }
+
 #pref dt,
 #pref dd {
   display: block;
   padding: 0;
   margin: 0;
 }
+
 #pref dt {
   font-weight: bold;
   white-space: nowrap;
   border-bottom: 1px solid gray;
   margin-bottom: 5px;
 }
+
 #pref dd {
   margin-bottom: 15px;
 }
@@ -119,7 +145,8 @@ label {
   top: 0;
   font-size: 0.8rem;
 }
-#images > button {
+
+#images>button {
   background: none;
   border: none;
   width: 40px;
@@ -132,16 +159,20 @@ label {
   z-index: 2147483645;
   cursor: pointer;
 }
-#images > button:hover {
+
+#images>button:hover {
   opacity: 0.5;
 }
-#images > button:focus {
+
+#images>button:focus {
   outline-style: none;
 }
-#images > button:active {
+
+#images>button:active {
   right: -1px;
   top: 31px;
 }
+
 #images .container {
   display: none;
   position: absolute;
@@ -154,7 +185,8 @@ label {
   height: 100vh;
   overflow-y: scroll;
 }
-#images .container > img {
+
+#images .container>img {
   width: 100px;
   height: 100px;
   object-fit: contain;
@@ -167,7 +199,8 @@ label {
 #menu {
   /*white-space: nowrap;*/
 }
-.menu > div {
+
+.menu>div {
   display: inline-block;
   position: relative;
   font-size: 0;
@@ -187,13 +220,16 @@ label {
   white-space: nowrap;
   /*border:1px solid #333;*/
 }
+
 .menu button:disabled {
   cursor: auto;
 }
+
 .menu button:hover {
   /*background-color:red;*/
   opacity: 0.6;
 }
+
 .menu button:disabled:hover {
   opacity: 1;
 }
@@ -210,10 +246,12 @@ label {
   border-radius: 3px;
   padding: 0 2rem;
 }
+
 #menu button.startSlideShow:hover {
   background-color: red;
   opacity: 1;
 }
+
 .menu input[type="text"] {
   width: 6em;
 }
@@ -228,25 +266,31 @@ input.imageRef {
   position: relative;
   z-index: 1;
 }
-.menu .buttonGroup > button {
+
+.menu .buttonGroup>button {
   width: 2em;
 }
-.menu .buttonGroup > button.at {
+
+.menu .buttonGroup>button.at {
   position: absolute;
   display: none;
 }
+
 .menu .buttonGroup button.at.t {
   left: 0;
   top: 2em;
 }
+
 .menu .buttonGroup button.at.b {
   left: 0;
   top: 4em;
 }
+
 .menu .buttonGroup button.at.l {
   right: 2em;
   top: 2em;
 }
+
 .menu .buttonGroup button.at.r {
   left: 2em;
   top: 2em;
@@ -260,10 +304,12 @@ input.imageRef {
   background-color: black;
   position: relative;
 }
+
 .slide .container {
   background-color: var(--slideBackgroundColor);
   position: absolute;
 }
+
 .slide .layerWrapper {
   display: inline-block;
   line-height: 0;
@@ -272,9 +318,11 @@ input.imageRef {
   position: absolute;
   user-select: none;
 }
+
 .slide .layerWrapper.invisible {
   display: none !important;
 }
+
 /*.slide .layerWrapper img {
 	clip-path: polygon(20% 20%, 80% 20%, 80% 80%, 20% 80%);
 }*/
@@ -306,6 +354,7 @@ input.imageRef {
   box-shadow: 0px 0px 4px 4px rgba(0, 0, 0, 0.3) inset;
   border: 1px solid black;
 }
+
 .slideCanvas .shadow {
   width: 100%;
   height: calc(100% - 2em);
@@ -332,17 +381,21 @@ input.imageRef {
   box-shadow: 0px 0px 2px 2px rgba(0, 0, 0, 0.2);
   z-index: 1;
 }
-.slideCanvas .menu > div {
+
+.slideCanvas .menu>div {
   margin-right: 4px;
 }
+
 .slideCanvas .menu .buttom {
   width: 2em;
 }
+
 .slideCanvas .menu span.name {
   height: 100%;
   display: inline-block;
   line-height: 2em;
 }
+
 .slideCanvas .menu button.close {
   position: absolute;
   z-index: 1;
@@ -362,43 +415,53 @@ input.imageRef {
   display: flex;
   flex-direction: column;
 }
+
 .slideCanvas .sideMenu .property {
   /*	height:100px;*/
   padding: 10px;
   min-height: 210px;
   overflow-y: auto;
 }
-.slideCanvas .sideMenu .property > div {
+
+.slideCanvas .sideMenu .property>div {
   display: flex;
   flex-wrap: wrap;
 }
-.slideCanvas .sideMenu .property > div.copypaste {
+
+.slideCanvas .sideMenu .property>div.copypaste {
   justify-content: flex-end;
 }
-.slideCanvas .sideMenu .property div + div {
+
+.slideCanvas .sideMenu .property div+div {
   margin-top: 5px;
 }
+
 .slideCanvas .sideMenu .property dl {
   margin: 0;
   padding: 0;
   font-size: 11px;
   width: 100%;
 }
+
 .slideCanvas .sideMenu .property dl dt,
 .slideCanvas .sideMenu .property dl dd {
   margin: 0;
   padding: 0;
   display: inline-block;
 }
+
 .slideCanvas .sideMenu .property dl dt {
   width: 40%;
 }
+
 .slideCanvas .sideMenu .property dl dd {
   width: calc((60% - 5px) / 2);
 }
-.slideCanvas .sideMenu .property dl dd + dd {
+
+.slideCanvas .sideMenu .property dl dd+dd {
   margin-left: 5px;
 }
+
 .slideCanvas .sideMenu .property dl dd input[type="text"] {
   display: inline-block;
   width: 100%;
@@ -406,16 +469,20 @@ input.imageRef {
   background: none;
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
+
 .slideCanvas .sideMenu .property dl dd input[type="text"]:focus {
   background-color: white;
   border: 1px solid rgba(0, 0, 0, 0.8);
 }
+
 .slideCanvas .sideMenu .property dl.clip dd {
   width: calc((60% - 15px) / 4);
 }
-.slideCanvas .sideMenu .property dl dd > button {
+
+.slideCanvas .sideMenu .property dl dd>button {
   font-size: 80%;
 }
+
 .slideCanvas .sideMenu .property button {
   width: 50%;
   margin: 0;
@@ -423,13 +490,16 @@ input.imageRef {
   height: 2em;
   cursor: pointer;
 }
+
 .slideCanvas .sideMenu .property button.isText {
   margin-left: 50%;
   letter-spacing: -0.2em;
 }
+
 .slideCanvas .sideMenu .property button:disabled {
   cursor: default;
 }
+
 .slideCanvas .menu button.on,
 .slideCanvas .sideMenu .property button.on {
   color: white;
@@ -437,35 +507,44 @@ input.imageRef {
   background-color: #333333;
   border-color: #333333;
 }
+
 .slideCanvas .sideMenu .property div.copypaste button {
   width: 30%;
 }
+
 .slideCanvas .sideMenu .property button.imageRef {
   width: 85%;
 }
+
 .slideCanvas .sideMenu .property button.download {
   width: 15%;
 }
+
 .slideCanvas .sideMenu .property button.up,
 .slideCanvas .sideMenu .property button.down {
   width: 35%;
 }
+
 .slideCanvas .sideMenu .property button.top,
 .slideCanvas .sideMenu .property button.bottom {
   width: 15%;
 }
+
 .slideCanvas .sideMenu .property dl dt button {
   background: none;
   border: none;
   width: max-content;
   opacity: 0;
 }
+
 .slideCanvas .sideMenu .property dl dt button:hover {
   opacity: 1;
 }
+
 .slideCanvas .sideMenu .property dl dt button:disabled:hover {
   opacity: 0;
 }
+
 .slideCanvas .sideMenu .property .textEdit textarea {
   width: 100%;
   height: 3em;
@@ -479,6 +558,7 @@ input.imageRef {
   flex-grow: 1;
   position: relative;
 }
+
 .slideCanvas .sideMenu .bg {
   position: absolute;
   width: 100%;
@@ -488,6 +568,7 @@ input.imageRef {
   z-index: 0;
   /*	background-color: rgba(255,0,0,0.1);*/
 }
+
 .slideCanvas .sideMenu .layer ul {
   display: block;
   width: 100%;
@@ -496,6 +577,7 @@ input.imageRef {
   position: relative;
   z-index: 1;
 }
+
 .slideCanvas .sideMenu .layer ul li {
   display: block;
   width: 100%;
@@ -514,15 +596,18 @@ input.imageRef {
   white-space: nowrap;
   position: relative;
 }
+
 .slideCanvas .sideMenu .layer ul li span {
   white-space: nowrap;
   font-size: 70%;
 }
+
 .slideCanvas .sideMenu .layer ul li.selected {
   background-color: blue;
   color: white;
   font-weight: bold;
 }
+
 .slideCanvas .sideMenu .layer ul li button {
   border: none;
   opacity: 0.2;
@@ -540,28 +625,34 @@ input.imageRef {
   text-align: center;
   background-color: #dddddd;
 }
+
 .slideCanvas .sideMenu .layer ul li button.delete {
   position: absolute;
   right: 0;
   top: 1px;
 }
+
 .slideCanvas .sideMenu .layer ul li.selected button {
   background: none;
   color: white;
   opacity: 0.3;
 }
+
 .slideCanvas .sideMenu .layer ul li button:hover {
   border: 1px solid black;
   opacity: 1;
 }
+
 .slideCanvas .sideMenu .layer ul li.selected button:hover {
   background-color: #dddddd;
   color: blue;
   border: 1px solid rgba(0, 0, 0, 0);
 }
+
 .slideCanvas .sideMenu .layer ul li button.on {
   opacity: 1;
 }
+
 .slideCanvas .sideMenu .layer ul li img {
   width: 35px;
   height: calc(100% - 4px);
@@ -582,6 +673,7 @@ input.imageRef {
   left: 0;
   box-sizing: border-box;
 }
+
 .slide.editable .layerWrapper {
   display: inline-block;
   line-height: 0;
@@ -590,11 +682,13 @@ input.imageRef {
   /*	transform-origin:0 0;*/
   /*	transition:transform 0.2s;*/
 }
-.slide.editable .layerWrapper > img {
+
+.slide.editable .layerWrapper>img {
   user-select: none;
   cursor: pointer;
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 1));
 }
+
 .slide.editable .controls {
   position: absolute;
   z-index: 10;
@@ -607,6 +701,7 @@ input.imageRef {
   width: 100%;
   height: 100%;
 }
+
 .slide.editable .frame {
   border: 2px solid blue;
   position: absolute;
@@ -617,6 +712,7 @@ input.imageRef {
   pointer-events: auto;
   cursor: move;
 }
+
 .slide.editable .anchor {
   width: 20px;
   height: 20px;
@@ -627,6 +723,7 @@ input.imageRef {
   z-index: 2;
   pointer-events: auto;
 }
+
 .slide.editable .anchor.ne {
   top: 0;
   right: 0;
@@ -634,6 +731,7 @@ input.imageRef {
   background-position: 100% 0;
   background-color: red;
 }
+
 .slide.editable .anchor.nw {
   top: 0;
   left: 0;
@@ -641,6 +739,7 @@ input.imageRef {
   background-position: 0 0;
   background-color: orange;
 }
+
 .slide.editable .anchor.se {
   bottom: 0;
   right: 0;
@@ -648,12 +747,14 @@ input.imageRef {
   background-position: 100% 100%;
   background-color: green;
 }
+
 .slide.editable .anchor.sw {
   bottom: 0;
   left: 0;
   cursor: sw-resize;
   background-position: 0 100%;
 }
+
 .slide.editable .layerWrapper.locked {
   -webkit-filter: invert(100%);
   -moz-filter: invert(100%);
@@ -672,6 +773,7 @@ input.imageRef {
   width: 100%;
   position: relative;
 }
+
 .slideList .container {
   width: 100%;
   height: 100%;
@@ -681,12 +783,14 @@ input.imageRef {
   padding: 10px;
   display: flex;
 }
+
 .slideList .container::after {
   /* for right-padding */
   content: " ";
   min-width: 10px;
 }
-.slideList .container > .slide {
+
+.slideList .container>.slide {
   height: var(--slideThumbHeight);
   box-shadow: 1px 1px 2px 2px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
@@ -697,18 +801,20 @@ input.imageRef {
   margin-right: 10px;
   transition: margin-right 0.1s ease-in-out;
 }
-.slideList .container > .slide.selected {
+
+.slideList .container>.slide.selected {
   /*border:2px solid red;*/
   box-shadow: 0 0 2px 2px rgba(255, 0, 0, 0.8);
 }
+
 /* .slideList > .slide.selected .layerWrapper {
 	transition:transform 0.2s;
 } */
-.slideList .container > .slide.disabled {
+.slideList .container>.slide.disabled {
   filter: brightness(40%);
 }
 
-.slideList .container > .slide button {
+.slideList .container>.slide button {
   position: absolute;
   z-index: 3;
   width: 30px;
@@ -726,32 +832,37 @@ input.imageRef {
   transition: opacity 0.3s;
   pointer-events: none;
 }
-.slideList .container > .slide.selected button {
+
+.slideList .container>.slide.selected button {
   pointer-events: auto;
   opacity: 1;
 }
-.slideList .container > .slide.selected button:hover {
+
+.slideList .container>.slide.selected button:hover {
   opacity: 1;
 }
-.slideList .container > .slide button.delete {
+
+.slideList .container>.slide button.delete {
   right: 0;
   top: 0;
   background-color: red;
 }
-.slideList .container > .slide button.clone {
+
+.slideList .container>.slide button.clone {
   right: 5px;
   bottom: 5px;
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 3px;
 }
-.slideList .container > .slide button.edit {
+
+.slideList .container>.slide button.edit {
   left: 5px;
   top: 5px;
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 3px;
 }
 
-.slideList .container > .slide input[type="checkbox"] {
+.slideList .container>.slide input[type="checkbox"] {
   position: absolute;
   width: 25px;
   height: 25px;
@@ -765,11 +876,12 @@ input.imageRef {
   z-index: 3;
   transition: left 0.1s ease-in-out;
 }
-.slideList .container > .slide.joining + .slide input[type="checkbox"] {
+
+.slideList .container>.slide.joining+.slide input[type="checkbox"] {
   left: 16px;
 }
 
-.slideList .container > .slide .duration {
+.slideList .container>.slide .duration {
   display: block;
   position: absolute;
   z-index: 2;
@@ -783,11 +895,13 @@ input.imageRef {
   pointer-events: none;
   text-align: center;
 }
-.slideList .container > .slide.selected .duration {
+
+.slideList .container>.slide.selected .duration {
   pointer-events: auto;
   opacity: 1;
 }
-.slideList .container > .slide .duration span {
+
+.slideList .container>.slide .duration span {
   display: inline-block;
   /*position: absolute;*/
   /*	left:7px;*/
@@ -801,7 +915,8 @@ input.imageRef {
   z-index: 2;
   text-align: center;
 }
-.slideList .container > .slide .duration button {
+
+.slideList .container>.slide .duration button {
   width: 20px;
   height: 20px;
   line-height: 20px;
@@ -815,20 +930,24 @@ input.imageRef {
   transition: opacity 0.3s;
   opacity: 0;
 }
-.slideList .container > .slide .duration:hover button {
+
+.slideList .container>.slide .duration:hover button {
   opacity: 1;
 }
-.slideList .container > .slide .duration button.up {
+
+.slideList .container>.slide .duration button.up {
   left: 50%;
   width: 50%;
   height: 40px;
 }
-.slideList .container > .slide .duration button.down {
+
+.slideList .container>.slide .duration button.down {
   left: 0;
   width: 50%;
   height: 40px;
 }
-.slideList .container > .slide .joinArrow {
+
+.slideList .container>.slide .joinArrow {
   position: absolute;
   z-index: 1;
   width: 16px;
@@ -838,16 +957,20 @@ input.imageRef {
   top: 0;
   right: 0;
 }
-.slideList .container > .slide.joining .joinArrow {
+
+.slideList .container>.slide.joining .joinArrow {
   opacity: 0.2;
 }
-.slideList .container > .slide.joining {
+
+.slideList .container>.slide.joining {
   margin-right: -16px;
 }
-.slideList .container > .slide.joining.last {
+
+.slideList .container>.slide.joining.last {
   margin-right: 10px;
 }
-.slideList .container > .newSlideBtn {
+
+.slideList .container>.newSlideBtn {
   /*width:var(--slideThumbHeight);*/
   min-width: 40px;
   height: var(--slideThumbHeight);
@@ -864,10 +987,12 @@ input.imageRef {
   /*	opacity: 0;*/
   transition: opacity 0.3s;
 }
-.slideList .container > .newSlideBtn:hover {
+
+.slideList .container>.newSlideBtn:hover {
   opacity: 0.5;
 }
-.slideList > .selectSlideBtn {
+
+.slideList>.selectSlideBtn {
   display: none;
   position: absolute;
   top: 20px;
@@ -887,15 +1012,18 @@ input.imageRef {
   border: none;
   z-index: 4;
 }
-.slideList > .selectSlideBtn:hover {
+
+.slideList>.selectSlideBtn:hover {
   opacity: 1;
   color: rgba(255, 255, 255, 1);
 }
-.slideList > .selectSlideBtn.prev {
+
+.slideList>.selectSlideBtn.prev {
   border-radius: 0 10px 10px 0;
   left: 0;
 }
-.slideList > .selectSlideBtn.next {
+
+.slideList>.selectSlideBtn.next {
   border-radius: 10px 0 0 10px;
   right: 0;
 }
@@ -907,28 +1035,34 @@ body.select .slideCanvas {
   margin: 0;
   border: none;
 }
+
 body.select .slideList {
   height: 100%;
 }
+
 body.select .slideList .container {
   overflow-x: hidden;
   overflow-y: scroll;
   flex-wrap: wrap;
   align-content: flex-start;
 }
-body.select .slideList .container > .slide {
+
+body.select .slideList .container>.slide {
   height: var(--slideThumbHeight);
   /*margin-right: 10px;*/
   margin-bottom: 30px;
 }
+
 /* ------------------ mode:edit ----------------*/
 body.edit .slideCanvas {
   height: calc(100% - 10px - 150px);
   margin-bottom: 10px;
 }
+
 body.edit .slideList {
   height: 150px;
 }
+
 body.edit .slideList .container {
   /*	margin-left:20px;
 	margin-right:20px;
@@ -939,19 +1073,24 @@ body.edit .slideList .container {
   overflow-x: scroll;
   overflow-y: hidden;
 }
+
 body.edit .slideList .container::after {
   min-width: 40px;
 }
-body.edit .slideList > .selectSlideBtn {
+
+body.edit .slideList>.selectSlideBtn {
   display: block;
 }
-body.edit .slideList .container > .slide {
+
+body.edit .slideList .container>.slide {
   height: var(--slideThumbHeight);
   /*	margin-right: 10px;*/
 }
-body.edit .slideList .container > .slide button.edit {
+
+body.edit .slideList .container>.slide button.edit {
   display: none;
 }
+
 /* ------------------ mode:slideshow -------------*/
 
 body.slideShow #wrapper {

@@ -1,13 +1,12 @@
 import {
 	ActionIcon,
 	Button,
+	Collapse,
 	Group,
 	Paper,
 	Select,
 	Stack,
-	Text,
-	Title,
-	Tooltip,
+	Tooltip
 } from "@mantine/core";
 import type { ChangeEvent, FC } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -61,6 +60,8 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 	const [pickerOpen, setPickerOpen] = useState(false);
 	const [thumbnails, setThumbnails] = useState<Record<string, StoredDocThumbnail>>({});
 	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	const [showExtraOperation, setShowExtraOperation] = useState(false);
 
 	// title 一覧を refresh (update 降順)。
 	const refreshTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
@@ -257,32 +258,18 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 	};
 
 	return (
-		<Paper withBorder p="md" radius="sm">
+		<Paper withBorder p="6" radius="sm">
 			<Stack gap="xs">
-				<Group justify="space-between" align="center">
+				{/* <Group justify="space-between" align="center">
 					<Title order={5}>File IO</Title>
 					<Text size="xs" c="dimmed" ff="monospace">
 						document: {meta?.title ?? "(none)"} / slides: {slides.length}
 					</Text>
-				</Group>
+				</Group> */}
 				<Group gap="xs" wrap="wrap">
-					{!readOnly && (
-						<Button size="xs" variant="default" onClick={handleNew} data-action="new">
-							📄 新規
-						</Button>
-					)}
 					<Button size="xs" variant="default" onClick={handleOpenPicker} data-action="open-picker">
-						🖼 ギャラリーから開く
+						🖼 開く
 					</Button>
-					{!readOnly && (
-						<Button
-							size="xs"
-							variant="default"
-							onClick={() => fileInputRef.current?.click()}
-							data-action="import">
-							📂 import
-						</Button>
-					)}
 					<input
 						ref={fileInputRef}
 						type="file"
@@ -290,10 +277,10 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 						onChange={onFileSelected}
 						style={{ display: "none" }}
 					/>
-					<Group gap={4} wrap="nowrap">
+					<Group gap={0} wrap="nowrap">
 						<Tooltip label="前の保存ファイル">
 							<ActionIcon
-								size="lg"
+								size="md"
 								variant="default"
 								onClick={() => goToIndex(prevIndex)}
 								disabled={prevIndex < 0}
@@ -314,7 +301,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 						/>
 						<Tooltip label="次の保存ファイル">
 							<ActionIcon
-								size="lg"
+								size="md"
 								variant="default"
 								onClick={() => goToIndex(nextIndex)}
 								disabled={nextIndex < 0}
@@ -333,7 +320,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 									onClick={handleReload}
 									disabled={!canReload}
 									data-action="reload">
-									↺ 元に戻す
+									↺ 再ロード
 								</Button>
 							</Tooltip>
 							<Button
@@ -343,7 +330,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 								onClick={handleSave(false)}
 								disabled={!hasSlides}
 								data-action="save-new">
-								💾 保存 (新規)
+								💾 新規保存
 							</Button>
 							<Tooltip label="現在の document に上書き" disabled={canOverride}>
 								<Button
@@ -353,45 +340,67 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 									onClick={handleSave(true)}
 									disabled={!canOverride || !hasSlides}
 									data-action="save-override">
-									💾 上書き
+									💾 上書き保存
 								</Button>
 							</Tooltip>
 						</>
 					)}
-					<Button size="xs" variant="default" onClick={handleExportHvd} disabled={!hasSlides}>
-						⬇ HVD
-					</Button>
-					<Button size="xs" variant="default" onClick={handleExportHvz} disabled={!hasSlides}>
-						⬇ HVZ
-					</Button>
-					<Button size="xs" variant="default" onClick={handleExportPng} disabled={!hasSlides}>
-						⬇ PNG
-					</Button>
+
 					{!readOnly && (
-						<ActionIcon
-							size="lg"
+						<Button
+							size="xs"
 							variant="default"
 							color="red"
 							onClick={handleDelete}
 							disabled={!selectedTitle}
 							aria-label="削除"
 							data-action="delete">
-							🗑
-						</ActionIcon>
+							🗑 削除
+						</Button>
 					)}
-					<Group gap="xs" wrap="wrap">
-						{/* 単スライド PNG は EditToolbar へ移設。ここは全スライド ZIP のみ。 */}
-						<Tooltip label="有効な全スライドを ZIP で保存" disabled={hasEnabledSlide}>
-							<Button
-								size="xs"
-								variant="default"
-								onClick={handleExportZip}
-								disabled={!hasEnabledSlide}
-								data-action="export-all-zip">
-								🗜 全スライド ZIP
+					<Button variant="default" size="xs" onClick={() => setShowExtraOperation(!showExtraOperation)} data-action="open-picker">
+						...
+					</Button>
+
+					<Collapse in={showExtraOperation} transitionDuration={200} animateOpacity>
+						<Group gap="xs" wrap="wrap">
+							{!readOnly && (
+								<>
+									<Button size="xs" variant="default" onClick={handleNew} data-action="new">
+										📄 新規
+									</Button>
+									<Button
+										size="xs"
+										variant="default"
+										onClick={() => fileInputRef.current?.click()}
+										data-action="import">
+										📂 インポート
+									</Button>
+								</>
+							)}
+
+							<Button size="xs" variant="default" onClick={handleExportHvd} disabled={!hasSlides}>
+								⬇ HVD
 							</Button>
-						</Tooltip>
-					</Group>
+							<Button size="xs" variant="default" onClick={handleExportHvz} disabled={!hasSlides}>
+								⬇ HVZ
+							</Button>
+							<Button size="xs" variant="default" onClick={handleExportPng} disabled={!hasSlides}>
+								⬇ PNG
+							</Button>
+							<Tooltip label="有効な全スライドを ZIP で保存" disabled={hasEnabledSlide}>
+								<Button
+									variant="default"
+									onClick={handleExportZip}
+									size="xs"
+									disabled={!hasEnabledSlide}
+									data-action="export-all-zip">
+									🗜 全スライド ZIP
+								</Button>
+							</Tooltip>
+						</Group>
+					</Collapse>
+
 				</Group>
 				{/* スライド画像出力 (§4/§10): 単ページ PNG / 全ページ ZIP。背景は doc.bgColor。 */}
 				{/* {msg && (

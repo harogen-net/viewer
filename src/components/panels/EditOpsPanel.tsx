@@ -158,9 +158,9 @@ export const EditOpsPanel: FC = () => {
 	const isImageLayer = selectedLayer?.type === "image";
 	const imageLayer = isImageLayer
 		? (selectedLayer as {
-				clipRect: [number, number, number, number];
-				imageId: string;
-			})
+			clipRect: [number, number, number, number];
+			imageId: string;
+		})
 		: null;
 	const clipContentSize = isImageLayer ? measureContentSize() : null;
 	const handleClipChange = (edgeIndex: 0 | 1 | 2 | 3, value: number) => {
@@ -219,46 +219,46 @@ export const EditOpsPanel: FC = () => {
 							⤵
 						</ActionIcon>
 					</Tooltip>
-				</Group>
-
-				{/* 画像ダウンロード (ImageLayer のみ): 元画像をファイル保存 */}
-				{imageLayer && (
+					{/* 反転 H / V トグル (±90°/フィット/整列 は EditToolbar、回転リセットは回転入力に統合) */}
 					<Group gap={4}>
-						<Tooltip label="この画像をダウンロード">
+						<Tooltip label="水平反転">
 							<ActionIcon
-								variant="default"
-								onClick={handleDownloadImage}
-								data-edit-op="download-image"
-								aria-label="download image">
-								⬇
+								variant={selectedLayer?.mirrorH ? "filled" : "default"}
+								onClick={() => layer.toggleMirrorH(layerIndex)}
+								disabled={!canEditLayer}
+								data-edit-op="mirror-h"
+								aria-label="toggle mirror horizontal">
+								⇄
+							</ActionIcon>
+						</Tooltip>
+						<Tooltip label="垂直反転">
+							<ActionIcon
+								variant={selectedLayer?.mirrorV ? "filled" : "default"}
+								onClick={() => layer.toggleMirrorV(layerIndex)}
+								disabled={!canEditLayer}
+								data-edit-op="mirror-v"
+								aria-label="toggle mirror vertical">
+								⇅
 							</ActionIcon>
 						</Tooltip>
 					</Group>
-				)}
+					{/* 画像ダウンロード (ImageLayer のみ): 元画像をファイル保存 */}
+					{imageLayer && (
+						<Group gap={4}>
+							<Tooltip label="この画像をダウンロード">
+								<ActionIcon
+									variant="default"
+									onClick={handleDownloadImage}
+									data-edit-op="download-image"
+									aria-label="download image">
+									⬇
+								</ActionIcon>
+							</Tooltip>
+						</Group>
+					)}
 
-				{/* 反転 H / V トグル (±90°/フィット/整列 は EditToolbar、回転リセットは回転入力に統合) */}
-				<Group gap={4}>
-					<Tooltip label="水平反転">
-						<ActionIcon
-							variant={selectedLayer?.mirrorH ? "filled" : "default"}
-							onClick={() => layer.toggleMirrorH(layerIndex)}
-							disabled={!canEditLayer}
-							data-edit-op="mirror-h"
-							aria-label="toggle mirror horizontal">
-							⇄
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="垂直反転">
-						<ActionIcon
-							variant={selectedLayer?.mirrorV ? "filled" : "default"}
-							onClick={() => layer.toggleMirrorV(layerIndex)}
-							disabled={!canEditLayer}
-							data-edit-op="mirror-v"
-							aria-label="toggle mirror vertical">
-							⇅
-						</ActionIcon>
-					</Tooltip>
 				</Group>
+
 
 				{/* 数値プロパティ (X / Y / 拡大率 / 回転、§12 Enter/↑↓/ホイール調整) */}
 				{selectedLayer && hasSelection && (
@@ -297,7 +297,7 @@ export const EditOpsPanel: FC = () => {
 						</Group>
 						<Group gap={6} align="center" wrap="nowrap">
 							<Text size="xs" c="dimmed" w={40}>
-								拡大率
+								zoom
 							</Text>
 							<NumberAdjustInput
 								value={selectedLayer.scaleX}
@@ -312,8 +312,8 @@ export const EditOpsPanel: FC = () => {
 								onAdjustStart={handlePropStart}
 								onAdjustEnd={() => handlePropEnd("edit scale")}
 							/>
-							<Text size="xs" c="dimmed" w={40}>
-								回転
+							<Text size="xs" c="dimmed" w={40} onClick={() => layer.resetRotation(layerIndex)} style={{ cursor: "pointer" }}>
+								rot
 							</Text>
 							<NumberAdjustInput
 								value={selectedLayer.rotation}
@@ -325,7 +325,7 @@ export const EditOpsPanel: FC = () => {
 								onAdjustStart={handlePropStart}
 								onAdjustEnd={() => handlePropEnd("edit rotation")}
 							/>
-							<Tooltip label="回転リセット (0°)">
+							{/* <Tooltip label="回転リセット (0°)">
 								<ActionIcon
 									variant="subtle"
 									onClick={() => layer.resetRotation(layerIndex)}
@@ -334,46 +334,49 @@ export const EditOpsPanel: FC = () => {
 									aria-label="reset rotation">
 									↺
 								</ActionIcon>
-							</Tooltip>
+							</Tooltip> */}
+
 						</Group>
 					</Stack>
 				)}
 
 				{/* 透明度 */}
-				<Stack gap={2} data-edit-op-group="opacity">
-					<Group gap={6} justify="space-between">
-						<Text size="xs" c="dimmed">
-							透明度
-						</Text>
-						<Group gap={4}>
-							<Text size="xs" ff="monospace">
-								{opacityPercent}%
+				{selectedLayer && hasSelection && (
+					<Stack gap={2} data-edit-op-group="opacity">
+						<Group gap={6} justify="space-between">
+							<Text size="xs" c="dimmed">
+								透明度
 							</Text>
-							<Tooltip label="透明度リセット (100%)">
-								<ActionIcon
-									size="xs"
-									variant="subtle"
-									onClick={() => layer.resetOpacity(layerIndex)}
-									disabled={!canEditLayer}
-									data-edit-op="reset-opacity"
-									aria-label="reset opacity">
-									↺
-								</ActionIcon>
-							</Tooltip>
+							<Group gap={4}>
+								<Text size="xs" ff="monospace">
+									{opacityPercent}%
+								</Text>
+								<Tooltip label="透明度リセット (100%)">
+									<ActionIcon
+										size="xs"
+										variant="subtle"
+										onClick={() => layer.resetOpacity(layerIndex)}
+										disabled={!canEditLayer}
+										data-edit-op="reset-opacity"
+										aria-label="reset opacity">
+										↺
+									</ActionIcon>
+								</Tooltip>
+							</Group>
 						</Group>
-					</Group>
-					<Slider
-						value={opacityPercent}
-						onChange={handleOpacityChange}
-						onChangeEnd={endSliderEdit("edit opacity")}
-						disabled={!canEditLayer}
-						min={0}
-						max={100}
-						step={5}
-						label={null}
-						data-edit-op="opacity"
-					/>
-				</Stack>
+						<Slider
+							value={opacityPercent}
+							onChange={handleOpacityChange}
+							onChangeEnd={endSliderEdit("edit opacity")}
+							disabled={!canEditLayer}
+							min={0}
+							max={100}
+							step={5}
+							label={null}
+							data-edit-op="opacity"
+						/>
+					</Stack>
+				)}
 
 				{/* テキスト編集 (D-9、TextLayer のみ表示) */}
 				{textLayer && (
@@ -464,11 +467,6 @@ export const EditOpsPanel: FC = () => {
 					</Stack>
 				)}
 
-				{!hasSelection && (
-					<Text size="xs" c="dimmed">
-						レイヤーを選択してください
-					</Text>
-				)}
 				{hasSelection && isLocked && (
 					<Text size="xs" c="dimmed">
 						このレイヤーはロックされています

@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Button, Flex, MantineProvider, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Box, createTheme, Flex, MantineProvider, Text, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useBeforeUnloadGuard } from "../hooks/useBeforeUnloadGuard";
@@ -50,33 +50,34 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 					<SlideShowOpsPanel />
 					<FileIOPanel readOnly={!editable} />
 					{editable && (
-						<Flex
-							direction="column"
-							gap="sm"
-							align="stretch"
-							justify="flex-start"
-							style={{ flex: "0 0 auto" }}>
-							<Button
-								variant="default"
-								onClick={openDocSettings}
-								disabled={!hasDocument}
-								data-open-doc-settings>
-								⚙ ドキュメント設定
-							</Button>
-							<Button
-								variant="default"
-								onClick={() => setShowImageLibrary(true)}
-								disabled={!hasDocument}
-								data-open-image-library>
-								🖼 画像ライブラリ
-							</Button>
-							<Button
-								variant="default"
-								onClick={() => setShowSlideshowSettings(true)}
-								data-open-slideshow-settings>
-								🎬 スライドショー設定
-							</Button>
-						</Flex>
+						<ActionIcon.Group>
+							<Tooltip label="ドキュメント設定">
+								<ActionIcon
+									variant="default"
+									onClick={openDocSettings}
+									disabled={!hasDocument}
+									data-open-doc-settings>
+									⚙
+								</ActionIcon>
+							</Tooltip>
+							<Tooltip label="画像ライブラリ">
+								<ActionIcon
+									variant="default"
+									onClick={() => setShowImageLibrary(true)}
+									disabled={!hasDocument}
+									data-open-image-library>
+									🖼
+								</ActionIcon>
+							</Tooltip>
+							<Tooltip label="スライドショー設定">
+								<ActionIcon
+									variant="default"
+									onClick={() => setShowSlideshowSettings(true)}
+									data-open-slideshow-settings>
+									🎬
+								</ActionIcon>
+							</Tooltip>
+						</ActionIcon.Group>
 					)}
 				</Flex>
 			</div>
@@ -158,10 +159,13 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 		position: "relative",
 		background: "#f1f3f5",
 	};
+
+	const sideRailWidth = 260; // 右レールの固定幅。EditOpsPanel / LayerListPanel を縦 5:5 で並べる。
+
 	// 右レール: EditOpsPanel / LayerListPanel を縦 5:5 で並べる (各々が内部スクロール)。
 	const sideRailStyle: CSSProperties = {
-		flex: "0 0 320px",
-		width: 320,
+		flex: `0 0 ${sideRailWidth}px`,
+		width: sideRailWidth,
 		borderLeft: "1px solid #dee2e6",
 		padding: 8,
 		background: "#fff",
@@ -225,17 +229,16 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 				</div>
 				{showEditUI && (
 					<aside style={sideRailStyle} data-edit-side-rail>
-						{/* EditOpsPanel / LayerListPanel を縦 5:5 (各々内部スクロール)。 */}
-						<div style={railHalfStyle}>
+						<div style={{ ...railHalfStyle, flexGrow: 3 }}>
 							<EditOpsPanel />
 						</div>
-						<div style={railHalfStyle}>
+						<div style={{ ...railHalfStyle, flexGrow: 2 }}>
 							<LayerListPanel />
 						</div>
 					</aside>
 				)}
 			</div>
-		</div>
+		</div >
 	);
 };
 
@@ -271,6 +274,12 @@ const listExpandedStyle: CSSProperties = {
 	padding: 8,
 };
 
+const appTheme = createTheme({
+	colors: {
+		red: ["#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000"],
+	},
+});
+
 export const AppShell: FC = () => {
 	// 未保存変更があるとタブ閉じ/リロードを警告 (アプリ内置換は FileIOPanel 側で確認)。
 	useBeforeUnloadGuard();
@@ -286,7 +295,7 @@ export const AppShell: FC = () => {
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const detailMode = editable && selectedIndex >= 0 && !!slides[selectedIndex];
 	return (
-		<MantineProvider>
+		<MantineProvider theme={appTheme}>
 			<div style={newModeLayoutStyle} data-viewer-mode={mode}>
 				<TopBar editable={editable} />
 				{detailMode && <MainArea editable={editable} />}

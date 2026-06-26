@@ -14,7 +14,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ActionIcon, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
+import { Button, Paper, ScrollArea, Stack, Text, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useLayerDelete } from "../../hooks/useLayerDelete";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
@@ -264,50 +264,62 @@ export const LayerListPanel: FC = () => {
 			radius="sm"
 			style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
 			<Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
-				<Title order={5}>Layer List</Title>
+				{/* <Stack justify="space-between" align="flex-start" style={{ flexDirection: "row" }}	>
+					<Title order={5}>Layer List</Title>
+					<Text size="xs" c="dimmed" ff="monospace">
+						{layers.length} layers
+						{selectedLayer && ` / selected: ${labelOf(selectedLayer)}`}
+					</Text>
+				</Stack> */}
 				{/* Layer 順序変更 */}
-				<ActionIcon.Group>
+				<Button.Group style={{ width: "100%" }} >
 					<Tooltip label="最前面">
-						<ActionIcon
+						<Button
 							variant="default"
+							size="compact-sm"
 							onClick={() => layerMutation.bringToFront(layerIndex)}
 							disabled={!canEditLayer}
 							data-edit-op="bring-to-front"
 							aria-label="bring to front">
 							⤒
-						</ActionIcon>
+						</Button>
 					</Tooltip>
 					<Tooltip label="1 段上げる">
-						<ActionIcon
+						<Button
 							variant="default"
+							size="compact-sm"
+							style={{ flex: 1 }}
 							onClick={() => layerMutation.bringForward(layerIndex)}
 							disabled={!canEditLayer}
 							data-edit-op="bring-forward"
 							aria-label="bring forward">
 							↑
-						</ActionIcon>
+						</Button>
 					</Tooltip>
 					<Tooltip label="1 段下げる">
-						<ActionIcon
+						<Button
 							variant="default"
+							size="compact-sm"
+							style={{ flex: 1 }}
 							onClick={() => layerMutation.sendBackward(layerIndex)}
 							disabled={!canEditLayer}
 							data-edit-op="send-backward"
 							aria-label="send backward">
 							↓
-						</ActionIcon>
+						</Button>
 					</Tooltip>
 					<Tooltip label="最背面">
-						<ActionIcon
+						<Button
 							variant="default"
+							size="compact-sm"
 							onClick={() => layerMutation.sendToBack(layerIndex)}
 							disabled={!canEditLayer}
 							data-edit-op="send-to-back"
 							aria-label="send to back">
 							⤓
-						</ActionIcon>
+						</Button>
 					</Tooltip>
-				</ActionIcon.Group>
+				</Button.Group>
 				{noSlide ? (
 					<Text size="xs" c="dimmed">
 						スライドを選択してください
@@ -361,10 +373,6 @@ export const LayerListPanel: FC = () => {
 						</DndContext>
 					</ScrollArea>
 				)}
-				<Text size="xs" c="dimmed" ff="monospace">
-					{layers.length} layers
-					{selectedLayer && ` / selected: ${labelOf(selectedLayer)}`}
-				</Text>
 			</Stack>
 		</Paper>
 	);
