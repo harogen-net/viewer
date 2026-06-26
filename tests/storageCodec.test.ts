@@ -5,16 +5,20 @@ import { describe, expect, it } from "vitest";
 import type { ImageLayer, TextLayer } from "../src/types/Layer";
 import { LayerType } from "../src/types/Layer";
 import type { ViewerDocument } from "../src/types/ViewerDocument";
-import { parseHvd, parseHvz, parsePng, serializeHvd, serializeHvz, serializePng } from "../src/utils/storageCodec";
+import {
+	parseHvd,
+	parseHvz,
+	parsePng,
+	serializeHvd,
+	serializeHvz,
+	serializePng,
+} from "../src/utils/storageCodec";
 
 // v3 Group B build 1: storageCodec 純関数の単体テスト。
 // HVD JSON ↔ ViewerDocument 変換の正常性と round-trip 安定性を検証。
 
 describe("storageCodec (v3 Group B build 1)", () => {
-	const fixtureText = readFileSync(
-		resolve(__dirname, "fixtures/2026-06-16_170948.hvd"),
-		"utf-8",
-	);
+	const fixtureText = readFileSync(resolve(__dirname, "fixtures/2026-06-16_170948.hvd"), "utf-8");
 
 	describe("parseHvd", () => {
 		it("fixture を ViewerDocument + imageData に分解する", () => {
@@ -59,6 +63,48 @@ describe("storageCodec (v3 Group B build 1)", () => {
 			expect(layer.locked).toBe(false);
 			expect(layer.shared).toBe(false);
 			expect(layer.name).toBe("");
+		});
+
+		it("legacy 旧形式 (version < 2.1): slide.images をレイヤとして読む", () => {
+			const legacy = JSON.stringify({
+				version: 2,
+				screen: { width: 640, height: 480 },
+				slideData: [
+					{
+						id: 1,
+						// 旧形式は layers ではなく images にレイヤ配列が入る (type 無し = image 扱い)。
+						images: [
+							{
+								transX: 10,
+								transY: 20,
+								scaleX: 1,
+								scaleY: 1,
+								rotation: 0,
+								mirrorH: false,
+								mirrorV: false,
+								imageId: "img-1",
+							},
+						],
+					},
+				],
+				imageData: { "img-1": "data:image/png;base64,AAAA" },
+			});
+			const { doc } = parseHvd(legacy, "legacy.hvd");
+			expect(doc.slides).toHaveLength(1);
+			expect(doc.slides[0].layers).toHaveLength(1);
+			const layer = doc.slides[0].layers[0];
+			expect(layer.type).toBe(LayerType.IMAGE);
+			expect(layer.transX).toBe(10);
+		});
+
+		it("layers も images も無い slide は空レイヤ (throw しない)", () => {
+			const noLayers = JSON.stringify({
+				version: 3,
+				screen: { width: 100, height: 100 },
+				slideData: [{ id: 1 }],
+			});
+			const { doc } = parseHvd(noLayers, "x.hvd");
+			expect(doc.slides[0].layers).toEqual([]);
 		});
 	});
 
@@ -196,7 +242,10 @@ describe("storageCodec (v3 Group B build 1)", () => {
 				],
 			};
 			const json = JSON.parse(
-				serializeHvd(doc, { used: "data:image/png;base64,AAA=", orphan: "data:image/png;base64,BBB=" }),
+				serializeHvd(doc, {
+					used: "data:image/png;base64,AAA=",
+					orphan: "data:image/png;base64,BBB=",
+				})
 			);
 			expect(Object.keys(json.imageData)).toEqual(["used"]);
 			expect(json.imageData.used).toBe("data:image/png;base64,AAA=");

@@ -19,6 +19,24 @@ import {
 // import 系は store を更新せず {doc, imageData} を返す (caller が store 反映)。
 // export 系はメッセージ文字列 (UI 表示用) を返す。失敗時は throw。
 
+// FileReader ベースのファイル読み込み (全 iOS Safari で動作)。Blob.arrayBuffer/text は
+// Safari 14+ 限定のため、旧 iOS でも import できるよう FileReader を使う (legacy 同方針)。
+const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> =>
+	new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as ArrayBuffer);
+		reader.onerror = () => reject(reader.error ?? new Error("FileReader: 読み込み失敗"));
+		reader.readAsArrayBuffer(file);
+	});
+
+const readFileAsText = (file: File): Promise<string> =>
+	new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(reader.error ?? new Error("FileReader: 読み込み失敗"));
+		reader.readAsText(file);
+	});
+
 /** Blob をダウンロードさせるヘルパー (URL.createObjectURL + <a download>)。 */
 const downloadBlob = (blob: Blob, filename: string): void => {
 	const url = URL.createObjectURL(blob);
@@ -147,19 +165,23 @@ export const useFileIO = (): UseFileIO => {
 
 	// .hvd / .hvz / .png ファイルを parse して {doc, imageData} を返す。
 	// 未対応拡張子は null。store 更新は caller の責務。
+	//
+	// ファイル読み込みは Blob.arrayBuffer()/text() (Safari 14+) ではなく FileReader を使う。
+	// 旧 iOS Safari には Blob.arrayBuffer/text が無く、レガシー (FileReader 方式) は動くのに
+	// 新側だけ import が失敗する事象があったため、全 iOS で動く FileReader に統一する。
 	const importFile = useCallback(async (file: File): Promise<ImportResult | null> => {
 		if (/\.hvz$/i.test(file.name)) {
-			const buf = await file.arrayBuffer();
+			const buf = await readFileAsArrayBuffer(file);
 			return await parseHvz(buf, file.name.replace(/\.hvz$/i, ""));
 		}
 		if (/\.png$/i.test(file.name)) {
-			const buf = new Uint8Array(await file.arrayBuffer());
+			const buf = new Uint8Array(await readFileAsArrayBuffer(file));
 			// legacy 互換: ファイル名から [hv] prefix と .png 拡張子を外して fallback title に
 			const fallback = file.name.replace(/^\[hv\]/, "").replace(/\.png$/i, "");
 			return await parsePng(buf, fallback);
 		}
 		if (/\.hvd$/i.test(file.name)) {
-			const text = await file.text();
+			const text = await readFileAsText(file);
 			return parseHvd(text, file.name.replace(/\.hvd$/i, ""));
 		}
 		return null;

@@ -46,7 +46,9 @@ export interface RawHvdSlide {
 	durationRatio?: number;
 	joining?: boolean;
 	disabled?: boolean;
-	layers: RawHvdLayer[];
+	// version >= 2.1 は layers、それ以前 (legacy) は images にレイヤ配列が入る。
+	layers?: RawHvdLayer[];
+	images?: RawHvdLayer[];
 }
 
 export interface RawHvd {
@@ -116,6 +118,8 @@ function rawToLayer(raw: RawHvdLayer, fallbackId: number): Layer | null {
 }
 
 function rawToSlide(raw: RawHvdSlide, width: number, height: number): Slide {
+	// legacy 互換: version >= 2.1 は layers、それ以前は images。どちらも無ければ空配列。
+	const rawLayers = raw.layers ?? raw.images ?? [];
 	return {
 		id: raw.id,
 		uuid: newUuid(),
@@ -124,7 +128,7 @@ function rawToSlide(raw: RawHvdSlide, width: number, height: number): Slide {
 		durationRatio: raw.durationRatio ?? 1,
 		joining: raw.joining ?? true,
 		disabled: raw.disabled ?? false,
-		layers: raw.layers.map((l, idx) => rawToLayer(l, idx)).filter((l): l is Layer => l != null),
+		layers: rawLayers.map((l, idx) => rawToLayer(l, idx)).filter((l): l is Layer => l != null),
 	};
 }
 
@@ -134,14 +138,17 @@ function rawToSlide(raw: RawHvdSlide, width: number, height: number): Slide {
  */
 export function parseHvd(jsonText: string, fallbackTitle: string): ParsedHvd {
 	const raw = JSON.parse(jsonText) as RawHvd;
+	// legacy 互換: 旧形式は screen.width/height が文字列のことがある (legacy は parseInt)。
+	const width = Number(raw.screen?.width) || 0;
+	const height = Number(raw.screen?.height) || 0;
 	const doc: ViewerDocument = {
 		title: fallbackTitle,
-		width: raw.screen.width,
-		height: raw.screen.height,
+		width,
+		height,
 		createTime: raw.createTime ?? Date.now(),
 		editTime: raw.editTime ?? Date.now(),
 		bgColor: raw.bgColor,
-		slides: raw.slideData.map((s) => rawToSlide(s, raw.screen.width, raw.screen.height)),
+		slides: (raw.slideData ?? []).map((s) => rawToSlide(s, width, height)),
 	};
 	return { doc, imageData: raw.imageData ?? {} };
 }
@@ -238,7 +245,7 @@ export function serializeHvd(doc: ViewerDocument, imageDataMap: Record<string, s
  */
 export async function serializeHvz(
 	doc: ViewerDocument,
-	imageDataMap: Record<string, string>,
+	imageDataMap: Record<string, string>
 ): Promise<Uint8Array> {
 	const json = serializeHvd(doc, imageDataMap);
 	const zip = new JSZip();
@@ -253,7 +260,7 @@ export async function serializeHvz(
  */
 export async function parseHvz(
 	buffer: Blob | ArrayBuffer | Uint8Array,
-	fallbackTitle: string,
+	fallbackTitle: string
 ): Promise<ParsedHvd> {
 	const zip = await JSZip.loadAsync(buffer);
 	const entries = Object.values(zip.files).filter((f) => !f.dir);
@@ -283,17 +290,6 @@ export async function parseHvz(
 const TRANSPARENT_PNG_DATA_URL =
 	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
 
-/** Uint8Array → base64 文字列 (chunked、大サイズでも stack overflow しない)。 */
-function bytesToBase64(bytes: Uint8Array): string {
-	let binary = "";
-	const CHUNK = 0x8000;
-	for (let i = 0; i < bytes.length; i += CHUNK) {
-		const slice = bytes.subarray(i, i + CHUNK);
-		binary += String.fromCharCode.apply(null, Array.from(slice));
-	}
-	return btoa(binary);
-}
-
 /** base64 → Uint8Array。 */
 function base64ToBytes(base64: string): Uint8Array {
 	const binary = atob(base64);
@@ -306,7 +302,7 @@ function base64ToBytes(base64: string): Uint8Array {
 function pngEmbedAsync(
 	embedder: PNGEmbedder,
 	pngDataURL: string,
-	bytes: Uint8Array,
+	bytes: Uint8Array
 ): Promise<string> {
 	return new Promise((resolve) => {
 		embedder.embed(pngDataURL, bytes, resolve);
@@ -321,7 +317,7 @@ function pngEmbedAsync(
 export async function serializePng(
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	options?: { thumbnailPngDataURL?: string },
+	options?: { thumbnailPngDataURL?: string }
 ): Promise<Uint8Array> {
 	const json = serializeHvd(doc, imageDataMap);
 	const zip = new JSZip();
@@ -336,17 +332,41 @@ export async function serializePng(
 	return base64ToBytes(base64);
 }
 
+// PNG 補助チャンク "hvDc" (PNGEmbedder が書き込むデータチャンク) のタイプバイト列。
+const PNG_HVDC_CHUNK_TYPE = [0x68, 0x76, 0x44, 0x63]; // "hvDc"
+
+/**
+ * PNG バイト列を走査し、指定タイプの補助チャンクの data 部 (view) を返す。無ければ null。
+ * PNGEmbedder.process の純バイト版 (dataURL/atob/String.fromCharCode を経由しない):
+ * iOS Safari で Blob.arrayBuffer / 手製 base64 往復が不安定なため、バイトを直接読む。
+ */
+function extractPngChunk(png: Uint8Array, type: number[] = PNG_HVDC_CHUNK_TYPE): Uint8Array | null {
+	// 先頭 8 byte は PNG シグネチャ。以降 [length(4)][type(4)][data][crc(4)] の連なり。
+	let rpos = 8;
+	while (rpos + 8 <= png.length) {
+		const dataLength =
+			((png[rpos] << 24) | (png[rpos + 1] << 16) | (png[rpos + 2] << 8) | png[rpos + 3]) >>> 0;
+		rpos += 4;
+		const matched =
+			png[rpos] === type[0] &&
+			png[rpos + 1] === type[1] &&
+			png[rpos + 2] === type[2] &&
+			png[rpos + 3] === type[3];
+		rpos += 4;
+		if (matched) return png.subarray(rpos, rpos + dataLength);
+		rpos += dataLength + 4; // data + crc を読み飛ばす
+	}
+	return null;
+}
+
 /**
  * PNG ファイル (hvDc チャンクに HVD-zip を埋め込んだもの) を parse。
  * legacy SlideStorage の PNG 出力 (`[hv]{title}.png`) と互換。
+ * バイトから直接チャンクを取り出す (base64 往復をしない = iOS Safari でも安定)。
  */
-export async function parsePng(
-	buffer: Uint8Array,
-	fallbackTitle: string,
-): Promise<ParsedHvd> {
-	const dataURL = `data:image/png;base64,${bytesToBase64(buffer)}`;
-	const embedder = new PNGEmbedder();
-	const zipBytes = embedder.extract(dataURL);
+export async function parsePng(buffer: Uint8Array, fallbackTitle: string): Promise<ParsedHvd> {
+	const zipBytes = extractPngChunk(buffer);
+	if (!zipBytes) throw new Error("PNG: 埋め込み hvDc チャンクが見つかりません");
 	const zip = await JSZip.loadAsync(zipBytes);
 	const entry = zip.file("data.hvd");
 	if (!entry) throw new Error("PNG: 埋め込み data.hvd エントリなし");
