@@ -37,6 +37,9 @@ export const LayerView: FC<{ layer: Layer }> = ({ layer }) => {
 		transform: transformCss(layer),
 		// transform-origin は CSS default (50% 50%) のまま = コンテンツ中心基準。
 		// 内側のコンテンツは natural size でレイアウトされ wrapper がそれを包む。
+		// ロック済みレイヤーはマウスイベント対象外 (ヒットテストを素通りさせ、下の
+		// レイヤー/背景を選択させる)。選択はレイヤーパネル経由でのみ可能。
+		pointerEvents: layer.locked ? "none" : undefined,
 	};
 
 	return (

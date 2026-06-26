@@ -180,6 +180,17 @@ describe("LayerListPanel (v4 Group D D-5)", () => {
 		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("b");
 	});
 
+	it("ロック済みレイヤーの行クリックでは選択されない", () => {
+		seedSlide([makeImageLayer(1, "a", "img-1"), makeImageLayer(2, "b", "img-2", { locked: true })]);
+		render();
+		const lockedRow = container.querySelector<HTMLElement>("[data-layer-uuid='b']");
+		act(() => {
+			lockedRow?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+		// locked は選択対象外 → 選択は変わらない (null のまま)
+		expect(useLayerStore.getState().selectedLayer).toBeNull();
+	});
+
 	it("選択 layer の行に data-selected='true' + ハイライト", () => {
 		const target = makeImageLayer(2, "b", "img-2");
 		seedSlide([makeImageLayer(1, "a", "img-1"), target]);
@@ -329,6 +340,16 @@ describe("LayerListPanel 行内トグル (v4 Group D D-19)", () => {
 		render();
 		clickToggle("a", "locked");
 		expect(useSlideStore.getState().slides[0].layers[0].locked).toBe(false);
+	});
+
+	it("選択中レイヤーをロックすると選択が解除される", () => {
+		const target = makeImageLayer(1, "a", "img-1");
+		seedSlide([target]);
+		useLayerStore.getState().setSelectedLayer(target);
+		render();
+		clickToggle("a", "locked");
+		expect(useSlideStore.getState().slides[0].layers[0].locked).toBe(true);
+		expect(useLayerStore.getState().selectedLayer).toBeNull();
 	});
 
 	it("shared トグルで shared が反転 (兄弟連鎖は起きない = shared は同期対象外)", () => {

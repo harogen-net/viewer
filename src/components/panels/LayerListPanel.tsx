@@ -84,7 +84,8 @@ const LayerRow: FC<LayerRowProps> = ({
 		gap: 6,
 		padding: "4px 6px",
 		borderRadius: 4,
-		cursor: "pointer",
+		// ロック済みは選択不可なので pointer カーソルにしない。
+		cursor: layer.locked ? "default" : "pointer",
 		fontSize: 12,
 		fontFamily: "monospace",
 		border: selected ? "1px solid #228be6" : "1px solid transparent",
@@ -328,13 +329,21 @@ export const LayerListPanel: FC = () => {
 												key={layer.uuid}
 												layer={layer}
 												selected={selectedLayer?.uuid === layer.uuid}
-												onClick={() => setSelectedLayer(layer)}
+												onClick={() => {
+													// ロック済みレイヤーは選択不可 (canvas の pointer-events:none と整合)。
+													if (!layer.locked) setSelectedLayer(layer);
+												}}
 												onToggleVisible={() =>
 													layerMutation.updateLayer(realIndex, { visible: !layer.visible })
 												}
-												onToggleLocked={() =>
-													layerMutation.updateLayer(realIndex, { locked: !layer.locked })
-												}
+												onToggleLocked={() => {
+													const willLock = !layer.locked;
+													layerMutation.updateLayer(realIndex, { locked: willLock });
+													// ロックしたら選択を解除する (locked は選択対象外)。
+													if (willLock && selectedLayer?.uuid === layer.uuid) {
+														setSelectedLayer(null);
+													}
+												}}
 												onToggleShared={() =>
 													layerMutation.updateLayer(realIndex, { shared: !layer.shared })
 												}

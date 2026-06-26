@@ -153,6 +153,18 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		expect(frame!.dataset.gesturing).toBe("true");
 	});
 
+	it("ロック済みレイヤーの wrapper は pointer-events:none (マウスイベント対象外)", () => {
+		const locked = makeImageLayer(1, "u-1", { locked: true });
+		const normal = makeImageLayer(2, "u-2", { locked: false });
+		seed([locked, normal]);
+		renderHost();
+		const lockedWrapper = container.querySelector<HTMLElement>('[data-layer-id="1"]');
+		const normalWrapper = container.querySelector<HTMLElement>('[data-layer-id="2"]');
+		// ロック済みは none、非ロックは none ではない (ヒットテスト対象)。
+		expect(lockedWrapper!.style.pointerEvents).toBe("none");
+		expect(normalWrapper!.style.pointerEvents).not.toBe("none");
+	});
+
 	it("pointerup で transX/transY が slideStore に commit、履歴 1 件", () => {
 		const layer = makeImageLayer(1, "u-1", { transX: 10, transY: 20 });
 		seed([layer]);
