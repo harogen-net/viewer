@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useDrop } from "../../hooks/useDrop";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
@@ -69,6 +69,24 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		decrementSlideDurationRatio,
 	} = useSlideMutation();
 	const alert = useAlert();
+
+	// 選択スライドを一覧の水平中央へスクロールする。
+	// legacy ListViewController.scrollToSelected (EDIT) の
+	//   scrollLeft = thumb.left + container.scrollLeft - container.width/2 + thumb.width/2
+	// と同じ「選択 thumb を viewport 水平中央に寄せる」計算。viewport 内のみスクロールし
+	// ページ全体は動かさない。
+	const viewportRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (selectedIndex < 0) return;
+		const vp = viewportRef.current;
+		const el = vp?.querySelector<HTMLElement>(`[data-slide-index="${selectedIndex}"]`);
+		if (!vp || !el) return;
+		const vpRect = vp.getBoundingClientRect();
+		const elRect = el.getBoundingClientRect();
+		const left = vp.scrollLeft + (elRect.left - vpRect.left) - (vpRect.width - elRect.width) / 2;
+		if (typeof vp.scrollTo === "function") vp.scrollTo({ left, behavior: "smooth" });
+		else vp.scrollLeft = left;
+	}, [selectedIndex, slides.length]);
 
 	const isEmpty = slides.length === 0;
 	const canMovePrev = selectedIndex > 0;
@@ -258,7 +276,8 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 					// 閲覧モード: D&D 無し・編集コントロール無しの素の一覧 (クリック選択のみ)。
 					<ScrollArea
 						type="auto"
-						scrollbarSize={8}
+						scrollbarSize={14}
+						viewportRef={viewportRef}
 						style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
 						<div
 							style={{
@@ -302,7 +321,8 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 						<SortableContext items={slides.map((s) => s.uuid)} strategy={sortStrategy}>
 							<ScrollArea
 								type="auto"
-								scrollbarSize={8}
+								scrollbarSize={14}
+								viewportRef={viewportRef}
 								style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
 								<div
 									style={{

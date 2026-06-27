@@ -34,6 +34,12 @@ export interface UseImageLibraryMutation {
 	 */
 	deleteImage: (imageId: string) => number;
 	/**
+	 * imageId がどの slide のどの ImageLayer からも参照されていなければ library から除去する
+	 * (孤児画像の GC)。画像差し替え後に旧画像が残らないようにするのに使う。
+	 * @returns true = 除去した / false = まだ参照あり (除去せず)
+	 */
+	pruneOrphanImage: (imageId: string) => boolean;
+	/**
 	 * 選択中の slide に imageId の画像を中央 contain 配置で追加。
 	 *   - aspect 維持で slide に収まる最大サイズ (scale = min(slideW/imgW, slideH/imgH))
 	 *   - visual center を slide 中央に配置
@@ -121,6 +127,19 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 		[removeImage, removeLayersByImageId]
 	);
 
+	const pruneOrphanImage = useCallback(
+		(imageId: string): boolean => {
+			const slides = useSlideStore.getState().slides;
+			const stillUsed = slides.some((s) =>
+				s.layers.some((l) => l.type === "image" && l.imageId === imageId)
+			);
+			if (stillUsed) return false;
+			removeImage(imageId);
+			return true;
+		},
+		[removeImage]
+	);
+
 	const placeImageOnSlide = useCallback(
 		async (imageId: string): Promise<boolean> => {
 			const entry = useImageLibraryStore.getState().imageById[imageId];
@@ -164,6 +183,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 		addImageFile,
 		addImageDataUrl,
 		deleteImage,
+		pruneOrphanImage,
 		placeImageOnSlide,
 		placeImageAsNewSlide,
 	};

@@ -7,20 +7,22 @@ import {
 	Group,
 	Paper,
 	ScrollArea,
-	SegmentedControl,
 	SimpleGrid,
 	Stack,
 	Text,
 	Tooltip,
 } from "@mantine/core";
-import type { CSSProperties, FC, DragEvent as ReactDragEvent } from "react";
-import { useState } from "react";
+import type {
+	ChangeEvent as ReactChangeEvent,
+	CSSProperties,
+	DragEvent as ReactDragEvent,
+	FC,
+} from "react";
+import { useRef, useState } from "react";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
-import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
-import type { ImageLayer } from "../../types/Layer";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 
 // ImageLibraryPanel (v4 Group D D-6a、§0-10 新側内製、Mantine Drawer + Modal)。
@@ -32,13 +34,17 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
 //   - panel 全体への drop zone (ファイル drop で追加、複数ファイル対応)
 //   - 画像削除 (ConfirmDialog で「使用中の N レイヤーも削除されます」確認)
 //
-// 後の chunk:
-//   - D-6b: 画像差し替え (単体 / 同一参照まとめて) + 別タブダウンロード
+// 操作はタイル上のボタンで明示的に行う (クリック自動配置・mode タブは廃止):
+//   - 配置 (＋): 選択中スライドにこの画像を中央 contain 配置
+//   - 差し替え (🔄): 選択中 ImageLayer の画像をこの画像で全 slide 一括差し替え
+//                    (LayerOps の同一画像差し替え = replaceImageIdAll と同等、旧画像は孤児なら除去)
+//   - DL (↓) / 削除 (✕)
+//   - タイル本体は編集 canvas へのドラッグ元 (D-11、imageId を dataTransfer に載せる)
 //
 // UI:
 //   - Mantine Drawer (size=80%、画面右側スライドイン)
 //   - 上部に追加 (FileButton) + 件数表示
-//   - 中央に Grid (4 列、各画像 thumb クリックで選択ハイライト、削除アイコン)
+//   - 中央に Grid (4 列、各タイルに配置/差し替え/DL/削除ボタン)
 //   - drop zone: panel 全体に dragover で半透明 overlay 表示
 //
 // 状態:
@@ -70,19 +76,17 @@ const countLayersUsingImage = (imageId: string): number => {
 
 export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose }) => {
 	const imageById = useImageLibraryStore((s) => s.imageById);
-	const { addImageFile, deleteImage, placeImageOnSlide } = useImageLibraryMutation();
-	const { replaceImageId, replaceImageIdAll } = useLayerMutation();
+	const { addImageFile, deleteImage, placeImageOnSlide, pruneOrphanImage } =
+		useImageLibraryMutation();
+	const { replaceImageIdAll } = useLayerMutation();
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
-	const slides = useSlideStore((s) => s.slides);
-	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 	const canPlace = selectedSlideIndex >= 0;
-	const selectedImageLayer: ImageLayer | null =
-		selectedLayer && selectedLayer.type === "image" ? selectedLayer : null;
-	const canReplace = selectedImageLayer !== null && selectedSlideIndex >= 0;
-	const [mode, setMode] = useState<"place" | "replace-single" | "replace-all">("place");
 	const [dragOver, setDragOver] = useState(false);
 	const [addError, setAddError] = useState<string | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+	// 差し替え対象の imageId (タイルの「差し替え」押下で記録 → ファイル選択後に置換)。
+	const replaceTargetRef = useRef<string | null>(null);
+	const replaceInputRef = useRef<HTMLInputElement>(null);
 
 	const entries = Object.entries(imageById);
 
@@ -137,35 +141,35 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 		setDeleteTarget(null);
 	};
 
-	// タイル click で 選択中 slide に画像を中央 contain 配置 → drawer を閉じる
+	// 配置ボタン: 選択中 slide にこの画像を中央 contain 配置 → drawer を閉じる。
 	const handlePlace = async (imageId: string) => {
 		if (!canPlace) return;
 		const ok = await placeImageOnSlide(imageId);
 		if (ok) onClose();
 	};
 
-	// 単体差替: 選択 ImageLayer の imageId を click された imageId に置換
-	const handleReplaceSingle = (newImageId: string) => {
-		if (!selectedImageLayer || selectedSlideIndex < 0) return;
-		const slide = slides[selectedSlideIndex];
-		const idx = slide.layers.findIndex((l) => l.uuid === selectedImageLayer.uuid);
-		if (idx < 0) return;
-		replaceImageId(idx, newImageId);
-		onClose();
+	// 差し替えボタン (画像対画像、Layer 非依存): タイルの imageId を対象に記録してファイル選択を開く。
+	const handleRequestReplace = (imageId: string) => {
+		replaceTargetRef.current = imageId;
+		replaceInputRef.current?.click();
 	};
-
-	// まとめて差替: 選択 ImageLayer と同 imageId を参照している全 slide の layer を一括置換
-	const handleReplaceAll = (newImageId: string) => {
-		if (!selectedImageLayer) return;
-		replaceImageIdAll(selectedImageLayer.imageId, newImageId);
-		onClose();
-	};
-
-	// mode 別ディスパッチ: タイル click 時の動作を mode で分岐
-	const handleTileClick = (imageId: string) => {
-		if (mode === "place") return void handlePlace(imageId);
-		if (mode === "replace-single") return handleReplaceSingle(imageId);
-		if (mode === "replace-all") return handleReplaceAll(imageId);
+	// ファイル選択後: 対象画像 (oldImageId) が使われている全箇所を新ファイルへ一括差し替え
+	// (LayerOps の「同一画像差し替え」= replaceImageIdAll と同等)。旧画像が孤児になれば library から除去。
+	const handleReplaceFileSelected = async (e: ReactChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		e.target.value = "";
+		const oldImageId = replaceTargetRef.current;
+		replaceTargetRef.current = null;
+		if (!file || !oldImageId) return;
+		setAddError(null);
+		try {
+			const newImageId = await addImageFile(file); // 未対応形式 (HEIC 等) は reject
+			if (newImageId === oldImageId) return; // 同一画像 = 変化なし
+			replaceImageIdAll(oldImageId, newImageId);
+			pruneOrphanImage(oldImageId);
+		} catch (err) {
+			setAddError(err instanceof Error ? err.message : String(err));
+		}
 	};
 
 	// 別タブ DL: 一時 <a download> を作って click
@@ -177,24 +181,6 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 		a.click();
 		document.body.removeChild(a);
 	};
-
-	// mode 別の click 可否・案内文
-	const tileActiveForMode = mode === "place" ? canPlace : canReplace;
-	const modeHintText = (() => {
-		if (mode === "place") {
-			return canPlace
-				? "画像をクリックで選択中のスライドに中央配置します"
-				: "(スライドを選択すると画像をクリックして配置できます)";
-		}
-		if (mode === "replace-single") {
-			return canReplace
-				? "画像をクリックで選択中の ImageLayer を単体差替します"
-				: "(ImageLayer を選択すると単体差替できます)";
-		}
-		return canReplace
-			? "画像をクリックで同じ画像を参照している全 slide の ImageLayer をまとめて差替します"
-			: "(ImageLayer を選択するとまとめて差替できます)";
-	})();
 
 	const dropOverlayStyle: CSSProperties = {
 		position: "absolute",
@@ -254,25 +240,21 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 							</Text>
 						)}
 
-						{/* mode toggle (配置 / 単体差替 / まとめて差替) */}
-						<SegmentedControl
-							value={mode}
-							onChange={(v) => setMode(v as typeof mode)}
-							data={[
-								{ label: "配置", value: "place" },
-								{ label: "単体差替", value: "replace-single" },
-								{ label: "まとめて差替", value: "replace-all" },
-							]}
-							size="xs"
-							data-image-mode-control
-						/>
-
-						{/* mode 別インジケータ (画像 click 時の動作を告知) */}
+						{/* 操作はタイル上のボタン (配置 / 差し替え) で行う。クリック自動配置は廃止。 */}
 						{entries.length > 0 && (
-							<Text size="xs" c={tileActiveForMode ? "blue" : "dimmed"} data-image-place-hint>
-								{modeHintText}
+							<Text size="xs" c="dimmed" data-image-hint>
+								各画像の「配置」で選択中スライドに追加 /「差し替え」でその画像を別ファイルに一括置換
 							</Text>
 						)}
+						{/* 差し替え用の隠し file input (タイルの「差し替え」から起動)。 */}
+						<input
+							ref={replaceInputRef}
+							type="file"
+							accept="image/*"
+							onChange={handleReplaceFileSelected}
+							style={{ display: "none" }}
+							data-image-replace-input
+						/>
 
 						{entries.length === 0 ? (
 							<Paper withBorder p="xl" radius="sm" style={{ textAlign: "center" }} data-image-empty>
@@ -287,14 +269,11 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 											imageId={id}
 											dataURL={entry.dataURL}
 											name={entry.name}
+											canPlace={canPlace}
+											onPlace={() => handlePlace(id)}
+											onReplace={() => handleRequestReplace(id)}
 											onDelete={() => requestDelete(id)}
-											onAction={tileActiveForMode ? () => handleTileClick(id) : undefined}
 											onDownload={() => handleDownload(id, entry.dataURL, entry.name)}
-											actionTooltip={
-												tileActiveForMode
-													? actionTooltipForMode(mode)
-													: actionDisabledTooltipForMode(mode)
-											}
 										/>
 									))}
 								</SimpleGrid>
@@ -327,31 +306,19 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	);
 };
 
-// mode 別の tooltip 文 (tile が active なとき)
-const actionTooltipForMode = (mode: "place" | "replace-single" | "replace-all"): string => {
-	if (mode === "place") return "クリックでスライドに配置";
-	if (mode === "replace-single") return "クリックで選択中 ImageLayer を単体差替";
-	return "クリックで同じ画像を参照している全 ImageLayer をまとめて差替";
-};
-// mode 別の tooltip 文 (tile が disabled なとき)
-const actionDisabledTooltipForMode = (mode: "place" | "replace-single" | "replace-all"): string => {
-	if (mode === "place") return "スライドを選択すると配置できます";
-	return "ImageLayer を選択すると差替できます";
-};
-
-// 1 枚分の thumbnail tile (内部用)
-// onAction が指定されている間は tile 本体がクリック可 (mode に応じた動作)、
-// 未指定なら click 不可 (cursor default + hover エフェクトなし)。
+// 1 枚分の thumbnail tile (内部用)。
+// クリック自動配置は廃止。配置/差し替えはタイル上のボタンで明示的に行う。
+// tile 本体は編集 canvas へのドラッグ元としてのみ機能する (D-11)。
 const ImageTile: FC<{
 	imageId: string;
 	dataURL: string;
 	name?: string;
+	canPlace: boolean;
+	onPlace: () => void;
+	onReplace: () => void;
 	onDelete: () => void;
 	onDownload: () => void;
-	onAction?: () => void;
-	actionTooltip: string;
-}> = ({ imageId, dataURL, name, onDelete, onDownload, onAction, actionTooltip }) => {
-	const actionable = !!onAction;
+}> = ({ imageId, dataURL, name, canPlace, onPlace, onReplace, onDelete, onDownload }) => {
 	const tileStyle: CSSProperties = {
 		position: "relative",
 		border: "1px solid #dee2e6",
@@ -362,7 +329,7 @@ const ImageTile: FC<{
 		display: "flex",
 		alignItems: "center",
 		justifyContent: "center",
-		cursor: actionable ? "pointer" : "default",
+		cursor: "grab",
 		transition: "box-shadow 120ms",
 	};
 	const imgStyle: CSSProperties = {
@@ -374,6 +341,14 @@ const ImageTile: FC<{
 		position: "absolute",
 		top: 2,
 		right: 2,
+		display: "flex",
+		gap: 2,
+	};
+	// 配置 / 差し替えボタン (左上)。
+	const topLeftGroupStyle: CSSProperties = {
+		position: "absolute",
+		top: 2,
+		left: 2,
 		display: "flex",
 		gap: 2,
 	};
@@ -391,9 +366,6 @@ const ImageTile: FC<{
 		overflow: "hidden",
 		textOverflow: "ellipsis",
 	};
-	const handleTileClick = () => {
-		if (onAction) onAction();
-	};
 	// ドラッグ元 (§11、legacy: dataTransfer.setData("imageId"))。
 	// tile を編集 canvas へドラッグ → SlideEditView の useDrop が imageId を受けて配置 (D-11)。
 	const handleDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
@@ -401,51 +373,79 @@ const ImageTile: FC<{
 		e.dataTransfer.effectAllowed = "copy";
 	};
 	return (
-		<Tooltip label={actionTooltip}>
-			<div
-				style={tileStyle}
-				data-image-tile
-				data-image-id={imageId}
-				data-actionable={actionable ? "true" : "false"}
-				draggable
-				onDragStart={handleDragStart}
-				onClick={actionable ? handleTileClick : undefined}>
-				<img src={dataURL} alt={name ?? imageId.slice(0, 8)} style={imgStyle} draggable={false} />
-				<div style={topRightGroupStyle}>
-					<Tooltip label="DL (別タブダウンロード)">
-						<ActionIcon
-							size="sm"
-							color="blue"
-							variant="filled"
-							onClick={(e) => {
-								e.stopPropagation();
-								onDownload();
-							}}
-							data-image-download
-							aria-label="download image">
-							↓
-						</ActionIcon>
-					</Tooltip>
-					<Tooltip label="削除">
-						<ActionIcon
-							size="sm"
-							color="red"
-							variant="filled"
-							onClick={(e) => {
-								// tile click と骨ぶつかるのを防ぐ
-								e.stopPropagation();
-								onDelete();
-							}}
-							data-image-delete
-							aria-label="delete image">
-							✕
-						</ActionIcon>
-					</Tooltip>
-				</div>
-				<div style={labelStyle} title={name ?? imageId}>
-					{name ?? `${imageId.slice(0, 8)}…`}
-				</div>
+		<div
+			style={tileStyle}
+			data-image-tile
+			data-image-id={imageId}
+			draggable
+			onDragStart={handleDragStart}>
+			<img src={dataURL} alt={name ?? imageId.slice(0, 8)} style={imgStyle} draggable={false} />
+			{/* 配置 / 差し替え (左上) */}
+			<div style={topLeftGroupStyle}>
+				<Tooltip label={canPlace ? "選択中スライドに配置" : "スライドを選択すると配置できます"}>
+					<ActionIcon
+						size="sm"
+						color="blue"
+						variant="filled"
+						disabled={!canPlace}
+						onClick={(e) => {
+							e.stopPropagation();
+							onPlace();
+						}}
+						data-image-place
+						aria-label="place image">
+						＋
+					</ActionIcon>
+				</Tooltip>
+				<Tooltip label="この画像を別ファイルに一括差し替え (使用中の全箇所)">
+					<ActionIcon
+						size="sm"
+						color="grape"
+						variant="filled"
+						onClick={(e) => {
+							e.stopPropagation();
+							onReplace();
+						}}
+						data-image-replace
+						aria-label="replace image">
+						🔄
+					</ActionIcon>
+				</Tooltip>
 			</div>
-		</Tooltip>
+			<div style={topRightGroupStyle}>
+				<Tooltip label="DL (別タブダウンロード)">
+					<ActionIcon
+						size="sm"
+						color="blue"
+						variant="filled"
+						onClick={(e) => {
+							e.stopPropagation();
+							onDownload();
+						}}
+						data-image-download
+						aria-label="download image">
+						↓
+					</ActionIcon>
+				</Tooltip>
+				<Tooltip label="削除">
+					<ActionIcon
+						size="sm"
+						color="red"
+						variant="filled"
+						onClick={(e) => {
+							// tile click と骨ぶつかるのを防ぐ
+							e.stopPropagation();
+							onDelete();
+						}}
+						data-image-delete
+						aria-label="delete image">
+						✕
+					</ActionIcon>
+				</Tooltip>
+			</div>
+			<div style={labelStyle} title={name ?? imageId}>
+				{name ?? `${imageId.slice(0, 8)}…`}
+			</div>
+		</div>
 	);
 };

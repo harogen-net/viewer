@@ -36,7 +36,7 @@ const render = (opened: boolean): void => {
 		root.render(
 			<MantineProvider>
 				<ImageLibraryPanel opened={opened} onClose={() => {}} />
-			</MantineProvider>,
+			</MantineProvider>
 		);
 	});
 };
@@ -75,7 +75,7 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		seedImages({ "id-a": { dataURL: "data:image/png;base64,A", name: "a.png" } });
 		render(true);
 		const tile = document.body.querySelector<HTMLElement>(
-			'[data-image-tile][data-image-id="id-a"]',
+			'[data-image-tile][data-image-id="id-a"]'
 		);
 		expect(tile).not.toBeNull();
 		expect(tile?.querySelector("[data-image-delete]")).not.toBeNull();
@@ -99,19 +99,67 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		expect(document.body.textContent).toContain("photo.png");
 	});
 
-	it("mode toggle (data-image-mode-control) が描画される + 3 mode (配置/単体差替/まとめて差替)", () => {
+	it("mode toggle (単体差替/まとめて差替タブ) は廃止され存在しない", () => {
+		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
 		render(true);
-		const ctl = document.body.querySelector("[data-image-mode-control]");
-		expect(ctl).not.toBeNull();
-		expect(ctl?.textContent).toContain("配置");
-		expect(ctl?.textContent).toContain("単体差替");
-		expect(ctl?.textContent).toContain("まとめて差替");
+		expect(document.body.querySelector("[data-image-mode-control]")).toBeNull();
+		expect(document.body.textContent).not.toContain("単体差替");
+		expect(document.body.textContent).not.toContain("まとめて差替");
+	});
+
+	it("各 tile に 配置 / 差し替え ボタンが付く (クリック自動配置は廃止)", () => {
+		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
+		render(true);
+		const tile = document.body.querySelector<HTMLElement>(
+			'[data-image-tile][data-image-id="id-a"]'
+		);
+		expect(tile?.querySelector("[data-image-place]")).not.toBeNull();
+		expect(tile?.querySelector("[data-image-replace]")).not.toBeNull();
+		// tile 本体に click ハンドラ由来の actionable フラグは無い (ドラッグ元のみ)。
+		expect(tile?.getAttribute("data-actionable")).toBeNull();
+	});
+
+	it("差し替え用の隠し file input が描画される (画像対画像差し替え)", () => {
+		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
+		render(true);
+		expect(document.body.querySelector("[data-image-replace-input]")).not.toBeNull();
+	});
+
+	it("配置ボタンはスライド未選択で disabled、選択で enabled", () => {
+		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
+		// スライド未選択
+		render(true);
+		expect(document.body.querySelector<HTMLButtonElement>("[data-image-place]")?.disabled).toBe(
+			true
+		);
+		// スライド選択
+		act(() => {
+			useSlideStore.getState().setSlides([
+				{
+					id: 1,
+					uuid: "s-1",
+					width: 800,
+					height: 600,
+					durationRatio: 1,
+					joining: false,
+					disabled: false,
+					layers: [],
+				},
+			]);
+			useSlideStore.getState().setSelectedIndex(0);
+		});
+		render(true);
+		expect(document.body.querySelector<HTMLButtonElement>("[data-image-place]")?.disabled).toBe(
+			false
+		);
 	});
 
 	it("各 tile に DL ボタン (data-image-download) が付く", () => {
 		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
 		render(true);
-		const tile = document.body.querySelector<HTMLElement>('[data-image-tile][data-image-id="id-a"]');
+		const tile = document.body.querySelector<HTMLElement>(
+			'[data-image-tile][data-image-id="id-a"]'
+		);
 		expect(tile?.querySelector("[data-image-download]")).not.toBeNull();
 	});
 });

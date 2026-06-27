@@ -61,7 +61,7 @@ export const EditOpsPanel: FC = () => {
 	const { applySlideChangeLive, recordHistory, snapshot } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
-	const { addImageFile } = useImageLibraryMutation();
+	const { addImageFile, pruneOrphanImage } = useImageLibraryMutation();
 	const toast = useToast();
 	const replaceInputRef = useRef<HTMLInputElement>(null);
 	// 差し替えモード: "single" = 選択レイヤーのみ / "all" = 同一画像を全スライドで一括差し替え。
@@ -213,8 +213,12 @@ export const EditOpsPanel: FC = () => {
 		try {
 			// 未対応形式 (HEIC 等) は addImageFile が reject → 差し替えせずに通知。
 			const newImageId = await addImageFile(file);
+			if (newImageId === fromImageId) return; // 同一画像 = 変化なし
 			if (replaceModeRef.current === "all") {
+				// 全差し替え: 旧画像は全 layer から消えるので library からも除去する
+				// (単体差し替え・手動削除で出る孤児は許容するため prune しない)。
 				layer.replaceImageIdAll(fromImageId, newImageId);
+				pruneOrphanImage(fromImageId);
 			} else {
 				layer.replaceImageId(layerIndex, newImageId);
 			}

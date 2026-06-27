@@ -111,7 +111,6 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 		expect(useImageLibraryStore.getState().imageById[id].name).toBe("test.png");
 	});
 
-
 	it("addImageFile: 同 dataURL を 2 回 add しても dedupe される", async () => {
 		const file1 = makeFile(dummyImage1, "a.png");
 		const file2 = makeFile(dummyImage1, "b.png");
@@ -179,6 +178,37 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 		// 履歴 1 件
 		expect(useHistoryStore.getState().past.length).toBe(1);
 		expect(useHistoryStore.getState().past[0].label).toBe("remove layers by image");
+	});
+
+	it("pruneOrphanImage: どの layer からも参照されない画像は library から除去", async () => {
+		let id = "";
+		await act(async () => {
+			id = await hookRef.api!.addImageDataUrl(dummyImage1);
+		});
+		// 参照する layer 無し
+		useSlideStore.getState().setSlides([makeSlide(1, "s1", [])]);
+		useSlideStore.getState().setSelectedIndex(0);
+		let pruned = false;
+		act(() => {
+			pruned = hookRef.api!.pruneOrphanImage(id);
+		});
+		expect(pruned).toBe(true);
+		expect(useImageLibraryStore.getState().imageById[id]).toBeUndefined();
+	});
+
+	it("pruneOrphanImage: まだ参照している layer があれば除去しない", async () => {
+		let id = "";
+		await act(async () => {
+			id = await hookRef.api!.addImageDataUrl(dummyImage1);
+		});
+		useSlideStore.getState().setSlides([makeSlide(1, "s1", [makeImageLayer(1, "u-1", id)])]);
+		useSlideStore.getState().setSelectedIndex(0);
+		let pruned = true;
+		act(() => {
+			pruned = hookRef.api!.pruneOrphanImage(id);
+		});
+		expect(pruned).toBe(false);
+		expect(useImageLibraryStore.getState().imageById[id]).toBeDefined();
 	});
 
 	describe("placeImageOnSlide", () => {
