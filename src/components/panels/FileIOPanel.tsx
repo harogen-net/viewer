@@ -1,13 +1,14 @@
 import {
 	ActionIcon,
 	Button,
-	Collapse,
 	Group,
+	Menu,
 	Paper,
 	Select,
 	Stack,
 	Tooltip
 } from "@mantine/core";
+import { IconBookDownload, IconChevronLeft, IconChevronRight, IconDeviceFloppy, IconDotsVertical, IconFileSpark, IconFileText, IconPackageExport, IconPackageImport, IconReload, IconTrash } from "@tabler/icons-react";
 import type { ChangeEvent, FC } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlert } from "../../hooks/useAlert";
@@ -61,7 +62,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 	const [thumbnails, setThumbnails] = useState<Record<string, StoredDocThumbnail>>({});
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	const [showExtraOperation, setShowExtraOperation] = useState(false);
+
 
 	// title 一覧を refresh (update 降順)。
 	const refreshTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
@@ -267,8 +268,10 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 					</Text>
 				</Group> */}
 				<Group gap="xs" wrap="wrap">
-					<Button size="xs" variant="default" onClick={handleOpenPicker} data-action="open-picker">
-						🖼 開く
+					<Button
+						leftSection={<IconFileText stroke={2} />}
+						size="xs" variant="default" onClick={handleOpenPicker} data-action="open-picker">
+						開く
 					</Button>
 					<input
 						ref={fileInputRef}
@@ -286,7 +289,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 								disabled={prevIndex < 0}
 								data-file-nav="prev"
 								aria-label="前の保存ファイル">
-								◀
+								<IconChevronLeft stroke={2} />
 							</ActionIcon>
 						</Tooltip>
 						<Select
@@ -307,7 +310,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 								disabled={nextIndex < 0}
 								data-file-nav="next"
 								aria-label="次の保存ファイル">
-								▶
+								<IconChevronRight stroke={2} />
 							</ActionIcon>
 						</Tooltip>
 					</Group>
@@ -315,32 +318,34 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 						<>
 							<Tooltip label="保存時の状態に戻す (未保存の変更を破棄)" disabled={canReload}>
 								<Button
+									leftSection={<IconReload stroke={2} />}
 									size="xs"
 									variant="default"
 									onClick={handleReload}
 									disabled={!canReload}
 									data-action="reload">
-									↺ 再ロード
+									再ロード
 								</Button>
 							</Tooltip>
 							<Button
+								leftSection={<IconDeviceFloppy stroke={2} />}
 								size="xs"
 								variant="filled"
 								color="blue"
 								onClick={handleSave(false)}
 								disabled={!hasSlides}
-								data-action="save-new">
-								💾 新規保存
+								data-action="save-new">新規保存
 							</Button>
 							<Tooltip label="現在の document に上書き" disabled={canOverride}>
 								<Button
+									leftSection={<IconDeviceFloppy stroke={2} />}
 									size="xs"
 									variant="filled"
 									color="blue"
 									onClick={handleSave(true)}
 									disabled={!canOverride || !hasSlides}
 									data-action="save-override">
-									💾 上書き保存
+									上書き保存
 								</Button>
 							</Tooltip>
 						</>
@@ -348,6 +353,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 
 					{!readOnly && (
 						<Button
+							leftSection={<IconTrash stroke={2} />}
 							size="xs"
 							variant="default"
 							color="red"
@@ -355,51 +361,43 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 							disabled={!selectedTitle}
 							aria-label="削除"
 							data-action="delete">
-							🗑 削除
+							削除
 						</Button>
 					)}
-					<Button variant="default" size="xs" onClick={() => setShowExtraOperation(!showExtraOperation)} data-action="open-picker">
-						...
-					</Button>
 
-					<Collapse in={showExtraOperation} transitionDuration={200} animateOpacity>
-						<Group gap="xs" wrap="wrap">
+					<Menu shadow="md" width={200}>
+						<Menu.Target>
+							<ActionIcon variant="default" size="input-xs" data-action="open-picker" aria-label="その他の操作">
+								<IconDotsVertical stroke={2} />
+							</ActionIcon>
+						</Menu.Target>
+						<Menu.Dropdown>
 							{!readOnly && (
 								<>
-									<Button size="xs" variant="default" onClick={handleNew} data-action="new">
-										📄 新規
-									</Button>
-									<Button
-										size="xs"
-										variant="default"
-										onClick={() => fileInputRef.current?.click()}
+									<Menu.Item leftSection={<IconFileSpark stroke={2} />} onClick={handleNew} data-action="new">
+										新規
+									</Menu.Item>
+									<Menu.Item leftSection={<IconPackageImport stroke={2} />} onClick={() => fileInputRef.current?.click()}
 										data-action="import">
-										📂 インポート
-									</Button>
+										インポート
+									</Menu.Item>
 								</>
 							)}
+							<Menu.Item leftSection={<IconPackageExport stroke={2} />} onClick={handleExportHvd} disabled={!hasSlides} data-action="export-hvd">
+								HVDエクスポート
+							</Menu.Item>
+							<Menu.Item leftSection={<IconPackageExport stroke={2} />} onClick={handleExportHvz} disabled={!hasSlides} data-action="export-hvz">
+								HVZエクスポート
+							</Menu.Item>
+							<Menu.Item leftSection={<IconPackageExport stroke={2} />} onClick={handleExportPng} disabled={!hasSlides} data-action="export-png">
+								PNGエクスポート
+							</Menu.Item>
+							<Menu.Item leftSection={<IconBookDownload stroke={2} />} onClick={handleExportZip} disabled={!hasEnabledSlide} data-action="export-zip">
+								全スライド ZIP ダウンロード
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
 
-							<Button size="xs" variant="default" onClick={handleExportHvd} disabled={!hasSlides}>
-								⬇ HVD
-							</Button>
-							<Button size="xs" variant="default" onClick={handleExportHvz} disabled={!hasSlides}>
-								⬇ HVZ
-							</Button>
-							<Button size="xs" variant="default" onClick={handleExportPng} disabled={!hasSlides}>
-								⬇ PNG
-							</Button>
-							<Tooltip label="有効な全スライドを ZIP で保存" disabled={hasEnabledSlide}>
-								<Button
-									variant="default"
-									onClick={handleExportZip}
-									size="xs"
-									disabled={!hasEnabledSlide}
-									data-action="export-all-zip">
-									🗜 全スライド ZIP
-								</Button>
-							</Tooltip>
-						</Group>
-					</Collapse>
 
 				</Group>
 				{/* スライド画像出力 (§4/§10): 単ページ PNG / 全ページ ZIP。背景は doc.bgColor。 */}
