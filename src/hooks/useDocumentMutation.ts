@@ -54,11 +54,16 @@ const applyToStores = (next: SlideState): void => {
 	// 現選択の uuid を保存しておき、cascade 完了後に新 layers から同 uuid を探して復元する。
 	// (in-place mutation で drag / resize / prop 編集 後も選択状態を保つため)
 	const prevSelectedUuid = useLayerStore.getState().selectedLayer?.uuid ?? null;
+	// 編集中だったかを保存 (setSlides が editingIndex を -1 リセットするため、後で復元する)。
+	// 編集モードでは editingIndex == selectedIndex なので、op が調整した next.selectedIndex に合わせる
+	// (slide 並べ替え/削除/複製で index がずれても編集対象を追従させる)。
+	const wasEditing = useSlideStore.getState().editingIndex >= 0;
 
 	// 階層 cascade: slideStore.setSlides → slideStore.setSelectedIndex → layerStore 自動同期
 	const slideStore = useSlideStore.getState();
 	slideStore.setSlides(next.slides);
 	slideStore.setSelectedIndex(next.selectedIndex);
+	if (wasEditing) slideStore.setEditingIndex(next.selectedIndex);
 
 	// 復元: 現在 layers に同 uuid があれば選択を出し直す (别 slide 切替等で見失えた場合は null のまま)
 	if (prevSelectedUuid) {
@@ -78,7 +83,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 			useViewerDocumentStore.getState().setModified(true);
 			useHistoryStore.getState().push({ label, before, after });
 		},
-		[],
+		[]
 	);
 
 	const applySlideChangeLive = useCallback(
@@ -89,7 +94,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 			useViewerDocumentStore.getState().setModified(true);
 			// history は積まない (確定時に recordHistory で 1 件残す)
 		},
-		[],
+		[]
 	);
 
 	const recordHistory = useCallback((label: string, before: SlideState): void => {

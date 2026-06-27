@@ -139,11 +139,12 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		expect(container.textContent).toContain("selected: #2");
 	});
 
-	describe("前後移動ボタン (C-4)", () => {
+	describe("前後選択ボタン (C-4 → 選択ナビ)", () => {
+		// ◀▶ は「選択中スライドの前後を選択」するナビ (移動ではない)。data-action は select-prev/select-next。
 		const getPrevBtn = (): HTMLButtonElement | null =>
-			container.querySelector<HTMLButtonElement>("[data-action='move-prev']");
+			container.querySelector<HTMLButtonElement>("[data-action='select-prev']");
 		const getNextBtn = (): HTMLButtonElement | null =>
-			container.querySelector<HTMLButtonElement>("[data-action='move-next']");
+			container.querySelector<HTMLButtonElement>("[data-action='select-next']");
 
 		it("未選択時は前後ボタン両方 disabled", () => {
 			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
@@ -168,7 +169,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(getNextBtn()?.disabled).toBe(true);
 		});
 
-		it("後ボタンクリックで selected を 1 つ後ろに移動 + uuid 追従", () => {
+		it("後ボタンクリックで selectedIndex のみ 1 つ後ろへ (並びは不変)", () => {
 			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
 			useSlideStore.getState().setSelectedIndex(0); // "a"
 			render();
@@ -176,11 +177,11 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 				getNextBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
 			const s = useSlideStore.getState();
-			expect(s.slides.map((x) => x.uuid)).toEqual(["b", "a", "c"]);
-			expect(s.selectedIndex).toBe(1); // "a" は 0 → 1 へ
+			expect(s.slides.map((x) => x.uuid)).toEqual(["a", "b", "c"]); // 並びは変わらない
+			expect(s.selectedIndex).toBe(1); // 選択が "b" へ
 		});
 
-		it("前ボタンクリックで selected を 1 つ前に移動", () => {
+		it("前ボタンクリックで selectedIndex のみ 1 つ前へ (並びは不変)", () => {
 			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
 			useSlideStore.getState().setSelectedIndex(2); // "c"
 			render();
@@ -188,8 +189,28 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 				getPrevBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
 			const s = useSlideStore.getState();
-			expect(s.slides.map((x) => x.uuid)).toEqual(["a", "c", "b"]);
-			expect(s.selectedIndex).toBe(1); // "c" は 2 → 1 へ
+			expect(s.slides.map((x) => x.uuid)).toEqual(["a", "b", "c"]); // 並びは変わらない
+			expect(s.selectedIndex).toBe(1); // 選択が "b" へ
+		});
+
+		it("編集中は前後選択で editingIndex も追従する", () => {
+			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
+			useSlideStore.getState().setEditingIndex(0); // 編集モード (editingIndex=selectedIndex=0)
+			render();
+			act(() => {
+				getNextBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+			const s = useSlideStore.getState();
+			expect(s.selectedIndex).toBe(1);
+			expect(s.editingIndex).toBe(1); // 編集対象も追従
+		});
+
+		it("wrap (ギャラリー) では前後選択ボタンを表示しない", () => {
+			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+			useSlideStore.getState().setSelectedIndex(0);
+			render(false, true);
+			expect(getPrevBtn()).toBeNull();
+			expect(getNextBtn()).toBeNull();
 		});
 	});
 
@@ -204,7 +225,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		});
 	});
 
-	describe("追加 / 複製 / 削除ボタン (C-5)", () => {
+	describe("追加ボタン (リスト末尾・meta gate) (C-5)", () => {
 		const seedDoc = (slides: Slide[] = [], selectedIndex = -1): void => {
 			const doc: ViewerDocument = {
 				title: "test",
@@ -217,22 +238,23 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			useViewerDocumentStore.getState().setDocument(doc);
 			if (selectedIndex >= 0) useSlideStore.getState().setSelectedIndex(selectedIndex);
 		};
-		const getBtn = (action: string): HTMLButtonElement | null =>
-			container.querySelector<HTMLButtonElement>(`[data-action='${action}']`);
+		const getAddBtn = (): HTMLButtonElement | null =>
+			container.querySelector<HTMLButtonElement>("[data-action='add']");
 
-		it("meta 未ロード時は追加ボタン disabled", () => {
-			// document 未 set のまま render
+		it("meta 未ロード時は追加ボタンを描画しない", () => {
+			// document 未 set のまま render → canAdd=false で addSlideButton 自体が出ない
+			useSlideStore.getState().setSlides([makeSlide(1, "a")]);
 			render();
-			expect(getBtn("add")?.disabled).toBe(true);
+			expect(getAddBtn()).toBeNull();
 		});
 
-		it("meta ありで追加ボタン enabled、クリックで末尾追加 + 選択切替", () => {
+		it("meta ありなら追加ボタンを描画、クリックで末尾追加 + 選択切替", () => {
 			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
 			render();
-			expect(getBtn("add")?.disabled).toBe(false);
+			expect(getAddBtn()).not.toBeNull();
 
 			act(() => {
-				getBtn("add")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+				getAddBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
 
 			const s = useSlideStore.getState();
@@ -243,53 +265,149 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(s.selectedIndex).toBe(2); // 追加した slide が選択される
 		});
 
-		it("未選択時は複製 / 削除ボタン disabled", () => {
-			seedDoc([makeSlide(1, "a")]);
+		it("空リストでも追加ボタンは描画される (最初の 1 枚を追加可)", () => {
+			seedDoc([]); // meta あり / slides 空
 			render();
-			expect(getBtn("duplicate")?.disabled).toBe(true);
-			expect(getBtn("delete")?.disabled).toBe(true);
-		});
-
-		it("選択時は複製 / 削除 enabled、複製で直後に挿入", () => {
-			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")], 0);
-			render();
-			expect(getBtn("duplicate")?.disabled).toBe(false);
+			expect(getAddBtn()).not.toBeNull();
 
 			act(() => {
-				getBtn("duplicate")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+				getAddBtn()?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+			expect(useSlideStore.getState().slides.length).toBe(1);
+		});
+	});
+
+	describe("スライド内 複製 / 削除ボタン (選択不要・C-5)", () => {
+		const seedDoc = (slides: Slide[] = []): void => {
+			const doc: ViewerDocument = {
+				title: "test",
+				width: 1280,
+				height: 720,
+				createTime: 0,
+				editTime: 0,
+				slides,
+			};
+			useViewerDocumentStore.getState().setDocument(doc);
+		};
+		// 複製/削除はサムネ内のボタン (data-thumb-control)。選択に関係なく当該 slide へ作用する。
+		const getThumbControl = (index: number, control: string): HTMLButtonElement | null => {
+			const thumb = container.querySelector<HTMLElement>(`[data-slide-index='${index}']`);
+			return thumb?.querySelector<HTMLButtonElement>(`[data-thumb-control='${control}']`) ?? null;
+		};
+
+		it("複製ボタンは選択していない slide でも直後に挿入され、複製元が結合状態になる", () => {
+			seedDoc([makeSlide(1, "a", { joining: false }), makeSlide(2, "b")]);
+			render(); // 未選択 (selectedIndex=-1)
+			const dupBtn = getThumbControl(0, "duplicate");
+			expect(dupBtn).not.toBeNull();
+
+			act(() => {
+				dupBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
 
 			const s = useSlideStore.getState();
 			expect(s.slides.length).toBe(3);
 			expect(s.slides[0].uuid).toBe("a");
-			expect(s.slides[1].uuid).not.toBe("a"); // 新規 uuid
+			expect(s.slides[0].joining).toBe(true); // 複製元は複製と結合される
+			expect(s.slides[1].uuid).not.toBe("a"); // 直後に新規 uuid
 			expect(s.slides[2].uuid).toBe("b");
 		});
 
-		it("削除ボタンは確認 OK なら deleteSlide を呼ぶ", async () => {
-			seedDoc([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")], 1);
-			render();
-
+		it("削除ボタンは確認 OK なら当該 slide を削除 (選択不要)", async () => {
+			seedDoc([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
+			render(); // 未選択
 			act(() => {
-				getBtn("delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+				getThumbControl(1, "delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
 			await resolveAlert(true);
 
-			const s = useSlideStore.getState();
-			expect(s.slides.map((x) => x.uuid)).toEqual(["a", "c"]);
+			expect(useSlideStore.getState().slides.map((x) => x.uuid)).toEqual(["a", "c"]);
 		});
 
 		it("削除ボタンは確認キャンセルなら no-op", async () => {
-			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")], 0);
+			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
 			render();
-
 			act(() => {
-				getBtn("delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+				getThumbControl(0, "delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
 			await resolveAlert(false);
 
+			expect(useSlideStore.getState().slides.length).toBe(2); // 削除されていない
+		});
+	});
+
+	describe("選択と編集の分離 (selectedIndex / editingIndex)", () => {
+		const seedDoc = (slides: Slide[] = []): void => {
+			const doc: ViewerDocument = {
+				title: "test",
+				width: 1280,
+				height: 720,
+				createTime: 0,
+				editTime: 0,
+				slides,
+			};
+			useViewerDocumentStore.getState().setDocument(doc);
+		};
+
+		it("シングルクリックは選択のみ (編集に移行しない)", () => {
+			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
+			render();
+			const thumb = container.querySelector<HTMLElement>("[data-slide-index='1']");
+			act(() => {
+				thumb?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
 			const s = useSlideStore.getState();
-			expect(s.slides.length).toBe(2); // 削除されていない
+			expect(s.selectedIndex).toBe(1);
+			expect(s.editingIndex).toBe(-1); // 編集には移行しない
+		});
+
+		it("ダブルクリックで editingIndex がセットされ編集へ移行", () => {
+			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
+			render();
+			const thumb = container.querySelector<HTMLElement>("[data-slide-index='1']");
+			act(() => {
+				thumb?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+			});
+			const s = useSlideStore.getState();
+			expect(s.editingIndex).toBe(1);
+			expect(s.selectedIndex).toBe(1); // 編集中は一致
+		});
+
+		it("スライド内「編集」ボタンで editingIndex がセットされる", () => {
+			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
+			render();
+			const thumb = container.querySelector<HTMLElement>("[data-slide-index='0']");
+			const editBtn = thumb?.querySelector<HTMLButtonElement>("[data-thumb-control='edit']");
+			expect(editBtn).not.toBeNull();
+			act(() => {
+				editBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+			expect(useSlideStore.getState().editingIndex).toBe(0);
+		});
+
+		it("編集中に別スライドをクリックすると editingIndex が切り替わる", () => {
+			seedDoc([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
+			useSlideStore.getState().setEditingIndex(0); // 編集モード (render 前に設定し closure に反映)
+			render();
+			const thumb = container.querySelector<HTMLElement>("[data-slide-index='2']");
+			act(() => {
+				thumb?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+			const s = useSlideStore.getState();
+			expect(s.editingIndex).toBe(2); // 編集対象が切り替わる
+			expect(s.selectedIndex).toBe(2);
+		});
+	});
+
+	describe("選択中のみアクションボタン表示 (reveal CSS)", () => {
+		it("選択中のみ data-thumb-reveal を表示する CSS が注入される", () => {
+			useSlideStore.getState().setSlides([makeSlide(1, "a")]);
+			render();
+			const styleText = Array.from(container.querySelectorAll("style"))
+				.map((s) => s.textContent ?? "")
+				.join("\n");
+			expect(styleText).toContain("[data-thumb-reveal]");
+			expect(styleText).toContain('data-selected="true"');
 		});
 	});
 
@@ -453,12 +571,23 @@ describe("SlideListPanel ドラッグ&ドロップ (v4 Group D D-12)", () => {
 });
 
 describe("SlideListPanel 閲覧モード (readOnly)", () => {
+	const seedDoc = (slides: Slide[]): void => {
+		useViewerDocumentStore.getState().setDocument({
+			title: "test",
+			width: 1280,
+			height: 720,
+			createTime: 0,
+			editTime: 0,
+			slides,
+		});
+	};
+
 	it("編集ボタン・per-thumb コントロール・DnD を隠し、サムネ選択のみ可", () => {
-		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
 		useSlideStore.getState().setSelectedIndex(0);
 		render(true);
-		// 編集ボタン群は非表示
-		for (const action of ["move-prev", "move-next", "add", "duplicate", "delete"]) {
+		// 操作ボタン群 (前後選択・追加) は非表示
+		for (const action of ["select-prev", "select-next", "add"]) {
 			expect(container.querySelector(`[data-action='${action}']`)).toBeNull();
 		}
 		// per-thumb 編集コントロール・DnD は無し
@@ -468,8 +597,8 @@ describe("SlideListPanel 閲覧モード (readOnly)", () => {
 		expect(container.querySelectorAll("[data-thumb-canvas]").length).toBe(2);
 	});
 
-	it("編集モード (既定) では編集ボタンが出る", () => {
-		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+	it("編集モード (既定) では追加ボタン・DnD が出る", () => {
+		seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
 		render(false);
 		expect(container.querySelector("[data-action='add']")).not.toBeNull();
 		expect(container.querySelector("[data-sortable-id]")).not.toBeNull();

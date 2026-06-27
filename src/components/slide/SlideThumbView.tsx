@@ -25,6 +25,14 @@ interface SlideThumbViewProps extends SlideViewProps {
 	index: number;
 	selected: boolean;
 	onClick: () => void;
+	/** ダブルクリック (一覧での編集移行に使う)。 */
+	onDoubleClick?: () => void;
+	/** スライド内「編集」ボタン (編集移行)。 */
+	onEdit?: () => void;
+	/** スライド内「複製」ボタン (このスライドを複製、選択不要)。 */
+	onDuplicate?: () => void;
+	/** スライド内「削除」ボタン (このスライドを削除、選択不要)。 */
+	onDelete?: () => void;
 	onIncrementDuration: () => void;
 	onDecrementDuration: () => void;
 	onToggleJoining: () => void;
@@ -63,6 +71,10 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 	index,
 	selected,
 	onClick,
+	onDoubleClick,
+	onEdit,
+	onDuplicate,
+	onDelete,
 	onIncrementDuration,
 	onDecrementDuration,
 	onToggleJoining,
@@ -145,25 +157,16 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		height: "100%",
 		display: "block",
 	};
-	const indexLabelStyle: CSSProperties = {
-		position: "absolute",
-		bottom: 2,
-		left: 4,
-		color: "#fff",
-		background: "rgba(0,0,0,0.55)",
-		fontSize: 10,
-		lineHeight: 1,
-		padding: "2px 4px",
-		borderRadius: 2,
-		fontFamily: "monospace",
-		pointerEvents: "none",
-	};
+	// 有効/無効チェックは左下 (legacy 準拠、25x25)。
 	const enableCheckStyle: CSSProperties = {
 		position: "absolute",
-		top: 2,
-		right: 4,
+		bottom: 2,
+		left: 2,
+		width: 25,
+		height: 25,
 		margin: 0,
 		cursor: "pointer",
+		zIndex: 3,
 	};
 	const joinArrowStyle: CSSProperties = {
 		position: "absolute",
@@ -191,27 +194,51 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		transform: "translateX(-50%)",
 		display: "flex",
 		alignItems: "center",
-		gap: 2,
+		gap: 3,
 		background: "rgba(0,0,0,0.55)",
 		color: "#fff",
-		fontSize: 10,
+		fontSize: 14,
 		lineHeight: 1,
-		padding: "2px 4px",
-		borderRadius: 2,
+		padding: "3px 5px",
+		borderRadius: 3,
 		fontFamily: "monospace",
+		fontWeight: "bold",
 	};
 	const durationBtnStyle: CSSProperties = {
-		background: "transparent",
+		background: "rgba(255,255,255,0.2)",
 		color: "#fff",
 		border: "1px solid rgba(255,255,255,0.4)",
-		borderRadius: 2,
-		fontSize: 10,
+		borderRadius: 3,
+		fontSize: 13,
 		lineHeight: 1,
-		width: 14,
-		height: 14,
+		width: 20,
+		height: 20,
 		cursor: "pointer",
 		padding: 0,
 	};
+	// スライド内アクション。legacy 配置: 編集=左上 / 削除=右上 / 複製=右下。
+	// サイズも legacy 準拠 (30x30 / font 20)。
+	const actionBtnStyle = (corner: CSSProperties, bg: string, color: string): CSSProperties => ({
+		position: "absolute",
+		...corner,
+		zIndex: 3,
+		width: 30,
+		height: 30,
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+		fontSize: 20,
+		lineHeight: 1,
+		padding: 0,
+		border: "none",
+		borderRadius: 3,
+		background: bg,
+		color,
+		cursor: "pointer",
+	});
+	const editBtnStyle = actionBtnStyle({ top: 2, left: 2 }, "rgba(0,0,0,0.55)", "#fff");
+	const deleteBtnStyle = actionBtnStyle({ top: 2, right: 2 }, "#e03131", "#fff");
+	const cloneBtnStyle = actionBtnStyle({ bottom: 2, right: 2 }, "rgba(0,0,0,0.55)", "#fff");
 
 	return (
 		<div
@@ -221,7 +248,8 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 			data-disabled={slide.disabled ? "true" : "false"}
 			data-joining={slide.joining ? "true" : "false"}
 			data-duration-ratio={slide.durationRatio}
-			onClick={onClick}>
+			onClick={onClick}
+			onDoubleClick={onDoubleClick}>
 			<canvas
 				ref={canvasRef}
 				width={canvasW}
@@ -229,11 +257,48 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 				style={canvasStyle}
 				data-thumb-canvas
 			/>
-			<span style={indexLabelStyle}>{index + 1}</span>
 
 			{/* 編集コントロール (有効/無効・結合・duration) は readOnly で非表示 (選択のみ可)。 */}
 			{!readOnly && (
 				<>
+					{/* スライド内アクション (legacy 配置: 編集=左上 / 削除=右上 / 複製=右下)。選択不要。 */}
+					{onEdit && (
+						<button
+							type="button"
+							onClick={stopClick(onEdit)}
+							style={editBtnStyle}
+							data-thumb-control="edit"
+							data-thumb-reveal
+							aria-label="編集"
+							title="編集">
+							✎
+						</button>
+					)}
+					{onDelete && (
+						<button
+							type="button"
+							onClick={stopClick(onDelete)}
+							style={deleteBtnStyle}
+							data-thumb-control="delete"
+							data-thumb-reveal
+							aria-label="削除"
+							title="削除">
+							✕
+						</button>
+					)}
+					{onDuplicate && (
+						<button
+							type="button"
+							onClick={stopClick(onDuplicate)}
+							style={cloneBtnStyle}
+							data-thumb-control="duplicate"
+							data-thumb-reveal
+							aria-label="複製"
+							title="複製">
+							＋
+						</button>
+					)}
+
 					<input
 						type="checkbox"
 						checked={!slide.disabled}
@@ -254,7 +319,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 						{slide.joining ? "▶" : "▷"}
 					</button>
 
-					<div style={durationControlStyle} data-thumb-control="duration">
+					<div style={durationControlStyle} data-thumb-control="duration" data-thumb-reveal>
 						<button
 							type="button"
 							onClick={stopClick(onDecrementDuration)}

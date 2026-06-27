@@ -73,3 +73,38 @@ describe("slideStore cascade (v4 Group C refactor)", () => {
 		expect(useLayerStore.getState().layers.length).toBe(0);
 	});
 });
+
+describe("slideStore editingIndex (selectedIndex との分離)", () => {
+	it("初期状態は selectedIndex / editingIndex とも -1", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a")]);
+		const s = useSlideStore.getState();
+		expect(s.selectedIndex).toBe(-1);
+		expect(s.editingIndex).toBe(-1);
+	});
+
+	it("setEditingIndex(i>=0) で editingIndex と selectedIndex が一致する", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useSlideStore.getState().setEditingIndex(1);
+		const s = useSlideStore.getState();
+		expect(s.editingIndex).toBe(1);
+		expect(s.selectedIndex).toBe(1); // 編集中は一致
+	});
+
+	it("setEditingIndex(-1) は editingIndex のみ -1、選択ハイライトは保持", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useSlideStore.getState().setEditingIndex(1);
+		useSlideStore.getState().setEditingIndex(-1);
+		const s = useSlideStore.getState();
+		expect(s.editingIndex).toBe(-1);
+		expect(s.selectedIndex).toBe(1); // 一覧へ戻っても選択は残る
+	});
+
+	it("setSlides は selectedIndex / editingIndex を両方 -1 にリセット", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a")]);
+		useSlideStore.getState().setEditingIndex(0);
+		useSlideStore.getState().setSlides([makeSlide(2, "b")]);
+		const s = useSlideStore.getState();
+		expect(s.selectedIndex).toBe(-1);
+		expect(s.editingIndex).toBe(-1);
+	});
+});

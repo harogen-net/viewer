@@ -127,6 +127,14 @@ describe("slideOps (v4 Group C 純関数)", () => {
 			expect(r?.slides[2].uuid).toBe("b");
 		});
 
+		it("複製元は複製スライドと結合される (joining=true)", () => {
+			// 複製元が分割 (joining=false) でも、複製後は複製スライドと一体になるよう joining=true にする。
+			const s = makeState([makeSlide(1, "a", { joining: false }), makeSlide(2, "b")]);
+			const r = duplicateSlide(s, 0);
+			expect(r?.slides[0].joining).toBe(true); // 複製元
+			expect(r?.slides[1].uuid).not.toBe("a"); // 直後に挿入された複製
+		});
+
 		it("範囲外は null", () => {
 			expect(duplicateSlide(makeState([]), 0)).toBeNull();
 		});

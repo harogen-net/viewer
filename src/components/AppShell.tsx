@@ -11,6 +11,8 @@ import { useSlideshowStore } from "../state/slideshowStore";
 import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { useViewerModeStore, ViewerMode } from "../state/viewerModeStore";
+import { DateUtil } from "../utils/DateUtil";
+import { createNewViewerDocument } from "../utils/viewerDocumentFactory";
 import { AlertHost } from "./common/AlertHost";
 import { ToastHost } from "./common/ToastHost";
 import { DocumentSettingsModal } from "./panels/DocumentSettingsModal";
@@ -102,10 +104,11 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 // editable=false では編集ツールバー・右レール (EditOps / Layer) を隠し、canvas 閲覧のみ。
 const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 	const slides = useSlideStore((s) => s.slides);
-	const selectedIndex = useSlideStore((s) => s.selectedIndex);
-	const setSelectedIndex = useSlideStore((s) => s.setSelectedIndex);
+	// MainArea は編集対象 (editingIndex) を描画する。選択 (selectedIndex) ではない。
+	const editingIndex = useSlideStore((s) => s.editingIndex);
+	const setEditingIndex = useSlideStore((s) => s.setEditingIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
-	const slide = selectedIndex >= 0 ? slides[selectedIndex] : null;
+	const slide = editingIndex >= 0 ? slides[editingIndex] : null;
 
 	// 編集シェルのキーボードショートカット (Ctrl+C/V/X 等) を配線 (D-8)。
 	useShellKeyboard();
@@ -201,7 +204,7 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 						<Tooltip label="編集を閉じる (選択解除)">
 							<ActionIcon
 								variant="default"
-								onClick={() => setSelectedIndex(-1)}
+								onClick={() => setEditingIndex(-1)}
 								data-action="close-edit"
 								aria-label="編集を閉じる">
 								✕
@@ -300,6 +303,17 @@ export const AppShell: FC = () => {
 	useLayerAutoSelect();
 	const mode = useViewerModeStore((s) => s.mode);
 	const editable = mode === ViewerMode.EDIT;
+	// 起動時に document が無ければ自動で新規作成 (編集モードのみ、トースト無し)。
+	// 「document 未ロード」の混乱を招く空状態を避ける。
+	useEffect(() => {
+		if (editable && useViewerDocumentStore.getState().meta === null) {
+			useViewerDocumentStore
+				.getState()
+				.setDocument({ ...createNewViewerDocument(), title: DateUtil.getDateString() });
+		}
+		// マウント時 1 回のみ (editable は起動モード由来で不変)。
+		// biome-ignore lint/correctness/useExhaustiveDependencies: 起動時 1 回のみ
+	}, []);
 	// 内部動作モード (レガシー相当) でレイアウトが変わる。ViewerMode (起動モード) とは別軸:
 	//   - 詳細編集モード (editable かつ スライド選択中):
 	//       TopBar(固定) / 編集エリア(最大) / スライド一覧(1 行・固定)
@@ -307,8 +321,9 @@ export const AppShell: FC = () => {
 	//       TopBar(固定) / スライド一覧(複数行・最大)。編集エリアは無し
 	// (× close で選択解除 → 一覧選択モードへ戻る。VIEW 起動では常に一覧選択モード)
 	const slides = useSlideStore((s) => s.slides);
-	const selectedIndex = useSlideStore((s) => s.selectedIndex);
-	const detailMode = editable && selectedIndex >= 0 && !!slides[selectedIndex];
+	// 詳細編集モードは editingIndex (編集対象) で駆動する。selectedIndex (選択) ではない。
+	const editingIndex = useSlideStore((s) => s.editingIndex);
+	const detailMode = editable && editingIndex >= 0 && !!slides[editingIndex];
 	return (
 		<MantineProvider theme={appTheme}>
 			<div style={newModeLayoutStyle} data-viewer-mode={mode}>

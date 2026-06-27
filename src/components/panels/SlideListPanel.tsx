@@ -46,6 +46,20 @@ import { SlideListContextMenu } from "./SlideListContextMenu";
 
 const THUMB_HEIGHT = 110;
 
+// スライド操作ボタン (編集/削除/複製/duration) は **選択中のスライドのみ** 表示する
+// (legacy 準拠)。data-thumb-reveal を持つ要素に適用。非選択中は pointer-events:none。
+const THUMB_REVEAL_CSS = `
+	[data-slide-index] [data-thumb-reveal] {
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s ease;
+	}
+	[data-slide-index][data-selected="true"] [data-thumb-reveal] {
+		opacity: 1;
+		pointer-events: auto;
+	}
+`;
+
 // readOnly (閲覧モード): 追加/複製/削除/前後移動ボタン・per-thumb 編集コントロール・
 // D&D 並べ替え・右クリックメニューを隠し、クリック選択のみ可にする。
 // wrap (ギャラリー表示): 単一行横スクロールでなく複数行に折り返す (未編集時に領域を広く使う)。
@@ -55,7 +69,9 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 }) => {
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
+	const editingIndex = useSlideStore((s) => s.editingIndex);
 	const setSelectedIndex = useSlideStore((s) => s.setSelectedIndex);
+	const setEditingIndex = useSlideStore((s) => s.setEditingIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const bgColor = meta?.bgColor;
 	const {
@@ -89,10 +105,10 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 	}, [selectedIndex, slides.length]);
 
 	const isEmpty = slides.length === 0;
-	const canMovePrev = selectedIndex > 0;
-	const canMoveNext = selectedIndex >= 0 && selectedIndex < slides.length - 1;
+	// ◀▶ は「選択中スライドの前後を選択」するナビ (未選択 / 端では非活性)。
+	const canSelectPrev = selectedIndex > 0;
+	const canSelectNext = selectedIndex >= 0 && selectedIndex < slides.length - 1;
 	const canAdd = !!meta;
-	const canModifySelected = selectedIndex >= 0;
 
 	// DnD sensors: PointerSensor は 8px 移動するまで click 扱い (= サムネクリックで選択が成立)
 	const sensors = useSensors(
@@ -109,30 +125,41 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		moveSlide(from, to);
 	};
 
-	const handleMovePrev = (): void => {
-		if (!canMovePrev) return;
-		moveSlide(selectedIndex, selectedIndex - 1);
+	// 選択を i へ。編集中なら editingIndex も合わせる (= 編集対象切替、両者一致を維持)。
+	// 一覧では selectedIndex のみ動かす (ハイライト、編集には移行しない)。
+	const selectAt = (i: number): void => {
+		if (editingIndex >= 0) setEditingIndex(i);
+		else setSelectedIndex(i);
 	};
-	const handleMoveNext = (): void => {
-		if (!canMoveNext) return;
-		moveSlide(selectedIndex, selectedIndex + 1);
+	// 編集移行 (ダブルクリック / スライド内「編集」ボタン)。
+	const enterEdit = (i: number): void => setEditingIndex(i);
+
+	// ◀▶: 選択中スライドの前後を選択 (編集中は編集対象も追従)。
+	const handleSelectPrev = (): void => {
+		if (!canSelectPrev) return;
+		selectAt(selectedIndex - 1);
+	};
+	const handleSelectNext = (): void => {
+		if (!canSelectNext) return;
+		selectAt(selectedIndex + 1);
 	};
 
 	const handleAddSlide = (): void => {
 		if (!meta) return;
-		// legacy ListVC と同じく document の screen 寸法で末尾に追加、追加後選択も切替
+		// legacy ListVC と同じく document の screen 寸法で末尾に追加、追加後その slide を選択
 		const nextIndex = slides.length;
 		addSlide(meta.width, meta.height);
-		setSelectedIndex(nextIndex);
+		selectAt(nextIndex);
 	};
-	const handleDuplicate = (): void => {
-		if (!canModifySelected) return;
-		duplicateSlide(selectedIndex);
-	};
-	const handleDelete = async (): Promise<void> => {
-		if (!canModifySelected) return;
-		if (!(await alert.confirm(`スライド #${selectedIndex + 1} を削除しますか?`))) return;
-		deleteSlide(selectedIndex);
+
+	// クリック: 一覧では選択 (ハイライト) のみ、編集中は対象スライド切替 (selectAt が両対応)。
+	// 即編集移行はしない (ダブルクリック / スライド内「編集」のみ)。
+	const handleThumbClick = (i: number): void => selectAt(i);
+	// スライド内の複製/削除は選択に関係なく当該スライドへ作用する。
+	const handleDuplicateAt = (i: number): void => duplicateSlide(i);
+	const handleDeleteAt = async (i: number): Promise<void> => {
+		if (!(await alert.confirm(`スライド #${i + 1} を削除しますか?`))) return;
+		deleteSlide(i);
 	};
 
 	// 画像のドラッグ&ドロップ (D-12、legacy ListViewController drop 相当)。
@@ -174,6 +201,47 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 	// thumb コンテナは wrap=true (ギャラリー) で複数行へ折り返す。DnD も wrap 時は 2 次元 (rect) 戦略。
 	const sortStrategy = wrap ? rectSortingStrategy : horizontalListSortingStrategy;
 
+	// thumb 列コンテナの共通 style (閲覧/編集の両 path で共有)。
+	// wrap (複数行) では行間を広めに取り alignContent:flex-start で上詰めにする。
+	const thumbRowStyle: CSSProperties = {
+		display: "flex",
+		flexDirection: "row",
+		flexWrap: wrap ? "wrap" : "nowrap",
+		alignItems: wrap ? "flex-start" : "center",
+		alignContent: "flex-start",
+		gap: wrap ? "12px 6px" : 4,
+		paddingBottom: 4,
+		minHeight: THUMB_HEIGHT + 12,
+	};
+
+	// 新規スライド追加ボタン (legacy newSlideBtn 相当): リスト末尾に配置 (空でも表示)。
+	const addSlideButton =
+		!readOnly && canAdd ? (
+			<button
+				type="button"
+				onClick={handleAddSlide}
+				style={{
+					flex: "0 0 auto",
+					// thumb と同じ box モデル (content-box + height + 2px border) で外形高さを一致させる。
+					boxSizing: "content-box",
+					height: THUMB_HEIGHT,
+					minWidth: 56,
+					alignSelf: wrap ? "flex-start" : "center",
+					border: "2px dashed #adb5bd",
+					borderRadius: 4,
+					background: "rgba(0,0,0,0.02)",
+					color: "#868e96",
+					fontSize: 28,
+					lineHeight: 1,
+					cursor: "pointer",
+				}}
+				aria-label="スライド追加"
+				title="末尾にスライド追加"
+				data-action="add">
+				＋
+			</button>
+		) : null;
+
 	// 閲覧モードは画像ドロップ追加・右クリックメニューも無効。
 	const body = (
 		<Paper
@@ -191,6 +259,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 			onDragLeave={readOnly ? undefined : dropProps.onDragLeave}
 			onDrop={readOnly ? undefined : dropProps.onDrop}
 			data-slide-list-drop-zone>
+			{!readOnly && <style>{THUMB_REVEAL_CSS}</style>}
 			{!readOnly && (
 				<div style={dropOverlayStyle} data-slide-list-drop-overlay>
 					ドロップで画像スライドを追加
@@ -206,72 +275,41 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 						</Text>
 					</Group>
 
-					{!readOnly && (
+					{/* 前後スライド選択 (◀▶) は編集モード (!wrap) のみ表示。新規追加はリスト末尾へ移設。 */}
+					{!readOnly && !wrap && (
 						<Group gap={4}>
-							<Tooltip label="前に移動" disabled={!canMovePrev}>
+							<Tooltip label="前のスライドを選択" disabled={!canSelectPrev}>
 								<ActionIcon
 									size="sm"
 									variant="default"
-									onClick={handleMovePrev}
-									disabled={!canMovePrev}
-									aria-label="前に移動"
-									data-action="move-prev">
+									onClick={handleSelectPrev}
+									disabled={!canSelectPrev}
+									aria-label="前のスライドを選択"
+									data-action="select-prev">
 									◀
 								</ActionIcon>
 							</Tooltip>
-							<Tooltip label="後ろに移動" disabled={!canMoveNext}>
+							<Tooltip label="次のスライドを選択" disabled={!canSelectNext}>
 								<ActionIcon
 									size="sm"
 									variant="default"
-									onClick={handleMoveNext}
-									disabled={!canMoveNext}
-									aria-label="後ろに移動"
-									data-action="move-next">
+									onClick={handleSelectNext}
+									disabled={!canSelectNext}
+									aria-label="次のスライドを選択"
+									data-action="select-next">
 									▶
-								</ActionIcon>
-							</Tooltip>
-							<Tooltip label="末尾にスライド追加" disabled={!canAdd}>
-								<ActionIcon
-									size="sm"
-									variant="default"
-									color="blue"
-									onClick={handleAddSlide}
-									disabled={!canAdd}
-									aria-label="スライド追加"
-									data-action="add">
-									➕
-								</ActionIcon>
-							</Tooltip>
-							<Tooltip label="選択スライドを複製" disabled={!canModifySelected}>
-								<ActionIcon
-									size="sm"
-									variant="default"
-									onClick={handleDuplicate}
-									disabled={!canModifySelected}
-									aria-label="スライド複製"
-									data-action="duplicate">
-									⧉
-								</ActionIcon>
-							</Tooltip>
-							<Tooltip label="選択スライドを削除" disabled={!canModifySelected}>
-								<ActionIcon
-									size="sm"
-									variant="default"
-									color="red"
-									onClick={handleDelete}
-									disabled={!canModifySelected}
-									aria-label="スライド削除"
-									data-action="delete">
-									🗑
 								</ActionIcon>
 							</Tooltip>
 						</Group>
 					)}
 				</Group>
 				{isEmpty ? (
-					<Text size="xs" c="dimmed">
-						スライドがありません (document をロード or 新規作成)
-					</Text>
+					<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+						{addSlideButton}
+						<Text size="xs" c="dimmed">
+							スライドがありません{!readOnly && canAdd && " (＋ で追加)"}
+						</Text>
+					</div>
 				) : readOnly ? (
 					// 閲覧モード: D&D 無し・編集コントロール無しの素の一覧 (クリック選択のみ)。
 					<ScrollArea
@@ -279,17 +317,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 						scrollbarSize={14}
 						viewportRef={viewportRef}
 						style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
-						<div
-							style={{
-								display: "flex",
-								flexDirection: "row",
-								flexWrap: wrap ? "wrap" : "nowrap",
-								alignItems: wrap ? "flex-start" : "center",
-								gap: 4,
-								paddingBottom: 4,
-								minHeight: THUMB_HEIGHT + 12,
-							}}
-							data-slide-count={slides.length}>
+						<div style={thumbRowStyle} data-slide-count={slides.length}>
 							{slides.map((slide, i) => (
 								<Fragment key={slide.uuid}>
 									<SlideThumbView
@@ -324,17 +352,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 								scrollbarSize={14}
 								viewportRef={viewportRef}
 								style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
-								<div
-									style={{
-										display: "flex",
-										flexDirection: "row",
-										flexWrap: wrap ? "wrap" : "nowrap",
-										alignItems: wrap ? "flex-start" : "center",
-										gap: 4,
-										paddingBottom: 4,
-										minHeight: THUMB_HEIGHT + 12,
-									}}
-									data-slide-count={slides.length}>
+								<div style={thumbRowStyle} data-slide-count={slides.length}>
 									{slides.map((slide, i) => (
 										<Fragment key={slide.uuid}>
 											<SortableSlideThumb
@@ -343,7 +361,11 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 												index={i}
 												selected={i === selectedIndex}
 												bgColor={bgColor}
-												onClick={() => setSelectedIndex(i)}
+												onClick={() => handleThumbClick(i)}
+												onDoubleClick={() => enterEdit(i)}
+												onEdit={() => enterEdit(i)}
+												onDuplicate={() => handleDuplicateAt(i)}
+												onDelete={() => void handleDeleteAt(i)}
 												onIncrementDuration={() => incrementSlideDurationRatio(i)}
 												onDecrementDuration={() => decrementSlideDurationRatio(i)}
 												onToggleJoining={() => setSlideJoining(i, !slide.joining)}
@@ -353,6 +375,8 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 											{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
 										</Fragment>
 									))}
+									{/* 新規スライド追加 (legacy newSlideBtn 相当): リスト末尾に配置。 */}
+									{addSlideButton}
 								</div>
 							</ScrollArea>
 						</SortableContext>

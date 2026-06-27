@@ -106,6 +106,8 @@ export const duplicateSlide = (state: SlideState, index: number): SlideState | n
 	if (index < 0 || index >= slides.length) return null;
 	const duped = cloneSlide(slides[index], nextSlideId(slides));
 	const next = [...slides];
+	// 複製元 (index) を複製スライド (index+1) と結合状態にする (必ず joining=true)。
+	next[index] = { ...next[index], joining: true };
 	next.splice(index + 1, 0, duped);
 	const newSelected =
 		selectedIndex >= 0 && index + 1 <= selectedIndex ? selectedIndex + 1 : selectedIndex;
