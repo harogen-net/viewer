@@ -1,1 +1,0 @@
-import{c as o,r as n,A as t}from"./AppShell-db5fDa2f.js";console.log("[main-new] module evaluated");const e=document.getElementById("root");if(!e)throw new Error("v3 main-new: #root element not found in index.html");console.log("[main-new] mounting <AppShell /> into #root");o(e).render(n.createElement(t));
