@@ -15,6 +15,7 @@ import { useDocumentMutation } from "../../hooks/useDocumentMutation";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
+import { useToast } from "../../hooks/useToast";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
@@ -61,6 +62,7 @@ export const EditOpsPanel: FC = () => {
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
 	const { addImageFile } = useImageLibraryMutation();
+	const toast = useToast();
 	const replaceInputRef = useRef<HTMLInputElement>(null);
 	// 差し替えモード: "single" = 選択レイヤーのみ / "all" = 同一画像を全スライドで一括差し替え。
 	const replaceModeRef = useRef<"single" | "all">("single");
@@ -208,11 +210,16 @@ export const EditOpsPanel: FC = () => {
 		e.target.value = ""; // 同じファイルを連続選択できるよう reset
 		if (!file || !imageLayer || layerIndex < 0) return;
 		const fromImageId = imageLayer.imageId;
-		const newImageId = await addImageFile(file);
-		if (replaceModeRef.current === "all") {
-			layer.replaceImageIdAll(fromImageId, newImageId);
-		} else {
-			layer.replaceImageId(layerIndex, newImageId);
+		try {
+			// 未対応形式 (HEIC 等) は addImageFile が reject → 差し替えせずに通知。
+			const newImageId = await addImageFile(file);
+			if (replaceModeRef.current === "all") {
+				layer.replaceImageIdAll(fromImageId, newImageId);
+			} else {
+				layer.replaceImageId(layerIndex, newImageId);
+			}
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : String(err));
 		}
 	};
 

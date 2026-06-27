@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useDrop } from "../../hooks/useDrop";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useLayerGesture } from "../../hooks/useLayerGesture";
+import { useToast } from "../../hooks/useToast";
 import { useEditViewStore } from "../../state/editViewStore";
 import { useLayerStore } from "../../state/layerStore";
 import { LayerEditOverlay } from "./LayerEditOverlay";
@@ -91,13 +92,19 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 
 	// 画像のドラッグ&ドロップ (D-11)。imageId/ファイルいずれも中央 fit 配置。
 	const { placeImageOnSlide, addImageFile } = useImageLibraryMutation();
+	const toast = useToast();
 	const { isOver, dropProps } = useDrop({
 		onImageId: async (id) => {
 			await placeImageOnSlide(id);
 		},
 		onFile: async (f) => {
-			const id = await addImageFile(f);
-			await placeImageOnSlide(id);
+			try {
+				// 未対応形式 (HEIC 等) は addImageFile が reject → 配置せず通知。
+				const id = await addImageFile(f);
+				await placeImageOnSlide(id);
+			} catch (e) {
+				toast.error(e instanceof Error ? e.message : String(e));
+			}
 		},
 	});
 

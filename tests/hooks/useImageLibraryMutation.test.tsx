@@ -111,6 +111,7 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 		expect(useImageLibraryStore.getState().imageById[id].name).toBe("test.png");
 	});
 
+
 	it("addImageFile: 同 dataURL を 2 回 add しても dedupe される", async () => {
 		const file1 = makeFile(dummyImage1, "a.png");
 		const file2 = makeFile(dummyImage1, "b.png");
@@ -236,20 +237,18 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 				id = await hookRef.api!.addImageDataUrl(dummyImage1, "photo.png");
 			});
 			// slide 1600x800 (16:8 = 2:1)、image 400x200 (2:1)
-			useSlideStore
-				.getState()
-				.setSlides([
-					{
-						id: 1,
-						uuid: "s1",
-						width: 1600,
-						height: 800,
-						durationRatio: 1,
-						joining: true,
-						disabled: false,
-						layers: [],
-					},
-				]);
+			useSlideStore.getState().setSlides([
+				{
+					id: 1,
+					uuid: "s1",
+					width: 1600,
+					height: 800,
+					durationRatio: 1,
+					joining: true,
+					disabled: false,
+					layers: [],
+				},
+			]);
 			useSlideStore.getState().setSelectedIndex(0);
 
 			let result: boolean | null = null;
@@ -283,20 +282,18 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 			await act(async () => {
 				id = await hookRef.api!.addImageDataUrl(dummyImage1);
 			});
-			useSlideStore
-				.getState()
-				.setSlides([
-					{
-						id: 1,
-						uuid: "s1",
-						width: 800,
-						height: 1600,
-						durationRatio: 1,
-						joining: true,
-						disabled: false,
-						layers: [],
-					},
-				]);
+			useSlideStore.getState().setSlides([
+				{
+					id: 1,
+					uuid: "s1",
+					width: 800,
+					height: 1600,
+					durationRatio: 1,
+					joining: true,
+					disabled: false,
+					layers: [],
+				},
+			]);
 			useSlideStore.getState().setSelectedIndex(0);
 
 			await act(async () => {
@@ -331,20 +328,18 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 			await act(async () => {
 				id = await hookRef.api!.addImageDataUrl(dummyImage1);
 			});
-			useSlideStore
-				.getState()
-				.setSlides([
-					{
-						id: 1,
-						uuid: "s1",
-						width: 1000,
-						height: 1000,
-						durationRatio: 1,
-						joining: true,
-						disabled: false,
-						layers: [],
-					},
-				]);
+			useSlideStore.getState().setSlides([
+				{
+					id: 1,
+					uuid: "s1",
+					width: 1000,
+					height: 1000,
+					durationRatio: 1,
+					joining: true,
+					disabled: false,
+					layers: [],
+				},
+			]);
 			useSlideStore.getState().setSelectedIndex(0);
 
 			await act(async () => {

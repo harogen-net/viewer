@@ -20,6 +20,7 @@ import { useAlert } from "../../hooks/useAlert";
 import { useDrop } from "../../hooks/useDrop";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useSlideMutation } from "../../hooks/useSlideMutation";
+import { useToast } from "../../hooks/useToast";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import { SlideJoinIndicator } from "../slide/SlideJoinIndicator";
@@ -120,14 +121,20 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 	// imageId/ファイルいずれも「画像 1 枚を持つ新規 slide」を末尾に追加する。
 	// document 未ロード時 (!meta) は drop を受け付けない。
 	const { placeImageAsNewSlide, addImageFile } = useImageLibraryMutation();
+	const toast = useToast();
 	const { isOver, dropProps } = useDrop({
 		disabled: !meta,
 		onImageId: async (id) => {
 			await placeImageAsNewSlide(id);
 		},
 		onFile: async (f) => {
-			const id = await addImageFile(f);
-			await placeImageAsNewSlide(id);
+			try {
+				// 未対応形式 (HEIC 等) は addImageFile が reject → slide を作らず通知。
+				const id = await addImageFile(f);
+				await placeImageAsNewSlide(id);
+			} catch (e) {
+				toast.error(e instanceof Error ? e.message : String(e));
+			}
 		},
 	});
 	const dropOverlayStyle: CSSProperties = {

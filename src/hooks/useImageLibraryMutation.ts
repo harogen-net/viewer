@@ -76,6 +76,15 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 			const id = await sha256DataUrl(dataUrl);
 			const existing = useImageLibraryStore.getState().imageById[id];
 			if (existing) return id;
+			// デコード可能性を検証してから登録する。HEIC 等ブラウザ非対応形式は MIME が
+			// image/* でも <img> がデコードできず onerror になるため、ここで弾く
+			// (登録/差し替えしてしまうとレイヤーが壊れて表示・編集不能になる)。
+			// jsdom では tests/setup の src パッチで load が必ず発火するため通過する。
+			try {
+				await loadImageNaturalSize(dataUrl);
+			} catch {
+				throw new Error("この画像形式は表示できません (HEIC など未対応の可能性があります)");
+			}
 			addImage(id, { dataURL: dataUrl, name });
 			return id;
 		},
