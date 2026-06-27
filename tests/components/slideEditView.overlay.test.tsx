@@ -31,7 +31,12 @@ const baseLayerProps = (id: number, uuid: string, overrides: Partial<Layer> = {}
 	...baseTransform,
 	...overrides,
 });
-const makeImageLayer = (id: number, uuid: string, imageId: string, overrides: Partial<ImageLayer> = {}): ImageLayer => ({
+const makeImageLayer = (
+	id: number,
+	uuid: string,
+	imageId: string,
+	overrides: Partial<ImageLayer> = {}
+): ImageLayer => ({
 	...baseLayerProps(id, uuid, overrides),
 	type: "image",
 	imageId,
@@ -39,7 +44,12 @@ const makeImageLayer = (id: number, uuid: string, imageId: string, overrides: Pa
 	isText: false,
 	...overrides,
 });
-const makeTextLayer = (id: number, uuid: string, text: string, overrides: Partial<TextLayer> = {}): TextLayer => ({
+const makeTextLayer = (
+	id: number,
+	uuid: string,
+	text: string,
+	overrides: Partial<TextLayer> = {}
+): TextLayer => ({
 	...baseLayerProps(id, uuid, overrides),
 	type: "text",
 	text,
@@ -99,7 +109,7 @@ afterEach(() => {
 const render = (slide: Slide, fitAreaWidth = 800, fitAreaHeight = 600): void => {
 	act(() => {
 		root.render(
-			<SlideEditView slide={slide} fitAreaWidth={fitAreaWidth} fitAreaHeight={fitAreaHeight} />,
+			<SlideEditView slide={slide} fitAreaWidth={fitAreaWidth} fitAreaHeight={fitAreaHeight} />
 		);
 	});
 };
@@ -229,15 +239,15 @@ describe("SlideEditView (v4 Group D D-3a) - overlay + hit-test", () => {
 	});
 
 	it("選択枠の outline 太さは stageScale で補正される (2/scale)", () => {
-		// fit area 800x600, slide 1600x800 → scale = min(0.5, 0.75) = 0.5
-		// → outline 太さ = 2/0.5 = 4px (LayerEditOverlay の OUTLINE_THICKNESS_PX=2)
+		// fit area 800x600, slide 1600x800 → scale = min(0.5, 0.75)×0.9 = 0.45 (FIT_MARGIN_RATIO)
+		// → outline 太さ = 2/0.45 = 4.444…px (LayerEditOverlay の OUTLINE_THICKNESS_PX=2)
 		const layer = makeImageLayer(1, "u-1", "img-a");
 		render(makeSlide([layer]), 800, 600);
 		act(() => {
 			useLayerStore.getState().setSelectedLayer(layer);
 		});
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
-		expect(frame?.style.outline).toContain("4px");
+		expect(frame?.style.outline).toContain("4.44");
 		expect(frame?.style.outline).toContain("solid");
 	});
 });

@@ -50,38 +50,39 @@ describe("SlideEditView (v4 Group D D-1)", () => {
 		expect(container.querySelector("[data-slide-edit-stage]")).not.toBeNull();
 	});
 
-	it("fit area が横長 (800x600) で slide 1600x800 → 横幅律 (scale=0.5)、stage=800x400", () => {
-		// scaleX = 800/1600 = 0.5, scaleY = 600/800 = 0.75 → min = 0.5
-		// displayW = 1600*0.5 = 800, displayH = 800*0.5 = 400
+	// fit-to-area には FIT_MARGIN_RATIO=0.9 が掛かる (全体表示で一回り小さく余白を残す = legacy SCALE_DEFAULT)。
+	it("fit area が横長 (800x600) で slide 1600x800 → 横幅律 (scale=0.5×0.9=0.45)、stage=720x360", () => {
+		// scaleX = 800/1600 = 0.5, scaleY = 600/800 = 0.75 → min = 0.5 ×0.9 = 0.45
+		// displayW = 1600*0.45 = 720, displayH = 800*0.45 = 360
 		render(makeSlide(), 800, 600);
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
-		expect(stage?.style.width).toBe("800px");
-		expect(stage?.style.height).toBe("400px");
+		expect(stage?.style.width).toBe("720px");
+		expect(stage?.style.height).toBe("360px");
 	});
 
-	it("fit area が縦長 (400x600) で slide 1600x800 → 横幅律 (scale=0.25)、stage=400x200", () => {
-		// scaleX = 400/1600 = 0.25, scaleY = 600/800 = 0.75 → min = 0.25
-		// displayW = 400, displayH = 200
+	it("fit area が縦長 (400x600) で slide 1600x800 → 横幅律 (scale=0.25×0.9=0.225)、stage=360x180", () => {
+		// scaleX = 400/1600 = 0.25, scaleY = 600/800 = 0.75 → min = 0.25 ×0.9 = 0.225
+		// displayW = 1600*0.225 = 360, displayH = 800*0.225 = 180
 		render(makeSlide(), 400, 600);
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
-		expect(stage?.style.width).toBe("400px");
-		expect(stage?.style.height).toBe("200px");
+		expect(stage?.style.width).toBe("360px");
+		expect(stage?.style.height).toBe("180px");
 	});
 
-	it("fit area が小さく縦律 (800x100) で slide 1600x800 → 縦律 (scale=0.125)、stage=200x100", () => {
-		// scaleX = 800/1600 = 0.5, scaleY = 100/800 = 0.125 → min = 0.125
-		// displayW = 200, displayH = 100
+	it("fit area が小さく縦律 (800x100) で slide 1600x800 → 縦律 (scale=0.125×0.9=0.1125)、stage=180x90", () => {
+		// scaleX = 800/1600 = 0.5, scaleY = 100/800 = 0.125 → min = 0.125 ×0.9 = 0.1125
+		// displayW = 1600*0.1125 = 180, displayH = 800*0.1125 = 90
 		render(makeSlide(), 800, 100);
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
-		expect(stage?.style.width).toBe("200px");
-		expect(stage?.style.height).toBe("100px");
+		expect(stage?.style.width).toBe("180px");
+		expect(stage?.style.height).toBe("90px");
 	});
 
 	it("内側 transform は scale(scale) で transformOrigin top left", () => {
 		render(makeSlide(), 800, 600);
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
 		const scaledInner = stage?.firstElementChild as HTMLElement | null;
-		expect(scaledInner?.style.transform).toBe("scale(0.5)");
+		expect(scaledInner?.style.transform).toBe("scale(0.45)"); // 0.5 ×0.9
 		expect(scaledInner?.style.transformOrigin).toBe("top left");
 		// scaled inner の width/height は native slide 寸法
 		expect(scaledInner?.style.width).toBe("1600px");
@@ -179,5 +180,46 @@ describe("SlideEditView 領域外クリックで選択解除", () => {
 		});
 		// outer の素地ではないので解除されない (stage 内の空白解除は useLayerGesture の担当)
 		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("sel");
+	});
+});
+
+// 領域の赤ボーダー + 領域外レイヤーの半透明プレビュー (legacy .slide.editable parity)。
+describe("SlideEditView 領域ボーダー / 領域外プレビュー", () => {
+	it("赤い半透明ボーダー (rgba(200,0,0,0.5)) を領域に描画し、太さは scale 補正される", () => {
+		// fit area 800x600 / slide 1600x800 → scale 0.45。border 見かけ 6px → 6/0.45 = 13.33px
+		render(makeSlide({ layers: [dummyImageLayer("u-1")] }), 800, 600);
+		const border = container.querySelector<HTMLElement>("[data-slide-edit-area-border]");
+		expect(border).not.toBeNull();
+		expect(border?.style.border).toContain("rgba(200, 0, 0, 0.5)");
+		expect(border?.style.border).toContain("13.33"); // 6 / 0.45
+		expect(border?.style.pointerEvents).toBe("none");
+	});
+
+	it("領域外プレビュー (装飾コピー) は薄く・非操作で、data-slide-id / data-layer-id を持たない", () => {
+		render(makeSlide({ layers: [dummyImageLayer("u-1")] }), 800, 600);
+		const dim = container.querySelector<HTMLElement>("[data-slide-edit-out-of-area]");
+		expect(dim).not.toBeNull();
+		expect(dim?.style.opacity).toBe("0.4");
+		expect(dim?.style.pointerEvents).toBe("none");
+		// 装飾コピーは data-* を出さない (ヒットテスト・overlay 計測の対象外)
+		expect(dim?.querySelector("[data-slide-id]")).toBeNull();
+		expect(dim?.querySelector("[data-layer-id]")).toBeNull();
+	});
+
+	it("data-layer-id は前面 (操作対象) の 1 個のみ (装飾コピーは重複しない)", () => {
+		render(makeSlide({ layers: [dummyImageLayer("u-1")] }), 800, 600);
+		// 装飾コピー + 前面の 2 枚描画でも、ヒットテスト対象の data-layer-id は前面のみ
+		expect(container.querySelectorAll("[data-layer-id]").length).toBe(1);
+	});
+
+	it("領域内フルコピーは clip=true (overflow hidden)、装飾コピーは clip=false (visible)", () => {
+		render(makeSlide({ layers: [dummyImageLayer("u-1")] }), 800, 600);
+		const dim = container.querySelector<HTMLElement>("[data-slide-edit-out-of-area]");
+		// 装飾コピーの SlideView ルートは overflow:visible (領域外も描画)
+		const dimSlideRoot = dim?.firstElementChild as HTMLElement | null;
+		expect(dimSlideRoot?.style.overflow).toBe("visible");
+		// 前面 (data-slide-id を持つ SlideView ルート) は overflow:hidden
+		const frontSlideRoot = container.querySelector<HTMLElement>("[data-slide-id]");
+		expect(frontSlideRoot?.style.overflow).toBe("hidden");
 	});
 });

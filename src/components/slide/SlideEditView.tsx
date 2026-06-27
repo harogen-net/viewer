@@ -42,6 +42,14 @@ interface SlideEditViewProps extends SlideViewProps {
 	fitAreaHeight: number;
 }
 
+// 全体表示 (zoom=1) の基準を fit-to-area いっぱいではなく一回り小さくする余白率 (legacy SCALE_DEFAULT)。
+const FIT_MARGIN_RATIO = 0.9;
+// スライド領域の赤い半透明ボーダー (legacy .slide.editable .border = rgba(200,0,0,0.5) 6px)。
+const AREA_BORDER_VISUAL_PX = 6;
+const AREA_BORDER_COLOR = "rgba(200,0,0,0.5)";
+// 領域外レイヤーの減光 (領域外を半透明で見せ、領域内はフル不透明コピーで覆う)。
+const OUT_OF_AREA_OPACITY = 0.4;
+
 export const SlideEditView: FC<SlideEditViewProps> = ({
 	slide,
 	bgColor,
@@ -61,9 +69,11 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 	const showAll = useEditViewStore((s) => s.showAll);
 
 	// aspect 維持の fit-to-area scale に ユーザズーム倍率を上乗せした実効 scale。
+	// legacy EditableSlideView.SCALE_DEFAULT=0.9 相当: 「全体表示 (zoom=1)」で領域いっぱいではなく
+	// 一回り小さく余白を残す (領域外レイヤーや赤ボーダーを見せるため)。
 	const scaleX = fitAreaWidth / slide.width;
 	const scaleY = fitAreaHeight / slide.height;
-	const fitScale = Math.min(scaleX, scaleY);
+	const fitScale = Math.min(scaleX, scaleY) * FIT_MARGIN_RATIO;
 	const scale = fitScale * zoom;
 	const displayW = Math.round(slide.width * scale);
 	const displayH = Math.round(slide.height * scale);
@@ -212,6 +222,39 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 		userSelect: "none",
 		touchAction: "none",
 	};
+	// 領域外プレビュー (装飾コピー): スライド領域に重ね、領域外のはみ出しを薄く見せる。
+	const dimPreviewStyle: CSSProperties = {
+		position: "absolute",
+		left: 0,
+		top: 0,
+		width: slide.width,
+		height: slide.height,
+		opacity: OUT_OF_AREA_OPACITY,
+		pointerEvents: "none",
+		zIndex: 0,
+	};
+	// 領域内フルコピー (ヒットテスト対象): 領域でクリップし、装飾コピーの領域内を覆う。
+	const inAreaStyle: CSSProperties = {
+		position: "absolute",
+		left: 0,
+		top: 0,
+		width: slide.width,
+		height: slide.height,
+		zIndex: 0,
+	};
+	// 赤い半透明ボーダー (領域境界)。scale 補正で見かけ幅を一定に保つ (legacy border-width 6/scale 相当)。
+	const areaBorderStyle: CSSProperties = {
+		position: "absolute",
+		left: 0,
+		top: 0,
+		width: slide.width,
+		height: slide.height,
+		boxSizing: "border-box",
+		border: `${scale > 0 ? AREA_BORDER_VISUAL_PX / scale : AREA_BORDER_VISUAL_PX}px solid ${AREA_BORDER_COLOR}`,
+		pointerEvents: "none",
+		// zIndex は付けない (DOM 順依存): layers の後・overlay (frame/handles) の前に描画され、
+		// 「layers より上・調整 UI より下」になる (legacy border z=20 < adjustUI 相当)。
+	};
 
 	return (
 		<div
@@ -239,7 +282,18 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 					onPointerMove={onPointerMove}
 					onPointerUp={onPointerEnd}
 					onPointerCancel={onPointerEnd}>
-					<SlideView slide={slide} bgColor={bgColor} live={live} />
+					{/* 領域外プレビュー (装飾): クリップせず全レイヤーを薄く描画。data-* を出さず
+					    pointer-events:none なのでヒットテスト・overlay 計測の対象外。背景は透明。
+					    領域内は下記フルコピーが覆うため、半透明に見えるのは領域外のはみ出し部分だけ。 */}
+					<div style={dimPreviewStyle} data-slide-edit-out-of-area>
+						<SlideView slide={slide} bgColor="transparent" live={live} clip={false} decorative />
+					</div>
+					{/* 領域内: フル不透明・領域でクリップ。ヒットテスト対象 (data-layer-id を持つ)。 */}
+					<div style={inAreaStyle}>
+						<SlideView slide={slide} bgColor={bgColor} live={live} clip={true} />
+					</div>
+					{/* 赤い半透明ボーダー (領域境界)。pointer-events:none、layers より上・ハンドルより下。 */}
+					<div style={areaBorderStyle} data-slide-edit-area-border />
 					<LayerEditOverlay slide={slide} stageScale={scale} stageRoot={scaledEl} live={live} />
 				</div>
 			</div>

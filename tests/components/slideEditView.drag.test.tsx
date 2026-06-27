@@ -145,8 +145,8 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		// 選択は即時確定
 		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("u-1");
 		// 同 gesture で drag 開始済み: pointermove で frame transform が追従
-		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
-		// stageScale = 0.5 → delta 200, 100
+		dispatchPointer(stage!, "pointermove", { clientX: 90, clientY: 45 });
+		// stageScale = 0.45 (fit×0.9) → delta 90/0.45=200, 45/0.45=100
 		// transX 50 + 200 = 250, transY 30 + 100 = 130
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
 		expect(frame!.style.transform).toBe("translate(250px, 130px) rotate(0deg)");
@@ -173,10 +173,10 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
 		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
-		dispatchPointer(stage!, "pointermove", { clientX: 40, clientY: 20 });
-		dispatchPointer(stage!, "pointerup", { clientX: 40, clientY: 20 });
+		dispatchPointer(stage!, "pointermove", { clientX: 36, clientY: 18 });
+		dispatchPointer(stage!, "pointerup", { clientX: 36, clientY: 18 });
 
-		// stageScale = 0.5 → delta 80, 40
+		// stageScale = 0.45 → delta 36/0.45=80, 18/0.45=40
 		const stored = useSlideStore.getState().slides[0].layers[0];
 		expect(stored.transX).toBe(10 + 80);
 		expect(stored.transY).toBe(20 + 40);
@@ -234,8 +234,8 @@ describe("SlideEditView (v4 Group D D-3b) - pointerdown 即 drag", () => {
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
 		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
-		dispatchPointer(stage!, "pointermove", { clientX: 40, clientY: 20 });
-		dispatchPointer(stage!, "pointerup", { clientX: 40, clientY: 20 });
+		dispatchPointer(stage!, "pointermove", { clientX: 36, clientY: 18 });
+		dispatchPointer(stage!, "pointerup", { clientX: 36, clientY: 18 });
 
 		const sel = useLayerStore.getState().selectedLayer;
 		expect(sel?.uuid).toBe("u-1");
@@ -290,10 +290,10 @@ describe("SlideEditView 選択枠経由の直接 drag (覆われても操作可)
 		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("u-1");
 		expect(frame!.dataset.gesturing).toBe("true");
 
-		dispatchPointer(stage!, "pointermove", { clientX: 40, clientY: 20 });
-		dispatchPointer(stage!, "pointerup", { clientX: 40, clientY: 20 });
+		dispatchPointer(stage!, "pointermove", { clientX: 36, clientY: 18 });
+		dispatchPointer(stage!, "pointerup", { clientX: 36, clientY: 18 });
 
-		// stageScale 0.5 → delta 80,40。u-1 のみ移動 (u-2 不変)
+		// stageScale 0.45 → delta 36/0.45=80, 18/0.45=40。u-1 のみ移動 (u-2 不変)
 		const u1 = useSlideStore.getState().slides[0].layers.find((l) => l.uuid === "u-1");
 		const u2 = useSlideStore.getState().slides[0].layers.find((l) => l.uuid === "u-2");
 		expect(u1?.transX).toBe(130);
@@ -310,8 +310,8 @@ describe("SlideEditView 選択枠経由の直接 drag (覆われても操作可)
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 		dispatchPointer(frame!, "pointerdown", { clientX: 0, clientY: 0 });
-		dispatchPointer(stage!, "pointermove", { clientX: 40, clientY: 20 });
-		dispatchPointer(stage!, "pointerup", { clientX: 40, clientY: 20 });
+		dispatchPointer(stage!, "pointermove", { clientX: 36, clientY: 18 });
+		dispatchPointer(stage!, "pointerup", { clientX: 36, clientY: 18 });
 		// 移動なし・履歴なし・選択維持
 		expect(useSlideStore.getState().slides[0].layers[0].transX).toBe(50);
 		expect(useHistoryStore.getState().past.length).toBe(0);
@@ -334,11 +334,11 @@ describe("SlideEditView ドラッグ中のレイヤー本体ライブ追従", ()
 		expect(wrapper!.style.transform).toBe("translate(50px, 30px) rotate(0deg) scale(1, 1)");
 
 		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
-		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 }); // scale 0.5 → delta 200,100
+		dispatchPointer(stage!, "pointermove", { clientX: 90, clientY: 45 }); // scale 0.45 → delta 200,100
 		// 確定前でも本体が動く (旧挙動は translate(50,30) のまま固まっていた)
 		expect(layerWrapTransform(1)).toBe("translate(250px, 130px) rotate(0deg) scale(1, 1)");
 
-		dispatchPointer(stage!, "pointerup", { clientX: 100, clientY: 50 });
+		dispatchPointer(stage!, "pointerup", { clientX: 90, clientY: 45 });
 		const stored = useSlideStore.getState().slides[0].layers[0];
 		expect(stored.transX).toBe(250);
 		expect(stored.transY).toBe(130);
@@ -354,15 +354,15 @@ describe("SlideEditView ドラッグ中のレイヤー本体ライブ追従", ()
 		const wrapper = container.querySelector<HTMLElement>('[data-layer-id="1"]');
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
-		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
+		dispatchPointer(stage!, "pointermove", { clientX: 90, clientY: 45 });
 		// drag 中の u-1 は動くが、u-2 は不変
 		expect(layerWrapTransform(1)).toBe("translate(250px, 130px) rotate(0deg) scale(1, 1)");
 		expect(layerWrapTransform(2)).toBe("translate(0px, 0px) rotate(0deg) scale(1, 1)");
 	});
 
 	it("回転ハンドル drag 中も対象 layer wrapper の rotate が即追従する", () => {
-		// handles テストと同条件: center=(50,25)、stageScale=0.5。
-		// start (200,12.5)=slide(400,25) angle0 → move (25,200)=slide(50,400) angle90° で +90°。
+		// handles テストと同条件: center=(50,25)、stageScale=0.45 (fit×0.9)。
+		// start client(180,11.25)=slide(400,25) angle0 → move client(22.5,180)=slide(50,400) angle90° で +90°。
 		const layer = makeImageLayer(1, "u-1", { transX: 0, transY: 0 });
 		seed([layer]);
 		renderHost();
@@ -372,8 +372,8 @@ describe("SlideEditView ドラッグ中のレイヤー本体ライブ追従", ()
 		expect(handle).not.toBeNull();
 		expect(layerWrapTransform(1)).toContain("rotate(0deg)");
 
-		dispatchPointer(handle!, "pointerdown", { clientX: 200, clientY: 12.5 });
-		dispatchPointer(stage!, "pointermove", { clientX: 25, clientY: 200 });
+		dispatchPointer(handle!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(stage!, "pointermove", { clientX: 22.5, clientY: 180 });
 		// 確定前でも本体が回る (旧挙動は rotate(0deg) のまま固まっていた)
 		expect(layerWrapTransform(1)).toContain("rotate(90deg)");
 	});

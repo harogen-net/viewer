@@ -15,10 +15,9 @@ import { create } from "zustand";
 //   - showAll : zoom=ZOOM_DEFAULT    (legacy `.showAll` → SCALE_DEFAULT)
 //   - wheel   : setZoom(zoom / (1 + 0.1*sign(deltaY)))  (legacy obj.on("wheel"))
 //
-// 仕様差 (§0-9 spec-based、pixel-perfect 不問):
-//   レガシー SCALE_DEFAULT は 0.9 (= fit-to-area より一回り小さく余白を残す) だが、
-//   新側 D-1 の fit-to-area は「領域いっぱいに収める」を「全体表示」の基準としたため
-//   ZOOM_DEFAULT = 1.0 とする。余白の有無は仕様書に規定されない描画細部。
+// レガシー parity: SCALE_DEFAULT=0.9 (= fit-to-area より一回り小さく余白を残し、領域外レイヤーや
+//   赤ボーダーを見せる) は SlideEditView 側の FIT_MARGIN_RATIO=0.9 で実現する。本 store の zoom は
+//   ユーザ上乗せ倍率なので ZOOM_DEFAULT=1.0 のまま (全体表示 = fitScale×0.9×1.0)。
 
 export const ZOOM_MIN = 0.2; // legacy DOMSlideView.scale_min
 export const ZOOM_MAX = 5; // legacy DOMSlideView.scale_max

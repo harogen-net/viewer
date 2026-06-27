@@ -28,7 +28,13 @@ function transformCss(layer: Layer, live?: LiveTransform | null): string {
 }
 
 // live: このレイヤーがドラッグ中なら暫定 transform、それ以外は null/undefined (確定値で描画)。
-export const LayerView: FC<{ layer: Layer; live?: LiveTransform | null }> = ({ layer, live }) => {
+// decorative: 領域外プレビュー等の「見た目だけ」のコピー。data-* を出さず pointer-events:none に
+//   して、ヒットテスト (closest('[data-layer-id]')) / overlay 計測の対象から外す。
+export const LayerView: FC<{ layer: Layer; live?: LiveTransform | null; decorative?: boolean }> = ({
+	layer,
+	live,
+	decorative = false,
+}) => {
 	if (!layer.visible) return null;
 
 	const wrapperStyle: CSSProperties = {
@@ -44,13 +50,17 @@ export const LayerView: FC<{ layer: Layer; live?: LiveTransform | null }> = ({ l
 		transform: transformCss(layer, live),
 		// transform-origin は CSS default (50% 50%) のまま = コンテンツ中心基準。
 		// 内側のコンテンツは natural size でレイアウトされ wrapper がそれを包む。
-		// ロック済みレイヤーはマウスイベント対象外 (ヒットテストを素通りさせ、下の
+		// ロック済みレイヤー / 装飾コピーはマウスイベント対象外 (ヒットテストを素通りさせ、下の
 		// レイヤー/背景を選択させる)。選択はレイヤーパネル経由でのみ可能。
-		pointerEvents: layer.locked ? "none" : undefined,
+		pointerEvents: decorative || layer.locked ? "none" : undefined,
 	};
 
+	// 装飾コピーは data-layer-id/type を持たせない (ヒットテスト・overlay 計測の対象外にする)。
 	return (
-		<div style={wrapperStyle} data-layer-id={layer.id} data-layer-type={layer.type}>
+		<div
+			style={wrapperStyle}
+			data-layer-id={decorative ? undefined : layer.id}
+			data-layer-type={decorative ? undefined : layer.type}>
 			<LayerContent layer={layer} />
 		</div>
 	);

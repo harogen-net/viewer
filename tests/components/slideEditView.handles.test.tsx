@@ -10,7 +10,7 @@ import type { ImageLayer, Layer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 
 // v4 Group D D-3c: resize (4 角 anchor、aspect 固定) + rotate (Shift 15° snap) のテスト。
-// jsdom 環境 (getBoundingClientRect は 0,0 オリジン) で stageScale=0.5 を前提に slide-coord を計算。
+// jsdom 環境 (getBoundingClientRect は 0,0 オリジン) で stageScale=0.45 (fit×0.9) を前提に slide-coord を計算。
 
 const baseTransform = {
 	transX: 0,
@@ -24,7 +24,7 @@ const baseTransform = {
 const makeImageLayer = (
 	id: number,
 	uuid: string,
-	overrides: Partial<ImageLayer> = {},
+	overrides: Partial<ImageLayer> = {}
 ): ImageLayer => ({
 	id,
 	uuid,
@@ -96,7 +96,7 @@ const RenderHost = () => {
 		() => {
 			const s = useSlideStore.getState();
 			return s.slides[s.selectedIndex] ?? null;
-		},
+		}
 	);
 	if (!slide) return null;
 	return <SlideEditView slide={slide} fitAreaWidth={800} fitAreaHeight={600} />;
@@ -131,7 +131,7 @@ const dispatchPointer = (
 		pointerId?: number;
 		button?: number;
 		shiftKey?: boolean;
-	},
+	}
 ): void => {
 	const ev = new Event(type, { bubbles: true, cancelable: true });
 	Object.defineProperty(ev, "clientX", { value: props.clientX });
@@ -148,7 +148,7 @@ describe("SlideEditView (v4 Group D D-3c) - resize", () => {
 	it("anchor[se] への pointerdown + pointermove で aspect 固定 resize live が反映", () => {
 		// layer: 0,0 scale=1, content 100x50
 		// pivot (nw) at slide (0,0). 'se' anchor at slide (100, 50).
-		// pointermove to slide (200, 100) = clientX=100, clientY=50 (stageScale=0.5)
+		// stageScale=0.45 (fit×0.9) → slide(200,100) は client (200*0.45, 100*0.45)=(90,45)
 		// → V=(200,100), V·d=200*100+100*50=25000, |d|^2=12500, t=2
 		// → newScaleX=2, newScaleY=2, newCenter=(0,0)+(100,50)=(100,50), newTransX=50, newTransY=25
 		seed([makeImageLayer(1, "u-1")]);
@@ -158,8 +158,8 @@ describe("SlideEditView (v4 Group D D-3c) - resize", () => {
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 		expect(anchorSe).not.toBeNull();
 
-		dispatchPointer(anchorSe!, "pointerdown", { clientX: 50, clientY: 25 });
-		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
+		dispatchPointer(anchorSe!, "pointerdown", { clientX: 45, clientY: 22.5 });
+		dispatchPointer(stage!, "pointermove", { clientX: 90, clientY: 45 });
 
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
 		// live: scaleX=2, scaleY=2, transX=50, transY=25 → visW = 100*2 = 200, visH = 50*2 = 100
@@ -178,9 +178,9 @@ describe("SlideEditView (v4 Group D D-3c) - resize", () => {
 		const anchorSe = container.querySelector<HTMLElement>('[data-resize-anchor="se"]');
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
-		dispatchPointer(anchorSe!, "pointerdown", { clientX: 50, clientY: 25 });
-		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
-		dispatchPointer(stage!, "pointerup", { clientX: 100, clientY: 50 });
+		dispatchPointer(anchorSe!, "pointerdown", { clientX: 45, clientY: 22.5 });
+		dispatchPointer(stage!, "pointermove", { clientX: 90, clientY: 45 });
+		dispatchPointer(stage!, "pointerup", { clientX: 90, clientY: 45 });
 
 		const stored = useSlideStore.getState().slides[0].layers[0];
 		expect(stored.scaleX).toBe(2);
@@ -192,7 +192,7 @@ describe("SlideEditView (v4 Group D D-3c) - resize", () => {
 
 	it("anchor[nw] resize は se 側 (100,50) が pivot として固定", () => {
 		// pivot (se) at slide (100, 50). 'nw' anchor at slide (0, 0).
-		// pointermove to slide (-100, -50) = clientX=-50, clientY=-25
+		// stageScale=0.45 → slide(-100,-50) は client (-45,-22.5)
 		// signX=-1, signY=-1, baseVisW=100, baseVisH=50
 		// V = (-100,-50) - (100,50) = (-200, -100)
 		// dot = -200 * -1 * 100 + -100 * -1 * 50 = 20000 + 5000 = 25000
@@ -206,8 +206,8 @@ describe("SlideEditView (v4 Group D D-3c) - resize", () => {
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
 		dispatchPointer(anchorNw!, "pointerdown", { clientX: 0, clientY: 0 });
-		dispatchPointer(stage!, "pointermove", { clientX: -50, clientY: -25 });
-		dispatchPointer(stage!, "pointerup", { clientX: -50, clientY: -25 });
+		dispatchPointer(stage!, "pointermove", { clientX: -45, clientY: -22.5 });
+		dispatchPointer(stage!, "pointerup", { clientX: -45, clientY: -22.5 });
 
 		const stored = useSlideStore.getState().slides[0].layers[0];
 		expect(stored.scaleX).toBe(2);
@@ -253,11 +253,11 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 		expect(rotateHandle).not.toBeNull();
 
-		// stageScale = 0.5, center at slide (50,25) = client (25, 12.5)
-		// start at (200, 12.5) client = slide (400, 25) → angle 0 (delta x = 350, dy = 0)
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 200, clientY: 12.5 });
-		// move to (25, 200) client = slide (50, 400) → angle = atan2(375, 0) = PI/2
-		dispatchPointer(stage!, "pointermove", { clientX: 25, clientY: 200 });
+		// stageScale = 0.45 (fit×0.9), center at slide (50,25) = client (22.5, 11.25)
+		// start client (180, 11.25) = slide (400, 25) → angle 0 (delta x = 350, dy = 0)
+		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		// move client (22.5, 180) = slide (50, 400) → angle = atan2(375, 0) = PI/2
+		dispatchPointer(stage!, "pointermove", { clientX: 22.5, clientY: 180 });
 
 		const frame = container.querySelector<HTMLElement>("[data-edit-selection-frame]");
 		expect(frame!.dataset.gesturing).toBe("true");
@@ -272,9 +272,9 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 200, clientY: 12.5 });
-		dispatchPointer(stage!, "pointermove", { clientX: 25, clientY: 200 });
-		dispatchPointer(stage!, "pointerup", { clientX: 25, clientY: 200 });
+		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(stage!, "pointermove", { clientX: 22.5, clientY: 180 });
+		dispatchPointer(stage!, "pointerup", { clientX: 22.5, clientY: 180 });
 
 		const stored = useSlideStore.getState().slides[0].layers[0];
 		expect(stored.rotation).toBeCloseTo(90, 5);
@@ -288,17 +288,17 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
-		// start (200, 12.5) client = slide (400, 25), angle 0
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 200, clientY: 12.5, shiftKey: true });
+		// start client (180, 11.25) = slide (400, 25), angle 0 (stageScale=0.45)
+		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25, shiftKey: true });
 		// 移動先: 約 22° (15 と 30 の間に近い) → slide 中心 (50,25) からの角度
-		// 想定: 50+100*cos(22°), 25+100*sin(22°) ≈ (50+92.7, 25+37.5) = (142.7, 62.5)
-		// → client (71.3, 31.2)
+		// 想定: 50+100*cos(22°), 25+100*sin(22°) ≈ (50+92.7, 25+37.5) = slide (142.7, 62.5)
+		// → client = slide ×0.45 = (64.215, 28.125)
 		dispatchPointer(stage!, "pointermove", {
-			clientX: 71.3,
-			clientY: 31.2,
+			clientX: 64.215,
+			clientY: 28.125,
 			shiftKey: true,
 		});
-		dispatchPointer(stage!, "pointerup", { clientX: 71.3, clientY: 31.2, shiftKey: true });
+		dispatchPointer(stage!, "pointerup", { clientX: 64.215, clientY: 28.125, shiftKey: true });
 
 		const stored = useSlideStore.getState().slides[0].layers[0];
 		// 22° は 15° に snap される
@@ -311,8 +311,8 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		selectByPointerOnLayer(1);
 		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 200, clientY: 12.5 });
-		dispatchPointer(stage!, "pointerup", { clientX: 200, clientY: 12.5 });
+		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(stage!, "pointerup", { clientX: 180, clientY: 11.25 });
 		expect(useHistoryStore.getState().past.length).toBe(0);
 	});
 });

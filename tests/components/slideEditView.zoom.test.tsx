@@ -85,21 +85,22 @@ describe("SlideEditView ズーム反映 (v4 Group D D-7)", () => {
 		});
 	};
 
-	it("zoom=1.0 では fit-to-area scale そのまま (800x600 / 1600x800 → stage 800x400)", () => {
+	// fit-to-area には FIT_MARGIN_RATIO=0.9 が掛かる (全体表示で一回り小さく余白を残す)。
+	it("zoom=1.0 では fit×0.9 (800x600 / 1600x800 → scale 0.45 → stage 720x360)", () => {
 		render(makeSlide(), 800, 600);
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
-		expect(stage?.style.width).toBe("800px");
-		expect(stage?.style.height).toBe("400px");
+		expect(stage?.style.width).toBe("720px");
+		expect(stage?.style.height).toBe("360px");
 	});
 
-	it("ズームインボタンで実効 scale が ×1.1 され stage が拡大 (800→880)", () => {
+	it("ズームインボタンで実効 scale が ×1.1 され stage が拡大 (720→792)", () => {
 		render(makeSlide(), 800, 600);
 		const btn = container.querySelector<HTMLButtonElement>('[data-zoom-op="zoom-in"]');
 		act(() => btn?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
-		// 1600 * (0.5 * 1.1) = 880
-		expect(stage?.style.width).toBe("880px");
-		expect(stage?.style.height).toBe("440px");
+		// 1600 * (0.5 * 0.9 * 1.1) = 792
+		expect(stage?.style.width).toBe("792px");
+		expect(stage?.style.height).toBe("396px");
 	});
 
 	it("全体表示 (%表示クリック) でズームをリセット", () => {
@@ -110,7 +111,7 @@ describe("SlideEditView ズーム反映 (v4 Group D D-7)", () => {
 		const showAll = container.querySelector<HTMLButtonElement>('[data-zoom-op="show-all"]');
 		act(() => showAll?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-stage]");
-		expect(stage?.style.width).toBe("800px");
+		expect(stage?.style.width).toBe("720px"); // fit×0.9
 	});
 
 	it("ズーム%表示が現在の zoom を反映", () => {
