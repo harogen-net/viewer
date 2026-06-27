@@ -47,8 +47,20 @@ interface UseSlideshowPlayerArgs {
 	intervalMs: number;
 }
 
-// 連続 join 判定: prev が joining かつ 可視レイヤー構造 (種別 + image=imageId/isText / text=text) が一致。
-// legacy SlideShowViewController.checkSlidesSame 準拠。
+// 連続 join 判定 (tween するか)。判定基準は「非表示を除いたレイヤー構造の一致」:
+//   1. prev が joining (次スライドへ連結する意思)
+//   2. 非表示レイヤーを除いた可視レイヤーの **重なり順 (配列順)** が一致 (= 同数 + 各 index で対応)
+//   3. 画像レイヤーは **画像が同一** (imageId 一致)
+//   4. 文字レイヤーは **文字が同一** (text 一致)
+//
+// legacy SlideShowViewController.checkSlidesSame をベースにするが、legacy が追加で見ていた
+// image の isText / その他 type の layer.id は判定基準に含めない (上記 4 条件のみ)。
+//   - isText (テキスト画像フラグ) は「画像が同一か」とは無関係 → 同一 imageId なら一致扱い。
+//     (legacy はここで弾いてしまい、同一画像のズーム/移動が tween されず fade に落ちる不具合があった)
+// また legacy は「可視で構造判定 → 全配列 index で transform 適用」という不整合があり、
+// 非表示レイヤーの位置がスライド間でずれると別レイヤーに transform が当たって崩れた。
+// 本実装は判定も描画 (SlideshowStage) も **可視レイヤーのみ・可視配列 index** で一貫させ、
+// 非表示レイヤーの有無/位置に影響されないようにしている (legacy の非表示バグの修正)。
 export const sameJoinStructure = (slide: Slide, prev: Slide | undefined): boolean => {
 	if (!prev || !prev.joining) return false;
 	const va = slide.layers.filter((l) => l.visible);
@@ -60,13 +72,12 @@ export const sameJoinStructure = (slide: Slide, prev: Slide | undefined): boolea
 		const l2 = vb[i];
 		if (l1.type !== l2.type) return false;
 		if (l1.type === "image" && l2.type === "image") {
+			// 画像が同一か = imageId のみで判定 (isText は見ない)。
 			if (l1.imageId !== l2.imageId) return false;
-			if (l1.isText !== l2.isText) return false;
 		} else if (l1.type === "text" && l2.type === "text") {
 			if (l1.text !== l2.text) return false;
-		} else if (l1.id !== l2.id) {
-			return false;
 		}
+		// その他 type は種別一致のみで可 (現行は image/text のみ)。
 	}
 	return true;
 };

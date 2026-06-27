@@ -2,9 +2,11 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SlideshowShell } from "../../src/components/SlideshowShell";
+import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useSlideshowStore } from "../../src/state/slideshowStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
+import type { ImageLayer } from "../../src/types/Layer";
 import type { Slide } from "../../src/types/Slide";
 
 // §9 スライドショー全画面シェルの UI 操作テスト (新エンジン useSlideshowPlayer ベース)。
@@ -21,6 +23,30 @@ function makeSlide(id: number, overrides: Partial<Slide> = {}): Slide {
 		disabled: false,
 		layers: [],
 		...overrides,
+	};
+}
+
+function imgLayer(id: number, imageId: string, o: Partial<ImageLayer> = {}): ImageLayer {
+	return {
+		id,
+		uuid: `l-${id}`,
+		name: "",
+		opacity: 1,
+		locked: false,
+		visible: true,
+		shared: false,
+		transX: 0,
+		transY: 0,
+		scaleX: 1,
+		scaleY: 1,
+		rotation: 0,
+		mirrorH: false,
+		mirrorV: false,
+		type: "image",
+		imageId,
+		clipRect: [0, 0, 0, 0],
+		isText: false,
+		...o,
 	};
 }
 
@@ -127,5 +153,71 @@ describe("SlideshowShell (§9)", () => {
 		expect(useSlideshowStore.getState().flipX).toBe(false);
 		act(() => ss("mirror-h")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		expect(useSlideshowStore.getState().flipX).toBe(true);
+	});
+});
+
+describe("SlideshowShell join keep tween (§9, transform/opacity/clip 補間)", () => {
+	beforeEach(() => {
+		useImageLibraryStore.setState({
+			imageById: { X: { dataURL: "data:image/png;base64,AA", name: "x" } },
+		});
+		useSlideshowStore.setState({
+			running: false,
+			intervalMs: 1000,
+			durationMs: 500,
+			flipX: false,
+			flipY: false,
+			startFullscreen: false,
+		});
+	});
+	afterEach(() => vi.useRealTimers());
+
+	// A(joining, img X clip 0) → B(img X 移動+clip) は同一画像のため keep tween:
+	// DOM を維持したまま transform / clip-path に transition を付け補間する (fade しない)。
+	const setupKeepPair = (): void => {
+		const A = makeSlide(1, {
+			joining: true,
+			layers: [imgLayer(1, "X", { clipRect: [0, 0, 0, 0] })],
+		});
+		const B = makeSlide(2, {
+			layers: [imgLayer(2, "X", { transX: 100, transY: 50, clipRect: [10, 20, 30, 40] })],
+		});
+		act(() => useSlideStore.getState().setSlides([A, B]));
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+	};
+
+	it("keep advance: 同一 DOM のまま wrapper transform に transition、img clip-path を補間", () => {
+		vi.useFakeTimers();
+		setupKeepPair();
+		const top = () => container.querySelector<HTMLElement>("[data-slideshow-top]");
+		const wrapperBefore = top()?.querySelector<HTMLElement>("[data-layer-id]");
+		const imgBefore = top()?.querySelector<HTMLImageElement>("img");
+		expect(wrapperBefore?.style.transition).toBe(""); // 初回はクロスフェード = transition 無し
+		expect(imgBefore?.style.clipPath).toContain("inset(0px 0px 0px 0px)"); // forceInset
+
+		act(() => vi.advanceTimersByTime(1000)); // B へ自動進行 (keep)
+
+		const wrapperAfter = top()?.querySelector<HTMLElement>("[data-layer-id]");
+		const imgAfter = top()?.querySelector<HTMLImageElement>("img");
+		// DOM ノードが維持される (= remount でなく transform 補間)
+		expect(wrapperAfter).toBe(wrapperBefore);
+		expect(imgAfter).toBe(imgBefore);
+		// 新スライドの transform に変化 + transition 付与
+		expect(wrapperAfter?.style.transform).toContain("translate(100px, 50px)");
+		expect(wrapperAfter?.style.transition).toContain("transform");
+		expect(wrapperAfter?.style.transition).toContain("opacity");
+		// clip-path も補間値 + transition
+		expect(imgAfter?.style.clipPath).toContain("inset(10px 20px 30px 40px)");
+		expect(imgAfter?.style.transition).toContain("clip-path");
+		// keep 中はクロスフェード (under) しない
+		expect(container.querySelector("[data-slideshow-under]")).toBeNull();
+	});
+
+	it("keep advance ではトップフレームに fade アニメーションを付けない", () => {
+		vi.useFakeTimers();
+		setupKeepPair();
+		act(() => vi.advanceTimersByTime(1000));
+		const top = container.querySelector<HTMLElement>("[data-slideshow-top]");
+		expect(top?.style.animation === "" || top?.style.animation == null).toBe(true);
 	});
 });

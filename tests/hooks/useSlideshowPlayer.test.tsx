@@ -87,6 +87,33 @@ describe("sameJoinStructure (join 連動判定)", () => {
 		expect(sameJoinStructure(slide(2, [txt(2, "hi")]), a)).toBe(true);
 		expect(sameJoinStructure(slide(2, [txt(2, "yo")]), a)).toBe(false);
 	});
+	it("同一 imageId なら isText が食い違っても一致 (isText は判定基準外)", () => {
+		// バグ例.hvz 由来: 同じ画像 (imageId) のズーム/移動なのに isText 残留で fade に落ちていた不具合。
+		const a = slide(1, [img(1, "A", { isText: false })], { joining: true });
+		const b = slide(2, [img(2, "A", { isText: true, scaleX: 2, scaleY: 2 })]);
+		expect(sameJoinStructure(b, a)).toBe(true);
+	});
+	it("非表示レイヤーは除外: 可視構造が一致すれば非表示の数/位置が違っても一致", () => {
+		// 非表示レイヤーの位置がスライド間でずれても、可視レイヤー構造が同じなら tween する
+		// (legacy の「非表示でアニメが崩れる」不具合を作らない)。
+		const a = slide(
+			1,
+			[img(1, "H", { visible: false }), img(2, "A"), img(3, "H2", { visible: false })],
+			{ joining: true }
+		);
+		const b = slide(2, [img(4, "A"), img(5, "H", { visible: false })]); // 非表示の数/位置が違う
+		expect(sameJoinStructure(b, a)).toBe(true);
+	});
+	it("可視レイヤーの重なり順が違えば不一致", () => {
+		const a = slide(1, [img(1, "A"), txt(2, "x")], { joining: true });
+		const b = slide(2, [txt(3, "x"), img(4, "A")]); // 順序が逆
+		expect(sameJoinStructure(b, a)).toBe(false);
+	});
+	it("可視レイヤーが 0 (全部非表示) → false", () => {
+		const a = slide(1, [img(1, "A", { visible: false })], { joining: true });
+		const b = slide(2, [img(2, "A", { visible: false })]);
+		expect(sameJoinStructure(b, a)).toBe(false);
+	});
 	it("prev undefined → false", () => {
 		expect(sameJoinStructure(slide(1, [img(1, "A")]), undefined)).toBe(false);
 	});

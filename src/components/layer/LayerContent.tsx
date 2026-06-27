@@ -15,14 +15,25 @@ import { LayerType } from "../../types/Layer";
 // hooks/useStorage が parseHvd 経由で imageLibraryStore に投入する。
 // clipRect は CSS clip-path: inset(top right bottom left) で適用 (legacy ImageView.ts L43-58 互換)。
 
-const ImageLayerContent: FC<{ layer: ImageLayer }> = ({ layer }) => {
+const ImageLayerContent: FC<{ layer: ImageLayer; clip?: ClipOptions }> = ({ layer, clip }) => {
 	const entry = useImageLibraryStore((s) => s.imageById[layer.imageId]);
 	if (entry) {
 		const [top, right, bottom, left] = layer.clipRect;
 		const isClipped = top !== 0 || right !== 0 || bottom !== 0 || left !== 0;
-		const clipStyle: CSSProperties = isClipped
-			? { clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px)` }
-			: {};
+		// 通常は clip がある時だけ clip-path を出す。スライドショー keep tween では
+		// forceInset で常に inset を出し (clip 無し=inset 0)、隣接フレーム間で値を補間可能にする。
+		const showClip = isClipped || !!clip?.forceInset;
+		const clipStyle: CSSProperties = {};
+		if (showClip) {
+			const inset = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+			clipStyle.clipPath = inset;
+			clipStyle.WebkitClipPath = inset;
+		}
+		// tween 時のみ clip-path に transition を付与 (legacy ImageView 同様、bezier 補間)。
+		if (clip?.transitionMs != null) {
+			const b = "cubic-bezier(.4,0,.7,1)";
+			clipStyle.transition = `clip-path ${clip.transitionMs}ms ${b}, -webkit-clip-path ${clip.transitionMs}ms ${b}`;
+		}
 		return (
 			<img
 				src={entry.dataURL}
@@ -46,8 +57,7 @@ const ImageLayerContent: FC<{ layer: ImageLayer }> = ({ layer }) => {
 				padding: 2,
 				boxSizing: "border-box",
 			}}
-			title={`img ${layer.imageId} (no dataURL)`}
-		>
+			title={`img ${layer.imageId} (no dataURL)`}>
 			img {layer.imageId.slice(0, 8)}
 		</div>
 	);
@@ -76,11 +86,22 @@ const TextLayerContent: FC<{ layer: TextLayer }> = ({ layer }) => (
 );
 
 /**
+ * 画像 clip-path の描画オプション (スライドショー keep tween 専用)。
+ *   - forceInset: clip 無しでも inset(0...) を出す (隣接フレームで clip-path を補間可能にする)
+ *   - transitionMs: 指定時、clip-path に transition を付与し補間する
+ */
+export interface ClipOptions {
+	forceInset?: boolean;
+	transitionMs?: number;
+}
+
+/**
  * Layer discriminated union を type ごとの FC に dispatch する。
  * shape / layer (group) 型は v2 起点では未使用、未対応 type は null を返す。
+ * clip は image レイヤーのスライドショー tween 時のみ指定 (それ以外は従来どおり)。
  */
-export const LayerContent: FC<{ layer: Layer }> = ({ layer }) => {
-	if (layer.type === LayerType.IMAGE) return <ImageLayerContent layer={layer} />;
+export const LayerContent: FC<{ layer: Layer; clip?: ClipOptions }> = ({ layer, clip }) => {
+	if (layer.type === LayerType.IMAGE) return <ImageLayerContent layer={layer} clip={clip} />;
 	if (layer.type === LayerType.TEXT) return <TextLayerContent layer={layer} />;
 	return null;
 };

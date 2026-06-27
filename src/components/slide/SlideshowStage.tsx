@@ -100,7 +100,12 @@ export const SlideshowStage: FC<SlideshowStageProps> = ({
 					// key は可視レイヤー内の index (uuid ではない) → join 同構造なら DOM 維持で tween。
 					// biome-ignore lint/suspicious/noArrayIndexKey: keep tween のため index キーが必須
 					<div key={i} style={wrapperStyle} data-layer-id={layer.id} data-layer-type={layer.type}>
-						<LayerContent layer={layer} />
+						{/* スライドショーでは常に clip-path inset を出し (forceInset)、keep tween 時は
+						    clip-path にも transition を付けて clipRect を補間する (legacy ImageView 互換)。 */}
+						<LayerContent
+							layer={layer}
+							clip={{ forceInset: true, transitionMs: tween ? tweenMs : undefined }}
+						/>
 					</div>
 				);
 			})}
