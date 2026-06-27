@@ -9,9 +9,10 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import type { FC } from "react";
+import type { ChangeEvent, FC } from "react";
 import { useRef } from "react";
 import { useDocumentMutation } from "../../hooks/useDocumentMutation";
+import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
 import { useLayerClipboard } from "../../hooks/useLayerClipboard";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useImageLibraryStore } from "../../state/imageLibraryStore";
@@ -59,6 +60,10 @@ export const EditOpsPanel: FC = () => {
 	const { applySlideChangeLive, recordHistory, snapshot } = useDocumentMutation();
 	const layer = useLayerMutation();
 	const clipboard = useLayerClipboard();
+	const { addImageFile } = useImageLibraryMutation();
+	const replaceInputRef = useRef<HTMLInputElement>(null);
+	// 差し替えモード: "single" = 選択レイヤーのみ / "all" = 同一画像を全スライドで一括差し替え。
+	const replaceModeRef = useRef<"single" | "all">("single");
 
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
@@ -158,9 +163,9 @@ export const EditOpsPanel: FC = () => {
 	const isImageLayer = selectedLayer?.type === "image";
 	const imageLayer = isImageLayer
 		? (selectedLayer as {
-			clipRect: [number, number, number, number];
-			imageId: string;
-		})
+				clipRect: [number, number, number, number];
+				imageId: string;
+			})
 		: null;
 	const clipContentSize = isImageLayer ? measureContentSize() : null;
 	const handleClipChange = (edgeIndex: 0 | 1 | 2 | 3, value: number) => {
@@ -188,6 +193,27 @@ export const EditOpsPanel: FC = () => {
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
+	};
+
+	// 画像差し替え (ImageLayer のみ、legacy imageRef 相当): 選択ファイルを画像ライブラリへ登録し、
+	// imageId を差し替える (transform / clipRect は維持)。編集操作なので locked は不可。
+	//   - single: 選択中レイヤーのみ (replaceImageId)
+	//   - all:    同一 imageId を全スライドで一括差し替え (replaceImageIdAll、legacy forALL 相当)
+	const openReplacePicker = (mode: "single" | "all") => {
+		replaceModeRef.current = mode;
+		replaceInputRef.current?.click();
+	};
+	const handleReplaceImageFile = async (e: ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		e.target.value = ""; // 同じファイルを連続選択できるよう reset
+		if (!file || !imageLayer || layerIndex < 0) return;
+		const fromImageId = imageLayer.imageId;
+		const newImageId = await addImageFile(file);
+		if (replaceModeRef.current === "all") {
+			layer.replaceImageIdAll(fromImageId, newImageId);
+		} else {
+			layer.replaceImageId(layerIndex, newImageId);
+		}
 	};
 
 	return (
@@ -242,9 +268,29 @@ export const EditOpsPanel: FC = () => {
 							</ActionIcon>
 						</Tooltip>
 					</Group>
-					{/* 画像ダウンロード (ImageLayer のみ): 元画像をファイル保存 */}
+					{/* 画像差し替え / ダウンロード (ImageLayer のみ) */}
 					{imageLayer && (
 						<Group gap={4}>
+							<Tooltip label="画像を差し替え (このレイヤーのみ)">
+								<ActionIcon
+									variant="default"
+									onClick={() => openReplacePicker("single")}
+									disabled={!canEditLayer}
+									data-edit-op="replace-image"
+									aria-label="replace image">
+									🔄
+								</ActionIcon>
+							</Tooltip>
+							<Tooltip label="画像を差し替え (同一画像を全スライドで一括)">
+								<ActionIcon
+									variant="default"
+									onClick={() => openReplacePicker("all")}
+									disabled={!canEditLayer}
+									data-edit-op="replace-image-all"
+									aria-label="replace image all">
+									🔁
+								</ActionIcon>
+							</Tooltip>
 							<Tooltip label="この画像をダウンロード">
 								<ActionIcon
 									variant="default"
@@ -254,11 +300,17 @@ export const EditOpsPanel: FC = () => {
 									⬇
 								</ActionIcon>
 							</Tooltip>
+							<input
+								ref={replaceInputRef}
+								type="file"
+								accept="image/*"
+								onChange={handleReplaceImageFile}
+								style={{ display: "none" }}
+								data-edit-op="replace-image-input"
+							/>
 						</Group>
 					)}
-
 				</Group>
-
 
 				{/* 数値プロパティ (X / Y / 拡大率 / 回転、§12 Enter/↑↓/ホイール調整) */}
 				{selectedLayer && hasSelection && (
@@ -312,7 +364,12 @@ export const EditOpsPanel: FC = () => {
 								onAdjustStart={handlePropStart}
 								onAdjustEnd={() => handlePropEnd("edit scale")}
 							/>
-							<Text size="xs" c="dimmed" w={40} onClick={() => layer.resetRotation(layerIndex)} style={{ cursor: "pointer" }}>
+							<Text
+								size="xs"
+								c="dimmed"
+								w={40}
+								onClick={() => layer.resetRotation(layerIndex)}
+								style={{ cursor: "pointer" }}>
 								rot
 							</Text>
 							<NumberAdjustInput
@@ -335,7 +392,6 @@ export const EditOpsPanel: FC = () => {
 									↺
 								</ActionIcon>
 							</Tooltip> */}
-
 						</Group>
 					</Stack>
 				)}

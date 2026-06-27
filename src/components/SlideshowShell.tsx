@@ -128,6 +128,7 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	const toggleFlipX = useSlideshowStore((s) => s.toggleFlipX);
 	const toggleFlipY = useSlideshowStore((s) => s.toggleFlipY);
 	const startFullscreen = useSlideshowStore((s) => s.startFullscreen);
+	const setStartFullscreen = useSlideshowStore((s) => s.setStartFullscreen);
 
 	const { frame, position, enabledCount, paused, togglePause, next, prev } = useSlideshowPlayer({
 		open,
@@ -191,13 +192,18 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 		return () => window.removeEventListener("resize", onResize);
 	}, [open]);
 
-	// fullscreen 状態追従。
+	// fullscreen 状態追従。スライドショー中の全画面操作 (ボタン / ESC) を本体設定
+	// (startFullscreen) にも反映する (= 次回開始時の全画面有無に引き継ぐ)。
 	useEffect(() => {
 		if (!open) return;
-		const onFs = () => setIsFullscreen(document.fullscreenElement === overlayRef.current);
+		const onFs = () => {
+			const isFs = document.fullscreenElement === overlayRef.current;
+			setIsFullscreen(isFs);
+			setStartFullscreen(isFs);
+		};
 		document.addEventListener("fullscreenchange", onFs);
 		return () => document.removeEventListener("fullscreenchange", onFs);
-	}, [open]);
+	}, [open, setStartFullscreen]);
 
 	// カーソル制御 (コントロール UI は CSS hover で別管理)。
 	//   - ポーズ中: 砂時計 (wait) を常時表示 (非表示タイマは止める)。

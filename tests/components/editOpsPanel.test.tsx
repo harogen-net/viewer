@@ -146,13 +146,15 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 	// 複製/削除/spread/回転±90/フィット/整列 は EditToolbar へ移設 (editToolbar.test.tsx)。
 	// 本パネルに残るのは mirror / 回転リセット / 透明度 / 変形コピペ / clip / テキスト / 数値入力。
 
-	it("選択 layer なしでは編集系ボタンが disabled で案内表示", () => {
+	it("選択 layer なしでは編集系ボタンが disabled、数値/透明度グループは非表示", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
 		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled).toBe(
 			true
 		);
-		expect(container.textContent).toContain("レイヤーを選択してください");
+		// 数値プロパティ / 透明度は選択時のみ描画される。
+		expect(container.querySelector('[data-edit-op-group="props"]')).toBeNull();
+		expect(container.querySelector('[data-edit-op-group="opacity"]')).toBeNull();
 	});
 
 	it("locked layer は編集系ボタンが disabled で案内表示", () => {
@@ -181,11 +183,16 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 describe("EditOpsPanel (v4 Group D D-4b) - transform ops (残留分)", () => {
 	// rotate ±90 / fit / align は EditToolbar へ移設。回転リセットは回転入力に統合済み。
 
-	it("reset-rotation (回転リセット) で rotation = 0", () => {
+	it("回転リセット ('rot' ラベルクリック) で rotation = 0", () => {
 		seedSlide([makeImageLayer(1, "u-1", { rotation: 45 })]);
 		render();
 		selectLayer("u-1");
-		clickByOp("reset-rotation");
+		// 回転リセットは専用ボタンを廃し、数値入力左の "rot" ラベルクリックに統合された。
+		const rotLabel = Array.from(container.querySelectorAll<HTMLElement>("*")).find(
+			(el) => el.textContent === "rot" && el.children.length === 0
+		);
+		if (!rotLabel) throw new Error("rot label not found");
+		act(() => rotLabel.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(0);
 	});
 
@@ -234,6 +241,27 @@ describe("EditOpsPanel 画像ダウンロード", () => {
 		render();
 		selectLayer("t-1");
 		expect(container.querySelector('[data-edit-op="download-image"]')).toBeNull();
+	});
+
+	it("ImageLayer 選択時に画像差し替え (単体/全) ボタンが描画される", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		expect(container.querySelector('[data-edit-op="replace-image"]')).toBeNull();
+		selectLayer("u-1");
+		expect(container.querySelector('[data-edit-op="replace-image"]')).not.toBeNull();
+		expect(container.querySelector('[data-edit-op="replace-image-all"]')).not.toBeNull();
+	});
+
+	it("locked ImageLayer では差し替えボタンが disabled", () => {
+		seedSlide([makeImageLayer(1, "u-1", { locked: true })]);
+		render();
+		selectLayer("u-1");
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="replace-image"]')?.disabled
+		).toBe(true);
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="replace-image-all"]')?.disabled
+		).toBe(true);
 	});
 });
 

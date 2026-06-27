@@ -203,15 +203,7 @@ describe("LayerListPanel (v4 Group D D-5)", () => {
 		expect(rowA?.getAttribute("data-selected")).toBe("false");
 	});
 
-	it("status text に layers 件数 + 選択中ラベル", () => {
-		const target = makeImageLayer(2, "b", "img-bbbb");
-		seedSlide([makeImageLayer(1, "a", "img-aaaa"), target]);
-		useLayerStore.getState().setSelectedLayer(target);
-		render();
-		expect(container.textContent).toContain("2 layers");
-		expect(container.textContent).toContain("selected:");
-		expect(container.textContent).toContain("#2");
-	});
+	// (status text 表示は UI 調整で撤去されたためテスト削除)
 });
 
 // 順序変更 (ui微修正で EditOpsPanel → LayerListPanel に移設)。

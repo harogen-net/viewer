@@ -194,10 +194,16 @@ export const useSlideshowPlayer = ({
 			const nextEi = (stepRef.current + dir + len) % len;
 			stepRef.current = nextEi;
 			show(nextEi, false); // 手動移動はクロスフェード (tween しない)
-			setPaused(false);
-			scheduleNext(durationOf(nextEi));
+			if (paused) {
+				// ポーズ中の手動移動 (prev/next) は pause を維持し、自動進行を再開しない。
+				// resume 時に移動先スライドをフル時間表示できるよう残り時間を更新しておく。
+				clearTimer();
+				remainingRef.current = durationOf(nextEi);
+			} else {
+				scheduleNext(durationOf(nextEi));
+			}
 		},
-		[len, show, durationOf, scheduleNext]
+		[len, show, durationOf, scheduleNext, clearTimer, paused]
 	);
 
 	const next = useCallback(() => step(1), [step]);

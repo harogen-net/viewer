@@ -208,4 +208,22 @@ describe("useSlideshowPlayer (自動進行・durationRatio・ループ・pause)"
 		act(() => vi.advanceTimersByTime(10000));
 		expect(api.position).toBe(1);
 	});
+
+	it("ポーズ中の手動移動 (next/prev) は pause を維持し、自動進行を再開しない", () => {
+		vi.useFakeTimers();
+		mount([slide(1, [img(1, "A")]), slide(2, [img(2, "B")]), slide(3, [img(3, "C")])], -1, 1000);
+		act(() => api.togglePause());
+		expect(api.paused).toBe(true);
+		// 手動 next: フレームは進むが paused のまま
+		act(() => api.next());
+		expect(api.position).toBe(2);
+		expect(api.paused).toBe(true);
+		// 自動進行は再開しない (タイマを進めても止まったまま)
+		act(() => vi.advanceTimersByTime(5000));
+		expect(api.position).toBe(2);
+		// prev も同様に pause 維持
+		act(() => api.prev());
+		expect(api.position).toBe(1);
+		expect(api.paused).toBe(true);
+	});
 });

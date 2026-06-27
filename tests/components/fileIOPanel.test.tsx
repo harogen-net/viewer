@@ -196,10 +196,11 @@ describe("FileIOPanel 保存で未保存状態を解除", () => {
 		});
 	};
 
-	it("保存 (新規) 後に modified=false へ戻り、meta.title が保存名に同期される", async () => {
+	it("保存 (統合ボタン) 後に modified=false へ戻り、meta.title が保存名に同期される", async () => {
 		await render();
 		seedEditedDoc();
-		click(container.querySelector<HTMLButtonElement>('[data-action="save-new"]'));
+		// 統合「保存」ボタン。title="(new)" (未命名) なので新規 (採番) 保存になる。
+		click(container.querySelector<HTMLButtonElement>('[data-action="save"]'));
 		await act(async () => {});
 		expect(saveMock).toHaveBeenCalled();
 		const s = useViewerDocumentStore.getState();
@@ -271,25 +272,23 @@ describe("FileIOPanel ビジュアルピッカー", () => {
 describe("FileIOPanel 閲覧モード (readOnly)", () => {
 	const has = (sel: string): boolean => !!container.querySelector(sel);
 
-	it("書込系 (新規/保存/上書き/import/削除/元に戻す) を隠し、開く系・出力は残す", async () => {
+	it("書込系の表トグル (保存/再ロード/削除) を隠し、開く系は残す", async () => {
 		await render(true);
-		// 書込系は非表示
-		expect(has('[data-action="new"]')).toBe(false);
-		expect(has('[data-action="import"]')).toBe(false);
-		expect(has('[data-action="save-new"]')).toBe(false);
-		expect(has('[data-action="save-override"]')).toBe(false);
+		// 表に出ている書込系ボタンは非表示 (新規/保存/インポート/エクスポートは Menu 内 = 既定で
+		// dropdown 未マウントのため直接クエリ不可。ここでは表トグルの有無のみ検証する)。
+		expect(has('[data-action="save"]')).toBe(false);
 		expect(has('[data-action="reload"]')).toBe(false);
 		expect(has('[data-action="delete"]')).toBe(false);
-		// 開く系・出力は残す
+		// 開く系は残す
 		expect(has('[data-action="open-picker"]')).toBe(true);
 		expect(has('[data-file-nav="prev"]')).toBe(true);
 		expect(has('[data-file-nav="next"]')).toBe(true);
-		expect(has('[data-action="export-all-zip"]')).toBe(true);
 	});
 
-	it("編集モード (既定) では書込系が出る", async () => {
+	it("編集モード (既定) では表の書込系 (保存/削除/再ロード) が出る", async () => {
 		await render(false);
-		expect(has('[data-action="save-new"]')).toBe(true);
-		expect(has('[data-action="new"]')).toBe(true);
+		expect(has('[data-action="save"]')).toBe(true);
+		expect(has('[data-action="delete"]')).toBe(true);
+		expect(has('[data-action="reload"]')).toBe(true);
 	});
 });

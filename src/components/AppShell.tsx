@@ -3,6 +3,7 @@ import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useBeforeUnloadGuard } from "../hooks/useBeforeUnloadGuard";
 import { useImageDimensionBackfill } from "../hooks/useImageLibraryMutation";
+import { useLayerAutoSelect } from "../hooks/useLayerAutoSelect";
 import { useRectSyncConfig } from "../hooks/useLayerMutation";
 import { useShellKeyboard } from "../hooks/useShellKeyboard";
 import { useDocSettingsStore } from "../state/docSettingsStore";
@@ -11,6 +12,7 @@ import { useSlideStore } from "../state/slideStore";
 import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 import { useViewerModeStore, ViewerMode } from "../state/viewerModeStore";
 import { AlertHost } from "./common/AlertHost";
+import { ToastHost } from "./common/ToastHost";
 import { DocumentSettingsModal } from "./panels/DocumentSettingsModal";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { EditToolbar } from "./panels/EditToolbar";
@@ -238,7 +240,7 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 					</aside>
 				)}
 			</div>
-		</div >
+		</div>
 	);
 };
 
@@ -276,13 +278,26 @@ const listExpandedStyle: CSSProperties = {
 
 const appTheme = createTheme({
 	colors: {
-		red: ["#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000"],
+		red: [
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+			"#FF0000",
+		],
 	},
 });
 
 export const AppShell: FC = () => {
 	// 未保存変更があるとタブ閉じ/リロードを警告 (アプリ内置換は FileIOPanel 側で確認)。
 	useBeforeUnloadGuard();
+	// スライド遷移時に対応レイヤー (同一画像/テキスト/同形状) を自動選択 (legacy 相当)。
+	useLayerAutoSelect();
 	const mode = useViewerModeStore((s) => s.mode);
 	const editable = mode === ViewerMode.EDIT;
 	// 内部動作モード (レガシー相当) でレイアウトが変わる。ViewerMode (起動モード) とは別軸:
@@ -308,6 +323,7 @@ export const AppShell: FC = () => {
 			</div>
 			<ProgressBar />
 			<AlertHost />
+			<ToastHost />
 		</MantineProvider>
 	);
 };
