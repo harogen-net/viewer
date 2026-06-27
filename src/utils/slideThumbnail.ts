@@ -189,6 +189,32 @@ export const pickEvenIndices = (total: number, n: number): number[] => {
 export const DEFAULT_MAX_THUMBNAILS = 8;
 
 /**
+ * 選択スライド (allSlides 全体の index) が active (非 disabled) 配列の何番目かを返す (純関数)。
+ * selectedIndex が範囲外、または選択スライドが disabled (active に無い) なら 0 (先頭起点)。
+ */
+export const resolveStripStartPos = (
+	allSlides: Slide[],
+	active: Slide[],
+	selectedIndex?: number
+): number => {
+	if (selectedIndex == null || selectedIndex < 0 || selectedIndex >= allSlides.length) return 0;
+	const idx = active.indexOf(allSlides[selectedIndex]);
+	return idx >= 0 ? idx : 0;
+};
+
+/**
+ * active 配列を startPos 起点に回転し、maxCount 枚を均等ピックした順序を返す (純関数)。
+ * 枚数・均等ピックの順序は pickEvenIndices に委ねる (= 起点だけ回転で変える)。
+ * 例: pickStripOrder([1,2,3,4,5], 8, 2) → [3,4,5,1,2]。
+ */
+export const pickStripOrder = <T>(active: T[], maxCount: number, startPos: number): T[] => {
+	if (active.length === 0) return [];
+	const s = startPos > 0 && startPos < active.length ? startPos : 0;
+	const rotated = s === 0 ? active : [...active.slice(s), ...active.slice(0, s)];
+	return pickEvenIndices(rotated.length, maxCount).map((i) => rotated[i]);
+};
+
+/**
  * ViewerDocument から代表スライドを 1 枚選んで dataURL を返す。対象 slide が無ければ null。
  * options.pages で代表 slide を指定 (既定は durationRatio 降順先頭)。
  */
@@ -215,17 +241,27 @@ export interface DocThumbnailStrip {
  * **横方向に連結した 1 枚のフィルムストリップ画像** + コマ数を返す。
  * 各コマは frameMaxPx に収めた等寸。active が 0 枚なら null。
  * (表示側は frames で 1 コマ幅を割り出し、通常 1 コマ目・ホバーで順次切替する)
+ *
+ * selectedIndex (doc.slides 全体の index) を渡すと、その選択スライドを **起点** に active を
+ * 回転してからピックする (枚数・均等ピックの順序ロジックは不変、開始位置だけ選択スライドにする)。
+ * 例: 有効 5 枚で slide3 (index 2) 選択 → 3,4,5,1,2 の順。選択が無効/disabled なら先頭起点。
  */
 export const generateDocThumbnailStrip = async (
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	options?: { maxCount?: number; frameMaxPx?: number; mimeType?: string; quality?: number }
+	options?: {
+		maxCount?: number;
+		frameMaxPx?: number;
+		mimeType?: string;
+		quality?: number;
+		selectedIndex?: number;
+	}
 ): Promise<DocThumbnailStrip | null> => {
 	const active = doc.slides.filter((s) => !s.disabled);
 	if (active.length === 0) return null;
-	const picked = pickEvenIndices(active.length, options?.maxCount ?? DEFAULT_MAX_THUMBNAILS).map(
-		(i) => active[i]
-	);
+	// 選択スライドを起点に active を回転 → 均等ピック (選択が範囲外/disabled なら先頭起点 = 従来動作)。
+	const startPos = resolveStripStartPos(doc.slides, active, options?.selectedIndex);
+	const picked = pickStripOrder(active, options?.maxCount ?? DEFAULT_MAX_THUMBNAILS, startPos);
 	// コマ寸法は先頭コマのアスペクトを frameMaxPx に収めて決定 (全コマ等寸でクロップを単純化)。
 	const base = picked[0];
 	const maxPx = options?.frameMaxPx ?? 240;

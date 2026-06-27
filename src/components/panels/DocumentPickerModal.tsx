@@ -123,6 +123,9 @@ const ThumbnailStrip: FC<{ thumb: string; frames: number; alt: string }> = ({
 		spriteStyle = {
 			width: dispW,
 			height: dispH,
+			// flex 子は既定で縮小 (flex-shrink:1) され box 幅に詰められて左寄せクロップになる。
+			// flexShrink:0 で dispW を維持し、親の justify/align center + overflow:hidden で中央クロップにする。
+			flexShrink: 0,
 			backgroundImage: `url(${thumb})`,
 			backgroundRepeat: "no-repeat",
 			backgroundSize: `${dispW * frames}px ${dispH}px`,
