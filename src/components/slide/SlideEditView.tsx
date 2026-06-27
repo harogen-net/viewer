@@ -239,7 +239,7 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 					onPointerMove={onPointerMove}
 					onPointerUp={onPointerEnd}
 					onPointerCancel={onPointerEnd}>
-					<SlideView slide={slide} bgColor={bgColor} />
+					<SlideView slide={slide} bgColor={bgColor} live={live} />
 					<LayerEditOverlay slide={slide} stageScale={scale} stageRoot={scaledEl} live={live} />
 				</div>
 			</div>

@@ -1,4 +1,5 @@
 import type { CSSProperties, FC } from "react";
+import type { LiveTransform } from "../../hooks/useLayerGesture";
 import type { Slide } from "../../types/Slide";
 import { LayerView } from "../layer/LayerView";
 
@@ -17,9 +18,11 @@ export interface SlideViewProps {
 	slide: Slide;
 	/** ViewerDocument.bgColor を渡す。未指定なら白。 */
 	bgColor?: string;
+	/** 編集中ドラッグの暫定 transform (確定前)。一致 uuid のレイヤーをドラッグに即追従させる。 */
+	live?: LiveTransform | null;
 }
 
-export const SlideView: FC<SlideViewProps> = ({ slide, bgColor }) => {
+export const SlideView: FC<SlideViewProps> = ({ slide, bgColor, live }) => {
 	// position:relative + 固定サイズ + overflow:hidden で
 	// 子の LayerView (position:absolute) の原点と clipping を確立する。
 	const style: CSSProperties = {
@@ -35,9 +38,12 @@ export const SlideView: FC<SlideViewProps> = ({ slide, bgColor }) => {
 			{slide.layers.map((layer) => (
 				// 配列順 = 描画順 (先頭が下、末尾が上)。レガシー DOM 挿入順と同等。
 				// key は uuid (HVD 非保存の React 識別子、types/Layer.ts 規約)。
-				<LayerView key={layer.uuid} layer={layer} />
+				<LayerView
+					key={layer.uuid}
+					layer={layer}
+					live={live && live.uuid === layer.uuid ? live : null}
+				/>
 			))}
 		</div>
 	);
 };
-

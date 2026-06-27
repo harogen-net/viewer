@@ -318,3 +318,63 @@ describe("SlideEditView 選択枠経由の直接 drag (覆われても操作可)
 		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("u-1");
 	});
 });
+
+// 対象レイヤー本体 (data-layer-id の wrapper) が drag/resize/rotate 中に即追従する
+// (確定 = pointerup までガイドだけが動き本体が固まる旧挙動の修正)。
+describe("SlideEditView ドラッグ中のレイヤー本体ライブ追従", () => {
+	const layerWrapTransform = (id: number): string =>
+		container.querySelector<HTMLElement>(`[data-layer-id="${id}"]`)!.style.transform;
+
+	it("移動: pointermove で対象 layer wrapper の transform が即追従し、pointerup で確定値に一致", () => {
+		const layer = makeImageLayer(1, "u-1", { transX: 50, transY: 30 });
+		seed([layer]);
+		renderHost();
+		const wrapper = container.querySelector<HTMLElement>('[data-layer-id="1"]');
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		expect(wrapper!.style.transform).toBe("translate(50px, 30px) rotate(0deg) scale(1, 1)");
+
+		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
+		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 }); // scale 0.5 → delta 200,100
+		// 確定前でも本体が動く (旧挙動は translate(50,30) のまま固まっていた)
+		expect(layerWrapTransform(1)).toBe("translate(250px, 130px) rotate(0deg) scale(1, 1)");
+
+		dispatchPointer(stage!, "pointerup", { clientX: 100, clientY: 50 });
+		const stored = useSlideStore.getState().slides[0].layers[0];
+		expect(stored.transX).toBe(250);
+		expect(stored.transY).toBe(130);
+		// 確定後も同じ見た目 (store 値で描画)
+		expect(layerWrapTransform(1)).toBe("translate(250px, 130px) rotate(0deg) scale(1, 1)");
+	});
+
+	it("非選択 (drag していない) layer の transform は追従しない", () => {
+		const dragged = makeImageLayer(1, "u-1", { transX: 50, transY: 30 });
+		const other = makeImageLayer(2, "u-2", { transX: 0, transY: 0 });
+		seed([dragged, other]);
+		renderHost();
+		const wrapper = container.querySelector<HTMLElement>('[data-layer-id="1"]');
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
+		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
+		// drag 中の u-1 は動くが、u-2 は不変
+		expect(layerWrapTransform(1)).toBe("translate(250px, 130px) rotate(0deg) scale(1, 1)");
+		expect(layerWrapTransform(2)).toBe("translate(0px, 0px) rotate(0deg) scale(1, 1)");
+	});
+
+	it("回転ハンドル drag 中も対象 layer wrapper の rotate が即追従する", () => {
+		// handles テストと同条件: center=(50,25)、stageScale=0.5。
+		// start (200,12.5)=slide(400,25) angle0 → move (25,200)=slide(50,400) angle90° で +90°。
+		const layer = makeImageLayer(1, "u-1", { transX: 0, transY: 0 });
+		seed([layer]);
+		renderHost();
+		act(() => useLayerStore.getState().setSelectedLayer(layer)); // 選択中のみ rotate handle が出る
+		const handle = container.querySelector<HTMLElement>("[data-rotate-handle]");
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		expect(handle).not.toBeNull();
+		expect(layerWrapTransform(1)).toContain("rotate(0deg)");
+
+		dispatchPointer(handle!, "pointerdown", { clientX: 200, clientY: 12.5 });
+		dispatchPointer(stage!, "pointermove", { clientX: 25, clientY: 200 });
+		// 確定前でも本体が回る (旧挙動は rotate(0deg) のまま固まっていた)
+		expect(layerWrapTransform(1)).toContain("rotate(90deg)");
+	});
+});
