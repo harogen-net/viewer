@@ -476,6 +476,35 @@ describe("EditOpsPanel 数値プロパティ入力 (v4 Group D D-10, §12)", () 
 		selectLayer("u-1");
 		expect(adjustInput("transX").disabled).toBe(true);
 	});
+
+	// 回帰: 入力 focus 中に別レイヤーへ切り替えても、前レイヤーの draft が新レイヤーへ commit されない。
+	// (NumberAdjustInput は focus 中 value を draft に同期しないため、key=uuid で remount して持ち越しを断つ)
+	it("X 入力 focus 中に別レイヤーを選択 → blur しても新レイヤーは汚染されない", () => {
+		seedSlide([
+			makeImageLayer(1, "u-1", { transX: 10 }),
+			makeImageLayer(2, "u-2", { transX: 999 }),
+		]);
+		render();
+		selectLayer("u-1");
+		const xA = adjustInput("transX");
+		// A の X 入力に focus → draft を 12345 へ (Enter せず)
+		act(() => xA.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => {
+			const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+			setter?.call(xA, "12345");
+			xA.dispatchEvent(new Event("input", { bubbles: true }));
+		});
+		// B を選択 (React flush で EditOpsPanel は B 用に再 render、A の入力は remount で破棄)
+		selectLayer("u-2");
+		// 旧 A 入力に blur を発火 (remount 済みなら React onBlur は走らない)
+		act(() => xA.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+
+		const layers = useSlideStore.getState().slides[0].layers;
+		expect((layers[1] as ImageLayer).transX).toBe(999); // B は汚染されない
+		expect((layers[0] as ImageLayer).transX).toBe(10); // A も draft 12345 が確定しない (focus 中切替で破棄)
+		// 切替後の入力は B の値を表示
+		expect(adjustInput("transX").value).toBe("999");
+	});
 });
 
 // rectEdit トグル / add-text / undo-redo は EditToolbar へ移設 (editToolbar.test.tsx)。

@@ -324,8 +324,12 @@ export const EditOpsPanel: FC = () => {
 				</Group>
 
 				{/* 数値プロパティ (X / Y / 拡大率 / 回転、§12 Enter/↑↓/ホイール調整) */}
+				{/* key=uuid: レイヤー切替で入力を作り直す。NumberAdjustInput は focus 中 draft を value に
+				    同期しないため、入力 focus 中に別レイヤーへ切り替えると blur 時に前レイヤーの draft が
+				    新レイヤーへ commit され不正変形になる。uuid 変化で remount し draft を持ち越さない
+				    (同一レイヤー編集中は uuid 不変なので remount しない)。 */}
 				{selectedLayer && hasSelection && (
-					<Stack gap={4} data-edit-op-group="props">
+					<Stack gap={4} data-edit-op-group="props" key={selectedLayer.uuid}>
 						<Group gap={6} align="center" wrap="nowrap">
 							<Text size="xs" c="dimmed" w={40}>
 								X
@@ -445,9 +449,9 @@ export const EditOpsPanel: FC = () => {
 					</Stack>
 				)}
 
-				{/* テキスト編集 (D-9、TextLayer のみ表示) */}
+				{/* テキスト編集 (D-9、TextLayer のみ表示)。key=uuid: 数値入力と同理由で切替時に作り直す。 */}
 				{textLayer && (
-					<Stack gap={2} data-edit-op-group="text">
+					<Stack gap={2} data-edit-op-group="text" key={selectedLayer?.uuid}>
 						<Text size="xs" c="dimmed">
 							テキスト
 						</Text>

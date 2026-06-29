@@ -93,7 +93,11 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 	// ページ全体は動かさない。
 	const viewportRef = useRef<HTMLDivElement>(null);
 	useEffect(() => {
-		if (selectedIndex < 0) return;
+		// 水平中央寄せは単一行ストリップ (編集モード = !wrap) のみ対象。
+		// wrap を依存に含めるのが重要: 一覧 (wrap) で選択 → 編集に入ると selectedIndex は変わらず
+		// wrap だけが true→false になる。wrap を依存にしないとこの遷移で中央スクロールが走らず、
+		// ストリップが scrollLeft=0 のまま選択スライドが中央に来ない。
+		if (wrap || selectedIndex < 0) return;
 		const vp = viewportRef.current;
 		const el = vp?.querySelector<HTMLElement>(`[data-slide-index="${selectedIndex}"]`);
 		if (!vp || !el) return;
@@ -102,7 +106,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		const left = vp.scrollLeft + (elRect.left - vpRect.left) - (vpRect.width - elRect.width) / 2;
 		if (typeof vp.scrollTo === "function") vp.scrollTo({ left, behavior: "smooth" });
 		else vp.scrollLeft = left;
-	}, [selectedIndex, slides.length]);
+	}, [selectedIndex, slides.length, wrap]);
 
 	const isEmpty = slides.length === 0;
 	// ◀▶ は「選択中スライドの前後を選択」するナビ (未選択 / 端では非活性)。

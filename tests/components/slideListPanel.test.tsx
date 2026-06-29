@@ -1,7 +1,7 @@
 import { MantineProvider } from "@mantine/core";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SlideListPanel } from "../../src/components/panels/SlideListPanel";
 import { useAlertStore } from "../../src/state/alertStore";
 import { useSlideStore } from "../../src/state/slideStore";
@@ -615,5 +615,40 @@ describe("SlideListPanel wrap (複数行ギャラリー)", () => {
 		render(false, true);
 		const row2 = container.querySelector<HTMLElement>("[data-slide-count]");
 		expect(row2?.style.flexWrap).toBe("wrap");
+	});
+});
+
+describe("SlideListPanel 選択スライドの中央スクロール (編集ストリップ遷移)", () => {
+	// jsdom に scrollTo が無いので spy を生やす。中央化 effect は !wrap (ストリップ) 時のみ走る。
+	let restoreScrollTo: (() => void) | undefined;
+	let scrollToSpy: ReturnType<typeof vi.fn>;
+	beforeEach(() => {
+		scrollToSpy = vi.fn();
+		const had = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollTo");
+		Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+			configurable: true,
+			writable: true,
+			value: scrollToSpy,
+		});
+		restoreScrollTo = () => {
+			if (had) Object.defineProperty(HTMLElement.prototype, "scrollTo", had);
+			else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTo;
+		};
+	});
+	afterEach(() => restoreScrollTo?.());
+
+	it("wrap (一覧) では中央スクロールせず、!wrap (編集ストリップ) へ遷移で中央スクロールが走る", () => {
+		useSlideStore
+			.getState()
+			.setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c"), makeSlide(4, "d")]);
+		useSlideStore.getState().setSelectedIndex(3);
+
+		// wrap (ギャラリー): 水平中央化はしない
+		render(false, true);
+		expect(scrollToSpy).not.toHaveBeenCalled();
+
+		// !wrap (編集ストリップ) へ遷移: selectedIndex 不変でも wrap 変化で中央スクロールが走る
+		render(false, false);
+		expect(scrollToSpy).toHaveBeenCalled();
 	});
 });
