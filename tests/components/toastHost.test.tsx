@@ -62,23 +62,33 @@ describe("useToast + ToastHost", () => {
 		expect(toastsInDom().length).toBe(3);
 	});
 
-	it("close ボタンで該当トーストが消える", () => {
+	it("close ボタンで該当トーストが退場 → フェードアウト後に消える", () => {
+		vi.useFakeTimers();
 		act(() => {
 			api.info("消える");
 		});
 		expect(toastsInDom().length).toBe(1);
 		const closeBtn = document.querySelector<HTMLButtonElement>("[data-toast] button");
 		act(() => closeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+		// 退場アニメ中はまだ DOM に残り、exiting フラグが立つ (即除去ではない)。
+		expect(toastsInDom().length).toBe(1);
+		expect(toastsInDom()[0].getAttribute("data-toast-exiting")).toBe("true");
+		// フェードアウト (EXIT_MS=200ms) 完了で除去。
+		act(() => vi.advanceTimersByTime(200));
 		expect(toastsInDom().length).toBe(0);
 	});
 
-	it("duration 経過で自動消滅する", () => {
+	it("duration 経過で退場開始し、フェードアウト後に自動消滅する", () => {
 		vi.useFakeTimers();
 		act(() => {
 			api.success("auto", { duration: 1000 });
 		});
 		expect(toastsInDom().length).toBe(1);
 		act(() => vi.advanceTimersByTime(1000));
+		// duration 満了で退場開始 (まだ DOM に残る)。
+		expect(toastsInDom().length).toBe(1);
+		expect(toastsInDom()[0].getAttribute("data-toast-exiting")).toBe("true");
+		act(() => vi.advanceTimersByTime(200)); // フェードアウト完了
 		expect(toastsInDom().length).toBe(0);
 	});
 
@@ -89,7 +99,21 @@ describe("useToast + ToastHost", () => {
 		});
 		act(() => vi.advanceTimersByTime(3000));
 		expect(toastsInDom().length).toBe(1); // error 既定 5000ms なのでまだ残る
-		act(() => vi.advanceTimersByTime(2000));
+		expect(toastsInDom()[0].getAttribute("data-toast-exiting")).toBe("false"); // まだ退場していない
+		act(() => vi.advanceTimersByTime(2000)); // 計 5000ms → 退場開始
+		expect(toastsInDom()[0].getAttribute("data-toast-exiting")).toBe("true");
+		act(() => vi.advanceTimersByTime(200)); // フェードアウト完了
 		expect(toastsInDom().length).toBe(0);
+	});
+
+	it("容器は画面右上 (top/right) に固定配置される", () => {
+		act(() => {
+			api.success("pos");
+		});
+		const host = document.querySelector<HTMLElement>("[data-toast-host]");
+		expect(host?.style.position).toBe("fixed");
+		expect(host?.style.top).toBe("16px");
+		expect(host?.style.right).toBe("16px");
+		expect(host?.style.bottom).toBe(""); // bottom 配置ではない
 	});
 });
