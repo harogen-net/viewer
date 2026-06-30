@@ -312,6 +312,66 @@ describe("FileIOPanel ビジュアルピッカー", () => {
 	});
 });
 
+describe("FileIOPanel ドキュメントを閉じる", () => {
+	const closeBtn = (): HTMLButtonElement | null =>
+		container.querySelector<HTMLButtonElement>('[data-action="close-document"]');
+
+	it("未保存変更が無ければ確認なしで閉じる (meta=null へ)", async () => {
+		await render();
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+		});
+		click(closeBtn());
+		await act(async () => {});
+		expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
+		expect(useViewerDocumentStore.getState().meta).toBeNull();
+	});
+
+	it("未保存変更ありは確認し、キャンセルなら閉じない", async () => {
+		await render();
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+		});
+		click(closeBtn());
+		expect(useAlertStore.getState().request?.kind).toBe("confirm");
+		await resolveAlert(false); // キャンセル
+		expect(useViewerDocumentStore.getState().meta).not.toBeNull();
+	});
+
+	it("未保存変更ありでも確認 OK なら閉じる", async () => {
+		await render();
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+		});
+		click(closeBtn());
+		await resolveAlert(true); // 破棄して閉じる
+		await act(async () => {});
+		expect(useViewerDocumentStore.getState().meta).toBeNull();
+	});
+});
+
+describe("FileIOPanel ドキュメント設定 / 画像ライブラリ トリガ", () => {
+	const has = (sel: string): boolean => !!container.querySelector(sel);
+
+	it("編集モード + meta ありで トリガ両ボタンが出る", async () => {
+		await render(false);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+		});
+		expect(has("[data-open-doc-settings]")).toBe(true);
+		expect(has("[data-open-image-library]")).toBe(true);
+	});
+
+	it("readOnly では meta ありでも両ボタンを隠す", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+		});
+		expect(has("[data-open-doc-settings]")).toBe(false);
+		expect(has("[data-open-image-library]")).toBe(false);
+	});
+});
+
 describe("FileIOPanel 閲覧モード (readOnly)", () => {
 	const has = (sel: string): boolean => !!container.querySelector(sel);
 

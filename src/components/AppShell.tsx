@@ -3,7 +3,6 @@ import { useImageDimensionBackfill } from "@/hooks/useImageLibraryMutation";
 import { useLayerAutoSelect } from "@/hooks/useLayerAutoSelect";
 import { useRectSyncConfig } from "@/hooks/useLayerMutation";
 import { useShellKeyboard } from "@/hooks/useShellKeyboard";
-import { useDocSettingsStore } from "@/state/docSettingsStore";
 import { useSlideshowStore } from "@/state/slideshowStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
@@ -15,11 +14,9 @@ import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { AlertHost } from "./common/AlertHost";
 import { ToastHost } from "./common/ToastHost";
-import { DocumentSettingsModal } from "./panels/DocumentSettingsModal";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { EditToolbar } from "./panels/EditToolbar";
 import { FileIOPanel } from "./panels/FileIOPanel";
-import { ImageLibraryPanel } from "./panels/ImageLibraryPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
 import { SlideShowOpsPanel } from "./panels/SlideShowOpsPanel";
@@ -34,9 +31,7 @@ import { SlideshowShell } from "./SlideshowShell";
 // 上部グローバルバー (レガシー #menu 相当): スライドショー / ファイル IO / 画像ライブラリ・設定。
 // editable=false (閲覧モード) では編集系トリガ (画像ライブラリ追加・ドキュメント設定) を隠す。
 const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
-	const [showImageLibrary, setShowImageLibrary] = useState(false);
 	const [showSlideshowSettings, setShowSlideshowSettings] = useState(false);
-	const openDocSettings = useDocSettingsStore((s) => s.openEdit);
 	const slideshowRunning = useSlideshowStore((s) => s.running);
 	const stopSlideshow = useSlideshowStore((s) => s.stop);
 	// document (meta) がロードされている時のみ、設定/画像ライブラリを活性化。
@@ -49,30 +44,11 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 	return (
 		<>
 			<div style={topBarStyle} data-top-bar>
-				{/* SlideShow と File パネルを縦 1 列に積む。 */}
 				<Flex direction="row" gap="sm" align="stretch">
 					<SlideShowOpsPanel />
 					<FileIOPanel readOnly={!editable} />
 					{editable && (
 						<ActionIcon.Group>
-							<Tooltip label="ドキュメント設定">
-								<ActionIcon
-									variant="default"
-									onClick={openDocSettings}
-									disabled={!hasDocument}
-									data-open-doc-settings>
-									⚙
-								</ActionIcon>
-							</Tooltip>
-							<Tooltip label="画像ライブラリ">
-								<ActionIcon
-									variant="default"
-									onClick={() => setShowImageLibrary(true)}
-									disabled={!hasDocument}
-									data-open-image-library>
-									🖼
-								</ActionIcon>
-							</Tooltip>
 							<Tooltip label="スライドショー設定">
 								<ActionIcon
 									variant="default"
@@ -86,16 +62,10 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 				</Flex>
 			</div>
 			<SlideshowShell open={slideshowRunning} onClose={stopSlideshow} />
-			{editable && (
-				<>
-					<ImageLibraryPanel opened={showImageLibrary} onClose={() => setShowImageLibrary(false)} />
-					<DocumentSettingsModal />
-					<SlideshowSettingsModal
-						opened={showSlideshowSettings}
-						onClose={() => setShowSlideshowSettings(false)}
-					/>
-				</>
-			)}
+			<SlideshowSettingsModal
+				opened={showSlideshowSettings}
+				onClose={() => setShowSlideshowSettings(false)}
+			/>
 		</>
 	);
 };

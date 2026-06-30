@@ -209,8 +209,8 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				opened={opened}
 				onClose={onClose}
 				title="画像ライブラリ"
-				position="right"
-				size="80%"
+				position="bottom"
+				size="60vh"
 				padding="md"
 				data-image-library-panel
 				keepMounted={false}>
@@ -261,7 +261,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 								<Text c="dimmed">ファイルをここにドロップ または「画像を追加」ボタンで追加</Text>
 							</Paper>
 						) : (
-							<ScrollArea h="calc(100vh - 200px)" type="auto" scrollbarSize={8}>
+							<ScrollArea type="auto" scrollbarSize={8}>
 								<SimpleGrid cols={4} spacing="sm" data-image-grid>
 									{entries.map(([id, entry]) => (
 										<ImageTile
