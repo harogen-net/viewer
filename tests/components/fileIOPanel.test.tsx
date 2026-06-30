@@ -133,6 +133,15 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		expect(loadByTitleMock).toHaveBeenCalledWith("A"); // 先頭
 	});
 
+	// 回帰: 1 回の選択でロードは 1 回だけ (FileSelector と親が二重にロードしない)。
+	it("ファイル選択でロードは 1 回だけ走る (二重ロードしない)", async () => {
+		await render();
+		click(navBtn("next")); // → 先頭 "A" を 1 回ロード
+		await act(async () => {});
+		expect(loadByTitleMock).toHaveBeenCalledTimes(1);
+		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+	});
+
 	it("▶ で次へ、端 (末尾) では ▶ 無効", async () => {
 		await render();
 		click(navBtn("next")); // → A (index 0)
@@ -159,18 +168,21 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 	});
 });
 
+// 未保存ガードの方針:
+//   - ドロップダウン/前後ナビ選択 (handleSelectChange 既定 confirmDiscard=true): modified なら確認。
+//   - ピッカーを開く操作 (handleOpenPicker): modified なら確認。
+//   - ピッカー内のカード選択 (handlePick → handleSelectChange(_, false)): 開く時に確認済みのため再確認しない。
 describe("FileIOPanel 未保存ガード", () => {
-	it("modified 時は確認し、キャンセルでロードしない", async () => {
+	it("選択 (前後ナビ) は modified 時に確認し、キャンセルでロードしない", async () => {
 		await render();
 		useViewerDocumentStore.setState({ modified: true });
 		click(navBtn("next"));
-		// confirm が pending になっている
 		expect(useAlertStore.getState().request?.kind).toBe("confirm");
 		await resolveAlert(false); // キャンセル
 		expect(loadByTitleMock).not.toHaveBeenCalled();
 	});
 
-	it("modified 時でも確認 OK ならロードする", async () => {
+	it("選択は modified でも確認 OK ならロードする", async () => {
 		await render();
 		useViewerDocumentStore.setState({ modified: true });
 		click(navBtn("next"));
@@ -185,6 +197,37 @@ describe("FileIOPanel 未保存ガード", () => {
 		await act(async () => {});
 		expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
 		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+	});
+
+	it("ピッカーを開く操作は modified 時に確認し、キャンセルなら開かない (loadThumbnails 呼ばれない)", async () => {
+		await render();
+		useViewerDocumentStore.setState({ modified: true });
+		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
+		expect(useAlertStore.getState().request?.kind).toBe("confirm");
+		await resolveAlert(false); // キャンセル
+		expect(loadThumbnailsMock).not.toHaveBeenCalled(); // ピッカーは開かない
+	});
+
+	it("ピッカーを開く操作は確認 OK なら開く (loadThumbnails 呼ばれる)", async () => {
+		await render();
+		useViewerDocumentStore.setState({ modified: true });
+		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
+		await resolveAlert(true); // 破棄して続行
+		await act(async () => {});
+		expect(loadThumbnailsMock).toHaveBeenCalled();
+	});
+
+	it("インポートはファイル選択時には確認しない (確認はインポートボタン押下時に移動)", async () => {
+		await render();
+		useViewerDocumentStore.setState({ modified: true });
+		// 隠し file input への change (= ファイル選択完了) では確認を出さない。
+		const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+		const file = new File(["x"], "a.hvd", { type: "text/plain" });
+		Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+		await act(async () => {
+			fileInput?.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		expect(useAlertStore.getState().request).toBeNull(); // ファイル選択後に確認は出ない
 	});
 });
 

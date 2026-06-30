@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type ToastItem, ToastKind, useToastStore } from "../../state/toastStore";
 
 // トースト描画ホスト (非ブロッキング・自動消滅・複数スタック)。AppShell に 1 つだけマウントする。
-// toastStore.toasts を画面右上に縦積みで描画し、各アイテムが個別タイマで自動消滅する。
+// toastStore.toasts を画面右下に縦積みで描画し、各アイテムが個別タイマで自動消滅する。
 // モーダル (AlertHost) と関心分離 (こちらは Promise を介さない一方向通知)。
 //
 // アニメーション: 出現時は右からスライドイン、消滅時 (自動 or 手動 close) はフェードアウト。
@@ -31,7 +31,7 @@ const TOAST_ANIM_CSS = `
 const containerStyle: CSSProperties = {
 	position: "fixed",
 	right: 16,
-	top: 16,
+	bottom: 16,
 	zIndex: Z_INDEX,
 	display: "flex",
 	flexDirection: "column",

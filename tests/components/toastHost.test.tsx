@@ -106,14 +106,14 @@ describe("useToast + ToastHost", () => {
 		expect(toastsInDom().length).toBe(0);
 	});
 
-	it("容器は画面右上 (top/right) に固定配置される", () => {
+	it("容器は画面右下 (bottom/right) に固定配置される", () => {
 		act(() => {
 			api.success("pos");
 		});
 		const host = document.querySelector<HTMLElement>("[data-toast-host]");
 		expect(host?.style.position).toBe("fixed");
-		expect(host?.style.top).toBe("16px");
+		expect(host?.style.bottom).toBe("16px");
 		expect(host?.style.right).toBe("16px");
-		expect(host?.style.bottom).toBe(""); // bottom 配置ではない
+		expect(host?.style.top).toBe(""); // top 配置ではない
 	});
 });

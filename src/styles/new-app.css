@@ -1,0 +1,14 @@
+/*
+ * 新側 (React/Mantine) アプリ専用のグローバル微調整。
+ * main-new.tsx でのみ import するため、レガシー (src/index.ts) バンドルには一切読み込まれない。
+ *
+ * ドキュメント全体のフォントサイズ底上げ:
+ *   ルート font-size を上げると Mantine の rem ベースのサイズ (フォント / 余白 / コントロール高さ /
+ *   行間) がすべて均等にスケールするため、レイアウトを崩さず「一回り大きい UI」になる。
+ *   Modal / Tooltip / トースト等の Portal も :root 由来でまとめて拡大される。
+ *   スライド本体 (canvas / SlideEditView は px 指定) は rem 非依存なので不変。
+ *   16px → 18px (×1.125)。
+ */
+:root {
+	font-size: 112.5%;
+}
