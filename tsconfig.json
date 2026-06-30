@@ -1,14 +1,12 @@
 {
 	"compilerOptions": {
-		"baseUrl": ".",
 		"paths": {
-			"@/*": ["src/*"]
+			"@/*": ["./src/*"]
 		},
-		"ignoreDeprecations": "6.0",
 
 		/* Basic Options */
 		"target": "es2019" /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017','ES2018' or 'ESNEXT'. */,
-		"module": "es2015" /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */,
+		"module": "esnext" /* Specify module code generation. moduleResolution=bundler 必須のため esnext。 */,
 		"lib": ["es2019", "dom"] /* Specify library files to be included in the compilation. */,
 		// "allowJs": true,                       /* Allow javascript files to be compiled. */
 		// "checkJs": true,                       /* Report errors in .js files. */
@@ -42,7 +40,7 @@
 		// "noFallthroughCasesInSwitch": true,    /* Report errors for fallthrough cases in switch statement. */
 
 		/* Module Resolution Options */
-		"moduleResolution": "node" /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */,
+		"moduleResolution": "bundler" /* Vite/esbuild バンドル前提。旧 node10 は TS7.0 で廃止予定のため bundler へ。 */,
 		"skipLibCheck": true /* Skip type checking of declaration files (Mantine 7 / vite / @types/node 等の d.ts ノイズ抑止)。 */,
 		// "baseUrl": "./",                       /* Base directory to resolve non-absolute module names. */
 		// "paths": {},                           /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
