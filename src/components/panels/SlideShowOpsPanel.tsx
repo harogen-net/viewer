@@ -1,7 +1,7 @@
+import { useSlideStore } from "@/state/slideStore";
+import { useSlideshowStore } from "@/state/slideshowStore";
 import { Button } from "@mantine/core";
 import type { FC } from "react";
-import { useSlideStore } from "../../state/slideStore";
-import { useSlideshowStore } from "../../state/slideshowStore";
 
 // スライドショー操作パネル (§9)。実質スタートボタンのみ。
 // 設定 (interval / duration / flipX / flipY / 全画面で開始) は SlideshowSettingsModal へ分離し、

@@ -1,3 +1,10 @@
+import { DocSettingsMode, useDocSettingsStore } from "@/state/docSettingsStore";
+import { useHistoryStore } from "@/state/historyStore";
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import { DateUtil } from "@/utils/DateUtil";
+import { resizeAllSlides } from "@/utils/slideOps";
+import { createNewViewerDocument } from "@/utils/viewerDocumentFactory";
 import {
 	Button,
 	ColorInput,
@@ -11,13 +18,6 @@ import {
 } from "@mantine/core";
 import type { FC } from "react";
 import { useEffect, useState } from "react";
-import { DocSettingsMode, useDocSettingsStore } from "../../state/docSettingsStore";
-import { useHistoryStore } from "../../state/historyStore";
-import { useSlideStore } from "../../state/slideStore";
-import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
-import { DateUtil } from "../../utils/DateUtil";
-import { resizeAllSlides } from "../../utils/slideOps";
-import { createNewViewerDocument } from "../../utils/viewerDocumentFactory";
 
 // ViewerDocument の meta 編集 / 新規作成 UI (v4 Group D 補間、§0-10 新側内製)。
 // 新規 (mode="new") と既存編集 (mode="edit") で同一フォームを使い回す (docSettingsStore で制御)。

@@ -1,7 +1,7 @@
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { drawSlideToCanvas } from "@/utils/slideThumbnail";
 import type { CSSProperties, FC, MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { useImageLibraryStore } from "../../state/imageLibraryStore";
-import { drawSlideToCanvas } from "../../utils/slideThumbnail";
 import type { SlideViewProps } from "./SlideView";
 
 // SlideListPanel の 1 要素 (v4 Group C C-3R で slide/ 配下に切り出し、C-9 で legacy thumb UI 同梱、

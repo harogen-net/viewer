@@ -1,6 +1,6 @@
+import type { NewLayer } from "@/utils/layerOps";
+import * as slideOps from "@/utils/slideOps";
 import { useCallback } from "react";
-import type { NewLayer } from "../utils/layerOps";
-import * as slideOps from "../utils/slideOps";
 import { useDocumentMutation } from "./useDocumentMutation";
 
 // Slide 階層の consumer facade (v4 Group C)。

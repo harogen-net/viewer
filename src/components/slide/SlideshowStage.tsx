@@ -1,8 +1,8 @@
+import { LayerContent } from "@/components/layer/LayerContent";
+import type { Layer } from "@/types/Layer";
+import { LayerType } from "@/types/Layer";
+import type { Slide } from "@/types/Slide";
 import type { CSSProperties, FC } from "react";
-import type { Layer } from "../../types/Layer";
-import { LayerType } from "../../types/Layer";
-import type { Slide } from "../../types/Slide";
-import { LayerContent } from "../layer/LayerContent";
 
 // スライドショー 1 フレーム描画 (§9、legacy DOMSlideView 相当)。
 // SlideView と異なり:

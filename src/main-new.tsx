@@ -1,9 +1,9 @@
 import "@mantine/core/styles.css";
 // 新側専用のグローバル微調整 (フォント底上げ等)。Mantine の css の後に読み込み上書きする。
-import "./styles/new-app.css";
+import { AppShell } from "@/components/AppShell";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { AppShell } from "./components/AppShell";
+import "./styles/new-app.css";
 
 // v3 Group A 新側エントリポイント (Strangler fig dual entrypoint、§0-8)。
 // `?new=1` 起動時にレガシー (src/index.ts) を bypass し React 単体で起動する。

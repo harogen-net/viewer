@@ -1,3 +1,13 @@
+import { SlideJoinIndicator } from "@/components/slide/SlideJoinIndicator";
+import { SlideThumbView } from "@/components/slide/SlideThumbView";
+import { SortableSlideThumb } from "@/components/slide/SortableSlideThumb";
+import { useAlert } from "@/hooks/useAlert";
+import { useDrop } from "@/hooks/useDrop";
+import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
+import { useSlideMutation } from "@/hooks/useSlideMutation";
+import { useToast } from "@/hooks/useToast";
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import {
 	closestCenter,
 	DndContext,
@@ -16,16 +26,6 @@ import {
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { Fragment, useCallback, useEffect, useRef } from "react";
-import { useAlert } from "../../hooks/useAlert";
-import { useDrop } from "../../hooks/useDrop";
-import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
-import { useSlideMutation } from "../../hooks/useSlideMutation";
-import { useToast } from "../../hooks/useToast";
-import { useSlideStore } from "../../state/slideStore";
-import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
-import { SlideJoinIndicator } from "../slide/SlideJoinIndicator";
-import { SlideThumbView } from "../slide/SlideThumbView";
-import { SortableSlideThumb } from "../slide/SortableSlideThumb";
 import { SlideListContextMenu } from "./SlideListContextMenu";
 
 // SlideListPanel (v4 Group C build C-3、C-3R で slide view を slide/ に統合、C-4 で DnD + 前後ボタン、

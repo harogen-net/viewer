@@ -1,7 +1,7 @@
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import type { ImageLayer, Layer, TextLayer } from "@/types/Layer";
+import { LayerType } from "@/types/Layer";
 import type { CSSProperties, FC } from "react";
-import { useImageLibraryStore } from "../../state/imageLibraryStore";
-import type { ImageLayer, Layer, TextLayer } from "../../types/Layer";
-import { LayerType } from "../../types/Layer";
 
 // レイヤー 1 枚の中身描画 FC (v3 Group A build 2、§0-10 新側内製)。
 // レガシー view/LayerView.ts / view/layer/*.ts は import せず新規実装。

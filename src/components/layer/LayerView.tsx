@@ -1,6 +1,6 @@
+import type { LiveTransform } from "@/hooks/useLayerGesture";
+import type { Layer } from "@/types/Layer";
 import type { CSSProperties, FC } from "react";
-import type { LiveTransform } from "../../hooks/useLayerGesture";
-import type { Layer } from "../../types/Layer";
 import { LayerContent } from "./LayerContent";
 
 // レイヤー 1 枚の wrapper FC (v3 Group A build 3、§0-10 新側内製)。

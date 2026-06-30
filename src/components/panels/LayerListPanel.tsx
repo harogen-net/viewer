@@ -1,3 +1,9 @@
+import { useLayerDelete } from "@/hooks/useLayerDelete";
+import { useLayerMutation } from "@/hooks/useLayerMutation";
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
+import type { Layer } from "@/types/Layer";
+import { LayerType } from "@/types/Layer";
 import {
 	closestCenter,
 	DndContext,
@@ -16,12 +22,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Button, Paper, ScrollArea, Stack, Text, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
-import { useLayerDelete } from "../../hooks/useLayerDelete";
-import { useLayerMutation } from "../../hooks/useLayerMutation";
-import { useLayerStore } from "../../state/layerStore";
-import { useSlideStore } from "../../state/slideStore";
-import type { Layer } from "../../types/Layer";
-import { LayerType } from "../../types/Layer";
 
 // LayerListPanel (v4 Group D D-5、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/edit/EditLayerListItem.ts / EditLayerViewController.ts は

@@ -1,6 +1,6 @@
+import { useSlideStore } from "@/state/slideStore";
+import { sharedSiblingCount } from "@/utils/layerOps";
 import { useCallback } from "react";
-import { useSlideStore } from "../state/slideStore";
-import { sharedSiblingCount } from "../utils/layerOps";
 import { useAlert } from "./useAlert";
 import { useLayerMutation } from "./useLayerMutation";
 

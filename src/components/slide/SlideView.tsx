@@ -1,7 +1,7 @@
+import { LayerView } from "@/components/layer/LayerView";
+import type { LiveTransform } from "@/hooks/useLayerGesture";
+import type { Slide } from "@/types/Slide";
 import type { CSSProperties, FC } from "react";
-import type { LiveTransform } from "../../hooks/useLayerGesture";
-import type { Slide } from "../../types/Slide";
-import { LayerView } from "../layer/LayerView";
 
 // スライド 1 枚の **native 寸法** 描画 FC (v4 Group C C-3R で role を最小化)。
 // レガシー src/view/SlideView.ts / src/view/slide/*.ts は import せず新規実装 (§0-10)。

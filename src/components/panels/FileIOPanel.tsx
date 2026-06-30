@@ -1,7 +1,7 @@
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import { Group, Paper, Stack } from "@mantine/core";
 import type { FC } from "react";
-import { useSlideStore } from "../../state/slideStore";
-import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
 import { FileIOToolbar } from "./fileIO/FileIOToolbar";
 
 // ファイル IO パネル (v3 Group B build、§0-10 新側内製、Mantine UI)。

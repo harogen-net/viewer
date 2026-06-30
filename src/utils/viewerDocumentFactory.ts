@@ -1,4 +1,4 @@
-import type { ViewerDocument } from "../types/ViewerDocument";
+import type { ViewerDocument } from "@/types/ViewerDocument";
 
 // 新規 ViewerDocument を生成する factory (v3 Group B、§0-10 新側内製)。
 //

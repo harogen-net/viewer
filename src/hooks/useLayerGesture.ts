@@ -1,7 +1,7 @@
+import { useLayerStore } from "@/state/layerStore";
+import type { Slide } from "@/types/Slide";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useState } from "react";
-import { useLayerStore } from "../state/layerStore";
-import type { Slide } from "../types/Slide";
 import { useLayerMutation } from "./useLayerMutation";
 
 // SlideEditView の scaled stage に bind する layer gesture hook (v4 Group D D-3b / D-3c)。

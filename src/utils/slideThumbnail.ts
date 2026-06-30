@@ -1,7 +1,7 @@
-import type { ImageLayer } from "../types/Layer";
-import { LayerType } from "../types/Layer";
-import type { Slide } from "../types/Slide";
-import type { ViewerDocument } from "../types/ViewerDocument";
+import type { ImageLayer } from "@/types/Layer";
+import { LayerType } from "@/types/Layer";
+import type { Slide } from "@/types/Slide";
+import type { ViewerDocument } from "@/types/ViewerDocument";
 
 // スライド canvas 描画 (v3 Group B、§0-10 新側内製、v4 Group C C-10 で thumb 表示にも転用)。
 // レガシー src/utils/SlideToPNGConverter.ts (model class + ImageManager.shared 依存) を

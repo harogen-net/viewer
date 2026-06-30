@@ -1,10 +1,10 @@
+import { useSlideshowPlayer } from "@/hooks/useSlideshowPlayer";
+import { useSlideStore } from "@/state/slideStore";
+import { useSlideshowStore } from "@/state/slideshowStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import type { Slide } from "@/types/Slide";
 import type { CSSProperties, FC, ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useSlideshowPlayer } from "../hooks/useSlideshowPlayer";
-import { useSlideStore } from "../state/slideStore";
-import { useSlideshowStore } from "../state/slideshowStore";
-import { useViewerDocumentStore } from "../state/viewerDocumentStore";
-import type { Slide } from "../types/Slide";
 import { SlideshowStage } from "./slide/SlideshowStage";
 
 // スライドショー全画面シェル (§9、legacy SlideShowViewController 相当)。

@@ -1,7 +1,7 @@
+import { AlertKind, useAlertStore } from "@/state/alertStore";
 import { Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
 import type { FC } from "react";
 import { useEffect, useState } from "react";
-import { AlertKind, useAlertStore } from "../../state/alertStore";
 
 // 汎用モーダル描画ホスト (alert / confirm / prompt)。AppShell に 1 つだけマウントする。
 // useAlert が積んだ alertStore.request を Mantine Modal で描画し、OK/キャンセルで resolve する。

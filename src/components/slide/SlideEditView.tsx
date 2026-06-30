@@ -1,11 +1,11 @@
+import { useDrop } from "@/hooks/useDrop";
+import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
+import { useLayerGesture } from "@/hooks/useLayerGesture";
+import { useToast } from "@/hooks/useToast";
+import { useEditViewStore } from "@/state/editViewStore";
+import { useLayerStore } from "@/state/layerStore";
 import type { CSSProperties, FC, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useState } from "react";
-import { useDrop } from "../../hooks/useDrop";
-import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
-import { useLayerGesture } from "../../hooks/useLayerGesture";
-import { useToast } from "../../hooks/useToast";
-import { useEditViewStore } from "../../state/editViewStore";
-import { useLayerStore } from "../../state/layerStore";
 import { LayerEditOverlay } from "./LayerEditOverlay";
 import { SlideView, type SlideViewProps } from "./SlideView";
 

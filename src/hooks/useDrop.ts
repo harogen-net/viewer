@@ -1,6 +1,6 @@
+import naturalCompare from "natural-compare";
 import type { DragEvent as ReactDragEvent } from "react";
 import { useCallback, useState } from "react";
-import naturalCompare from "natural-compare";
 
 // ドラッグ&ドロップ受け口 hook (v4 Group D D-11、function-list §5/§11/§13)。
 // レガシー src/utils/DropHelper.ts (EventDispatcher + jQuery) は import せず新規実装 (§0-10)。

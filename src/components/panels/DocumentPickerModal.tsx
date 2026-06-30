@@ -1,7 +1,7 @@
+import type { StoredDocThumbnail, StoredSlideTitle } from "@/hooks/useStorage";
 import { Modal, SimpleGrid, Text } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
-import type { StoredDocThumbnail, StoredSlideTitle } from "../../hooks/useStorage";
 
 // 保存ドキュメントを「見た目で選ぶ」ビジュアルピッカー (v4 Group D 補間、§0-10 新側内製)。
 // FileIOPanel の <Select> を補完する、サムネ + タイトルのギャラリー。

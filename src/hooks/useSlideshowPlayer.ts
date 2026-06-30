@@ -1,5 +1,5 @@
+import type { Slide } from "@/types/Slide";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Slide } from "../types/Slide";
 
 // スライドショー タイムラインエンジン (§9、legacy SlideShowViewController の再実装、§0-10)。
 // jQuery / DOMSlideView / setInterval クラス群は import せず、標準 setTimeout + hook で再構成。

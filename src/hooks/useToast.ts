@@ -1,5 +1,5 @@
+import { ToastKind, useToastStore } from "@/state/toastStore";
 import { useMemo } from "react";
-import { ToastKind, useToastStore } from "../state/toastStore";
 
 // トースト通知の発火 hook (useAlert と同じ useMemo + getState パターン)。
 // 非ブロッキング (Promise を返さない fire-and-forget)。描画/自動消滅は ToastHost が担う。

@@ -1,7 +1,7 @@
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
+import type { ImageLayer, Layer, TextLayer } from "@/types/Layer";
 import { useEffect, useRef } from "react";
-import { useLayerStore } from "../state/layerStore";
-import { useSlideStore } from "../state/slideStore";
-import type { ImageLayer, Layer, TextLayer } from "../types/Layer";
 
 // スライド遷移時に、直前に選択していたレイヤーと「対応する」レイヤーを自動選択する
 // (legacy EditableSlideView.replaceSlide の autoselect 相当)。

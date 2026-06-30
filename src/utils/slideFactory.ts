@@ -1,5 +1,5 @@
-import type { Layer } from "../types/Layer";
-import type { Slide } from "../types/Slide";
+import type { Layer } from "@/types/Layer";
+import type { Slide } from "@/types/Slide";
 import type { NewLayer } from "./layerOps";
 
 // Slide 生成 / 複製 / id 採番のための pure helpers (v4 Group C build C-1)。

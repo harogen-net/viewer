@@ -1,8 +1,8 @@
+import type { LiveTransform } from "@/hooks/useLayerGesture";
+import { useLayerStore } from "@/state/layerStore";
+import type { Slide } from "@/types/Slide";
 import type { CSSProperties, FC } from "react";
 import { useLayoutEffect, useState } from "react";
-import type { LiveTransform } from "../../hooks/useLayerGesture";
-import { useLayerStore } from "../../state/layerStore";
-import type { Slide } from "../../types/Slide";
 
 // 編集 canvas の選択 layer 装飾 overlay (v4 Group D D-3a/b/c)。
 // レガシー src/view/layer/AdjustView.ts (jQuery 293 行) は import せず新規実装 (§0-10)。

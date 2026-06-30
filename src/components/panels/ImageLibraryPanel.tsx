@@ -1,3 +1,8 @@
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
+import { useLayerMutation } from "@/hooks/useLayerMutation";
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { useSlideStore } from "@/state/slideStore";
 import {
 	ActionIcon,
 	Box,
@@ -13,17 +18,12 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import type {
-	ChangeEvent as ReactChangeEvent,
 	CSSProperties,
-	DragEvent as ReactDragEvent,
 	FC,
+	ChangeEvent as ReactChangeEvent,
+	DragEvent as ReactDragEvent,
 } from "react";
 import { useRef, useState } from "react";
-import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
-import { useLayerMutation } from "../../hooks/useLayerMutation";
-import { useImageLibraryStore } from "../../state/imageLibraryStore";
-import { useSlideStore } from "../../state/slideStore";
-import { ConfirmDialog } from "../common/ConfirmDialog";
 
 // ImageLibraryPanel (v4 Group D D-6a、§0-10 新側内製、Mantine Drawer + Modal)。
 // レガシー src/utils/ImageManager.ts (jQuery + singleton DOM) は import せず新規実装。

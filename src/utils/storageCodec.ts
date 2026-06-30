@@ -1,8 +1,8 @@
+import type { ImageLayer, Layer, TextLayer } from "@/types/Layer";
+import { LayerType } from "@/types/Layer";
+import type { Slide } from "@/types/Slide";
+import type { ViewerDocument } from "@/types/ViewerDocument";
 import JSZip from "jszip";
-import type { ImageLayer, Layer, TextLayer } from "../types/Layer";
-import { LayerType } from "../types/Layer";
-import type { Slide } from "../types/Slide";
-import type { ViewerDocument } from "../types/ViewerDocument";
 import { PNGEmbedder } from "./PNGEmbedder";
 
 // HVD (Histelle Viewer Data) JSON 形式 ↔ ViewerDocument 純関数 codec

@@ -1,6 +1,6 @@
+import { useSlideshowStore } from "@/state/slideshowStore";
 import { Group, Modal, NumberInput, Stack, Switch } from "@mantine/core";
 import type { FC } from "react";
-import { useSlideshowStore } from "../../state/slideshowStore";
 
 // スライドショー設定モーダル (§9)。SlideShowOpsPanel に散在していた設定 UI
 // (interval / duration / flipX / flipY / 全画面で開始) をモーダルへ分離。

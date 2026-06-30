@@ -1,18 +1,18 @@
+import { useAlert } from "@/hooks/useAlert";
+import { useDocumentMutation } from "@/hooks/useDocumentMutation";
+import { useFileIO } from "@/hooks/useFileIO";
+import { useLayerClipboard } from "@/hooks/useLayerClipboard";
+import { useLayerDelete } from "@/hooks/useLayerDelete";
+import { useLayerMutation } from "@/hooks/useLayerMutation";
+import { useEditViewStore } from "@/state/editViewStore";
+import { useHistoryStore } from "@/state/historyStore";
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import { collectImageMap } from "@/utils/collectImageMap";
+import type { AlignEdge } from "@/utils/layerOps";
 import { ActionIcon, Button, Divider, Group, Text, Tooltip } from "@mantine/core";
 import type { FC } from "react";
-import { useAlert } from "../../hooks/useAlert";
-import { useDocumentMutation } from "../../hooks/useDocumentMutation";
-import { useFileIO } from "../../hooks/useFileIO";
-import { useLayerClipboard } from "../../hooks/useLayerClipboard";
-import { useLayerDelete } from "../../hooks/useLayerDelete";
-import { useLayerMutation } from "../../hooks/useLayerMutation";
-import { useEditViewStore } from "../../state/editViewStore";
-import { useHistoryStore } from "../../state/historyStore";
-import { useLayerStore } from "../../state/layerStore";
-import { useSlideStore } from "../../state/slideStore";
-import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
-import { collectImageMap } from "../../utils/collectImageMap";
-import type { AlignEdge } from "../../utils/layerOps";
 
 // 編集キャンバス上部ツールバー (アプリ一般の編集操作シェル)。
 // EditOpsPanel から「選択レイヤーに依存しない」操作を分離したもの:

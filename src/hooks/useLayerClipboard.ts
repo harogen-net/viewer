@@ -1,8 +1,8 @@
+import { useClipboardStore } from "@/state/clipboardStore";
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
+import type { Layer, LayerTransform } from "@/types/Layer";
 import { useCallback } from "react";
-import { useClipboardStore } from "../state/clipboardStore";
-import { useLayerStore } from "../state/layerStore";
-import { useSlideStore } from "../state/slideStore";
-import type { Layer, LayerTransform } from "../types/Layer";
 import { useLayerMutation } from "./useLayerMutation";
 
 // レイヤー clipboard 操作の consumer facade (v4 Group D D-8、§0-10 新側内製)。

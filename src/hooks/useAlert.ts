@@ -1,5 +1,5 @@
+import { type AlertChoice, AlertKind, useAlertStore } from "@/state/alertStore";
 import { useMemo } from "react";
-import { type AlertChoice, AlertKind, useAlertStore } from "../state/alertStore";
 
 // window.alert / confirm / prompt の非同期 (Promise) 置換 hook。
 // AlertHost (Mantine Modal) が描画・応答する。呼び出し側は await して結果を受ける:

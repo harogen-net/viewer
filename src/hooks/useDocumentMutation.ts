@@ -1,9 +1,9 @@
+import { useHistoryStore } from "@/state/historyStore";
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import type { SlideState } from "@/types/SlideState";
 import { useCallback } from "react";
-import { useHistoryStore } from "../state/historyStore";
-import { useLayerStore } from "../state/layerStore";
-import { useSlideStore } from "../state/slideStore";
-import { useViewerDocumentStore } from "../state/viewerDocumentStore";
-import type { SlideState } from "../types/SlideState";
 
 // ViewerDocument 階層 mutation primitive (v4 Group C 設計コア)。
 //

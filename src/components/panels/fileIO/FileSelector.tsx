@@ -1,8 +1,8 @@
+import type { StoredSlideTitle } from "@/hooks/useStorage";
+import { adjacentTitleIndex } from "@/utils/fileNavOps";
 import { Button, Group, Select, Tooltip } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import type { FC } from "react";
-import type { StoredSlideTitle } from "../../../hooks/useStorage";
-import { adjacentTitleIndex } from "../../../utils/fileNavOps";
 
 // 保存ファイル選択 UI (前/次ナビ + ドロップダウン)。
 // **純粋な表示コンポーネント**: 選択を onChange で親へ通知するだけで、ロード・未保存確認・トーストは

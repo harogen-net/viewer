@@ -1,3 +1,9 @@
+import { useFileIO } from "@/hooks/useFileIO";
+import { useToast } from "@/hooks/useToast";
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import { collectImageMap } from "@/utils/collectImageMap";
 import { ActionIcon, Menu } from "@mantine/core";
 import {
 	IconBookDownload,
@@ -7,12 +13,6 @@ import {
 } from "@tabler/icons-react";
 import type { ChangeEvent, FC } from "react";
 import { useRef } from "react";
-import { useFileIO } from "../../../hooks/useFileIO";
-import { useToast } from "../../../hooks/useToast";
-import { useImageLibraryStore } from "../../../state/imageLibraryStore";
-import { useSlideStore } from "../../../state/slideStore";
-import { useViewerDocumentStore } from "../../../state/viewerDocumentStore";
-import { collectImageMap } from "../../../utils/collectImageMap";
 import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOSubMenu: FC<{

@@ -1,5 +1,5 @@
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import { useEffect } from "react";
-import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 
 // 未保存変更がある状態でのタブ閉じ / リロード / 離脱を警告する (v4 Group D 補間、§0-10 新側内製)。
 // アプリ内の document 置換 (ロード/新規/import) は FileIOPanel の confirmDiscardIfModified が

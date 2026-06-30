@@ -1,3 +1,19 @@
+import { NumberAdjustInput } from "@/components/common/NumberAdjustInput";
+import { useDocumentMutation } from "@/hooks/useDocumentMutation";
+import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
+import { useLayerClipboard } from "@/hooks/useLayerClipboard";
+import { useLayerMutation } from "@/hooks/useLayerMutation";
+import { useToast } from "@/hooks/useToast";
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
+import type { LayerBase } from "@/types/Layer";
+import type { SlideState } from "@/types/SlideState";
+import {
+	updateImageLayer as updateImageLayerOp,
+	updateLayer as updateLayerOp,
+	updateTextLayer as updateTextLayerOp,
+} from "@/utils/layerOps";
 import {
 	ActionIcon,
 	Group,
@@ -11,22 +27,6 @@ import {
 } from "@mantine/core";
 import type { ChangeEvent, FC } from "react";
 import { useRef } from "react";
-import { useDocumentMutation } from "../../hooks/useDocumentMutation";
-import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
-import { useLayerClipboard } from "../../hooks/useLayerClipboard";
-import { useLayerMutation } from "../../hooks/useLayerMutation";
-import { useToast } from "../../hooks/useToast";
-import { useImageLibraryStore } from "../../state/imageLibraryStore";
-import { useLayerStore } from "../../state/layerStore";
-import { useSlideStore } from "../../state/slideStore";
-import type { LayerBase } from "../../types/Layer";
-import type { SlideState } from "../../types/SlideState";
-import {
-	updateImageLayer as updateImageLayerOp,
-	updateLayer as updateLayerOp,
-	updateTextLayer as updateTextLayerOp,
-} from "../../utils/layerOps";
-import { NumberAdjustInput } from "../common/NumberAdjustInput";
 
 // EditOpsPanel (v4 Group D D-4a、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/EditViewController.ts (446 行 jQuery) は import せず新規実装。

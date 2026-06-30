@@ -1,7 +1,7 @@
+import { type ToastItem, ToastKind, useToastStore } from "@/state/toastStore";
 import { Notification } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { type ToastItem, ToastKind, useToastStore } from "../../state/toastStore";
 
 // トースト描画ホスト (非ブロッキング・自動消滅・複数スタック)。AppShell に 1 つだけマウントする。
 // toastStore.toasts を画面右下に縦積みで描画し、各アイテムが個別タイマで自動消滅する。

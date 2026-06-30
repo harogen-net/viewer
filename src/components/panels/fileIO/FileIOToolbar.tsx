@@ -1,3 +1,18 @@
+import { DocumentPickerModal } from "@/components/panels/DocumentPickerModal";
+import { useAlert } from "@/hooks/useAlert";
+import {
+	useStorage,
+	type StoredDocThumbnail,
+	type StoredSlideTitle,
+} from "@/hooks/useStorage";
+import { useToast } from "@/hooks/useToast";
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import type { ViewerDocument } from "@/types/ViewerDocument";
+import { collectImageMap } from "@/utils/collectImageMap";
+import { DateUtil } from "@/utils/DateUtil";
+import { generateDocThumbnailStrip } from "@/utils/slideThumbnail";
+import { createNewViewerDocument } from "@/utils/viewerDocumentFactory";
 import { Button, Group, Menu, Tooltip } from "@mantine/core";
 import {
 	IconChevronDown,
@@ -9,21 +24,6 @@ import {
 } from "@tabler/icons-react";
 import type { FC } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { useAlert } from "../../../hooks/useAlert";
-import {
-	useStorage,
-	type StoredDocThumbnail,
-	type StoredSlideTitle,
-} from "../../../hooks/useStorage";
-import { useToast } from "../../../hooks/useToast";
-import { useSlideStore } from "../../../state/slideStore";
-import { useViewerDocumentStore } from "../../../state/viewerDocumentStore";
-import type { ViewerDocument } from "../../../types/ViewerDocument";
-import { collectImageMap } from "../../../utils/collectImageMap";
-import { DateUtil } from "../../../utils/DateUtil";
-import { generateDocThumbnailStrip } from "../../../utils/slideThumbnail";
-import { createNewViewerDocument } from "../../../utils/viewerDocumentFactory";
-import { DocumentPickerModal } from "../DocumentPickerModal";
 import { FileIOSubMenu } from "./FileIOSubMenu";
 import { FileSelector } from "./FileSelector";
 import { useFileIOCommon } from "./useFileIOCommon";

@@ -1,9 +1,9 @@
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
 import { useEffect } from "react";
 import { useDocumentMutation } from "./useDocumentMutation";
 import { useLayerClipboard } from "./useLayerClipboard";
 import { useLayerMutation } from "./useLayerMutation";
-import { useLayerStore } from "../state/layerStore";
-import { useSlideStore } from "../state/slideStore";
 
 // 編集シェルのキーボードショートカット (v4 Group D D-8 / 補間で拡充、§0-10 新側内製)。
 // レガシー src/utils/KeyboardManager.ts は copy/cut/paste のみ。それ以外 (undo/redo・

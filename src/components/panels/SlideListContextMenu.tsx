@@ -1,9 +1,9 @@
+import { useAlert } from "@/hooks/useAlert";
+import { useSlideMutation } from "@/hooks/useSlideMutation";
+import { useSlideStore } from "@/state/slideStore";
 import { Menu } from "@mantine/core";
 import type { FC, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useState } from "react";
-import { useAlert } from "../../hooks/useAlert";
-import { useSlideMutation } from "../../hooks/useSlideMutation";
-import { useSlideStore } from "../../state/slideStore";
 
 // SlideListPanel 用のコンテキストメニュー (v4 Group C C-6、C-7 後で SlideListPanel から切出)。
 //

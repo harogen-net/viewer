@@ -1,7 +1,5 @@
-import JSZip from "jszip";
-import { useCallback } from "react";
-import type { ViewerDocument } from "../types/ViewerDocument";
-import { drawSlideToCanvas, generateSlideThumbnailDataURL } from "../utils/slideThumbnail";
+import type { ViewerDocument } from "@/types/ViewerDocument";
+import { drawSlideToCanvas, generateSlideThumbnailDataURL } from "@/utils/slideThumbnail";
 import {
 	parseHvd,
 	parseHvz,
@@ -9,7 +7,9 @@ import {
 	serializeHvd,
 	serializeHvz,
 	serializePng,
-} from "../utils/storageCodec";
+} from "@/utils/storageCodec";
+import JSZip from "jszip";
+import { useCallback } from "react";
 
 // ファイル import / export を担う React hook (v3 Group B build、§0-10 新側内製)。
 // レガシー src/Viewer.ts の .import / .export ハンドラ群に相当する純機能を

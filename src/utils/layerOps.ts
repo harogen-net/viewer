@@ -1,7 +1,7 @@
-import type { ImageLayer, Layer, LayerBase, TextLayer } from "../types/Layer";
-import { LayerType } from "../types/Layer";
-import type { Slide } from "../types/Slide";
-import type { SlideState } from "../types/SlideState";
+import type { ImageLayer, Layer, LayerBase, TextLayer } from "@/types/Layer";
+import { LayerType } from "@/types/Layer";
+import type { Slide } from "@/types/Slide";
+import type { SlideState } from "@/types/SlideState";
 
 // distributive Omit: union 型に対し各 member ごとに Omit を適用
 // (TS の Omit はそのままだと union を 1 つの型として扱い、type 識別子を失う)

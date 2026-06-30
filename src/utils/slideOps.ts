@@ -1,5 +1,5 @@
-import type { Slide } from "../types/Slide";
-import type { SlideState } from "../types/SlideState";
+import type { Slide } from "@/types/Slide";
+import type { SlideState } from "@/types/SlideState";
 import type { NewLayer } from "./layerOps";
 import { cloneSlide, createEmptySlide, createImageSlide, nextSlideId } from "./slideFactory";
 

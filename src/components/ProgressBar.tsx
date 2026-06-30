@@ -1,5 +1,5 @@
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import { Progress } from "@mantine/core";
-import { useViewerDocumentStore } from "../state/viewerDocumentStore";
 
 export const ProgressBar = () => {
 	const progress = useViewerDocumentStore((s) => s.progress);

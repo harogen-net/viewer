@@ -1,10 +1,10 @@
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { useLayerStore } from "@/state/layerStore";
+import { useSlideStore } from "@/state/slideStore";
+import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import { sha256DataUrl } from "@/utils/imageHash";
+import { buildFitImageLayer } from "@/utils/layerOps";
 import { useCallback, useEffect } from "react";
-import { useImageLibraryStore } from "../state/imageLibraryStore";
-import { useLayerStore } from "../state/layerStore";
-import { useSlideStore } from "../state/slideStore";
-import { useViewerDocumentStore } from "../state/viewerDocumentStore";
-import { buildFitImageLayer } from "../utils/layerOps";
-import { sha256DataUrl } from "../utils/imageHash";
 import { useLayerMutation } from "./useLayerMutation";
 import { useSlideMutation } from "./useSlideMutation";
 
