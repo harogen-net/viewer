@@ -652,3 +652,104 @@ describe("SlideListPanel 選択スライドの中央スクロール (編集ス�
 		expect(scrollToSpy).toHaveBeenCalled();
 	});
 });
+
+describe("SlideListPanel viewport リサイズ追随 (編集ストリップ・根本対策)", () => {
+	// 編集ストリップで viewport の寸法が変わった (フルスクリーン解除/ウィンドウリサイズ/回転等) とき、
+	// 編集中スライドが見切れていれば寄せ直す。ResizeObserver の発火を捕捉モックで再現して検証。
+	let restoreScrollTo: (() => void) | undefined;
+	let restoreRO: (() => void) | undefined;
+	let restoreRect: (() => void) | undefined;
+	let scrollToSpy: ReturnType<typeof vi.fn>;
+	// RO コールバックは (entries, observer) 形。dnd-kit/Mantine も同じグローバル RO を使うため
+	// 発火時は必ず空配列 [] を渡す (entries を iterate する消費側を壊さない)。
+	let roCallbacks: Array<(entries: unknown[], observer: unknown) => void>;
+
+	beforeEach(() => {
+		roCallbacks = [];
+		scrollToSpy = vi.fn();
+		// scrollTo を spy 化
+		const hadScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollTo");
+		Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+			configurable: true,
+			writable: true,
+			value: scrollToSpy,
+		});
+		restoreScrollTo = () => {
+			if (hadScroll) Object.defineProperty(HTMLElement.prototype, "scrollTo", hadScroll);
+			else delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTo;
+		};
+
+		// ResizeObserver を捕捉モックに差し替え。observe で初回 1 回発火 (実 RO 互換 = source の
+		// first スキップが消費)。以後はテストから roCallbacks を手動発火 = リサイズ相当。
+		const hadRO = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		class MockRO {
+			cb: (entries: unknown[], observer: unknown) => void;
+			constructor(cb: (entries: unknown[], observer: unknown) => void) {
+				this.cb = cb;
+				roCallbacks.push(cb);
+			}
+			observe(): void {
+				this.cb([], this); // 初回発火 (空 entries)
+			}
+			unobserve(): void {}
+			disconnect(): void {}
+		}
+		(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockRO;
+		restoreRO = () => {
+			(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = hadRO;
+		};
+
+		// jsdom は getBoundingClientRect が全て 0。viewport=幅100、選択 thumb=left200(右に見切れ) を
+		// 返すよう stub し、「見切れ → 寄せる」判定を成立させる。
+		const hadRect = Object.getOwnPropertyDescriptor(Element.prototype, "getBoundingClientRect");
+		Object.defineProperty(Element.prototype, "getBoundingClientRect", {
+			configurable: true,
+			writable: true,
+			value(this: HTMLElement) {
+				const isThumb = this.hasAttribute?.("data-slide-index");
+				const left = isThumb ? 200 : 0;
+				const width = isThumb ? 50 : 100;
+				return { left, top: 0, width, height: 50, right: left + width, bottom: 50, x: left, y: 0 };
+			},
+		});
+		restoreRect = () => {
+			if (hadRect) Object.defineProperty(Element.prototype, "getBoundingClientRect", hadRect);
+		};
+	});
+	afterEach(() => {
+		restoreRect?.();
+		restoreRO?.();
+		restoreScrollTo?.();
+	});
+
+	it("ストリップで viewport リサイズ時、見切れた編集中スライドを横方向に寄せ直す", () => {
+		useSlideStore
+			.getState()
+			.setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c"), makeSlide(4, "d")]);
+		useSlideStore.getState().setSelectedIndex(3);
+		render(false, false); // strip
+		scrollToSpy.mockClear(); // 選択時 center + RO 初回発火分をクリア
+
+		// リサイズ発火 (フルスクリーン解除等に相当)
+		act(() => roCallbacks.forEach((cb) => cb([], null)));
+
+		expect(scrollToSpy).toHaveBeenCalled();
+		// 横方向 (left) かつ即時 (auto) で寄せる
+		const arg = scrollToSpy.mock.calls.at(-1)?.[0];
+		expect(arg).toHaveProperty("left");
+		expect(arg?.behavior).toBe("auto");
+	});
+
+	it("一覧 (wrap) では viewport リサイズで追随しない (縦は対象外)", () => {
+		useSlideStore
+			.getState()
+			.setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c"), makeSlide(4, "d")]);
+		useSlideStore.getState().setSelectedIndex(3);
+		render(false, true); // gallery
+		scrollToSpy.mockClear();
+
+		act(() => roCallbacks.forEach((cb) => cb([], null)));
+
+		expect(scrollToSpy).not.toHaveBeenCalled();
+	});
+});

@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useCallback, useEffect, useRef } from "react";
 import { useAlert } from "../../hooks/useAlert";
 import { useDrop } from "../../hooks/useDrop";
 import { useImageLibraryMutation } from "../../hooks/useImageLibraryMutation";
@@ -86,27 +86,57 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 	} = useSlideMutation();
 	const alert = useAlert();
 
-	// 選択スライドを一覧の水平中央へスクロールする。
+	// 編集ストリップ (!wrap) で選択(=編集中)スライドを水平中央へ寄せる共通処理。
 	// legacy ListViewController.scrollToSelected (EDIT) の
 	//   scrollLeft = thumb.left + container.scrollLeft - container.width/2 + thumb.width/2
-	// と同じ「選択 thumb を viewport 水平中央に寄せる」計算。viewport 内のみスクロールし
-	// ページ全体は動かさない。
+	// と同じ計算。viewport 内のみスクロールしページ全体は動かさない。
+	//   - always=true : 常に中央 (選択 / モード変更時)
+	//   - always=false: 可視範囲外の時だけ寄せる (リサイズ追随、手動スクロールを尊重)
+	// 一覧 (wrap=縦スクロール) は対象外: 見切れてもホイールで掘れて領域も広く、追随不要。
 	const viewportRef = useRef<HTMLDivElement>(null);
+	const scrollSelectedIntoView = useCallback(
+		(always: boolean, behavior: ScrollBehavior): void => {
+			if (wrap || selectedIndex < 0) return;
+			const vp = viewportRef.current;
+			const el = vp?.querySelector<HTMLElement>(`[data-slide-index="${selectedIndex}"]`);
+			if (!vp || !el) return;
+			const vpRect = vp.getBoundingClientRect();
+			const elRect = el.getBoundingClientRect();
+			const elLeft = elRect.left - vpRect.left;
+			const visible = elLeft >= 0 && elLeft + elRect.width <= vpRect.width;
+			if (!always && visible) return; // リサイズ時は見えていれば動かさない
+			const left = vp.scrollLeft + elLeft - (vpRect.width - elRect.width) / 2;
+			if (typeof vp.scrollTo === "function") vp.scrollTo({ left, behavior });
+			else vp.scrollLeft = left;
+		},
+		[wrap, selectedIndex]
+	);
+
+	// 選択変更 / モード変更 (一覧→編集ストリップ) 時: 中央へスムーズに寄せる。
+	// (scrollSelectedIntoView は wrap / selectedIndex を依存に持つので、それらの変化で再実行される)
 	useEffect(() => {
-		// 水平中央寄せは単一行ストリップ (編集モード = !wrap) のみ対象。
-		// wrap を依存に含めるのが重要: 一覧 (wrap) で選択 → 編集に入ると selectedIndex は変わらず
-		// wrap だけが true→false になる。wrap を依存にしないとこの遷移で中央スクロールが走らず、
-		// ストリップが scrollLeft=0 のまま選択スライドが中央に来ない。
-		if (wrap || selectedIndex < 0) return;
+		scrollSelectedIntoView(true, "smooth");
+	}, [scrollSelectedIntoView, slides.length]);
+
+	// viewport の **寸法変化** に追随する (根本対策)。
+	// フルスクリーン化/解除・ウィンドウリサイズ・回転・パネル開閉などで表示領域が変わると、
+	// px ベースのスクロール位置が陳腐化し編集中スライドが画面外へずれるが、状態 (selectedIndex/wrap)
+	// は変わらないため上の effect は再実行されない。ResizeObserver で寸法変化を検知し、見切れ時のみ
+	// 即時に寄せ直す。スライドショー復帰もフルスクリーン解除の寸法変化としてここで解決される。
+	useEffect(() => {
 		const vp = viewportRef.current;
-		const el = vp?.querySelector<HTMLElement>(`[data-slide-index="${selectedIndex}"]`);
-		if (!vp || !el) return;
-		const vpRect = vp.getBoundingClientRect();
-		const elRect = el.getBoundingClientRect();
-		const left = vp.scrollLeft + (elRect.left - vpRect.left) - (vpRect.width - elRect.width) / 2;
-		if (typeof vp.scrollTo === "function") vp.scrollTo({ left, behavior: "smooth" });
-		else vp.scrollLeft = left;
-	}, [selectedIndex, slides.length, wrap]);
+		if (!vp || typeof ResizeObserver === "undefined") return;
+		let first = true; // observe 直後の初回発火は選択 effect が担当するためスキップ
+		const ro = new ResizeObserver(() => {
+			if (first) {
+				first = false;
+				return;
+			}
+			scrollSelectedIntoView(false, "auto");
+		});
+		ro.observe(vp);
+		return () => ro.disconnect();
+	}, [scrollSelectedIntoView]);
 
 	const isEmpty = slides.length === 0;
 	// ◀▶ は「選択中スライドの前後を選択」するナビ (未選択 / 端では非活性)。
