@@ -8,10 +8,10 @@ import { useLayerDelete } from "../../hooks/useLayerDelete";
 import { useLayerMutation } from "../../hooks/useLayerMutation";
 import { useEditViewStore } from "../../state/editViewStore";
 import { useHistoryStore } from "../../state/historyStore";
-import { useImageLibraryStore } from "../../state/imageLibraryStore";
 import { useLayerStore } from "../../state/layerStore";
 import { useSlideStore } from "../../state/slideStore";
 import { useViewerDocumentStore } from "../../state/viewerDocumentStore";
+import { collectImageMap } from "../../utils/collectImageMap";
 import type { AlignEdge } from "../../utils/layerOps";
 
 // 編集キャンバス上部ツールバー (アプリ一般の編集操作シェル)。
@@ -94,15 +94,10 @@ export const EditToolbar: FC = () => {
 	};
 
 	// 選択中スライドを native 寸法 PNG で書き出す (§4、背景は doc.bgColor)。
-	// imageMap は imageLibrary から組み立てる (FileIOPanel.collectImageMap と同等)。
 	const handleExportSlidePng = async () => {
 		if (!meta || selectedSlideIndex < 0) return;
-		const imageMap: Record<string, string> = {};
-		for (const [id, entry] of Object.entries(useImageLibraryStore.getState().imageById)) {
-			imageMap[id] = entry.dataURL;
-		}
 		try {
-			await exportSlidePng({ ...meta, slides }, imageMap, selectedSlideIndex);
+			await exportSlidePng({ ...meta, slides }, collectImageMap(), selectedSlideIndex);
 		} catch (e) {
 			console.error("[EditToolbar] export slide png error:", e);
 		}

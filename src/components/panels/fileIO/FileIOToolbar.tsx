@@ -1,49 +1,35 @@
-import { ActionIcon, Button, Group, Menu, Tooltip } from "@mantine/core";
+import { Button, Group, Menu, Tooltip } from "@mantine/core";
 import {
-	IconBookDownload,
 	IconChevronDown,
 	IconDeviceFloppy,
-	IconDotsVertical,
 	IconFileSpark,
 	IconFolderOpen,
-	IconPackageExport,
-	IconPackageImport,
 	IconReload,
 	IconTrash,
 } from "@tabler/icons-react";
-import type { ChangeEvent, FC } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { FC } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAlert } from "../../../hooks/useAlert";
-import { useFileIO } from "../../../hooks/useFileIO";
 import {
 	useStorage,
 	type StoredDocThumbnail,
 	type StoredSlideTitle,
 } from "../../../hooks/useStorage";
 import { useToast } from "../../../hooks/useToast";
-import { useImageLibraryStore } from "../../../state/imageLibraryStore";
 import { useSlideStore } from "../../../state/slideStore";
 import { useViewerDocumentStore } from "../../../state/viewerDocumentStore";
 import type { ViewerDocument } from "../../../types/ViewerDocument";
+import { collectImageMap } from "../../../utils/collectImageMap";
 import { DateUtil } from "../../../utils/DateUtil";
 import { generateDocThumbnailStrip } from "../../../utils/slideThumbnail";
 import { createNewViewerDocument } from "../../../utils/viewerDocumentFactory";
 import { DocumentPickerModal } from "../DocumentPickerModal";
+import { FileIOSubMenu } from "./FileIOSubMenu";
 import { FileSelector } from "./FileSelector";
-
-/** imageLibraryStore から imageId → dataURL の map を集める (export 用)。 */
-const collectImageMap = (): Record<string, string> => {
-	const imageMap: Record<string, string> = {};
-	const library = useImageLibraryStore.getState().imageById;
-	for (const [id, entry] of Object.entries(library)) {
-		imageMap[id] = entry.dataURL;
-	}
-	return imageMap;
-};
+import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 	const { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails } = useStorage();
-	const { exportHvd, exportHvz, exportPng, importFile, exportAllSlidesZip } = useFileIO();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
@@ -52,12 +38,12 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const alert = useAlert();
 	const toast = useToast();
+	const { wrap, confirmDiscardIfModified } = useFileIOCommon();
 
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
 	const [pickerOpen, setPickerOpen] = useState(false);
 	const [thumbnails, setThumbnails] = useState<Record<string, StoredDocThumbnail>>({});
-	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// title 一覧を refresh (update 降順)。
 	const refreshTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
@@ -70,25 +56,6 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 	useEffect(() => {
 		refreshTitles().catch((e) => console.error("[FileIOPanel] refreshTitles error:", e));
 	}, [refreshTitles]);
-
-	const wrap = (action: () => Promise<void>) => async () => {
-		try {
-			await action();
-		} catch (e) {
-			console.error("[FileIOPanel] error:", e);
-			toast.error(`エラー: ${String(e)}`);
-		}
-	};
-
-	// 現在 document を置き換える操作 (新規 / ロード / import) の前に、未保存変更があれば確認する。
-	// modified は最新を getState() で読む (load/new/import 後は setDocument が false にリセット)。
-	const confirmDiscardIfModified = async (): Promise<boolean> => {
-		if (!useViewerDocumentStore.getState().modified) return true;
-		return alert.confirm("未保存の変更があります。破棄して続行しますか?", {
-			okLabel: "破棄して続行",
-			cancelLabel: "キャンセル",
-		});
-	};
 
 	// ビジュアルピッカー: 一覧 + サムネをまとめ読みしてギャラリーを開く。
 	const handleOpenPicker = wrap(async () => {
@@ -180,68 +147,6 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 			await refreshTitles();
 		});
 
-	const handleExportHvd = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportHvd({ ...meta, slides }, collectImageMap()));
-	});
-	const handleExportHvz = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportHvz({ ...meta, slides }, collectImageMap()));
-	});
-	const handleExportPng = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportPng({ ...meta, slides }, collectImageMap()));
-	});
-	// 有効スライドを全て画像 PNG 化して ZIP 書き出し (§10)。
-	const handleExportZip = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportAllSlidesZip({ ...meta, slides }, collectImageMap()));
-	});
-
-	// インポートは「ボタン押下時点」で破棄確認する (ファイル選択後ではなく、開く/新規と同じ方針)。
-	//   - 未変更時: user gesture を保てるよう同期でファイルダイアログを開く。
-	//   - 変更あり時: 先に破棄確認し、OK のクリックを gesture としてダイアログを開く。
-	const handleImportClick = (): void => {
-		if (!useViewerDocumentStore.getState().modified) {
-			fileInputRef.current?.click();
-			return;
-		}
-		void wrap(async () => {
-			if (!(await confirmDiscardIfModified())) return;
-			fileInputRef.current?.click();
-		})();
-	};
-
-	const onFileSelected = (e: ChangeEvent<HTMLInputElement>): void => {
-		const file = e.target.files?.[0];
-		e.target.value = ""; // 同じファイルを連続選択できるよう reset
-		if (!file) return;
-		// 破棄確認は handleImportClick (ボタン押下時) で実施済みのため、ここでは行わない。
-		wrap(async () => {
-			const result = await importFile(file);
-			if (!result) {
-				toast.error(`未対応の拡張子です: ${file.name}`);
-				return;
-			}
-			setDocument(result.doc);
-			useImageLibraryStore.getState().setImageLibrary(result.imageData);
-			setSelectedTitle(null);
-			toast.success(`インポートしました: ${result.doc.title} (${result.doc.slides.length} slides)`);
-		})();
-	};
-
 	const handleDelete = wrap(async () => {
 		if (!selectedTitle) {
 			toast.info("削除する title を選択してください");
@@ -256,7 +161,6 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 
 	const canOverride = !!meta && meta.title !== "" && meta.title !== "(new)";
 	const hasSlides = slides.length > 0;
-	const hasEnabledSlide = slides.some((s) => !s.disabled);
 	// 再読み込み可否: 現在の document が保存済み (titles に存在) かつ未保存変更がある時のみ。
 	const currentSaved = !!meta && titles.some((t) => t.title === meta.title);
 	const canReload = currentSaved && modified;
@@ -290,13 +194,6 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 					data-action="open-picker">
 					開く
 				</Button>
-				<input
-					ref={fileInputRef}
-					type="file"
-					accept=".hvd,.hvz,.png"
-					onChange={onFileSelected}
-					style={{ display: "none" }}
-				/>
 
 				<FileSelector titles={titles} selectedTitle={selectedTitle} onChange={handleSelectChange} />
 				{!readOnly && (
@@ -312,16 +209,6 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 								再ロード
 							</Button>
 						</Tooltip>
-						{/* <Button
-									leftSection={<IconDeviceFloppy stroke={2} />}
-									size="xs"
-									variant="filled"
-									color="blue"
-									onClick={handleSavePrimary}
-									disabled={!hasSlides}
-									data-action="save">
-									保存
-								</Button> */}
 						<Button.Group>
 							<Button
 								leftSection={<IconDeviceFloppy stroke={2} />}
@@ -370,62 +257,7 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 						削除
 					</Button>
 				)}
-
-				<Menu shadow="md" width={200}>
-					<Menu.Target>
-						<ActionIcon
-							variant="default"
-							size="input-xs"
-							data-action="open-picker"
-							aria-label="その他の操作">
-							<IconDotsVertical stroke={2} />
-						</ActionIcon>
-					</Menu.Target>
-					<Menu.Dropdown>
-						<Menu.Divider />
-						<Menu.Label>インポート</Menu.Label>
-						<Menu.Item
-							leftSection={<IconPackageImport stroke={2} />}
-							onClick={handleImportClick}
-							data-action="import">
-							インポート
-						</Menu.Item>
-						{!readOnly && (
-							<>
-								<Menu.Divider />
-								<Menu.Label>エクスポート</Menu.Label>
-								<Menu.Item
-									leftSection={<IconPackageExport stroke={2} />}
-									onClick={handleExportHvd}
-									disabled={!hasSlides}
-									data-action="export-hvd">
-									HVDエクスポート
-								</Menu.Item>
-								<Menu.Item
-									leftSection={<IconPackageExport stroke={2} />}
-									onClick={handleExportHvz}
-									disabled={!hasSlides}
-									data-action="export-hvz">
-									HVZエクスポート
-								</Menu.Item>
-								<Menu.Item
-									leftSection={<IconPackageExport stroke={2} />}
-									onClick={handleExportPng}
-									disabled={!hasSlides}
-									data-action="export-png">
-									PNGエクスポート
-								</Menu.Item>
-								<Menu.Item
-									leftSection={<IconBookDownload stroke={2} />}
-									onClick={handleExportZip}
-									disabled={!hasEnabledSlide}
-									data-action="export-zip">
-									全スライド ZIP ダウンロード
-								</Menu.Item>
-							</>
-						)}
-					</Menu.Dropdown>
-				</Menu>
+				<FileIOSubMenu readOnly={readOnly} onTitleChange={handleSelectChange} />
 			</Group>
 			<DocumentPickerModal
 				opened={pickerOpen}
