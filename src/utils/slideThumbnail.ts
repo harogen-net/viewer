@@ -44,6 +44,11 @@ export interface DrawSlideToCanvasOptions {
 	/** 出力寸法。指定時は ctx に scale を掛けて縮小描画 (default = slide 寸法)。 */
 	targetWidth?: number;
 	targetHeight?: number;
+	/**
+	 * 画像レイヤーを強くぼかして描く (センシティブ文書のサムネ用、§sensitive-mode-spec)。
+	 * 出力寸法に比例した半径で「内容が判別できない程度」に暈す。暗号ではなくカジュアル秘匿。
+	 */
+	blur?: boolean;
 }
 
 /**
@@ -101,6 +106,13 @@ export const drawSlideToCanvas = async (
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 	}
 
+	// センシティブ: 背景描画後、画像レイヤーだけを強くぼかす。半径は出力の短辺比例で
+	// 内容が判別できない程度にする (ctx.filter 非対応環境では単に無視される)。
+	if (options?.blur) {
+		const blurPx = Math.max(6, Math.round(Math.min(targetWidth, targetHeight) / 6));
+		ctx.filter = `blur(${blurPx}px)`;
+	}
+
 	for (const layer of slide.layers) {
 		if (layer.type !== LayerType.IMAGE) continue;
 		const imgLayer = layer as ImageLayer;
@@ -137,6 +149,7 @@ export const drawSlideToCanvas = async (
 
 	ctx.resetTransform();
 	ctx.globalAlpha = 1;
+	ctx.filter = "none";
 	return canvas;
 };
 
@@ -148,6 +161,8 @@ export interface ThumbnailRenderOptions {
 	maxPx?: number;
 	mimeType?: string;
 	quality?: number;
+	/** センシティブ文書用: 画像を判別不可までぼかす。 */
+	blur?: boolean;
 }
 
 // 1 slide を縮小サムネ dataURL に焼く (共通レンダラ)。
@@ -167,6 +182,7 @@ const renderThumbDataURL = async (
 	const canvas = await drawSlideToCanvas(slide, bgColor, imageDataMap, {
 		targetWidth,
 		targetHeight,
+		blur: opts?.blur,
 	});
 	return canvas.toDataURL(opts?.mimeType ?? "image/png", opts?.quality);
 };
@@ -255,6 +271,8 @@ export const generateDocThumbnailStrip = async (
 		mimeType?: string;
 		quality?: number;
 		selectedIndex?: number;
+		/** センシティブ文書用: 各コマを判別不可までぼかす。 */
+		blur?: boolean;
 	}
 ): Promise<DocThumbnailStrip | null> => {
 	const active = doc.slides.filter((s) => !s.disabled);
@@ -278,6 +296,7 @@ export const generateDocThumbnailStrip = async (
 		const frame = await drawSlideToCanvas(picked[i], doc.bgColor, imageDataMap, {
 			targetWidth: frameW,
 			targetHeight: frameH,
+			blur: options?.blur,
 		});
 		ctx.drawImage(frame, i * frameW, 0);
 	}

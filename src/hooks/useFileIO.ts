@@ -146,9 +146,11 @@ export const useFileIO = (): UseFileIO => {
 		async (doc: ViewerDocument, imageMap: Record<string, string>): Promise<string | null> => {
 			const { cancelled, encrypted } = await encryptForExport(doc, imageMap);
 			if (cancelled) return null;
-			const thumbnailPngDataURL = doc.isSensitive
-				? undefined
-				: ((await generateSlideThumbnailDataURL(doc, imageMap).catch(() => null)) ?? undefined);
+			// センシティブ時は内容が判別できないようぼかした代表サムネを埋め込む (§sensitive-mode-spec)。
+			const thumbnailPngDataURL =
+				(await generateSlideThumbnailDataURL(doc, imageMap, { blur: doc.isSensitive }).catch(
+					() => null
+				)) ?? undefined;
 			const u8a = await serializePng(doc, imageMap, { thumbnailPngDataURL, encrypted });
 			const filename = `[hv]${doc.title || "document"}.png`;
 			downloadBlob(new Blob([u8a], { type: "image/png" }), filename);

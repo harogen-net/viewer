@@ -142,25 +142,27 @@
 - **成果物**: `src/utils/sensitiveCrypto.ts`（`encryptImageData` / `decryptImageData` / `verifyPassword`、PBKDF2-SHA256 → AES-256-GCM、per-file salt/iv）+ テスト。
 - **完了条件**: encrypt→decrypt の round-trip、誤PW・改竄・未対応version の拒否、平文非露出をテストで担保。
 
-### Phase 2 — 永続化（HVD 形式対応）
+### Phase 2 — 永続化（HVD 形式対応）✅（完了: `766e1d14`）
 - **やること**: 保存形式に `isSensitive` と `security.*` と暗号化 imageData を載せる/読む。`storageCodec` の serialize/parse を拡張。**非センシティブ文書は従来通り byte-equal を厳守**（§0-9）。
 - **成果物**: `src/utils/storageCodec.ts` 拡張（sensitive 分岐）+ テスト（sensitive round-trip / 非sensitive byte-equal 不変）。
 - **完了条件**: sensitive 文書が暗号化 imageData 付きで保存・読込でき、非 sensitive の既存 fixture byte-equal が壊れない。
 - **留意**: 平文 imageData は保存しない。imageData 以外（slideData 等）は平文のまま。
 
-### Phase 3 — セッションパスワード store + 解錠モーダル
+### Phase 3 — セッションパスワード store + 解錠モーダル ✅（完了: `76b431be`）
 - **やること**: パスワードをセッション中だけメモリ保持する store と、初回に1回だけ入力を求める解錠 UI。永続化しない。
 - **成果物**: `src/state/sensitiveSessionStore.ts`（in-memory、リロードで消える）+ 解錠モーダル component + テスト。
 - **完了条件**: 未設定時に1回だけ入力を促し、以降は再入力なし。パスワードはログ・永続層に出ない。
 
-### Phase 4 — 保存/読込フロー結線
+### Phase 4 — 保存/読込フロー結線 ✅（完了: `62050afb`、export/import 含む）
 - **やること**: 読込時、sensitive 文書はセッションパスワードで復号（未設定なら解錠モーダル→設定）。復号失敗はロック状態を維持し画像を出さない。保存時、sensitive なら暗号化して保存。
 - **成果物**: `useStorage` / `useFileIO`（import/export）/ ロード経路への結線 + テスト。
 - **完了条件**: §12 受け入れ基準を満たす（認証成功時のみ表示、失敗時は一切表示しない、非 sensitive 不変）。
 
-### Phase 5 — サムネイルぼかし
+### Phase 5 — サムネイルぼかし ✅（完了）
 - **やること**: sensitive 文書の PNG 埋め込みサムネ、および DB ギャラリー用サムネに、内容が判別できない程度のぼかしをかける。
 - **成果物**: `slideThumbnail` 生成経路に blur オプション（sensitive 時のみ適用）+ テスト。
 - **完了条件**: sensitive 文書のサムネから内容が判別できない。非 sensitive は従来通り。
 
-> 注: Phase 2〜5 は未着手。着手は都度指示を受ける。
+> 全 Phase (1〜5) 完了。センシティブモードの基本機能 (暗号化保存/復号読込/入出力/
+> セッション PW/サムネぼかし) が実装済み。残る磨き込み: 誤PW→再入力の手動確認、
+> ロック状態の UI 明示 (🔒 表示・再解錠導線)、rendered-image 出力の扱い、KDF 反復数の見直し。
