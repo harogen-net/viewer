@@ -1,7 +1,13 @@
+import { useSensitivePassword } from "@/hooks/useSensitivePassword";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import { DateUtil } from "@/utils/DateUtil";
-import { parseHvd, serializeHvd } from "@/utils/storageCodec";
+import {
+	type EncryptedImageData,
+	decryptImageData,
+	encryptImageData,
+} from "@/utils/sensitiveCrypto";
+import { collectReferencedImages, parseHvd, serializeHvd } from "@/utils/storageCodec";
 import { useCallback } from "react";
 
 // HVD IDB アクセス + codec を統合した React 向けストレージ API hook
@@ -104,7 +110,7 @@ export interface StorageApi {
 	save: (
 		doc: ViewerDocument,
 		options?: { override?: boolean; thumbnail?: StoredDocThumbnail | null }
-	) => Promise<{ title: string }>;
+	) => Promise<{ title: string } | null>;
 	/** タイトル指定で削除。該当なしも success 扱い。 */
 	deleteByTitle: (title: string) => Promise<void>;
 	/** 全サムネイルを {title: {thumb, frames}} で取得 (ビジュアルピッカー用)。未生成 title は欠落。 */
@@ -112,6 +118,8 @@ export interface StorageApi {
 }
 
 export function useStorage(): StorageApi {
+	const { ensurePassword, unlock } = useSensitivePassword();
+
 	const listTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
 		const db = await openDb();
 		try {
@@ -135,16 +143,23 @@ export function useStorage(): StorageApi {
 			db.close();
 		}
 		if (jsonStr == null) return null;
-		const { doc, imageData } = parseHvd(jsonStr, title);
-		useImageLibraryStore.getState().setImageLibrary(imageData);
-		return doc;
-	}, []);
+		const parsed = parseHvd(jsonStr, title);
+		if (parsed.encrypted) {
+			// センシティブ: 解錠ループで復号。キャンセルはロック状態で読む (画像空=placeholder、§9)。
+			const enc = parsed.encrypted;
+			const imageData = await unlock((pw) => decryptImageData(enc, pw));
+			useImageLibraryStore.getState().setImageLibrary(imageData ?? {});
+			return parsed.doc;
+		}
+		useImageLibraryStore.getState().setImageLibrary(parsed.imageData);
+		return parsed.doc;
+	}, [unlock]);
 
 	const save = useCallback(
 		async (
 			doc: ViewerDocument,
 			options?: { override?: boolean; thumbnail?: StoredDocThumbnail | null }
-		): Promise<{ title: string }> => {
+		): Promise<{ title: string } | null> => {
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
 			// imageLibraryStore から imageId→dataURL 抽出 (Record<string, ImageEntry> → Record<string, string>)
@@ -153,7 +168,15 @@ export function useStorage(): StorageApi {
 			for (const [id, entry] of Object.entries(library)) {
 				imageMap[id] = entry.dataURL;
 			}
-			const json = serializeHvd({ ...doc, title, editTime: now }, imageMap);
+			// センシティブ: 参照中画像をパスワードで暗号化して格納。パスワード未入力(キャンセル)は
+			// 保存中止 (null を返す = 呼び出し側で無音スキップ)。
+			let encrypted: EncryptedImageData | undefined;
+			if (doc.isSensitive) {
+				const pw = await ensurePassword();
+				if (pw === null) return null;
+				encrypted = await encryptImageData(collectReferencedImages(doc, imageMap), pw);
+			}
+			const json = serializeHvd({ ...doc, title, editTime: now }, imageMap, { encrypted });
 
 			const db = await openDb();
 			try {
@@ -184,7 +207,7 @@ export function useStorage(): StorageApi {
 			}
 			return { title };
 		},
-		[]
+		[ensurePassword]
 	);
 
 	const deleteByTitle = useCallback(async (title: string): Promise<void> => {

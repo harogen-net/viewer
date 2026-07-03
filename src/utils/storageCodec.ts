@@ -68,6 +68,24 @@ export interface RawHvd {
 	imageDataEnc?: string;
 }
 
+/** doc が実際に参照している imageId の dataURL だけ抽出する (serializeHvd の孤児除外と揃える)。 */
+export function collectReferencedImages(
+	doc: ViewerDocument,
+	imageMap: Record<string, string>
+): Record<string, string> {
+	const used = new Set<string>();
+	for (const slide of doc.slides) {
+		for (const layer of slide.layers) {
+			if (layer.type === LayerType.IMAGE) used.add((layer as ImageLayer).imageId);
+		}
+	}
+	const out: Record<string, string> = {};
+	used.forEach((id) => {
+		if (imageMap[id] != null) out[id] = imageMap[id];
+	});
+	return out;
+}
+
 /**
  * parseHvd の戻り値: ViewerDocument 本体 + 切り出した image dataURL 辞書。
  * sensitive 文書では imageData は空で、暗号化ペイロードを encrypted に入れて返す

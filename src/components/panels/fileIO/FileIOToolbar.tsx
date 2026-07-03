@@ -134,16 +134,20 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 			// (best-effort、失敗時は null = サムネ無し)。
 			// PNG (可逆): 白地に細い色線の簡易イラストは JPEG だと滲み/ブロックで激しく劣化するため。
 			// selectedIndex を起点にサムネを並べる (モーダル初期表示=選択中スライドにできる)。
-			const thumbnail = await generateDocThumbnailStrip(doc, collectImageMap(), {
-				frameMaxPx: 320,
-				mimeType: "image/png",
-				selectedIndex,
-			}).catch(() => null);
-			const { title } = await save(doc, { override, thumbnail });
+			// センシティブ文書は素のサムネで内容が漏れるため生成しない (Phase 5 でぼかしサムネに置換予定)。
+			const thumbnail = meta.isSensitive
+				? null
+				: await generateDocThumbnailStrip(doc, collectImageMap(), {
+						frameMaxPx: 320,
+						mimeType: "image/png",
+						selectedIndex,
+					}).catch(() => null);
+			const result = await save(doc, { override, thumbnail });
+			if (!result) return; // パスワード入力キャンセル = 保存中止 (無音)
 			// 保存名を meta へ同期し modified を解除 (beforeunload / 未保存ガードの誤発火を防ぐ。
 			// override 時は同名、新規時は採番された日付 title を反映 → 直後の上書きが正しい対象になる)。
-			markSaved(title);
-			toast.success(`保存しました: ${title}`);
+			markSaved(result.title);
+			toast.success(`保存しました: ${result.title}`);
 			await refreshTitles();
 		});
 

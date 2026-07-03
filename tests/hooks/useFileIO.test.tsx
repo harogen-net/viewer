@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useFileIO, type UseFileIO } from "../../src/hooks/useFileIO";
+import { useSensitiveSessionStore } from "../../src/state/sensitiveSessionStore";
 import type { Slide } from "../../src/types/Slide";
 import type { ViewerDocument } from "../../src/types/ViewerDocument";
 
@@ -83,6 +84,7 @@ let hook: { api: UseFileIO; teardown: () => void };
 let capture: ReturnType<typeof captureDownloadBlob>;
 
 beforeEach(() => {
+	useSensitiveSessionStore.setState({ password: null, request: null });
 	hook = setupHook();
 	capture = captureDownloadBlob();
 });
@@ -90,7 +92,16 @@ beforeEach(() => {
 afterEach(() => {
 	capture.restore();
 	hook.teardown();
+	useSensitiveSessionStore.setState({ password: null, request: null });
 });
+
+const flush = async (n = 6): Promise<void> => {
+	for (let i = 0; i < n; i++) {
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+	}
+};
 
 describe("useFileIO round-trip (v4 Group B 完了テスト)", () => {
 	it("HVD: exportHvd → File → importFile で同 doc を復元", async () => {
@@ -289,5 +300,94 @@ describe("useFileIO スライド画像出力 (v4 Group D output系)", () => {
 		const doc = makeMultiDoc("imgexp");
 		for (const s of doc.slides) s.disabled = true;
 		await expect(hook.api.exportAllSlidesZip(doc, {})).rejects.toThrow();
+	});
+});
+
+describe("useFileIO sensitive (Phase 4 export/import)", () => {
+	const imageMap = { img1: "data:image/png;base64,SECRETpixelsZZZ" };
+	const sensitiveDoc = (title: string): ViewerDocument => ({
+		...makeDoc(title),
+		isSensitive: true,
+		slides: [
+			{
+				id: 1,
+				uuid: "u1",
+				width: 800,
+				height: 600,
+				durationRatio: 1,
+				joining: true,
+				disabled: false,
+				layers: [
+					{
+						id: 1,
+						uuid: "l1",
+						name: "",
+						opacity: 1,
+						locked: false,
+						visible: true,
+						shared: false,
+						transX: 0,
+						transY: 0,
+						scaleX: 1,
+						scaleY: 1,
+						rotation: 0,
+						mirrorH: false,
+						mirrorV: false,
+						type: "image",
+						imageId: "img1",
+						clipRect: [0, 0, 0, 0],
+						isText: false,
+					},
+				],
+			},
+		],
+	});
+
+	it("HVD: sensitive export→import round-trip (暗号化され、同PWで復号)", async () => {
+		useSensitiveSessionStore.setState({ password: "pw" });
+		const msg = await hook.api.exportHvd(sensitiveDoc("sec"), imageMap);
+		expect(msg).toBe("exported: sec.hvd");
+
+		const text = await capture.getBlob()!.text();
+		expect(text).not.toContain("SECRETpixels"); // 平文が書き出されない
+		expect(text).toContain("imageDataEnc");
+
+		const file = new File([text], "sec.hvd", { type: "application/json" });
+		const result = await hook.api.importFile(file);
+		expect(result?.imageData.img1).toBe("data:image/png;base64,SECRETpixelsZZZ");
+	});
+
+	it("export: パスワード入力キャンセルで null (何も書き出さない)", async () => {
+		let msg: string | null | undefined;
+		act(() => {
+			hook.api.exportHvd(sensitiveDoc("sec"), imageMap).then((m) => {
+				msg = m;
+			});
+		});
+		await flush();
+		useSensitiveSessionStore.getState().request?.resolve(null); // 解錠キャンセル
+		await flush();
+		expect(msg).toBeNull();
+		expect(capture.getBlob()).toBeNull(); // download されていない
+	});
+
+	it("import: 解錠キャンセルはロック状態 (imageData 空) で doc を返す", async () => {
+		useSensitiveSessionStore.setState({ password: "pw" });
+		await hook.api.exportHvd(sensitiveDoc("sec"), imageMap);
+		const text = await capture.getBlob()!.text();
+		const file = new File([text], "sec.hvd", { type: "application/json" });
+
+		useSensitiveSessionStore.setState({ password: null, request: null }); // PW を忘れた状態
+		let result: Awaited<ReturnType<UseFileIO["importFile"]>> | undefined;
+		act(() => {
+			hook.api.importFile(file).then((r) => {
+				result = r;
+			});
+		});
+		await flush();
+		useSensitiveSessionStore.getState().request?.resolve(null); // 解錠キャンセル
+		await flush();
+		expect(result?.doc.title).toBe("sec");
+		expect(Object.keys(result?.imageData ?? {})).toHaveLength(0); // 画像ロック
 	});
 });

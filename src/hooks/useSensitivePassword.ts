@@ -14,6 +14,11 @@ export interface UseSensitivePassword {
 	getPassword: () => string | null;
 	/** PWキャッシュを破棄 (誤PW検出時など)。 */
 	clear: () => void;
+	/**
+	 * 解錠ループ: PW を取得 (キャッシュ or モーダル) → tryDecrypt を試す。失敗なら PW を破棄して
+	 * エラー付きで再入力を促す。成功で復号結果を返し、キャンセルで null。crypto 非依存 (tryDecrypt 注入)。
+	 */
+	unlock: <T>(tryDecrypt: (password: string) => Promise<T>) => Promise<T | null>;
 }
 
 export const useSensitivePassword = (): UseSensitivePassword =>
@@ -29,13 +34,27 @@ export const useSensitivePassword = (): UseSensitivePassword =>
 					},
 				});
 			});
+		const ensurePassword = (opts?: { error?: string }): Promise<string | null> => {
+			const cached = store().password;
+			return cached !== null ? Promise.resolve(cached) : prompt(opts);
+		};
 		return {
 			prompt,
+			ensurePassword,
 			getPassword: () => store().password,
 			clear: () => store().clearPassword(),
-			ensurePassword: (opts) => {
-				const cached = store().password;
-				return cached !== null ? Promise.resolve(cached) : prompt(opts);
+			unlock: async <T>(tryDecrypt: (password: string) => Promise<T>): Promise<T | null> => {
+				let error: string | undefined;
+				for (;;) {
+					const pw = await ensurePassword({ error });
+					if (pw === null) return null; // キャンセル
+					try {
+						return await tryDecrypt(pw);
+					} catch {
+						store().clearPassword(); // キャッシュ PW が誤り → 破棄して再入力
+						error = "パスワードが正しくありません。再入力してください。";
+					}
+				}
 			},
 		};
 	}, []);

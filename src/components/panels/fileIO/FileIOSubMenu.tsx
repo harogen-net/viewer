@@ -32,14 +32,15 @@ export const FileIOSubMenu: FC<{
 	// エクスポート 4 種 (HVD/HVZ/PNG/ZIP) は「未ロード確認 → doc+imageMap を注入して実行 →
 	// 結果メッセージを toast」まで同一。export 関数だけ差し替える共通ラッパーで生成する。
 	const runExport = (
-		fn: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string>
+		fn: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string | null>
 	) =>
 		wrap(async () => {
 			if (!meta) {
 				toast.info("ドキュメントが未ロードです");
 				return;
 			}
-			toast.success(await fn({ ...meta, slides }, collectImageMap()));
+			const msg = await fn({ ...meta, slides }, collectImageMap());
+			if (msg) toast.success(msg); // null = パスワード入力キャンセル (無音)
 		});
 	const handleExportHvd = runExport(exportHvd);
 	const handleExportHvz = runExport(exportHvz);
