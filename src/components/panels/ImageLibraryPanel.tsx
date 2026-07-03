@@ -3,6 +3,7 @@ import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
 import { useLayerMutation } from "@/hooks/useLayerMutation";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
+import { downloadDataUrl } from "@/utils/domUtils";
 import {
 	ActionIcon,
 	Box,
@@ -174,12 +175,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 
 	// 別タブ DL: 一時 <a download> を作って click
 	const handleDownload = (imageId: string, dataUrl: string, name?: string) => {
-		const a = document.createElement("a");
-		a.href = dataUrl;
-		a.download = name ?? `${imageId.slice(0, 8)}.png`;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
+		downloadDataUrl(dataUrl, name ?? `${imageId.slice(0, 8)}.png`);
 	};
 
 	const dropOverlayStyle: CSSProperties = {

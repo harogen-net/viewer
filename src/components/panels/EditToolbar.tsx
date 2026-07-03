@@ -10,6 +10,7 @@ import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import { collectImageMap } from "@/utils/collectImageMap";
+import { measureScaledLayerSize } from "@/utils/domUtils";
 import type { AlignEdge } from "@/utils/layerOps";
 import { ActionIcon, Button, Divider, Group, Text, Tooltip } from "@mantine/core";
 import type { FC } from "react";
@@ -56,17 +57,8 @@ export const EditToolbar: FC = () => {
 	const deleteLayer = useLayerDelete();
 
 	// fit / align は wrapper の content size を実測する必要がある (edit canvas の scaled 配下に限定)。
-	const measureContentSize = (): { w: number; h: number } | null => {
-		if (!selectedLayer) return null;
-		const wrapper = document.querySelector<HTMLElement>(
-			`[data-slide-edit-scaled] [data-layer-id="${selectedLayer.id}"]`
-		);
-		if (!wrapper) return null;
-		const w = wrapper.offsetWidth;
-		const h = wrapper.offsetHeight;
-		if (w <= 0 || h <= 0) return null;
-		return { w, h };
-	};
+	const measureContentSize = (): { w: number; h: number } | null =>
+		selectedLayer ? measureScaledLayerSize(selectedLayer.id) : null;
 
 	const handleSpread = async () => {
 		if (!hasSelection) return;

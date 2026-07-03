@@ -9,6 +9,7 @@ import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import type { LayerBase } from "@/types/Layer";
 import type { SlideState } from "@/types/SlideState";
+import { downloadDataUrl, measureScaledLayerSize } from "@/utils/domUtils";
 import {
 	updateImageLayer as updateImageLayerOp,
 	updateLayer as updateLayerOp,
@@ -149,17 +150,8 @@ export const EditOpsPanel: FC = () => {
 	// fit: layer wrapper の DOM を検索し content size を実測 (scaled 上で querySelector)
 	// スコープ: edit canvas の scaled stage 内の wrapper のみ (LayerListPanel や thumb にも
 	//        data-layer-id があるため [data-slide-edit-scaled] 下に限定)。
-	const measureContentSize = (): { w: number; h: number } | null => {
-		if (!selectedLayer) return null;
-		const wrapper = document.querySelector<HTMLElement>(
-			`[data-slide-edit-scaled] [data-layer-id="${selectedLayer.id}"]`
-		);
-		if (!wrapper) return null;
-		const w = wrapper.offsetWidth;
-		const h = wrapper.offsetHeight;
-		if (w <= 0 || h <= 0) return null;
-		return { w, h };
-	};
+	const measureContentSize = (): { w: number; h: number } | null =>
+		selectedLayer ? measureScaledLayerSize(selectedLayer.id) : null;
 
 	// clipRect スライダー (D-6b、ImageLayer のみ) — [top, right, bottom, left]
 	const isImageLayer = selectedLayer?.type === "image";
@@ -189,12 +181,7 @@ export const EditOpsPanel: FC = () => {
 		const entry = useImageLibraryStore.getState().imageById[imageLayer.imageId];
 		if (!entry) return;
 		const ext = entry.dataURL.match(/^data:image\/([a-z0-9.+-]+)/i)?.[1] ?? "png";
-		const a = document.createElement("a");
-		a.href = entry.dataURL;
-		a.download = `${entry.name || imageLayer.imageId}.${ext}`;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
+		downloadDataUrl(entry.dataURL, `${entry.name || imageLayer.imageId}.${ext}`);
 	};
 
 	// 画像差し替え (ImageLayer のみ、legacy imageRef 相当): 選択ファイルを画像ライブラリへ登録し、
@@ -397,16 +384,6 @@ export const EditOpsPanel: FC = () => {
 								onAdjustStart={handlePropStart}
 								onAdjustEnd={() => handlePropEnd("edit rotation")}
 							/>
-							{/* <Tooltip label="回転リセット (0°)">
-								<ActionIcon
-									variant="subtle"
-									onClick={() => layer.resetRotation(layerIndex)}
-									disabled={!canEditLayer}
-									data-edit-op="reset-rotation"
-									aria-label="reset rotation">
-									↺
-								</ActionIcon>
-							</Tooltip> */}
 						</Group>
 					</Stack>
 				)}

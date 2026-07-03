@@ -2,6 +2,7 @@ import type { ImageLayer, Layer, LayerBase, TextLayer } from "@/types/Layer";
 import { LayerType } from "@/types/Layer";
 import type { Slide } from "@/types/Slide";
 import type { SlideState } from "@/types/SlideState";
+import { newUuid } from "./uuid";
 
 // distributive Omit: union 型に対し各 member ごとに Omit を適用
 // (TS の Omit はそのままだと union を 1 つの型として扱い、type 識別子を失う)
@@ -31,13 +32,6 @@ export type NewLayer = DistributiveOmit<Layer, "id" | "uuid">;
 //   mirrorH/mirrorV 一致 (rotation は判定外)。全スライド走査。自然寸法は setRectSyncConfig で注入。
 
 // --- 内部 helpers ---
-
-/** uuid 生成 (storageCodec / slideFactory と同じパターン)。 */
-const newUuid = (): string => {
-	const c = (typeof crypto !== "undefined" ? crypto : null) as Crypto | null;
-	if (c && typeof c.randomUUID === "function") return c.randomUUID();
-	return `r-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
-};
 
 /** layers 配列内の最大 id + 1 (slide 内 unique 担保)。 */
 const nextLayerId = (layers: Layer[]): number => {

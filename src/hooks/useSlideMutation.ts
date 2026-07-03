@@ -1,6 +1,6 @@
 import type { NewLayer } from "@/utils/layerOps";
 import * as slideOps from "@/utils/slideOps";
-import { useCallback } from "react";
+import { useMemo } from "react";
 import { useDocumentMutation } from "./useDocumentMutation";
 
 // Slide 階層の consumer facade (v4 Group C)。
@@ -28,99 +28,49 @@ export interface UseSlideMutation {
 
 export const useSlideMutation = (): UseSlideMutation => {
 	const { applySlideChange } = useDocumentMutation();
-
-	const moveSlide = useCallback(
-		(from: number, to: number) =>
-			applySlideChange("move slide", (s) => slideOps.moveSlide(s, from, to)),
+	// applySlideChange は stable (useDocumentMutation 内 useCallback [])。全 method は
+	// それに slideOps 純関数を注入するだけの薄 wrapper なので useMemo で 1 度だけ生成する。
+	return useMemo<UseSlideMutation>(
+		() => ({
+			moveSlide: (from, to) =>
+				applySlideChange("move slide", (s) => slideOps.moveSlide(s, from, to)),
+			addSlide: (width, height, atIndex) =>
+				applySlideChange("add slide", (s) => slideOps.addSlide(s, width, height, atIndex)),
+			addImageSlide: (width, height, layer) =>
+				applySlideChange("add image slide", (s) => slideOps.addImageSlide(s, width, height, layer)),
+			deleteSlide: (index) =>
+				applySlideChange("delete slide", (s) => slideOps.deleteSlide(s, index)),
+			duplicateSlide: (index) =>
+				applySlideChange("duplicate slide", (s) => slideOps.duplicateSlide(s, index)),
+			setSlideJoining: (index, joining) =>
+				applySlideChange(joining ? "join slide" : "split slide", (s) =>
+					slideOps.setSlideJoining(s, index, joining)
+				),
+			setSlideDisabled: (index, disabled) =>
+				applySlideChange(disabled ? "disable slide" : "enable slide", (s) =>
+					slideOps.setSlideDisabled(s, index, disabled)
+				),
+			setAllJoining: (joining) =>
+				applySlideChange(joining ? "join all slides" : "split all slides", (s) =>
+					slideOps.setAllJoining(s, joining)
+				),
+			setAllDisabled: (disabled) =>
+				applySlideChange(disabled ? "disable all slides" : "enable all slides", (s) =>
+					slideOps.setAllDisabled(s, disabled)
+				),
+			enableOnly: (index) =>
+				applySlideChange("enable only slide", (s) => slideOps.enableOnly(s, index)),
+			deleteAllDisabled: () =>
+				applySlideChange("delete disabled slides", (s) => slideOps.deleteAllDisabled(s)),
+			setSlideDurationRatio: (index, ratio) =>
+				applySlideChange("set duration ratio", (s) =>
+					slideOps.setSlideDurationRatio(s, index, ratio)
+				),
+			incrementSlideDurationRatio: (index) =>
+				applySlideChange("duration up", (s) => slideOps.incrementSlideDurationRatio(s, index)),
+			decrementSlideDurationRatio: (index) =>
+				applySlideChange("duration down", (s) => slideOps.decrementSlideDurationRatio(s, index)),
+		}),
 		[applySlideChange]
 	);
-	const addSlide = useCallback(
-		(width: number, height: number, atIndex?: number) =>
-			applySlideChange("add slide", (s) => slideOps.addSlide(s, width, height, atIndex)),
-		[applySlideChange]
-	);
-	const addImageSlide = useCallback(
-		(width: number, height: number, layer: NewLayer) =>
-			applySlideChange("add image slide", (s) => slideOps.addImageSlide(s, width, height, layer)),
-		[applySlideChange]
-	);
-	const deleteSlide = useCallback(
-		(index: number) => applySlideChange("delete slide", (s) => slideOps.deleteSlide(s, index)),
-		[applySlideChange]
-	);
-	const duplicateSlide = useCallback(
-		(index: number) =>
-			applySlideChange("duplicate slide", (s) => slideOps.duplicateSlide(s, index)),
-		[applySlideChange]
-	);
-	const setSlideJoining = useCallback(
-		(index: number, joining: boolean) =>
-			applySlideChange(joining ? "join slide" : "split slide", (s) =>
-				slideOps.setSlideJoining(s, index, joining)
-			),
-		[applySlideChange]
-	);
-	const setSlideDisabled = useCallback(
-		(index: number, disabled: boolean) =>
-			applySlideChange(disabled ? "disable slide" : "enable slide", (s) =>
-				slideOps.setSlideDisabled(s, index, disabled)
-			),
-		[applySlideChange]
-	);
-	const setAllJoining = useCallback(
-		(joining: boolean) =>
-			applySlideChange(joining ? "join all slides" : "split all slides", (s) =>
-				slideOps.setAllJoining(s, joining)
-			),
-		[applySlideChange]
-	);
-	const setAllDisabled = useCallback(
-		(disabled: boolean) =>
-			applySlideChange(disabled ? "disable all slides" : "enable all slides", (s) =>
-				slideOps.setAllDisabled(s, disabled)
-			),
-		[applySlideChange]
-	);
-	const enableOnly = useCallback(
-		(index: number) => applySlideChange("enable only slide", (s) => slideOps.enableOnly(s, index)),
-		[applySlideChange]
-	);
-	const deleteAllDisabled = useCallback(
-		() => applySlideChange("delete disabled slides", (s) => slideOps.deleteAllDisabled(s)),
-		[applySlideChange]
-	);
-	const setSlideDurationRatio = useCallback(
-		(index: number, ratio: number) =>
-			applySlideChange("set duration ratio", (s) =>
-				slideOps.setSlideDurationRatio(s, index, ratio)
-			),
-		[applySlideChange]
-	);
-	const incrementSlideDurationRatio = useCallback(
-		(index: number) =>
-			applySlideChange("duration up", (s) => slideOps.incrementSlideDurationRatio(s, index)),
-		[applySlideChange]
-	);
-	const decrementSlideDurationRatio = useCallback(
-		(index: number) =>
-			applySlideChange("duration down", (s) => slideOps.decrementSlideDurationRatio(s, index)),
-		[applySlideChange]
-	);
-
-	return {
-		moveSlide,
-		addSlide,
-		addImageSlide,
-		deleteSlide,
-		duplicateSlide,
-		setSlideJoining,
-		setSlideDisabled,
-		setAllJoining,
-		setAllDisabled,
-		enableOnly,
-		deleteAllDisabled,
-		setSlideDurationRatio,
-		incrementSlideDurationRatio,
-		decrementSlideDurationRatio,
-	};
 };

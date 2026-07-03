@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/useToast";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import type { ViewerDocument } from "@/types/ViewerDocument";
 import { collectImageMap } from "@/utils/collectImageMap";
 import { ActionIcon, Menu } from "@mantine/core";
 import {
@@ -28,35 +29,23 @@ export const FileIOSubMenu: FC<{
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	const handleExportHvd = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportHvd({ ...meta, slides }, collectImageMap()));
-	});
-	const handleExportHvz = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportHvz({ ...meta, slides }, collectImageMap()));
-	});
-	const handleExportPng = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportPng({ ...meta, slides }, collectImageMap()));
-	});
+	// エクスポート 4 種 (HVD/HVZ/PNG/ZIP) は「未ロード確認 → doc+imageMap を注入して実行 →
+	// 結果メッセージを toast」まで同一。export 関数だけ差し替える共通ラッパーで生成する。
+	const runExport = (
+		fn: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string>
+	) =>
+		wrap(async () => {
+			if (!meta) {
+				toast.info("ドキュメントが未ロードです");
+				return;
+			}
+			toast.success(await fn({ ...meta, slides }, collectImageMap()));
+		});
+	const handleExportHvd = runExport(exportHvd);
+	const handleExportHvz = runExport(exportHvz);
+	const handleExportPng = runExport(exportPng);
 	// 有効スライドを全て画像 PNG 化して ZIP 書き出し (§10)。
-	const handleExportZip = wrap(async () => {
-		if (!meta) {
-			toast.info("ドキュメントが未ロードです");
-			return;
-		}
-		toast.success(await exportAllSlidesZip({ ...meta, slides }, collectImageMap()));
-	});
+	const handleExportZip = runExport(exportAllSlidesZip);
 
 	// インポートは「ボタン押下時点」で破棄確認する (ファイル選択後ではなく、開く/新規と同じ方針)。
 	//   - 未変更時: user gesture を保てるよう同期でファイルダイアログを開く。

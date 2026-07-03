@@ -3,7 +3,7 @@ import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import type { ImageLayer, LayerBase, TextLayer } from "@/types/Layer";
 import type { AlignEdge, NewLayer } from "@/utils/layerOps";
 import * as layerOps from "@/utils/layerOps";
-import { useCallback, useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useDocumentMutation } from "./useDocumentMutation";
 
 // Layer 階層の consumer facade (v4 Group D D-2)。
@@ -71,170 +71,76 @@ export interface UseLayerMutation {
 
 export const useLayerMutation = (): UseLayerMutation => {
 	const { applySlideChange } = useDocumentMutation();
-
-	const updateLayer = useCallback(
-		(layerIndex: number, patch: Partial<LayerBase>) =>
-			applySlideChange("update layer", (s) => layerOps.updateLayer(s, layerIndex, patch)),
+	// applySlideChange は stable (useDocumentMutation 内 useCallback [])。全 method は
+	// それに layerOps 純関数を注入するだけの薄 wrapper なので useMemo で 1 度だけ生成する。
+	return useMemo<UseLayerMutation>(
+		() => ({
+			updateLayer: (layerIndex, patch) =>
+				applySlideChange("update layer", (s) => layerOps.updateLayer(s, layerIndex, patch)),
+			updateImageLayer: (layerIndex, patch) =>
+				applySlideChange("update image layer", (s) =>
+					layerOps.updateImageLayer(s, layerIndex, patch)
+				),
+			updateTextLayer: (layerIndex, patch) =>
+				applySlideChange("update text layer", (s) =>
+					layerOps.updateTextLayer(s, layerIndex, patch)
+				),
+			addLayer: (layer) => applySlideChange("add layer", (s) => layerOps.addLayer(s, layer)),
+			addTextLayer: (text, slideW, slideH) =>
+				applySlideChange("add text layer", (s) => layerOps.addTextLayer(s, text, slideW, slideH)),
+			removeLayer: (layerIndex) =>
+				applySlideChange("remove layer", (s) => layerOps.removeLayer(s, layerIndex)),
+			removeLayerWithSharedSiblings: (layerIndex) =>
+				applySlideChange("remove shared layers", (s) =>
+					layerOps.removeLayerWithSharedSiblings(s, layerIndex)
+				),
+			duplicateLayer: (layerIndex) =>
+				applySlideChange("duplicate layer", (s) => layerOps.duplicateLayer(s, layerIndex)),
+			spreadLayer: (layerIndex) =>
+				applySlideChange("spread layer", (s) => layerOps.spreadLayer(s, layerIndex)),
+			reorderLayer: (fromIndex, toIndex) =>
+				applySlideChange("reorder layer", (s) => layerOps.reorderLayer(s, fromIndex, toIndex)),
+			bringToFront: (layerIndex) =>
+				applySlideChange("bring layer to front", (s) => layerOps.bringToFront(s, layerIndex)),
+			sendToBack: (layerIndex) =>
+				applySlideChange("send layer to back", (s) => layerOps.sendToBack(s, layerIndex)),
+			bringForward: (layerIndex) =>
+				applySlideChange("bring layer forward", (s) => layerOps.bringForward(s, layerIndex)),
+			sendBackward: (layerIndex) =>
+				applySlideChange("send layer backward", (s) => layerOps.sendBackward(s, layerIndex)),
+			rotateBy: (layerIndex, deltaDeg) =>
+				applySlideChange("rotate layer", (s) => layerOps.rotateBy(s, layerIndex, deltaDeg)),
+			resetRotation: (layerIndex) =>
+				applySlideChange("reset rotation", (s) => layerOps.resetRotation(s, layerIndex)),
+			toggleMirrorH: (layerIndex) =>
+				applySlideChange("toggle mirror h", (s) => layerOps.toggleMirrorH(s, layerIndex)),
+			toggleMirrorV: (layerIndex) =>
+				applySlideChange("toggle mirror v", (s) => layerOps.toggleMirrorV(s, layerIndex)),
+			resetOpacity: (layerIndex) =>
+				applySlideChange("reset opacity", (s) => layerOps.resetOpacity(s, layerIndex)),
+			fitToSlide: (layerIndex, slideW, slideH, contentW, contentH) =>
+				applySlideChange("fit to slide", (s) =>
+					layerOps.fitToSlide(s, layerIndex, slideW, slideH, contentW, contentH)
+				),
+			alignTo: (layerIndex, edge, slideW, slideH, contentW, contentH) =>
+				applySlideChange(`align ${edge}`, (s) =>
+					layerOps.alignTo(s, layerIndex, edge, slideW, slideH, contentW, contentH)
+				),
+			removeLayersByImageId: (imageId) =>
+				applySlideChange("remove layers by image", (s) =>
+					layerOps.removeLayersByImageId(s, imageId)
+				),
+			replaceImageId: (layerIndex, newImageId) =>
+				applySlideChange("replace image", (s) =>
+					layerOps.replaceImageId(s, layerIndex, newImageId)
+				),
+			replaceImageIdAll: (oldImageId, newImageId) =>
+				applySlideChange("replace image (all)", (s) =>
+					layerOps.replaceImageIdAll(s, oldImageId, newImageId)
+				),
+		}),
 		[applySlideChange]
 	);
-	const updateImageLayer = useCallback(
-		(layerIndex: number, patch: Partial<Omit<ImageLayer, "type" | "id" | "uuid">>) =>
-			applySlideChange("update image layer", (s) =>
-				layerOps.updateImageLayer(s, layerIndex, patch)
-			),
-		[applySlideChange]
-	);
-	const updateTextLayer = useCallback(
-		(layerIndex: number, patch: Partial<Omit<TextLayer, "type" | "id" | "uuid">>) =>
-			applySlideChange("update text layer", (s) => layerOps.updateTextLayer(s, layerIndex, patch)),
-		[applySlideChange]
-	);
-	const addLayer = useCallback(
-		(layer: NewLayer) => applySlideChange("add layer", (s) => layerOps.addLayer(s, layer)),
-		[applySlideChange]
-	);
-	const addTextLayer = useCallback(
-		(text: string, slideW: number, slideH: number) =>
-			applySlideChange("add text layer", (s) => layerOps.addTextLayer(s, text, slideW, slideH)),
-		[applySlideChange]
-	);
-	const removeLayer = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("remove layer", (s) => layerOps.removeLayer(s, layerIndex)),
-		[applySlideChange]
-	);
-	const removeLayerWithSharedSiblings = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("remove shared layers", (s) =>
-				layerOps.removeLayerWithSharedSiblings(s, layerIndex)
-			),
-		[applySlideChange]
-	);
-	const duplicateLayer = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("duplicate layer", (s) => layerOps.duplicateLayer(s, layerIndex)),
-		[applySlideChange]
-	);
-	const spreadLayer = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("spread layer", (s) => layerOps.spreadLayer(s, layerIndex)),
-		[applySlideChange]
-	);
-	const reorderLayer = useCallback(
-		(fromIndex: number, toIndex: number) =>
-			applySlideChange("reorder layer", (s) => layerOps.reorderLayer(s, fromIndex, toIndex)),
-		[applySlideChange]
-	);
-	const bringToFront = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("bring layer to front", (s) => layerOps.bringToFront(s, layerIndex)),
-		[applySlideChange]
-	);
-	const sendToBack = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("send layer to back", (s) => layerOps.sendToBack(s, layerIndex)),
-		[applySlideChange]
-	);
-	const bringForward = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("bring layer forward", (s) => layerOps.bringForward(s, layerIndex)),
-		[applySlideChange]
-	);
-	const sendBackward = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("send layer backward", (s) => layerOps.sendBackward(s, layerIndex)),
-		[applySlideChange]
-	);
-	const rotateBy = useCallback(
-		(layerIndex: number, deltaDeg: number) =>
-			applySlideChange("rotate layer", (s) => layerOps.rotateBy(s, layerIndex, deltaDeg)),
-		[applySlideChange]
-	);
-	const resetRotation = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("reset rotation", (s) => layerOps.resetRotation(s, layerIndex)),
-		[applySlideChange]
-	);
-	const toggleMirrorH = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("toggle mirror h", (s) => layerOps.toggleMirrorH(s, layerIndex)),
-		[applySlideChange]
-	);
-	const toggleMirrorV = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("toggle mirror v", (s) => layerOps.toggleMirrorV(s, layerIndex)),
-		[applySlideChange]
-	);
-	const resetOpacity = useCallback(
-		(layerIndex: number) =>
-			applySlideChange("reset opacity", (s) => layerOps.resetOpacity(s, layerIndex)),
-		[applySlideChange]
-	);
-	const fitToSlide = useCallback(
-		(layerIndex: number, slideW: number, slideH: number, contentW: number, contentH: number) =>
-			applySlideChange("fit to slide", (s) =>
-				layerOps.fitToSlide(s, layerIndex, slideW, slideH, contentW, contentH)
-			),
-		[applySlideChange]
-	);
-	const alignTo = useCallback(
-		(
-			layerIndex: number,
-			edge: AlignEdge,
-			slideW: number,
-			slideH: number,
-			contentW: number,
-			contentH: number
-		) =>
-			applySlideChange(`align ${edge}`, (s) =>
-				layerOps.alignTo(s, layerIndex, edge, slideW, slideH, contentW, contentH)
-			),
-		[applySlideChange]
-	);
-	const removeLayersByImageId = useCallback(
-		(imageId: string) =>
-			applySlideChange("remove layers by image", (s) => layerOps.removeLayersByImageId(s, imageId)),
-		[applySlideChange]
-	);
-	const replaceImageId = useCallback(
-		(layerIndex: number, newImageId: string) =>
-			applySlideChange("replace image", (s) => layerOps.replaceImageId(s, layerIndex, newImageId)),
-		[applySlideChange]
-	);
-	const replaceImageIdAll = useCallback(
-		(oldImageId: string, newImageId: string) =>
-			applySlideChange("replace image (all)", (s) =>
-				layerOps.replaceImageIdAll(s, oldImageId, newImageId)
-			),
-		[applySlideChange]
-	);
-
-	return {
-		updateLayer,
-		updateImageLayer,
-		updateTextLayer,
-		addLayer,
-		addTextLayer,
-		removeLayer,
-		removeLayerWithSharedSiblings,
-		duplicateLayer,
-		spreadLayer,
-		reorderLayer,
-		bringToFront,
-		sendToBack,
-		bringForward,
-		sendBackward,
-		rotateBy,
-		resetRotation,
-		toggleMirrorH,
-		toggleMirrorV,
-		resetOpacity,
-		fitToSlide,
-		alignTo,
-		removeLayersByImageId,
-		replaceImageId,
-		replaceImageIdAll,
-	};
 };
 
 /**

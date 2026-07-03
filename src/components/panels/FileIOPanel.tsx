@@ -44,9 +44,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 
 	return (
 		<>
-			{/* <Paper withBorder p="6" radius="sm"> */}
 			<Stack gap="xs">
-				{/* <Stack gap="xs"> */}
 				<FileIOToolbar readOnly={readOnly} />
 
 				<Paper withBorder p="6" radius="sm">

@@ -1,6 +1,7 @@
 import type { Layer } from "@/types/Layer";
 import type { Slide } from "@/types/Slide";
 import type { NewLayer } from "./layerOps";
+import { newUuid } from "./uuid";
 
 // Slide 生成 / 複製 / id 採番のための pure helpers (v4 Group C build C-1)。
 // レガシー `src/model/Slide.ts` (EventDispatcher 派生 class、jQuery 連動) は
@@ -11,13 +12,6 @@ import type { NewLayer } from "./layerOps";
 //   - SlideListPanel の duplicate コマンド → cloneSlide
 //   - slideStore の id 採番 → nextSlideId
 // HVD round-trip 維持のため id は数値、uuid は React key 用 (HVD 非保存)。
-
-/** uuid 生成 (crypto.randomUUID 優先、fallback 乱数)。storageCodec と同等。 */
-const newUuid = (): string => {
-	const c = (typeof crypto !== "undefined" ? crypto : null) as Crypto | null;
-	if (c && typeof c.randomUUID === "function") return c.randomUUID();
-	return `r-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
-};
 
 /** slides 配列内の最大 id + 1 を返す (空配列なら 1)。 */
 export const nextSlideId = (slides: Slide[]): number => {

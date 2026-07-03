@@ -4,6 +4,7 @@ import type { Slide } from "@/types/Slide";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import JSZip from "jszip";
 import { PNGEmbedder } from "./PNGEmbedder";
+import { newUuid } from "./uuid";
 
 // HVD (Histelle Viewer Data) JSON 形式 ↔ ViewerDocument 純関数 codec
 // (v3 Group B build 1、§0-10 新側内製)。
@@ -68,14 +69,6 @@ export interface ParsedHvd {
 }
 
 // ---- 補助 ----
-
-// uuid 生成は crypto.randomUUID() があればそれを、無ければ雑な乱数ベースで。
-// 純関数性を厳密に追わない (uuid は HVD 非保存 = 副作用としても無害)。
-function newUuid(): string {
-	const c = (typeof crypto !== "undefined" ? crypto : null) as Crypto | null;
-	if (c && typeof c.randomUUID === "function") return c.randomUUID();
-	return `r-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
-}
 
 // ---- parse ----
 

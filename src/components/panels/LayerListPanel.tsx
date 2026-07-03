@@ -264,13 +264,6 @@ export const LayerListPanel: FC = () => {
 			radius="sm"
 			style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
 			<Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
-				{/* <Stack justify="space-between" align="flex-start" style={{ flexDirection: "row" }}	>
-					<Title order={5}>Layer List</Title>
-					<Text size="xs" c="dimmed" ff="monospace">
-						{layers.length} layers
-						{selectedLayer && ` / selected: ${labelOf(selectedLayer)}`}
-					</Text>
-				</Stack> */}
 				{/* Layer 順序変更 */}
 				<Button.Group style={{ width: "100%" }} >
 					<Tooltip label="最前面">
