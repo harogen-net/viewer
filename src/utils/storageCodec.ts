@@ -4,6 +4,7 @@ import type { Slide } from "@/types/Slide";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import JSZip from "jszip";
 import { PNGEmbedder } from "./PNGEmbedder";
+import type { EncryptedImageData, SecurityMeta } from "./sensitiveCrypto";
 import { newUuid } from "./uuid";
 
 // HVD (Histelle Viewer Data) JSON 形式 ↔ ViewerDocument 純関数 codec
@@ -60,12 +61,22 @@ export interface RawHvd {
 	editTime?: number;
 	slideData: RawHvdSlide[];
 	imageData?: Record<string, string>;
+	// センシティブ拡張 (docs/sensitive-mode-spec.md)。sensitive 時は平文 imageData の代わりに
+	// security メタ + 暗号化 imageData (base64) を持つ。
+	isSensitive?: boolean;
+	security?: SecurityMeta;
+	imageDataEnc?: string;
 }
 
-/** parseHvd の戻り値: ViewerDocument 本体 + 切り出した image dataURL 辞書。 */
+/**
+ * parseHvd の戻り値: ViewerDocument 本体 + 切り出した image dataURL 辞書。
+ * sensitive 文書では imageData は空で、暗号化ペイロードを encrypted に入れて返す
+ * (復号はパスワード入手後に caller が decryptImageData で行う)。
+ */
 export interface ParsedHvd {
 	doc: ViewerDocument;
 	imageData: Record<string, string>;
+	encrypted?: EncryptedImageData;
 }
 
 // ---- 補助 ----
@@ -141,8 +152,17 @@ export function parseHvd(jsonText: string, fallbackTitle: string): ParsedHvd {
 		createTime: raw.createTime ?? Date.now(),
 		editTime: raw.editTime ?? Date.now(),
 		bgColor: raw.bgColor,
+		isSensitive: raw.isSensitive,
 		slides: (raw.slideData ?? []).map((s) => rawToSlide(s, width, height)),
 	};
+	// センシティブ: 暗号化ペイロードは復号せずそのまま返す (復号はパスワード入手後に caller が実施)。
+	if (raw.isSensitive && raw.security && raw.imageDataEnc != null) {
+		return {
+			doc,
+			imageData: {},
+			encrypted: { security: raw.security, ciphertext: raw.imageDataEnc },
+		};
+	}
 	return { doc, imageData: raw.imageData ?? {} };
 }
 
@@ -195,7 +215,11 @@ function slideToRaw(slide: Slide): RawHvdSlide {
  * legacy SlideStorage.stringifyData と同等のフィールド順序 + 同等の省略ルール。
  * editTime は引数 doc.editTime をそのまま使う (legacy のような自動上書きはしない)。
  */
-export function serializeHvd(doc: ViewerDocument, imageDataMap: Record<string, string>): string {
+export function serializeHvd(
+	doc: ViewerDocument,
+	imageDataMap: Record<string, string>,
+	opts?: { encrypted?: EncryptedImageData }
+): string {
 	// フィールド挿入順をレガシー stringifyData (SlideStorage.ts) に合わせて
 	// byte-equal 互換を狙う: version → screen → bgColor? → createTime? → editTime?
 	// → slideData → imageData。
@@ -207,19 +231,30 @@ export function serializeHvd(doc: ViewerDocument, imageDataMap: Record<string, s
 	if (doc.editTime) out.editTime = doc.editTime;
 	out.slideData = doc.slides.map(slideToRaw);
 
-	// imageData は実際に参照されている imageId 分だけ含める (孤児を除外)。
-	const usedImageIds = new Set<string>();
-	for (const slide of doc.slides) {
-		for (const layer of slide.layers) {
-			if (layer.type === LayerType.IMAGE) usedImageIds.add((layer as ImageLayer).imageId);
+	if (opts?.encrypted) {
+		// センシティブ: 平文 imageData の代わりに security メタ + 暗号化 imageData を格納する。
+		out.isSensitive = true;
+		out.security = opts.encrypted.security;
+		out.imageDataEnc = opts.encrypted.ciphertext;
+	} else {
+		// 安全弁: センシティブ文書を暗号化 payload なしで(=平文で)保存させない。
+		if (doc.isSensitive) {
+			throw new Error("センシティブ文書の保存には暗号化済みペイロード (encrypted) が必要です");
 		}
+		// imageData は実際に参照されている imageId 分だけ含める (孤児を除外)。
+		const usedImageIds = new Set<string>();
+		for (const slide of doc.slides) {
+			for (const layer of slide.layers) {
+				if (layer.type === LayerType.IMAGE) usedImageIds.add((layer as ImageLayer).imageId);
+			}
+		}
+		const imageData: Record<string, string> = {};
+		Array.from(usedImageIds).forEach((id) => {
+			const dataURL = imageDataMap[id];
+			if (dataURL != null) imageData[id] = dataURL;
+		});
+		out.imageData = imageData;
 	}
-	const imageData: Record<string, string> = {};
-	Array.from(usedImageIds).forEach((id) => {
-		const dataURL = imageDataMap[id];
-		if (dataURL != null) imageData[id] = dataURL;
-	});
-	out.imageData = imageData;
 
 	return JSON.stringify(out);
 }
@@ -238,9 +273,10 @@ export function serializeHvd(doc: ViewerDocument, imageDataMap: Record<string, s
  */
 export async function serializeHvz(
 	doc: ViewerDocument,
-	imageDataMap: Record<string, string>
+	imageDataMap: Record<string, string>,
+	opts?: { encrypted?: EncryptedImageData }
 ): Promise<Uint8Array> {
-	const json = serializeHvd(doc, imageDataMap);
+	const json = serializeHvd(doc, imageDataMap, opts);
 	const zip = new JSZip();
 	zip.file(`${doc.title || "document"}.hvd`, json);
 	return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
@@ -310,9 +346,9 @@ function pngEmbedAsync(
 export async function serializePng(
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	options?: { thumbnailPngDataURL?: string }
+	options?: { thumbnailPngDataURL?: string; encrypted?: EncryptedImageData }
 ): Promise<Uint8Array> {
-	const json = serializeHvd(doc, imageDataMap);
+	const json = serializeHvd(doc, imageDataMap, { encrypted: options?.encrypted });
 	const zip = new JSZip();
 	zip.file("data.hvd", json);
 	const zipU8a = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
