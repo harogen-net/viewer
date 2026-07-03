@@ -3,20 +3,23 @@ import "fake-indexeddb/auto";
 // jsdom の HTMLImageElement.src は load イベントを発火しないため、
 // テスト用に src setter をパッチして次マイクロタスクで load を発火する。
 // これにより ImageManager.registImageData の Promise が解決可能になる。
-const __imgSrcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
-Object.defineProperty(HTMLImageElement.prototype, "src", {
-	configurable: true,
-	enumerable: true,
-	get() {
-		return __imgSrcDesc?.get?.call(this) ?? "";
-	},
-	set(value: string) {
-		__imgSrcDesc?.set?.call(this, value);
-		queueMicrotask(() => {
-			this.dispatchEvent(new Event("load"));
-		});
-	},
-});
+// node 環境で走るテスト (@vitest-environment node) には HTMLImageElement が無いためガードする。
+if (typeof HTMLImageElement !== "undefined") {
+	const __imgSrcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+	Object.defineProperty(HTMLImageElement.prototype, "src", {
+		configurable: true,
+		enumerable: true,
+		get() {
+			return __imgSrcDesc?.get?.call(this) ?? "";
+		},
+		set(value: string) {
+			__imgSrcDesc?.set?.call(this, value);
+			queueMicrotask(() => {
+				this.dispatchEvent(new Event("load"));
+			});
+		},
+	});
+}
 
 // jsdom (25) には window.matchMedia が無い。Mantine の color-scheme 検出が
 // requires。test 環境では light スキーム固定でよいので no-match を返す。
