@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ImageEntry } from "./imageLibraryStore";
 import type { SlideState } from "../types/SlideState";
 
 // History store (v4 Group C 設計コア、undo/redo 駆動)。
@@ -26,6 +27,16 @@ export interface HistoryEntry {
 	label: string;
 	before: SlideState;
 	after: SlideState;
+	/**
+	 * 操作前後の imageLibrary snapshot (imageId → entry)。画像差し替え / 画像削除は
+	 * layer の imageId 変更 (SlideState) と library の add/prune (SlideState 外) が対で起きる。
+	 * これを記録しないと、差し替えで prune された旧画像を undo で slides が参照し直しても
+	 * library に dataURL が無く layer が壊れる (placeholder 表示) ため、library も snapshot する。
+	 * entry は immutable / dataURL 文字列は参照共有なので shallow snapshot は安価。
+	 * 省略時 (library 非依存 op や外部 push) は undo/redo で library を復元しない。
+	 */
+	beforeImages?: Record<string, ImageEntry>;
+	afterImages?: Record<string, ImageEntry>;
 }
 
 interface HistoryStoreState {

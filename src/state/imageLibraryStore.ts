@@ -7,7 +7,7 @@ import { create } from "zustand";
 // この store に直接書き込む。Group B / D で useImageLibrary 等の hook に
 // API を整理する想定だが、Group A 時点では store + selector で完結する。
 
-interface ImageEntry {
+export interface ImageEntry {
 	dataURL: string;
 	/** 画像ファイル名 (HVD には載らないが、レガシー UI 互換のため optional)。 */
 	name?: string;

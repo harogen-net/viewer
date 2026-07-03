@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useDocumentMutation, type UseDocumentMutation } from "../../src/hooks/useDocumentMutation";
 import { useLayerMutation, type UseLayerMutation } from "../../src/hooks/useLayerMutation";
 import { useHistoryStore } from "../../src/state/historyStore";
+import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
@@ -112,6 +113,7 @@ let hooks: { api: CapturedHooks; teardown: () => void };
 beforeEach(() => {
 	useSlideStore.getState().setSlides([]);
 	useLayerStore.getState().setLayers([]);
+	useImageLibraryStore.getState().setImageLibrary({});
 	useViewerDocumentStore.getState().setModified(false);
 	useHistoryStore.getState().clear();
 	hooks = setupHooks();
@@ -142,6 +144,29 @@ describe("useLayerMutation + useDocumentMutation (v4 Group D D-2)", () => {
 			expect(useViewerDocumentStore.getState().modified).toBe(true);
 			expect(useHistoryStore.getState().past.length).toBe(1);
 			expect(useHistoryStore.getState().past[0].label).toBe("update layer");
+		});
+
+		// 回帰: 画像の全差し替え (同一 imageId を全スライドで置換) 後、旧画像を prune しても
+		// undo で旧画像が imageLibrary へ復元され layer が壊れない (dataURL 消失 → placeholder を防ぐ)。
+		it("画像全差し替え → prune → undo で旧画像 dataURL が library に復元される", () => {
+			useImageLibraryStore
+				.getState()
+				.setImageLibrary({ "img-1": "data:old", "img-new": "data:new" });
+			seedSlideWithLayers([makeImageLayer(1, "a")]); // imageId = "img-1"
+
+			// 全差し替え (history 1 件) → 旧画像 prune (孤児削除、履歴外)。
+			act(() => {
+				hooks.api.layer.replaceImageIdAll("img-1", "img-new");
+				useImageLibraryStore.getState().removeImage("img-1"); // pruneOrphanImage 相当
+			});
+			expect(useSlideStore.getState().slides[0].layers[0]).toMatchObject({ imageId: "img-new" });
+			expect(useImageLibraryStore.getState().imageById["img-1"]).toBeUndefined();
+
+			act(() => hooks.api.doc.undo());
+
+			// layer は img-1 に戻り、library にも img-1 (dataURL 付き) が復元されている。
+			expect(useSlideStore.getState().slides[0].layers[0]).toMatchObject({ imageId: "img-1" });
+			expect(useImageLibraryStore.getState().imageById["img-1"]?.dataURL).toBe("data:old");
 		});
 
 		it("addLayer: 末尾追加 + uuid/id 採番", () => {

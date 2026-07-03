@@ -1,4 +1,5 @@
 import { useHistoryStore } from "@/state/historyStore";
+import { type ImageEntry, useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
@@ -49,7 +50,9 @@ const currentSlideState = (): SlideState => {
 	return { slides: s.slides, selectedIndex: s.selectedIndex };
 };
 
-const applyToStores = (next: SlideState): void => {
+const currentImages = (): Record<string, ImageEntry> => useImageLibraryStore.getState().imageById;
+
+const applyToStores = (next: SlideState, images?: Record<string, ImageEntry>): void => {
 	// 中間 cascade (setSlides → setLayers([])) で selectedLayer が一旦クリアされるため、
 	// 現選択の uuid を保存しておき、cascade 完了後に新 layers から同 uuid を探して復元する。
 	// (in-place mutation で drag / resize / prop 編集 後も選択状態を保つため)
@@ -71,17 +74,28 @@ const applyToStores = (next: SlideState): void => {
 		const found = layers.find((l) => l.uuid === prevSelectedUuid) ?? null;
 		if (found) useLayerStore.getState().setSelectedLayer(found);
 	}
+
+	// undo/redo で imageLibrary snapshot を復元する (差し替え/画像削除で prune された旧画像を
+	// slides が参照し直せるように)。参照が変わっている時だけ setImageLibrary (無駄な再描画抑止)。
+	if (images && images !== useImageLibraryStore.getState().imageById) {
+		useImageLibraryStore.getState().setImageLibrary(images);
+	}
 };
 
 export const useDocumentMutation = (): UseDocumentMutation => {
 	const applySlideChange = useCallback(
 		(label: string, update: (state: SlideState) => SlideState | null): void => {
 			const before = currentSlideState();
+			const beforeImages = currentImages();
 			const after = update(before);
 			if (!after) return; // no-op (op が null = 変化なし)
 			applyToStores(after);
 			useViewerDocumentStore.getState().setModified(true);
-			useHistoryStore.getState().push({ label, before, after });
+			// afterImages は op 適用後に取得 (op 自体は library を触らないが、差し替え等の呼出側は
+			// この applySlideChange の後で prune するため、ここでは prune 前の library を記録する)。
+			useHistoryStore
+				.getState()
+				.push({ label, before, after, beforeImages, afterImages: currentImages() });
 		},
 		[]
 	);
@@ -101,7 +115,11 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 		const after = currentSlideState();
 		// 変化なし (slides 参照が同一) は記録しない
 		if (after.slides === before.slides) return;
-		useHistoryStore.getState().push({ label, before, after });
+		// テキスト入力等 library 非依存 op。before/after とも現在の library で可 (変化しない)。
+		const images = currentImages();
+		useHistoryStore
+			.getState()
+			.push({ label, before, after, beforeImages: images, afterImages: images });
 	}, []);
 
 	const snapshot = useCallback((): SlideState => currentSlideState(), []);
@@ -109,14 +127,14 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	const undo = useCallback((): void => {
 		const entry = useHistoryStore.getState().popUndo();
 		if (!entry) return;
-		applyToStores(entry.before);
+		applyToStores(entry.before, entry.beforeImages);
 		useViewerDocumentStore.getState().setModified(true);
 	}, []);
 
 	const redo = useCallback((): void => {
 		const entry = useHistoryStore.getState().popRedo();
 		if (!entry) return;
-		applyToStores(entry.after);
+		applyToStores(entry.after, entry.afterImages);
 		useViewerDocumentStore.getState().setModified(true);
 	}, []);
 
