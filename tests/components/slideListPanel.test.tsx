@@ -313,26 +313,25 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(s.slides[2].uuid).toBe("b");
 		});
 
-		it("削除ボタンは確認 OK なら当該 slide を削除 (選択不要)", async () => {
+		it("削除ボタンは確認なしで即座に当該 slide を削除 (選択不要)", () => {
 			seedDoc([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
 			render(); // 未選択
 			act(() => {
 				getThumbControl(1, "delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
-			await resolveAlert(true);
 
 			expect(useSlideStore.getState().slides.map((x) => x.uuid)).toEqual(["a", "c"]);
 		});
 
-		it("削除ボタンは確認キャンセルなら no-op", async () => {
+		it("削除ボタンは確認ダイアログを出さない", () => {
 			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
 			render();
 			act(() => {
 				getThumbControl(0, "delete")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
-			await resolveAlert(false);
 
-			expect(useSlideStore.getState().slides.length).toBe(2); // 削除されていない
+			expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
+			expect(useSlideStore.getState().slides.length).toBe(1); // 即削除される
 		});
 	});
 
@@ -454,6 +453,18 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(getMenuItem("duplicate-target")).not.toBeNull();
 			expect(getMenuItem("delete-target")).not.toBeNull();
 			expect(getMenuItem("all-joining")).not.toBeNull(); // 一括も同時表示
+		});
+
+		it("「削除」クリックは確認なしで対象 slide を即削除する", () => {
+			seedDoc([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")]);
+			render();
+			fireContextMenu(container.querySelector("[data-slide-index='1']"));
+			act(() => {
+				getMenuItem("delete-target")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+
+			expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
+			expect(useSlideStore.getState().slides.map((s) => s.uuid)).toEqual(["a", "c"]);
 		});
 
 		it("背景右クリックで一括操作のみ (per-slide なし)", () => {

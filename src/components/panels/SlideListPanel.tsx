@@ -1,7 +1,6 @@
 import { SlideJoinIndicator } from "@/components/slide/SlideJoinIndicator";
 import { SlideThumbView } from "@/components/slide/SlideThumbView";
 import { SortableSlideThumb } from "@/components/slide/SortableSlideThumb";
-import { useAlert } from "@/hooks/useAlert";
 import { useDrop } from "@/hooks/useDrop";
 import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
 import { useSlideMutation } from "@/hooks/useSlideMutation";
@@ -84,7 +83,6 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		incrementSlideDurationRatio,
 		decrementSlideDurationRatio,
 	} = useSlideMutation();
-	const alert = useAlert();
 
 	// 編集ストリップ (!wrap) で選択(=編集中)スライドを水平中央へ寄せる共通処理。
 	// legacy ListViewController.scrollToSelected (EDIT) の
@@ -191,10 +189,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 	const handleThumbClick = (i: number): void => selectAt(i);
 	// スライド内の複製/削除は選択に関係なく当該スライドへ作用する。
 	const handleDuplicateAt = (i: number): void => duplicateSlide(i);
-	const handleDeleteAt = async (i: number): Promise<void> => {
-		if (!(await alert.confirm(`スライド #${i + 1} を削除しますか?`))) return;
-		deleteSlide(i);
-	};
+	const handleDeleteAt = (i: number): void => deleteSlide(i);
 
 	// 画像のドラッグ&ドロップ (D-12、legacy ListViewController drop 相当)。
 	// imageId/ファイルいずれも「画像 1 枚を持つ新規 slide」を末尾に追加する。

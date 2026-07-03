@@ -66,11 +66,9 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 		if (ctxMenu?.targetIndex == null) return;
 		duplicateSlide(ctxMenu.targetIndex);
 	};
-	const handleDeleteTarget = async (): Promise<void> => {
+	const handleDeleteTarget = (): void => {
 		if (ctxMenu?.targetIndex == null) return;
-		const idx = ctxMenu.targetIndex;
-		if (!(await alert.confirm(`スライド #${idx + 1} を削除しますか?`))) return;
-		deleteSlide(idx);
+		deleteSlide(ctxMenu.targetIndex);
 	};
 	const handleToggleAllJoining = (): void => setAllJoining(!allJoined);
 	const handleEnableAll = (): void => setAllDisabled(false);
