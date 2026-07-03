@@ -1,5 +1,4 @@
 // vite.config.js
-import inject from "@rollup/plugin-inject";
 import react from "@vitejs/plugin-react";
 import path from 'path';
 import { defineConfig } from "vite";
@@ -19,10 +18,6 @@ export default defineConfig({
 		// React Fast Refresh (HMR): .tsx 編集をフルリロードせずコンポーネント単位で差し替え。
 		// 先頭に置き、index.html に refresh プリアンブルを注入させる。
 		react(),
-		inject({
-			$: "jquery",
-			jQuery: "jquery",
-		}),
 		VitePWA({
 			registerType: "autoUpdate",
 			injectRegister: "auto",

@@ -1,11 +1,14 @@
-import $ from "jquery";
 import JSZip from "jszip";
 import { readFileSync, readdirSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
-import { ImageManager } from "../src/utils/ImageManager";
+import { describe, expect, it } from "vitest";
 import { PNGEmbedder } from "../src/utils/PNGEmbedder";
-import { SlideStorage } from "../src/utils/SlideStorage";
+import { parseHvd, serializeHvd } from "../src/utils/storageCodec";
+
+// P0 regression net: 保存形式 (HVD/HVZ/PNG) の byte-equal 厳密要件 (§0-9)。
+// 旧版は legacy SlideStorage で round-trip していたが、Group E で legacy を削除するため
+// 新コーデック (storageCodec) の parse→serialize が fixture と byte-equal になることを直接検証する。
+// これにより legacy 撤去後も「新側が旧保存データと byte 互換」であることを保証し続ける。
 
 const fixturesDir = resolve(__dirname, "fixtures");
 
@@ -19,26 +22,20 @@ const hvdCases = findAllByExt(".hvd");
 const hvzCases = findAllByExt(".hvz");
 const pngCases = findAllByExt(".png");
 
-beforeAll(() => {
-	ImageManager.init($("body"));
-});
-
-async function roundtripHvd(hvdJson: string): Promise<string> {
-	const storage: any = SlideStorage.getInstance();
-	const doc = await storage.parseData(hvdJson);
-	return storage.stringifyData(doc);
+// 新コーデックで HVD JSON を parse→再直列化。byte-equal ならフィールド順・値が完全一致。
+function roundtripHvd(hvdJson: string): string {
+	const { doc, imageData } = parseHvd(hvdJson, "roundtrip");
+	return serializeHvd(doc, imageData);
 }
 
-describe("SlideStorage round-trip (P0 regression net)", () => {
-	it.each(hvdCases)(".hvd byte-equal: $name", async ({ file }) => {
+describe("storageCodec round-trip (P0 regression net, byte-equal §0-9)", () => {
+	it.each(hvdCases)(".hvd byte-equal: $name", ({ file }) => {
 		const original = readFileSync(file, "utf8");
-		const restringified = await roundtripHvd(original);
-		expect(restringified, `byte-equal failed for ${basename(file)}`).toBe(original);
+		expect(roundtripHvd(original), `byte-equal failed for ${basename(file)}`).toBe(original);
 	});
 
-	it.each(hvzCases)(".hvz byte-equal: $name", async ({ file }) => {
-		const buf = readFileSync(file);
-		const zip = await JSZip.loadAsync(buf);
+	it.each(hvzCases)(".hvz byte-equal (inner .hvd): $name", async ({ file }) => {
+		const zip = await JSZip.loadAsync(readFileSync(file));
 		let hvdJson = "";
 		for (const entry of Object.values(zip.files)) {
 			if (!entry.dir) {
@@ -46,21 +43,17 @@ describe("SlideStorage round-trip (P0 regression net)", () => {
 				break;
 			}
 		}
-		const restringified = await roundtripHvd(hvdJson);
-		expect(restringified, `byte-equal failed for ${basename(file)}`).toBe(hvdJson);
+		expect(roundtripHvd(hvdJson), `byte-equal failed for ${basename(file)}`).toBe(hvdJson);
 	});
 
-	it.each(pngCases)(".png byte-equal: $name", async ({ file }) => {
-		const buf = readFileSync(file);
-		const dataUrl = "data:image/png;base64," + buf.toString("base64");
-		const embedder = new PNGEmbedder();
-		const u8a = embedder.extract(dataUrl);
-		// jsdom realm の Uint8Array は Node global と別物で JSZip の instanceof 判定に失敗する。Buffer で wrap。
+	it.each(pngCases)(".png byte-equal (embedded .hvd): $name", async ({ file }) => {
+		const dataUrl = `data:image/png;base64,${readFileSync(file).toString("base64")}`;
+		const u8a = new PNGEmbedder().extract(dataUrl);
+		// jsdom realm の Uint8Array は Node global と別物で JSZip の instanceof に失敗するため Buffer で wrap。
 		const zip = await JSZip.loadAsync(Buffer.from(u8a));
 		const entry = zip.file("data.hvd");
 		expect(entry, "embedded zip must contain data.hvd").not.toBeNull();
 		const hvdJson = await entry!.async("string");
-		const restringified = await roundtripHvd(hvdJson);
-		expect(restringified, `byte-equal failed for ${basename(file)}`).toBe(hvdJson);
+		expect(roundtripHvd(hvdJson), `byte-equal failed for ${basename(file)}`).toBe(hvdJson);
 	});
 });
