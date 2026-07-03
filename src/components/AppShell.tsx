@@ -13,6 +13,7 @@ import { ActionIcon, Box, createTheme, Flex, MantineProvider, Text, Tooltip } fr
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 import { AlertHost } from "./common/AlertHost";
+import { SensitiveUnlockModal } from "./common/SensitiveUnlockModal";
 import { ToastHost } from "./common/ToastHost";
 import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { EditToolbar } from "./panels/EditToolbar";
@@ -309,6 +310,7 @@ export const AppShell: FC = () => {
 			<ProgressBar />
 			<AlertHost />
 			<ToastHost />
+			<SensitiveUnlockModal />
 		</MantineProvider>
 	);
 };
