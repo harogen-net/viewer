@@ -18,6 +18,8 @@ export interface UseSlideMutation {
 	setSlideDisabled: (index: number, disabled: boolean) => void;
 	setAllJoining: (joining: boolean) => void;
 	setAllDisabled: (disabled: boolean) => void;
+	/** 対象 slide のみ有効化し、それ以外を無効化する。 */
+	enableOnly: (index: number) => void;
 	deleteAllDisabled: () => void;
 	setSlideDurationRatio: (index: number, ratio: number) => void;
 	incrementSlideDurationRatio: (index: number) => void;
@@ -79,6 +81,10 @@ export const useSlideMutation = (): UseSlideMutation => {
 			),
 		[applySlideChange]
 	);
+	const enableOnly = useCallback(
+		(index: number) => applySlideChange("enable only slide", (s) => slideOps.enableOnly(s, index)),
+		[applySlideChange]
+	);
 	const deleteAllDisabled = useCallback(
 		() => applySlideChange("delete disabled slides", (s) => slideOps.deleteAllDisabled(s)),
 		[applySlideChange]
@@ -111,6 +117,7 @@ export const useSlideMutation = (): UseSlideMutation => {
 		setSlideDisabled,
 		setAllJoining,
 		setAllDisabled,
+		enableOnly,
 		deleteAllDisabled,
 		setSlideDurationRatio,
 		incrementSlideDurationRatio,

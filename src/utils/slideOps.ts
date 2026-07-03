@@ -163,6 +163,20 @@ export const setAllDisabled = (state: SlideState, disabled: boolean): SlideState
 	return { slides: next, selectedIndex };
 };
 
+/**
+ * 対象 slide のみ有効化し、それ以外を無効化する (legacy ListViewController「対象のみ有効化」相当)。
+ * index 範囲外 / 既にその状態なら null。
+ */
+export const enableOnly = (state: SlideState, targetIndex: number): SlideState | null => {
+	const { slides, selectedIndex } = state;
+	if (targetIndex < 0 || targetIndex >= slides.length) return null;
+	// 目標状態: i === targetIndex → disabled=false、それ以外 → disabled=true
+	const allMatch = slides.every((s, i) => s.disabled === (i !== targetIndex));
+	if (allMatch) return null;
+	const next = slides.map((s, i) => ({ ...s, disabled: i !== targetIndex }));
+	return { slides: next, selectedIndex };
+};
+
 /** disabled な slide をすべて削除。該当なし / 空配列なら null。 */
 export const deleteAllDisabled = (state: SlideState): SlideState | null => {
 	const { slides } = state;

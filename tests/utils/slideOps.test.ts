@@ -9,6 +9,7 @@ import {
 	deleteAllDisabled,
 	deleteSlide,
 	duplicateSlide,
+	enableOnly,
 	incrementSlideDurationRatio,
 	moveSlide,
 	resizeAllSlides,
@@ -207,6 +208,32 @@ describe("slideOps (v4 Group C 純関数)", () => {
 		it("disabled 無し / 空配列 の deleteAllDisabled は null", () => {
 			expect(deleteAllDisabled(makeState([makeSlide(1, "a")]))).toBeNull();
 			expect(deleteAllDisabled(makeState([]))).toBeNull();
+		});
+	});
+
+	describe("enableOnly", () => {
+		it("対象のみ disabled=false、他は全 true", () => {
+			const s = makeState([
+				makeSlide(1, "a", { disabled: false }),
+				makeSlide(2, "b", { disabled: false }),
+				makeSlide(3, "c", { disabled: true }),
+			]);
+			const r = enableOnly(s, 1);
+			expect(r?.slides.map((x) => x.disabled)).toEqual([true, false, true]);
+		});
+
+		it("既にその状態 (対象のみ有効) なら null", () => {
+			const s = makeState([
+				makeSlide(1, "a", { disabled: true }),
+				makeSlide(2, "b", { disabled: false }),
+			]);
+			expect(enableOnly(s, 1)).toBeNull();
+		});
+
+		it("範囲外 index は null", () => {
+			const s = makeState([makeSlide(1, "a"), makeSlide(2, "b")]);
+			expect(enableOnly(s, -1)).toBeNull();
+			expect(enableOnly(s, 2)).toBeNull();
 		});
 	});
 

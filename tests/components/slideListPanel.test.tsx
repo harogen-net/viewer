@@ -505,6 +505,21 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(useSlideStore.getState().slides.every((s) => !s.joining)).toBe(true);
 		});
 
+		it("「このスライドのみ有効化」で対象のみ有効・他は全無効", () => {
+			seedDoc([
+				makeSlide(1, "a", { disabled: false }),
+				makeSlide(2, "b", { disabled: false }),
+				makeSlide(3, "c", { disabled: false }),
+			]);
+			render();
+			fireContextMenu(container.querySelector("[data-slide-index='1']"));
+
+			act(() => {
+				getMenuItem("enable-only")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			});
+			expect(useSlideStore.getState().slides.map((s) => s.disabled)).toEqual([true, false, true]);
+		});
+
 		it("「全無効化」「全有効化」で setAllDisabled が呼ばれる", () => {
 			seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
 			render();

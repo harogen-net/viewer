@@ -31,6 +31,7 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 		setSlideDisabled,
 		setAllJoining,
 		setAllDisabled,
+		enableOnly,
 		deleteAllDisabled,
 	} = useSlideMutation();
 	const alert = useAlert();
@@ -69,6 +70,10 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 	const handleDeleteTarget = (): void => {
 		if (ctxMenu?.targetIndex == null) return;
 		deleteSlide(ctxMenu.targetIndex);
+	};
+	const handleEnableOnlyTarget = (): void => {
+		if (ctxMenu?.targetIndex == null) return;
+		enableOnly(ctxMenu.targetIndex);
 	};
 	const handleToggleAllJoining = (): void => setAllJoining(!allJoined);
 	const handleEnableAll = (): void => setAllDisabled(false);
@@ -111,6 +116,9 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 							</Menu.Item>
 							<Menu.Item onClick={handleToggleSlideDisabled} data-ctx-action="toggle-disabled">
 								{targetSlide.disabled ? "有効化" : "無効化"}
+							</Menu.Item>
+							<Menu.Item onClick={handleEnableOnlyTarget} data-ctx-action="enable-only">
+								このスライドのみ有効化
 							</Menu.Item>
 							<Menu.Item onClick={handleDuplicateTarget} data-ctx-action="duplicate-target">
 								複製
