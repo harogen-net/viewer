@@ -89,14 +89,15 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 		}
 		wrap(async () => {
 			if (confirmDiscard && !(await confirmDiscardIfModified())) return;
-			setSelectedTitle(v);
-			const doc = await loadByTitle(v);
-			if (doc) {
-				setDocument(doc);
-				toast.success(`ロードしました: ${doc.title} (${doc.slides.length} slides)`);
-			} else {
+			const res = await loadByTitle(v);
+			if (res.status === "ok") {
+				setSelectedTitle(v);
+				setDocument(res.doc);
+				toast.success(`ロードしました: ${res.doc.title} (${res.doc.slides.length} slides)`);
+			} else if (res.status === "notfound") {
 				toast.error(`データが見つかりません: ${v}`);
 			}
+			// locked: PW 誤り/未入力。警告モーダルは表示済み。ロードせず現文書・選択を維持する。
 		})();
 	};
 
@@ -113,14 +114,15 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 			}
 		);
 		if (!confirmed) return;
-		const doc = await loadByTitle(title);
-		if (doc) {
-			setDocument(doc);
-			setSelectedTitle(doc.title);
-			toast.success(`再ロードしました: ${doc.title}`);
-		} else {
+		const res = await loadByTitle(title);
+		if (res.status === "ok") {
+			setDocument(res.doc);
+			setSelectedTitle(res.doc.title);
+			toast.success(`再ロードしました: ${res.doc.title}`);
+		} else if (res.status === "notfound") {
 			toast.error(`データが見つかりません: ${title}`);
 		}
+		// locked: 警告モーダル表示済み。再ロードせず現状維持。
 	});
 
 	const handleSave = (override: boolean) =>

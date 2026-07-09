@@ -84,7 +84,7 @@ let hook: { api: UseFileIO; teardown: () => void };
 let capture: ReturnType<typeof captureDownloadBlob>;
 
 beforeEach(() => {
-	useSensitiveSessionStore.setState({ password: null, request: null });
+	useSensitiveSessionStore.setState({ password: null });
 	hook = setupHook();
 	capture = captureDownloadBlob();
 });
@@ -92,16 +92,8 @@ beforeEach(() => {
 afterEach(() => {
 	capture.restore();
 	hook.teardown();
-	useSensitiveSessionStore.setState({ password: null, request: null });
+	useSensitiveSessionStore.setState({ password: null });
 });
-
-const flush = async (n = 6): Promise<void> => {
-	for (let i = 0; i < n; i++) {
-		await act(async () => {
-			await new Promise((r) => setTimeout(r, 0));
-		});
-	}
-};
 
 describe("useFileIO round-trip (v4 Group B 完了テスト)", () => {
 	it("HVD: exportHvd → File → importFile で同 doc を復元", async () => {
@@ -357,36 +349,21 @@ describe("useFileIO sensitive (Phase 4 export/import)", () => {
 		expect(result?.imageData.img1).toBe("data:image/png;base64,SECRETpixelsZZZ");
 	});
 
-	it("export: パスワード入力キャンセルで null (何も書き出さない)", async () => {
-		let msg: string | null | undefined;
-		act(() => {
-			hook.api.exportHvd(sensitiveDoc("sec"), imageMap).then((m) => {
-				msg = m;
-			});
-		});
-		await flush();
-		useSensitiveSessionStore.getState().request?.resolve(null); // 解錠キャンセル
-		await flush();
+	it("export: パスワード欄が未入力なら null (何も書き出さない)", async () => {
+		useSensitiveSessionStore.setState({ password: null }); // box 未入力
+		const msg = await hook.api.exportHvd(sensitiveDoc("sec"), imageMap);
 		expect(msg).toBeNull();
 		expect(capture.getBlob()).toBeNull(); // download されていない
 	});
 
-	it("import: 解錠キャンセルはロック状態 (imageData 空) で doc を返す", async () => {
+	it("import: box が誤り/未入力ならロック状態 (imageData 空) で doc を返す", async () => {
 		useSensitiveSessionStore.setState({ password: "pw" });
 		await hook.api.exportHvd(sensitiveDoc("sec"), imageMap);
 		const text = await capture.getBlob()!.text();
 		const file = new File([text], "sec.hvd", { type: "application/json" });
 
-		useSensitiveSessionStore.setState({ password: null, request: null }); // PW を忘れた状態
-		let result: Awaited<ReturnType<UseFileIO["importFile"]>> | undefined;
-		act(() => {
-			hook.api.importFile(file).then((r) => {
-				result = r;
-			});
-		});
-		await flush();
-		useSensitiveSessionStore.getState().request?.resolve(null); // 解錠キャンセル
-		await flush();
+		useSensitiveSessionStore.setState({ password: "wrong" }); // box に誤ったPW
+		const result = await hook.api.importFile(file);
 		expect(result?.doc.title).toBe("sec");
 		expect(Object.keys(result?.imageData ?? {})).toHaveLength(0); // 画像ロック
 	});

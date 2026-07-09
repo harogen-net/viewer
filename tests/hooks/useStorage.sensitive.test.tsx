@@ -69,7 +69,7 @@ const makeDoc = (over: Partial<ViewerDocument> = {}): ViewerDocument => ({
 
 const resetStores = (): void => {
 	useImageLibraryStore.setState({ imageById: {} });
-	useSensitiveSessionStore.setState({ password: null, request: null });
+	useSensitiveSessionStore.setState({ password: null });
 };
 
 const deleteDb = (): Promise<void> =>
@@ -122,14 +122,6 @@ const stripTitleFlag = (title: string): Promise<void> =>
 		open.onerror = () => reject(open.error);
 	});
 
-const flush = async (n = 6): Promise<void> => {
-	for (let i = 0; i < n; i++) {
-		await act(async () => {
-			await new Promise((r) => setTimeout(r, 0));
-		});
-	}
-};
-
 beforeEach(async () => {
 	await deleteDb();
 	resetStores();
@@ -157,11 +149,12 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 		expect(raw).toContain("imageDataEnc");
 
 		useImageLibraryStore.getState().setImageLibrary({}); // クリアしてから load
-		let loaded: ViewerDocument | null = null;
+		let res: Awaited<ReturnType<typeof api.loadByTitle>> | undefined;
 		await act(async () => {
-			loaded = await api.loadByTitle("secret");
+			res = await api.loadByTitle("secret");
 		});
-		expect(loaded?.isSensitive).toBe(true);
+		expect(res?.status).toBe("ok");
+		if (res?.status === "ok") expect(res.doc.isSensitive).toBe(true);
 		expect(useImageLibraryStore.getState().imageById["img-1"]?.dataURL).toBe(
 			"data:image/png;base64,SECRETpixels"
 		);
@@ -182,19 +175,13 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 		expect(useImageLibraryStore.getState().imageById["img-1"]?.dataURL).toBe("data:plainDATA");
 	});
 
-	it("sensitive: パスワード入力キャンセルで save は null (保存しない)", async () => {
+	it("sensitive: パスワード欄が未入力なら save は null (保存中止)", async () => {
 		useImageLibraryStore.getState().setImageLibrary({ "img-1": "data:x" });
-		let saved: { title: string } | null | undefined;
-		act(() => {
-			api.save(makeDoc({ isSensitive: true }), { override: true }).then((r) => {
-				saved = r;
-			});
+		useSensitiveSessionStore.setState({ password: null }); // box 未入力
+		let saved: { title: string } | null = null;
+		await act(async () => {
+			saved = await api.save(makeDoc({ isSensitive: true }), { override: true });
 		});
-		await flush();
-		const req = useSensitiveSessionStore.getState().request;
-		expect(req).not.toBeNull(); // 解錠モーダル要求が積まれる
-		await act(async () => req?.resolve(null)); // キャンセル
-		await flush();
 		expect(saved).toBeNull();
 	});
 
@@ -228,27 +215,22 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 		expect(titles.find((t) => t.title === "secret")?.isSensitive).toBe(false);
 	});
 
-	it("sensitive: load 解錠キャンセルはロック状態 (画像空) で doc を返す", async () => {
+	it("sensitive: load 時に box が誤りなら locked を返しロード中止 (現状維持・画像なし文書を出さない)", async () => {
 		useImageLibraryStore.getState().setImageLibrary({ "img-1": "data:image/png;base64,SEC" });
 		useSensitiveSessionStore.setState({ password: "pw" });
 		await act(async () => {
 			await api.save(makeDoc({ isSensitive: true }), { override: true });
 		});
-		useImageLibraryStore.getState().setImageLibrary({});
-		useSensitiveSessionStore.setState({ password: null, request: null }); // PW を忘れた状態
+		// 「現在開いている文書」の画像を入れておく (誤PWロードでこれが消えないことを確認)
+		useImageLibraryStore.getState().setImageLibrary({ current: "data:current" });
+		useSensitiveSessionStore.setState({ password: "wrong" }); // box に誤ったPW
 
-		let loaded: ViewerDocument | null | undefined;
-		act(() => {
-			api.loadByTitle("secret").then((d) => {
-				loaded = d;
-			});
+		let res: Awaited<ReturnType<typeof api.loadByTitle>> | undefined;
+		await act(async () => {
+			res = await api.loadByTitle("secret");
 		});
-		await flush();
-		const req = useSensitiveSessionStore.getState().request;
-		expect(req).not.toBeNull();
-		await act(async () => req?.resolve(null)); // 解錠キャンセル
-		await flush();
-		expect(loaded?.isSensitive).toBe(true); // doc 構造は読める
-		expect(Object.keys(useImageLibraryStore.getState().imageById)).toHaveLength(0); // 画像はロック
+		expect(res?.status).toBe("locked"); // ロード中止 (画像なし文書を出さない)
+		// store は触られず、現文書の画像が保持される
+		expect(useImageLibraryStore.getState().imageById.current?.dataURL).toBe("data:current");
 	});
 });

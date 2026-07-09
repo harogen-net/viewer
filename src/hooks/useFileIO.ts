@@ -95,7 +95,7 @@ export interface UseFileIO {
 }
 
 export const useFileIO = (): UseFileIO => {
-	const { ensurePassword, unlock } = useSensitivePassword();
+	const { requirePassword, unlock } = useSensitivePassword();
 
 	// センシティブ export 前処理: 参照画像を PW で暗号化。非 sensitive は素通り、
 	// PW 入力キャンセルは cancelled=true (export 中止)。
@@ -105,14 +105,14 @@ export const useFileIO = (): UseFileIO => {
 			imageMap: Record<string, string>
 		): Promise<{ cancelled: boolean; encrypted?: EncryptedImageData }> => {
 			if (!doc.isSensitive) return { cancelled: false };
-			const pw = await ensurePassword({ purpose: "encrypt" });
+			const pw = requirePassword(); // box 値。未入力なら警告して中止。
 			if (pw === null) return { cancelled: true };
 			return {
 				cancelled: false,
 				encrypted: await encryptImageData(collectReferencedImages(doc, imageMap), pw),
 			};
 		},
-		[ensurePassword]
+		[requirePassword]
 	);
 
 	const exportHvd = useCallback(

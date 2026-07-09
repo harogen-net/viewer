@@ -38,7 +38,7 @@ const makeDoc = (title: string, isSensitive: boolean): ViewerDocument => ({
 beforeEach(async () => {
 	await deleteDb();
 	useImageLibraryStore.setState({ imageById: {} });
-	useSensitiveSessionStore.setState({ password: null, request: null });
+	useSensitiveSessionStore.setState({ password: null });
 	hookDiv = document.createElement("div");
 	document.body.appendChild(hookDiv);
 	hookRoot = createRoot(hookDiv);
@@ -59,7 +59,7 @@ afterEach(() => {
 	act(() => gridRoot.unmount());
 	hookDiv.remove();
 	gridDiv.remove();
-	useSensitiveSessionStore.setState({ password: null, request: null });
+	useSensitiveSessionStore.setState({ password: null });
 });
 
 describe("picker sensitive badge (end-to-end)", () => {

@@ -81,19 +81,20 @@ describe("useStorage (v3 Group B build 3)", () => {
 
 	it("save (override) で doc.title が保持され、loadByTitle で同等 doc が戻る", async () => {
 		const doc = makeDoc("my-doc", 2);
-		const { title } = await storage.api.save(doc, { override: true });
+		const { title } = (await storage.api.save(doc, { override: true }))!;
 		expect(title).toBe("my-doc");
 
-		const loaded = await storage.api.loadByTitle("my-doc");
-		expect(loaded).not.toBeNull();
-		expect(loaded?.title).toBe("my-doc");
-		expect(loaded?.width).toBe(800);
-		expect(loaded?.slides.length).toBe(2);
+		const res = await storage.api.loadByTitle("my-doc");
+		expect(res.status).toBe("ok");
+		if (res.status !== "ok") return;
+		expect(res.doc.title).toBe("my-doc");
+		expect(res.doc.width).toBe(800);
+		expect(res.doc.slides.length).toBe(2);
 	});
 
 	it("save (override なし) は日付ベースの新タイトルを生成", async () => {
 		const doc = makeDoc("ignored", 1);
-		const { title } = await storage.api.save(doc);
+		const { title } = (await storage.api.save(doc))!;
 		// DateUtil.getDateString() の形式 (yyyy-MM-dd_HHmmss 等) のチェックは緩めに
 		expect(title).not.toBe("ignored");
 		expect(title.length).toBeGreaterThan(0);
@@ -110,8 +111,9 @@ describe("useStorage (v3 Group B build 3)", () => {
 		expect(titles[0].update).toBeGreaterThanOrEqual(before);
 		expect(titles[0].update).toBeLessThanOrEqual(after);
 
-		const loaded = await storage.api.loadByTitle("t1");
-		expect(loaded?.editTime).toBeGreaterThanOrEqual(before);
+		const res = await storage.api.loadByTitle("t1");
+		expect(res.status).toBe("ok");
+		if (res.status === "ok") expect(res.doc.editTime).toBeGreaterThanOrEqual(before);
 	});
 
 	it("loadByTitle は imageLibraryStore に画像 dataURL を投入する", async () => {
@@ -178,7 +180,7 @@ describe("useStorage (v3 Group B build 3)", () => {
 		const titles = await storage.api.listTitles();
 		expect(titles.length).toBe(1);
 		expect(titles[0].title).toBe("b");
-		expect(await storage.api.loadByTitle("a")).toBeNull();
+		expect((await storage.api.loadByTitle("a")).status).toBe("notfound");
 
 		await expect(storage.api.deleteByTitle("nonexistent")).resolves.toBeUndefined();
 	});
@@ -215,7 +217,8 @@ describe("useStorage (v3 Group B build 3)", () => {
 		expect(t2.length).toBe(1);
 		expect(t2[0].id).toBe(id1);
 
-		const loaded = await storage.api.loadByTitle("same");
-		expect(loaded?.slides.length).toBe(3);
+		const res = await storage.api.loadByTitle("same");
+		expect(res.status).toBe("ok");
+		if (res.status === "ok") expect(res.doc.slides.length).toBe(3);
 	});
 });

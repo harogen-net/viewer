@@ -104,7 +104,10 @@ beforeEach(() => {
 		{ id: 2, title: "B", update: 2 },
 		{ id: 3, title: "C", update: 1 },
 	]);
-	loadByTitleMock.mockImplementation(async (title: string) => makeDoc(title));
+	loadByTitleMock.mockImplementation(async (title: string) => ({
+		status: "ok",
+		doc: makeDoc(title),
+	}));
 	saveMock.mockResolvedValue({ title: "saved-2026" });
 	loadThumbnailsMock.mockReset();
 	// A はサムネ有り (連結1枚+frames)、B/C は無し

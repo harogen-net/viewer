@@ -98,11 +98,23 @@ function txComplete(tx: IDBTransaction): Promise<void> {
 	});
 }
 
+/**
+ * loadByTitle の結果。
+ * - ok:       復号成功 (imageLibrary 投入済み)。doc を document store へ反映してよい。
+ * - notfound: 該当データなし。
+ * - locked:   センシティブ文書で PW 未入力/誤り。**ロードは中止**され store は未変更
+ *             (画像なし文書を出さない)。警告モーダルは loadByTitle 内で表示済み。
+ */
+export type LoadResult =
+	| { status: "ok"; doc: ViewerDocument }
+	| { status: "notfound" }
+	| { status: "locked" };
+
 export interface StorageApi {
 	/** タイトル一覧を取得 (未ソート)。 */
 	listTitles: () => Promise<StoredSlideTitle[]>;
-	/** タイトル指定でロード。imageLibraryStore に画像が投入される。 */
-	loadByTitle: (title: string) => Promise<ViewerDocument | null>;
+	/** タイトル指定でロード。ok 時のみ imageLibraryStore に画像が投入される。 */
+	loadByTitle: (title: string) => Promise<LoadResult>;
 	/**
 	 * ViewerDocument を保存。override=false (default) なら日付ベースの新タイトル、
 	 * override=true なら doc.title をそのまま使う (= 上書き保存)。
@@ -120,7 +132,7 @@ export interface StorageApi {
 }
 
 export function useStorage(): StorageApi {
-	const { ensurePassword, unlock } = useSensitivePassword();
+	const { requirePassword, unlock } = useSensitivePassword();
 
 	const listTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
 		const db = await openDb();
@@ -149,30 +161,36 @@ export function useStorage(): StorageApi {
 		}
 	}, []);
 
-	const loadByTitle = useCallback(async (title: string): Promise<ViewerDocument | null> => {
-		const db = await openDb();
-		let jsonStr: string | null = null;
-		try {
-			const tx = db.transaction(DATA_STORE, "readonly");
-			const entry = (await reqToPromise(tx.objectStore(DATA_STORE).get(title))) as
-				| StoredSlideData
-				| undefined;
-			jsonStr = entry?.data ?? null;
-		} finally {
-			db.close();
-		}
-		if (jsonStr == null) return null;
-		const parsed = parseHvd(jsonStr, title);
-		if (parsed.encrypted) {
-			// センシティブ: 解錠ループで復号。キャンセルはロック状態で読む (画像空=placeholder、§9)。
-			const enc = parsed.encrypted;
-			const imageData = await unlock((pw) => decryptImageData(enc, pw));
-			useImageLibraryStore.getState().setImageLibrary(imageData ?? {});
-			return parsed.doc;
-		}
-		useImageLibraryStore.getState().setImageLibrary(parsed.imageData);
-		return parsed.doc;
-	}, [unlock]);
+	const loadByTitle = useCallback(
+		async (title: string): Promise<LoadResult> => {
+			const db = await openDb();
+			let jsonStr: string | null = null;
+			try {
+				const tx = db.transaction(DATA_STORE, "readonly");
+				const entry = (await reqToPromise(tx.objectStore(DATA_STORE).get(title))) as
+					| StoredSlideData
+					| undefined;
+				jsonStr = entry?.data ?? null;
+			} finally {
+				db.close();
+			}
+			if (jsonStr == null) return { status: "notfound" };
+			const parsed = parseHvd(jsonStr, title);
+			if (parsed.encrypted) {
+				// センシティブ: box の PW で復号を試す (= ロード前の軽い判定)。
+				// 失敗/未入力は unlock が警告モーダルを出す。ここで locked を返し、
+				// **画像なし文書を読み込まずに中止**する (store は一切触らない = 現文書維持)。
+				const enc = parsed.encrypted;
+				const imageData = await unlock((pw) => decryptImageData(enc, pw));
+				if (imageData === null) return { status: "locked" };
+				useImageLibraryStore.getState().setImageLibrary(imageData);
+				return { status: "ok", doc: parsed.doc };
+			}
+			useImageLibraryStore.getState().setImageLibrary(parsed.imageData);
+			return { status: "ok", doc: parsed.doc };
+		},
+		[unlock]
+	);
 
 	const save = useCallback(
 		async (
@@ -191,7 +209,7 @@ export function useStorage(): StorageApi {
 			// 保存中止 (null を返す = 呼び出し側で無音スキップ)。
 			let encrypted: EncryptedImageData | undefined;
 			if (doc.isSensitive) {
-				const pw = await ensurePassword({ purpose: "encrypt" });
+				const pw = requirePassword(); // box 値。未入力なら警告して中止。
 				if (pw === null) return null;
 				encrypted = await encryptImageData(collectReferencedImages(doc, imageMap), pw);
 			}
@@ -228,7 +246,7 @@ export function useStorage(): StorageApi {
 			}
 			return { title };
 		},
-		[ensurePassword]
+		[requirePassword]
 	);
 
 	const deleteByTitle = useCallback(async (title: string): Promise<void> => {

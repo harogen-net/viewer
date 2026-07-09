@@ -1,5 +1,6 @@
 import type { StoredDocThumbnail, StoredSlideTitle } from "@/hooks/useStorage";
-import { Modal, SimpleGrid, Text } from "@mantine/core";
+import { useSensitiveSessionStore } from "@/state/sensitiveSessionStore";
+import { Modal, PasswordInput, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconLock } from "@tabler/icons-react";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -217,6 +218,26 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 	);
 };
 
+// センシティブ文書の暗号・復号に使うパスワード入力欄 (最下部にぶち抜きで常設)。
+// 値は sensitiveSessionStore に保持 (コンポーネント再マウントでも消えない、リロードで消える)。
+// この欄は受動的にパスワードを保持するだけ。暗号/復号は保存・開く操作がこの値を読む。
+const SensitivePasswordBox: FC = () => {
+	const password = useSensitiveSessionStore((s) => s.password);
+	const setPassword = useSensitiveSessionStore((s) => s.setPassword);
+	return (
+		<PasswordInput
+			value={password ?? ""}
+			onChange={(e) => setPassword(e.currentTarget.value)}
+			label="センシティブ文書のパスワード"
+			description="このパスワードで暗号化/復号します。アプリを再読み込みするまで保持されます。"
+			placeholder="パスワードを入力"
+			size="md"
+			styles={{ input: { fontSize: 18 } }}
+			data-sensitive-pw-box
+		/>
+	);
+};
+
 interface DocumentPickerModalProps extends DocumentPickerGridProps {
 	opened: boolean;
 	onClose: () => void;
@@ -231,6 +252,9 @@ export const DocumentPickerModal: FC<DocumentPickerModalProps> = ({ opened, onCl
 		size="90vw"
 		styles={{ content: { minHeight: "50vh" } }}
 		data-doc-picker>
-		<DocumentPickerGrid {...grid} />
+		<Stack gap="md">
+			<DocumentPickerGrid {...grid} />
+			<SensitivePasswordBox />
+		</Stack>
 	</Modal>
 );
