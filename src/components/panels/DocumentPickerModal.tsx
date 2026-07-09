@@ -1,5 +1,6 @@
 import type { StoredDocThumbnail, StoredSlideTitle } from "@/hooks/useStorage";
 import { Modal, SimpleGrid, Text } from "@mantine/core";
+import { IconLock } from "@tabler/icons-react";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -55,6 +56,21 @@ const titleStyle: CSSProperties = {
 	whiteSpace: "nowrap",
 	overflow: "hidden",
 	textOverflow: "ellipsis",
+};
+// センシティブ文書のサムネ右上に出す 🔒 バッジ (サムネはぼかし済みだが、一目で分かる標示)。
+const lockBadgeStyle: CSSProperties = {
+	position: "absolute",
+	top: 4,
+	right: 4,
+	width: 22,
+	height: 22,
+	borderRadius: "50%",
+	background: "rgba(0,0,0,0.6)",
+	color: "#fff",
+	display: "flex",
+	alignItems: "center",
+	justifyContent: "center",
+	pointerEvents: "none",
 };
 
 // 連結1枚サムネを 1 コマだけ見せ、ホバーで順次コマ送りする表示要素。
@@ -173,15 +189,26 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 						data-picker-item={t.title}
 						data-selected={selected ? "true" : "false"}
 						onClick={() => onPick(t.title)}>
-						{dt ? (
-							<ThumbnailStrip thumb={dt.thumb} frames={dt.frames} alt={t.title} />
-						) : (
-							<div style={thumbBoxStyle}>
-								<Text size="xs" c="dimmed" data-picker-na>
-									N/A
-								</Text>
-							</div>
-						)}
+						<div style={{ position: "relative" }}>
+							{dt ? (
+								<ThumbnailStrip thumb={dt.thumb} frames={dt.frames} alt={t.title} />
+							) : (
+								<div style={thumbBoxStyle}>
+									<Text size="xs" c="dimmed" data-picker-na>
+										N/A
+									</Text>
+								</div>
+							)}
+							{t.isSensitive && (
+								<div
+									style={lockBadgeStyle}
+									data-picker-sensitive
+									title="センシティブ (パスワード保護)"
+									aria-label="センシティブ文書">
+									<IconLock size={14} stroke={2.5} />
+								</div>
+							)}
+						</div>
 						<span style={titleStyle}>{t.title}</span>
 					</button>
 				);

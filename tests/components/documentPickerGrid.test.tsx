@@ -132,4 +132,18 @@ describe("DocumentPickerGrid", () => {
 		expect(container.textContent).toContain("保存済みドキュメントがありません");
 		expect(container.querySelectorAll("[data-picker-item]").length).toBe(0);
 	});
+
+	it("isSensitive のカードにのみ 🔒 バッジが出る", () => {
+		render({
+			titles: [
+				{ id: 1, title: "A", update: 2, isSensitive: true },
+				{ id: 2, title: "B", update: 1 }, // 非センシティブ
+			],
+			thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 1 } },
+			selectedTitle: null,
+			onPick: () => {},
+		});
+		expect(q('[data-picker-item="A"] [data-picker-sensitive]')).not.toBeNull();
+		expect(q('[data-picker-item="B"] [data-picker-sensitive]')).toBeNull();
+	});
 });

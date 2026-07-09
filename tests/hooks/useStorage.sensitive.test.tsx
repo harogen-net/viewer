@@ -96,6 +96,32 @@ const readStoredJson = (title: string): Promise<string> =>
 		open.onerror = () => reject(open.error);
 	});
 
+// title レコードから isSensitive を消して「変更前に保存された旧レコード」を再現する。
+const stripTitleFlag = (title: string): Promise<void> =>
+	new Promise((resolve, reject) => {
+		const open = indexedDB.open("viewer", 2);
+		open.onsuccess = () => {
+			const db = open.result;
+			const tx = db.transaction("slideTitles", "readwrite");
+			const store = tx.objectStore("slideTitles");
+			const g = store.getAll();
+			g.onsuccess = () => {
+				for (const rec of g.result as Array<{ title: string; isSensitive?: boolean }>) {
+					if (rec.title === title) {
+						delete rec.isSensitive;
+						store.put(rec);
+					}
+				}
+			};
+			tx.oncomplete = () => {
+				db.close();
+				resolve();
+			};
+			tx.onerror = () => reject(tx.error);
+		};
+		open.onerror = () => reject(open.error);
+	});
+
 const flush = async (n = 6): Promise<void> => {
 	for (let i = 0; i < n; i++) {
 		await act(async () => {
@@ -170,6 +196,36 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 		await act(async () => req?.resolve(null)); // キャンセル
 		await flush();
 		expect(saved).toBeNull();
+	});
+
+	it("save で isSensitive が一覧レコードに保存される (ピッカー 🔒 標示用)", async () => {
+		useSensitiveSessionStore.setState({ password: "pw" });
+		await act(async () => {
+			await api.save(makeDoc({ isSensitive: true }), { override: true });
+		});
+		const titles = await api.listTitles();
+		expect(titles.find((t) => t.title === "secret")?.isSensitive).toBe(true);
+	});
+
+	it("backfill: 旧レコード(isSensitive 未記録)でも listTitles が slideData から復元する", async () => {
+		useSensitiveSessionStore.setState({ password: "pw" });
+		await act(async () => {
+			await api.save(makeDoc({ isSensitive: true }), { override: true });
+		});
+		await stripTitleFlag("secret"); // 変更前の旧レコード状態を再現
+		const titles = await api.listTitles(); // ここで backfill されるはず
+		expect(titles.find((t) => t.title === "secret")?.isSensitive).toBe(true);
+		// 永続化も確認 (2 回目も true、backfill が書き戻されている)
+		const again = await api.listTitles();
+		expect(again.find((t) => t.title === "secret")?.isSensitive).toBe(true);
+	});
+
+	it("非 sensitive は isSensitive=false で一覧保存される", async () => {
+		await act(async () => {
+			await api.save(makeDoc({ isSensitive: false }), { override: true });
+		});
+		const titles = await api.listTitles();
+		expect(titles.find((t) => t.title === "secret")?.isSensitive).toBe(false);
 	});
 
 	it("sensitive: load 解錠キャンセルはロック状態 (画像空) で doc を返す", async () => {

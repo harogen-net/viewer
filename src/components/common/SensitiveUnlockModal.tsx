@@ -22,16 +22,25 @@ export const SensitiveUnlockModal: FC = () => {
 		clearRequest();
 	};
 
+	// 保存/出力時 (encrypt) と 読込時 (unlock) で文言を出し分ける。
+	const encrypt = request?.purpose === "encrypt";
+	const title = encrypt ? "パスワードの設定" : "センシティブ文書の解錠";
+	const message = encrypt
+		? "画像を暗号化するためのパスワードを入力してください。（このセッション中は再入力不要）"
+		: "この文書は保護されています。画像を表示するにはパスワードを入力してください。";
+	const okLabel = encrypt ? "設定" : "解錠";
+
 	return (
 		<Modal
 			opened={request !== null}
 			onClose={() => settle(null)}
-			title="センシティブ文書の解錠"
+			title={title}
 			centered
 			transitionProps={{ duration: 0 }}
-			data-sensitive-unlock>
+			data-sensitive-unlock
+			data-sensitive-purpose={request?.purpose}>
 			<Stack gap="md">
-				<Text size="sm">この文書は保護されています。パスワードを入力してください。</Text>
+				<Text size="sm">{message}</Text>
 				{request?.error && (
 					<Text size="sm" c="red" data-sensitive-error>
 						{request.error}
@@ -52,7 +61,7 @@ export const SensitiveUnlockModal: FC = () => {
 						キャンセル
 					</Button>
 					<Button onClick={() => settle(value)} disabled={!value} data-sensitive-ok>
-						解錠
+						{okLabel}
 					</Button>
 				</Group>
 			</Stack>

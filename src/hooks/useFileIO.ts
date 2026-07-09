@@ -105,7 +105,7 @@ export const useFileIO = (): UseFileIO => {
 			imageMap: Record<string, string>
 		): Promise<{ cancelled: boolean; encrypted?: EncryptedImageData }> => {
 			if (!doc.isSensitive) return { cancelled: false };
-			const pw = await ensurePassword();
+			const pw = await ensurePassword({ purpose: "encrypt" });
 			if (pw === null) return { cancelled: true };
 			return {
 				cancelled: false,

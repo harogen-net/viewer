@@ -102,6 +102,21 @@ describe("useSensitivePassword + SensitiveUnlockModal", () => {
 		expect(useSensitiveSessionStore.getState().password).toBeNull();
 	});
 
+	it("purpose=encrypt は「設定」系文言、unlock は「解錠」系文言を出す", () => {
+		act(() => {
+			void api.prompt({ purpose: "encrypt" });
+		});
+		expect(q("[data-sensitive-purpose]")?.getAttribute("data-sensitive-purpose")).toBe("encrypt");
+		expect(q("[data-sensitive-ok]")?.textContent).toContain("設定");
+		// 解錠キャンセルして unlock を出し直す
+		act(() => useSensitiveSessionStore.getState().request?.resolve(null));
+		reset();
+		act(() => {
+			void api.prompt({ purpose: "unlock" });
+		});
+		expect(q("[data-sensitive-ok]")?.textContent).toContain("解錠");
+	});
+
 	it("error 指定時はエラー文言を表示する (再入力導線)", () => {
 		act(() => {
 			void api.prompt({ error: "パスワードが正しくありません" });

@@ -38,6 +38,8 @@ export interface StoredSlideTitle {
 	id: number;
 	title: string;
 	update: number;
+	/** センシティブ文書か (ピッカーの 🔒 標示用)。旧レコードは undefined=非センシティブ扱い。 */
+	isSensitive?: boolean;
 }
 
 interface StoredSlideData {
@@ -123,8 +125,25 @@ export function useStorage(): StorageApi {
 	const listTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
 		const db = await openDb();
 		try {
-			const tx = db.transaction(TITLES_STORE, "readonly");
-			return (await reqToPromise(tx.objectStore(TITLES_STORE).getAll())) as StoredSlideTitle[];
+			const records = (await reqToPromise(
+				db.transaction(TITLES_STORE, "readonly").objectStore(TITLES_STORE).getAll()
+			)) as StoredSlideTitle[];
+			// 旧レコード (isSensitive 未記録) の backfill: 本体 slideData から一度だけ導出して一覧へ書く。
+			// これで「今回の変更前に保存したセンシティブ文書」も再保存なしで 🔒 標示される。
+			// full parse せず substring 判定 (serializeHvd は sensitive 時 `"isSensitive":true` を書く)。
+			const unmigrated = records.filter((r) => r.isSensitive === undefined);
+			if (unmigrated.length > 0) {
+				const tx = db.transaction([TITLES_STORE, DATA_STORE], "readwrite");
+				const titlesStore = tx.objectStore(TITLES_STORE);
+				const dataStore = tx.objectStore(DATA_STORE);
+				for (const r of unmigrated) {
+					const entry = (await reqToPromise(dataStore.get(r.title))) as StoredSlideData | undefined;
+					r.isSensitive = !!entry?.data?.includes('"isSensitive":true');
+					await reqToPromise(titlesStore.put(r));
+				}
+				await txComplete(tx);
+			}
+			return records;
 		} finally {
 			db.close();
 		}
@@ -172,7 +191,7 @@ export function useStorage(): StorageApi {
 			// 保存中止 (null を返す = 呼び出し側で無音スキップ)。
 			let encrypted: EncryptedImageData | undefined;
 			if (doc.isSensitive) {
-				const pw = await ensurePassword();
+				const pw = await ensurePassword({ purpose: "encrypt" });
 				if (pw === null) return null;
 				encrypted = await encryptImageData(collectReferencedImages(doc, imageMap), pw);
 			}
@@ -185,10 +204,12 @@ export function useStorage(): StorageApi {
 				const dataStore = tx.objectStore(DATA_STORE);
 				const existing = (await reqToPromise(titlesStore.getAll())) as StoredSlideTitle[];
 				const found = existing.find((t) => t.title === title);
+				// isSensitive を一覧レコードへ保存 (ピッカーの 🔒 標示用。復号不要な非暗号メタ)。
+				const isSensitive = !!doc.isSensitive;
 				if (found) {
-					await reqToPromise(titlesStore.put({ id: found.id, title, update: now }));
+					await reqToPromise(titlesStore.put({ id: found.id, title, update: now, isSensitive }));
 				} else {
-					await reqToPromise(titlesStore.add({ title, update: now }));
+					await reqToPromise(titlesStore.add({ title, update: now, isSensitive }));
 				}
 				await reqToPromise(dataStore.put({ title, data: json }));
 				// サムネイルは渡された時のみ更新 (未指定なら既存を温存)。連結1枚 + コマ数を保存。
