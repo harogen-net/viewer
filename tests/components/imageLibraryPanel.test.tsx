@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ImageLibraryPanel } from "../../src/components/panels/ImageLibraryPanel";
+import type { Slide } from "../../src/types/Slide";
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSlideStore } from "../../src/state/slideStore";
@@ -44,6 +45,39 @@ const render = (opened: boolean): void => {
 const seedImages = (entries: Record<string, { dataURL: string; name?: string }>): void => {
 	useImageLibraryStore.setState({ imageById: entries });
 };
+
+// imageId を参照する ImageLayer を 1 枚持つ slide (未使用判定テスト用)。
+const slideUsingImage = (imageId: string): Slide => ({
+	id: 1,
+	uuid: "s1",
+	width: 800,
+	height: 600,
+	durationRatio: 1,
+	joining: true,
+	disabled: false,
+	layers: [
+		{
+			id: 1,
+			uuid: "l1",
+			name: "",
+			opacity: 1,
+			locked: false,
+			visible: true,
+			shared: false,
+			transX: 0,
+			transY: 0,
+			scaleX: 1,
+			scaleY: 1,
+			rotation: 0,
+			mirrorH: false,
+			mirrorV: false,
+			type: "image",
+			imageId,
+			clipRect: [0, 0, 0, 0],
+			isText: false,
+		},
+	],
+});
 
 describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 	it("opened=false では Drawer 中身 (グリッド/empty) が出ない", () => {
@@ -161,5 +195,24 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 			'[data-image-tile][data-image-id="id-a"]'
 		);
 		expect(tile?.querySelector("[data-image-download]")).not.toBeNull();
+	});
+
+	it("未使用画像がある時「未使用を削除」ボタンが有効 (件数付き)", () => {
+		act(() => useSlideStore.getState().setSlides([slideUsingImage("used")]));
+		seedImages({ used: { dataURL: "data:a" }, orphan: { dataURL: "data:b" } });
+		render(true);
+		const btn = document.body.querySelector<HTMLButtonElement>("[data-image-prune-unused]");
+		expect(btn).not.toBeNull();
+		expect(btn?.disabled).toBe(false);
+		expect(btn?.textContent).toContain("1"); // 未使用 1 件
+	});
+
+	it("全て使用中なら「未使用を削除」ボタンは無効", () => {
+		act(() => useSlideStore.getState().setSlides([slideUsingImage("used")]));
+		seedImages({ used: { dataURL: "data:a" } });
+		render(true);
+		expect(
+			document.body.querySelector<HTMLButtonElement>("[data-image-prune-unused]")?.disabled
+		).toBe(true);
 	});
 });

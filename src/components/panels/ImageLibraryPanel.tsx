@@ -1,6 +1,7 @@
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
 import { useLayerMutation } from "@/hooks/useLayerMutation";
+import { useToast } from "@/hooks/useToast";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { downloadDataUrl } from "@/utils/domUtils";
@@ -77,19 +78,38 @@ const countLayersUsingImage = (imageId: string): number => {
 
 export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose }) => {
 	const imageById = useImageLibraryStore((s) => s.imageById);
-	const { addImageFile, deleteImage, placeImageOnSlide, pruneOrphanImage } =
+	const { addImageFile, deleteImage, placeImageOnSlide, pruneOrphanImage, pruneUnusedImages } =
 		useImageLibraryMutation();
 	const { replaceImageIdAll } = useLayerMutation();
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
+	const slides = useSlideStore((s) => s.slides);
+	const toast = useToast();
 	const canPlace = selectedSlideIndex >= 0;
 	const [dragOver, setDragOver] = useState(false);
 	const [addError, setAddError] = useState<string | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+	const [pruneConfirmOpen, setPruneConfirmOpen] = useState(false);
 	// 差し替え対象の imageId (タイルの「差し替え」押下で記録 → ファイル選択後に置換)。
 	const replaceTargetRef = useRef<string | null>(null);
 	const replaceInputRef = useRef<HTMLInputElement>(null);
 
 	const entries = Object.entries(imageById);
+
+	// どの ImageLayer からも参照されていない画像の件数 (未使用一括削除ボタン用)。
+	const referencedImageIds = new Set<string>();
+	for (const s of slides) {
+		for (const l of s.layers) {
+			if (l.type === "image") referencedImageIds.add(l.imageId);
+		}
+	}
+	const unusedCount = entries.filter(([id]) => !referencedImageIds.has(id)).length;
+
+	// 未使用画像を一括削除 (どのスライドにも使われていない = 削除しても表示に影響しない)。
+	// 確認は ConfirmDialog (オンデマンド mount = Drawer より手前に出る。alert は常時 mount で裏に隠れる)。
+	const confirmPruneUnused = () => {
+		const removed = pruneUnusedImages();
+		toast.success(`未使用画像を ${removed} 件削除しました`);
+	};
 
 	const handleFilePicker = async (files: File[] | null) => {
 		if (!files || files.length === 0) return;
@@ -219,15 +239,26 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 					<Stack gap="md">
 						<Group justify="space-between" align="center">
 							<Text size="sm" c="dimmed">
-								{entries.length} 件
+								{entries.length} 件{unusedCount > 0 ? `（未使用 ${unusedCount}）` : ""}
 							</Text>
-							<FileButton onChange={handleFilePicker} accept="image/*" multiple>
-								{(props) => (
-									<Button {...props} variant="filled" size="sm" data-image-add-button>
-										＋ 画像を追加
-									</Button>
-								)}
-							</FileButton>
+							<Group gap="sm">
+								<Button
+									variant="default"
+									color="red"
+									size="sm"
+									disabled={unusedCount === 0}
+									onClick={() => setPruneConfirmOpen(true)}
+									data-image-prune-unused>
+									未使用を削除{unusedCount > 0 ? ` (${unusedCount})` : ""}
+								</Button>
+								<FileButton onChange={handleFilePicker} accept="image/*" multiple>
+									{(props) => (
+										<Button {...props} variant="filled" size="sm" data-image-add-button>
+											＋ 画像を追加
+										</Button>
+									)}
+								</FileButton>
+							</Group>
 						</Group>
 
 						{addError && (
@@ -296,6 +327,15 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 							: "この画像を削除します。よろしいですか?"
 						: undefined
 				}
+				confirmLabel="削除"
+			/>
+
+			<ConfirmDialog
+				opened={pruneConfirmOpen}
+				onClose={() => setPruneConfirmOpen(false)}
+				onConfirm={confirmPruneUnused}
+				title="未使用画像を削除"
+				message={`どのスライドにも使われていない画像 ${unusedCount} 件を削除します。よろしいですか?`}
 				confirmLabel="削除"
 			/>
 		</>

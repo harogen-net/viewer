@@ -211,6 +211,40 @@ describe("useImageLibraryMutation (v4 Group D D-6a)", () => {
 		expect(useImageLibraryStore.getState().imageById[id]).toBeDefined();
 	});
 
+	it("pruneUnusedImages: 参照されない画像だけ一括除去し件数を返す", () => {
+		useImageLibraryStore.getState().setImageLibrary({
+			used1: "data:img1",
+			used2: "data:img2",
+			unused1: "data:img3",
+			unused2: "data:img4",
+		});
+		useSlideStore.getState().setSlides([
+			makeSlide(1, "s1", [makeImageLayer(1, "l1", "used1")]),
+			makeSlide(2, "s2", [makeImageLayer(2, "l2", "used2")]),
+		]);
+		let removed = -1;
+		act(() => {
+			removed = hookRef.api!.pruneUnusedImages();
+		});
+		expect(removed).toBe(2);
+		const lib = useImageLibraryStore.getState().imageById;
+		expect(lib.used1).toBeDefined();
+		expect(lib.used2).toBeDefined();
+		expect(lib.unused1).toBeUndefined();
+		expect(lib.unused2).toBeUndefined();
+	});
+
+	it("pruneUnusedImages: 全て使用中なら 0 件で何も消さない", () => {
+		useImageLibraryStore.getState().setImageLibrary({ a: "data:a" });
+		useSlideStore.getState().setSlides([makeSlide(1, "s1", [makeImageLayer(1, "l1", "a")])]);
+		let removed = -1;
+		act(() => {
+			removed = hookRef.api!.pruneUnusedImages();
+		});
+		expect(removed).toBe(0);
+		expect(useImageLibraryStore.getState().imageById.a).toBeDefined();
+	});
+
 	describe("placeImageOnSlide", () => {
 		// jsdom の HTMLImageElement は naturalWidth/Height = 0 を返すため、
 		// 全テストで Image natural size を stub 化する。
