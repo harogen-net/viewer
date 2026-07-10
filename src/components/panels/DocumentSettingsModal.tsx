@@ -178,7 +178,7 @@ export const DocumentSettingsModal: FC = () => {
 							キャンセル
 						</Button>
 						<Button onClick={handleConfirm} data-doc-save>
-							{isNew ? "作成" : "保存"}
+							{isNew ? "作成" : "確定"}
 						</Button>
 					</Group>
 				</Stack>
