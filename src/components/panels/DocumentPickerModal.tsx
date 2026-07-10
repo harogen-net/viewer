@@ -21,12 +21,14 @@ interface DocumentPickerGridProps {
 	thumbnails: Record<string, StoredDocThumbnail>;
 	selectedTitle: string | null;
 	onPick: (title: string) => void;
+	/** パスワード欄が空か。true の間はセンシティブ文書カードを選択不可 (デコードを試みない)。 */
+	passwordEmpty?: boolean;
 }
 
 // ホバーでコマ送りする間隔 (ms)。
 const CYCLE_MS = 600;
 
-const cardStyle = (selected: boolean): CSSProperties => ({
+const cardStyle = (selected: boolean, locked: boolean): CSSProperties => ({
 	display: "flex",
 	flexDirection: "column",
 	gap: 4,
@@ -34,7 +36,8 @@ const cardStyle = (selected: boolean): CSSProperties => ({
 	border: selected ? "2px solid #228be6" : "1px solid #dee2e6",
 	borderRadius: 6,
 	background: selected ? "rgba(34,139,230,0.06)" : "#fff",
-	cursor: "pointer",
+	cursor: locked ? "not-allowed" : "pointer",
+	opacity: locked ? 0.5 : 1,
 	textAlign: "left",
 	width: "100%",
 });
@@ -169,6 +172,7 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 	thumbnails,
 	selectedTitle,
 	onPick,
+	passwordEmpty = false,
 }) => {
 	if (titles.length === 0) {
 		return (
@@ -182,14 +186,19 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 			{titles.map((t) => {
 				const dt = thumbnails[t.title];
 				const selected = t.title === selectedTitle;
+				// センシティブ文書は PW 欄が空の間は選択不可 (クリックしてもデコードを試みない)。
+				const locked = !!t.isSensitive && passwordEmpty;
 				return (
 					<button
 						type="button"
 						key={t.id}
-						style={cardStyle(selected)}
+						style={cardStyle(selected, locked)}
 						data-picker-item={t.title}
 						data-selected={selected ? "true" : "false"}
-						onClick={() => onPick(t.title)}>
+						data-picker-locked={locked ? "true" : undefined}
+						disabled={locked}
+						title={locked ? "パスワードを入力すると開けます" : undefined}
+						onClick={locked ? undefined : () => onPick(t.title)}>
 						<div style={{ position: "relative" }}>
 							{dt ? (
 								<ThumbnailStrip thumb={dt.thumb} frames={dt.frames} alt={t.title} />
@@ -211,6 +220,11 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 							)}
 						</div>
 						<span style={titleStyle}>{t.title}</span>
+						{locked && (
+							<Text size="xs" c="dimmed" data-picker-locked-hint>
+								パスワードを入力してください
+							</Text>
+						)}
 					</button>
 				);
 			})}
@@ -243,18 +257,22 @@ interface DocumentPickerModalProps extends DocumentPickerGridProps {
 	onClose: () => void;
 }
 
-export const DocumentPickerModal: FC<DocumentPickerModalProps> = ({ opened, onClose, ...grid }) => (
-	<Modal
-		opened={opened}
-		onClose={onClose}
-		title="保存ドキュメントを開く"
-		centered
-		size="90vw"
-		styles={{ content: { minHeight: "50vh" } }}
-		data-doc-picker>
-		<Stack gap="md">
-			<DocumentPickerGrid {...grid} />
-			<SensitivePasswordBox />
-		</Stack>
-	</Modal>
-);
+export const DocumentPickerModal: FC<DocumentPickerModalProps> = ({ opened, onClose, ...grid }) => {
+	// PW 欄が空ならセンシティブ文書を選択不可にする (store 購読でタイプに追随)。
+	const passwordEmpty = useSensitiveSessionStore((s) => !s.password);
+	return (
+		<Modal
+			opened={opened}
+			onClose={onClose}
+			title="保存ドキュメントを開く"
+			centered
+			size="90vw"
+			styles={{ content: { minHeight: "50vh" } }}
+			data-doc-picker>
+			<Stack gap="md">
+				<DocumentPickerGrid {...grid} passwordEmpty={passwordEmpty} />
+				<SensitivePasswordBox />
+			</Stack>
+		</Modal>
+	);
+};

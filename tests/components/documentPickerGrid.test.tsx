@@ -146,4 +146,44 @@ describe("DocumentPickerGrid", () => {
 		expect(q('[data-picker-item="A"] [data-picker-sensitive]')).not.toBeNull();
 		expect(q('[data-picker-item="B"] [data-picker-sensitive]')).toBeNull();
 	});
+
+	it("passwordEmpty=true: センシティブ文書は選択不可 (onPick 呼ばれない)、非センシティブは可", () => {
+		const onPick = vi.fn();
+		render({
+			titles: [
+				{ id: 1, title: "S", update: 2, isSensitive: true },
+				{ id: 2, title: "N", update: 1 },
+			],
+			thumbnails: {},
+			selectedTitle: null,
+			onPick,
+			passwordEmpty: true,
+		});
+		const s = q('[data-picker-item="S"]') as HTMLButtonElement | null;
+		expect(s?.disabled).toBe(true);
+		expect(s?.getAttribute("data-picker-locked")).toBe("true");
+		expect(q('[data-picker-item="S"] [data-picker-locked-hint]')).not.toBeNull();
+		click(s);
+		expect(onPick).not.toHaveBeenCalled();
+		// 非センシティブは無効化されない
+		const n = q('[data-picker-item="N"]') as HTMLButtonElement | null;
+		expect(n?.disabled).toBe(false);
+		click(n);
+		expect(onPick).toHaveBeenCalledWith("N");
+	});
+
+	it("passwordEmpty=false: センシティブ文書も選択できる", () => {
+		const onPick = vi.fn();
+		render({
+			titles: [{ id: 1, title: "S", update: 1, isSensitive: true }],
+			thumbnails: {},
+			selectedTitle: null,
+			onPick,
+			passwordEmpty: false,
+		});
+		const s = q('[data-picker-item="S"]') as HTMLButtonElement | null;
+		expect(s?.disabled).toBe(false);
+		click(s);
+		expect(onPick).toHaveBeenCalledWith("S");
+	});
 });
