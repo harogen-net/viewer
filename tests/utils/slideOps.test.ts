@@ -136,6 +136,19 @@ describe("slideOps (v4 Group C 純関数)", () => {
 			expect(r?.slides[1].uuid).not.toBe("a"); // 直後に挿入された複製
 		});
 
+		it("複製後は複製先 (index+1) を選択する", () => {
+			const s = makeState([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c")], 0);
+			const r = duplicateSlide(s, 0);
+			expect(r?.selectedIndex).toBe(1); // 複製元(0)の直後に挿入された複製を選択
+		});
+
+		it("末尾を複製しても複製先 (末尾+1) を選択する", () => {
+			const s = makeState([makeSlide(1, "a"), makeSlide(2, "b")], 0);
+			const r = duplicateSlide(s, 1);
+			expect(r?.slides.length).toBe(3);
+			expect(r?.selectedIndex).toBe(2);
+		});
+
 		it("範囲外は null", () => {
 			expect(duplicateSlide(makeState([]), 0)).toBeNull();
 		});

@@ -238,7 +238,9 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		flexWrap: wrap ? "wrap" : "nowrap",
 		alignItems: wrap ? "flex-start" : "center",
 		alignContent: "flex-start",
-		gap: wrap ? "12px 6px" : 4,
+		// 横 (column) gap は 0。スライド間の区切り/接触は SlideJoinIndicator が担う
+		// (結合中=隙間ゼロで接触、非結合=区切り線 + 隙間)。wrap 時の行間 (row gap) のみ残す。
+		gap: wrap ? "12px 0" : 0,
 		paddingBottom: 4,
 		minHeight: THUMB_HEIGHT + 12,
 	};
@@ -255,6 +257,8 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 					boxSizing: "content-box",
 					height: THUMB_HEIGHT,
 					minWidth: 56,
+					// 横 gap を 0 にしたため、最後のスライドと接触しないよう左に間隔を確保。
+					marginLeft: 8,
 					alignSelf: wrap ? "flex-start" : "center",
 					border: "2px dashed #adb5bd",
 					borderRadius: 4,

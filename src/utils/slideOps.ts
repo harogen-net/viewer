@@ -102,16 +102,15 @@ export const deleteSlide = (state: SlideState, index: number): SlideState | null
 
 /** index の slide を複製して直後に挿入。範囲外は null。 */
 export const duplicateSlide = (state: SlideState, index: number): SlideState | null => {
-	const { slides, selectedIndex } = state;
+	const { slides } = state;
 	if (index < 0 || index >= slides.length) return null;
 	const duped = cloneSlide(slides[index], nextSlideId(slides));
 	const next = [...slides];
 	// 複製元 (index) を複製スライド (index+1) と結合状態にする (必ず joining=true)。
 	next[index] = { ...next[index], joining: true };
 	next.splice(index + 1, 0, duped);
-	const newSelected =
-		selectedIndex >= 0 && index + 1 <= selectedIndex ? selectedIndex + 1 : selectedIndex;
-	return { slides: next, selectedIndex: newSelected };
+	// 複製先 (index+1) を選択する。
+	return { slides: next, selectedIndex: index + 1 };
 };
 
 /** index の slide の joining を更新。範囲外 / 値が同じなら null。 */
