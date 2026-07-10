@@ -109,7 +109,12 @@ export const drawSlideToCanvas = async (
 	// センシティブ: 背景描画後、画像レイヤーだけを強くぼかす。半径は出力の短辺比例で
 	// 内容が判別できない程度にする (ctx.filter 非対応環境では単に無視される)。
 	if (options?.blur) {
-		const blurPx = Math.max(6, Math.round(Math.min(targetWidth, targetHeight) / 6));
+		const BLUR_STRENGTH_DIVISOR = 16; // 大きいほど弱い
+		const blurPx = Math.max(
+			4,
+			Math.round(Math.min(targetWidth, targetHeight) / BLUR_STRENGTH_DIVISOR)
+		);
+
 		ctx.filter = `blur(${blurPx}px)`;
 	}
 
