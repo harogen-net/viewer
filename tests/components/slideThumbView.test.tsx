@@ -1,11 +1,16 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SlideThumbView } from "../../src/components/slide/SlideThumbView";
+import {
+	computeDurationCorrection,
+	SlideThumbView,
+	wrapperWidthToRatio,
+} from "../../src/components/slide/SlideThumbView";
 import type { Slide } from "../../src/types/Slide";
 
-// v4 Group C C-9: SlideThumbView の thumb 内 UI (duration ボタン / joining 矢印 / 有効 checkbox)
-// + width 補正を検証。SlideListPanel との統合は slideListPanel.test.tsx 側。
+// v4 Group C C-9: SlideThumbView の thumb 内 UI (duration ラベル / リサイズハンドル / joining 矢印 /
+// 有効 checkbox) + width 補正を検証。SlideListPanel との統合は slideListPanel.test.tsx 側。
+// 表示尺の調整は右端ドラッグ (幅=尺) に変更 (±ボタン撤去)。
 
 const makeSlide = (overrides: Partial<Slide> = {}): Slide => ({
 	id: 1,
@@ -24,23 +29,27 @@ let root: Root;
 
 const baseHandlers = {
 	onClick: () => {},
-	onIncrementDuration: () => {},
-	onDecrementDuration: () => {},
+	onSetDuration: () => {},
 	onToggleJoining: () => {},
 	onToggleDisabled: () => {},
 };
 
 const renderThumb = (
 	slide: Slide,
-	overrides: Partial<typeof baseHandlers> & { selected?: boolean; index?: number } = {},
+	overrides: Partial<typeof baseHandlers> & {
+		selected?: boolean;
+		index?: number;
+		readOnly?: boolean;
+	} = {},
 ): void => {
-	const { selected = false, index = 0, ...handlers } = overrides;
+	const { selected = false, index = 0, readOnly = false, ...handlers } = overrides;
 	act(() => {
 		root.render(
 			<SlideThumbView
 				slide={slide}
 				index={index}
 				selected={selected}
+				readOnly={readOnly}
 				{...baseHandlers}
 				{...handlers}
 			/>,
@@ -63,10 +72,10 @@ const getControl = (name: string): HTMLElement | null =>
 	container.querySelector<HTMLElement>(`[data-thumb-control='${name}']`);
 
 describe("SlideThumbView thumb 内 UI (v4 Group C C-9)", () => {
-	describe("durationRatio コントローラ", () => {
-		it("durationRatio === 1 のとき label は空、!== 1 のとき 'xN' 表示", () => {
+	describe("durationRatio ラベル + リサイズハンドル", () => {
+		it("durationRatio === 1 のとき label 非表示、!== 1 のとき 'xN' 表示", () => {
 			renderThumb(makeSlide({ durationRatio: 1 }));
-			expect(getControl("duration-label")?.textContent).toBe("");
+			expect(getControl("duration-label")).toBeNull();
 
 			renderThumb(makeSlide({ durationRatio: 1.5 }));
 			expect(getControl("duration-label")?.textContent).toBe("x1.5");
@@ -75,22 +84,41 @@ describe("SlideThumbView thumb 内 UI (v4 Group C C-9)", () => {
 			expect(getControl("duration-label")?.textContent).toBe("x0.6");
 		});
 
-		it("+/- ボタン click で対応 handler 呼び出し、親 onClick へ伝播しない", () => {
-			const inc = vi.fn();
-			const dec = vi.fn();
+		it("!readOnly で右端リサイズハンドルが出る / readOnly では出ない", () => {
+			renderThumb(makeSlide(), { readOnly: false });
+			expect(getControl("duration-resize")).not.toBeNull();
+
+			renderThumb(makeSlide(), { readOnly: true });
+			expect(getControl("duration-resize")).toBeNull();
+		});
+
+		it("ハンドル click は親 onClick へ伝播しない (誤選択防止)", () => {
 			const click = vi.fn();
-			renderThumb(makeSlide(), { onIncrementDuration: inc, onDecrementDuration: dec, onClick: click });
-
+			renderThumb(makeSlide(), { onClick: click });
 			act(() => {
-				getControl("duration-up")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+				getControl("duration-resize")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 			});
-			act(() => {
-				getControl("duration-down")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-			});
+			expect(click).not.toHaveBeenCalled();
+		});
+	});
 
-			expect(inc).toHaveBeenCalledTimes(1);
-			expect(dec).toHaveBeenCalledTimes(1);
-			expect(click).not.toHaveBeenCalled(); // stopPropagation で thumb 選択は走らない
+	describe("wrapperWidthToRatio (幅→尺 逆変換)", () => {
+		const canvasW = 220; // 1600x800 @ h110
+		// legacy と同じ段階 (0.2/0.4/0.6/0.8/1/1.5/2/3…9) へ最近傍スナップする。
+		// 上限付近は atan/tan の傾きが急で 1px 丸めの影響が大きいため、往復検証は精度の出る範囲に限る。
+		it("各段階は correction 往復で同じ段階へ戻る", () => {
+			for (const ratio of [0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3, 5]) {
+				const w = Math.round(canvasW * computeDurationCorrection(ratio));
+				expect(wrapperWidthToRatio(w, canvasW)).toBe(ratio);
+			}
+		});
+		it("段階外の幅は最近傍の段階へスナップ (0.5→0.4 or 0.6 等、中間値は出ない)", () => {
+			const wHalf = Math.round(canvasW * computeDurationCorrection(0.5));
+			expect([0.4, 0.6]).toContain(wrapperWidthToRatio(wHalf, canvasW));
+		});
+		it("下限 0.2 / 上限 9 にクランプされる", () => {
+			expect(wrapperWidthToRatio(1, canvasW)).toBe(0.2); // 極小幅
+			expect(wrapperWidthToRatio(canvasW * 5, canvasW)).toBe(9); // 極大幅
 		});
 	});
 

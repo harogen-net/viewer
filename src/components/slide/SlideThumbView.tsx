@@ -1,7 +1,12 @@
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { drawSlideToCanvas } from "@/utils/slideThumbnail";
-import type { CSSProperties, FC, MouseEvent as ReactMouseEvent } from "react";
-import { useEffect, useMemo, useRef } from "react";
+import type {
+	CSSProperties,
+	FC,
+	MouseEvent as ReactMouseEvent,
+	PointerEvent as ReactPointerEvent,
+} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SlideViewProps } from "./SlideView";
 
 // SlideListPanel の 1 要素 (v4 Group C C-3R で slide/ 配下に切り出し、C-9 で legacy thumb UI 同梱、
@@ -33,8 +38,8 @@ interface SlideThumbViewProps extends SlideViewProps {
 	onDuplicate?: () => void;
 	/** スライド内「削除」ボタン (このスライドを削除、選択不要)。 */
 	onDelete?: () => void;
-	onIncrementDuration: () => void;
-	onDecrementDuration: () => void;
+	/** durationRatio を直接設定する (右端ドラッグでのリサイズ確定時に 1 回呼ぶ)。 */
+	onSetDuration: (ratio: number) => void;
 	onToggleJoining: () => void;
 	onToggleDisabled: () => void;
 	/** thumb の固定高さ (px)。デフォルト 110 (legacy THUMB_HEIGHT 互換)。 */
@@ -46,14 +51,45 @@ interface SlideThumbViewProps extends SlideViewProps {
 // canvas 再描画 debounce ms (legacy CanvasSlideView.refresh の setTimeout 100ms 互換)。
 const DEBOUNCE_MS = 100;
 
+// durationRatio の下限/上限 (slideOps の MIN/MAX_DURATION と一致させる)。
+const MIN_DURATION = 0.2;
+const MAX_DURATION = 9;
+// 取り得る尺の段階 (legacy ±ボタンの増減ステップと一致: <1 は 0.2 刻み、1〜2 は 0.5 刻み、2〜9 は 1 刻み)。
+// ドラッグ確定尺はこの段階へ最近傍スナップする。
+const DURATION_STEPS = [0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9];
+const snapToStep = (ratio: number): number =>
+	DURATION_STEPS.reduce((best, s) => (Math.abs(s - ratio) < Math.abs(best - ratio) ? s : best));
+// thumb 外枠の最小幅。尺を縮めてもコーナーボタン群 (各 30px) + 中央ラベル +
+// 右端リサイズハンドルが重ならず操作可能な下限を保証する (片道トラップ防止の土台)。
+const DURATION_MIN_THUMB_W = 92;
+
 // legacy ThumbSlideView.fitToHeight() の幅補正式:
 //   r == 1     → 1
 //   r < 1      → pow(r, 0.4)
 //   r > 1      → atan(r - 1) * 0.5 + 1
-const computeDurationCorrection = (ratio: number): number => {
+export const computeDurationCorrection = (ratio: number): number => {
 	if (ratio === 1) return 1;
 	if (ratio < 1) return ratio ** 0.4;
 	return Math.atan(ratio - 1) * 0.5 + 1;
+};
+
+// computeDurationCorrection の逆関数: 見かけ幅 (px) から durationRatio を復元する。
+// 右端ドラッグ (幅=尺) で使う。結果は legacy と同じ段階 (DURATION_STEPS) へ最近傍スナップする。
+export const wrapperWidthToRatio = (targetWidth: number, canvasW: number): number => {
+	if (canvasW <= 0) return 1;
+	const c = targetWidth / canvasW; // 補正係数
+	let ratio: number;
+	if (c <= 1) {
+		// 尺<=1 側: correction = ratio^0.4 → ratio = c^(1/0.4) = c^2.5
+		ratio = c ** 2.5;
+	} else if (c >= 1 + Math.PI / 4) {
+		// 尺>1 側: correction = atan(ratio-1)*0.5+1。c が 1+π/4 以上は tan が発散 → 上限へ。
+		ratio = MAX_DURATION;
+	} else {
+		// ratio = tan((c-1)*2) + 1
+		ratio = Math.tan((c - 1) * 2) + 1;
+	}
+	return snapToStep(Math.min(MAX_DURATION, Math.max(MIN_DURATION, ratio)));
 };
 
 // 親要素への click 伝播を止めるラッパー (duration ボタン等で thumb 選択が走らないように)。
@@ -75,22 +111,48 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 	onEdit,
 	onDuplicate,
 	onDelete,
-	onIncrementDuration,
-	onDecrementDuration,
+	onSetDuration,
 	onToggleJoining,
 	onToggleDisabled,
 	thumbHeight = 110,
 	readOnly = false,
 }) => {
+	// 右端ドラッグ中の暫定尺 (null=非ドラッグ)。ドラッグ中は store を触らず幅/ラベルだけ即時追従し、
+	// 離した時に onSetDuration で 1 回だけ確定 (履歴を汚さない)。
+	const [dragRatio, setDragRatio] = useState<number | null>(null);
+	const effectiveRatio = dragRatio ?? slide.durationRatio;
+
 	const scale = thumbHeight / slide.height;
-	const correction = computeDurationCorrection(slide.durationRatio);
+	const correction = computeDurationCorrection(effectiveRatio);
 	// canvas natural size (native aspect、durationCorrection なし)
 	const canvasW = Math.round(slide.width * scale);
 	const canvasH = thumbHeight;
 	// wrapper の見かけ width (durationCorrection を CSS stretch として反映)
 	const wrapperW = Math.round(canvasW * correction);
 	const durationLabel =
-		slide.durationRatio === 1 ? "" : `x${slide.durationRatio.toString().substr(0, 3)}`;
+		effectiveRatio === 1 ? "" : `x${effectiveRatio.toString().substr(0, 3)}`;
+
+	// 右端ドラッグ (幅=尺) のハンドラ。開始時の pointerX と wrapper 幅を基準に、移動量を幅へ加算し逆変換。
+	const dragStart = useRef<{ x: number; w: number } | null>(null);
+	const handleResizeDown = (e: ReactPointerEvent): void => {
+		// 親 (SortableSlideThumb) の dnd-kit listeners へ伝播させない = 並べ替えの誤発火を防ぐ。
+		e.stopPropagation();
+		e.preventDefault();
+		dragStart.current = { x: e.clientX, w: wrapperW };
+		e.currentTarget.setPointerCapture(e.pointerId);
+	};
+	const handleResizeMove = (e: ReactPointerEvent): void => {
+		if (!dragStart.current) return;
+		const newW = Math.max(1, dragStart.current.w + (e.clientX - dragStart.current.x));
+		setDragRatio(wrapperWidthToRatio(newW, canvasW));
+	};
+	const handleResizeUp = (e: ReactPointerEvent): void => {
+		if (!dragStart.current) return;
+		dragStart.current = null;
+		e.currentTarget.releasePointerCapture(e.pointerId);
+		onSetDuration(dragRatio ?? slide.durationRatio);
+		setDragRatio(null);
+	};
 
 	// imageLibraryStore を購読 (slide の参照する image 更新時に redraw)
 	const imageById = useImageLibraryStore((s) => s.imageById);
@@ -146,8 +208,10 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		boxSizing: "content-box",
 		background: "#fff",
 		boxShadow: selected ? "0 0 0 1px rgba(34,139,230,0.3)" : "0 0 1px rgba(0,0,0,0.2)",
-		// wrapper の見かけ寸法 (durationCorrection で横伸縮)
+		// wrapper の見かけ寸法 (durationCorrection で横伸縮)。
+		// minWidth: 尺を縮めてもコントロール群が重ならない下限を保証 (片道トラップ防止)。
 		width: wrapperW,
+		minWidth: DURATION_MIN_THUMB_W,
 		height: thumbHeight,
 		overflow: "hidden",
 	};
@@ -171,8 +235,10 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 	const joinArrowStyle: CSSProperties = {
 		position: "absolute",
 		top: "50%",
-		right: 2,
+		// 右端のリサイズハンドル (幅 10px) に重ならないよう内側へ寄せ、重なり順も上にする。
+		right: 14,
 		transform: "translateY(-50%)",
+		zIndex: 3,
 		width: 16,
 		height: 16,
 		display: "flex",
@@ -187,34 +253,49 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		userSelect: "none",
 		lineHeight: 1,
 	};
-	const durationControlStyle: CSSProperties = {
+	// 尺ラベル (x1.5 等)。通常は下辺の小バッジ。ドラッグ中は中央へ大きく表示して視認性を上げる。
+	const dragging = dragRatio !== null;
+	const durationBadgeStyle: CSSProperties = {
 		position: "absolute",
-		bottom: 2,
-		left: "50%",
-		transform: "translateX(-50%)",
-		display: "flex",
-		alignItems: "center",
-		gap: 3,
 		background: "rgba(0,0,0,0.55)",
 		color: "#fff",
-		fontSize: 14,
 		lineHeight: 1,
-		padding: "3px 5px",
-		borderRadius: 3,
+		borderRadius: dragging ? 6 : 3,
 		fontFamily: "monospace",
 		fontWeight: "bold",
+		pointerEvents: "none",
+		...(dragging
+			? {
+					top: "50%",
+					left: "50%",
+					transform: "translate(-50%, -50%)",
+					fontSize: Math.round(thumbHeight * 0.34),
+					padding: "4px 12px",
+					zIndex: 4,
+					whiteSpace: "nowrap",
+				}
+			: {
+					bottom: 2,
+					left: "50%",
+					transform: "translateX(-50%)",
+					fontSize: 12,
+					padding: "3px 6px",
+				}),
 	};
-	const durationBtnStyle: CSSProperties = {
-		background: "rgba(255,255,255,0.2)",
-		color: "#fff",
-		border: "1px solid rgba(255,255,255,0.4)",
-		borderRadius: 3,
-		fontSize: 13,
-		lineHeight: 1,
-		width: 20,
-		height: 20,
-		cursor: "pointer",
-		padding: 0,
+	// 表示するラベル文字列。ドラッグ中は尺 1 でも表示 ("x1")、通常は 1 のとき非表示。
+	const badgeText = dragging ? `x${effectiveRatio.toString().substr(0, 3)}` : durationLabel;
+	// 右端リサイズハンドル (幅=尺のドラッグ)。選択時のみ reveal。結合矢印/複製ボタン (zIndex:3) より下 (zIndex:2)。
+	const resizeHandleStyle: CSSProperties = {
+		position: "absolute",
+		top: 0,
+		right: 0,
+		height: "100%",
+		width: 10,
+		cursor: "ew-resize",
+		zIndex: 2,
+		background:
+			"linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(34,139,230,0.15) 60%, rgba(34,139,230,0.45) 100%)",
+		touchAction: "none",
 	};
 	// スライド内アクション。legacy 配置: 編集=左上 / 削除=右上 / 複製=右下。
 	// サイズも legacy 準拠 (30x30 / font 20)。
@@ -319,27 +400,29 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 						{slide.joining ? "▶" : "▷"}
 					</button>
 
-					<div style={durationControlStyle} data-thumb-control="duration" data-thumb-reveal>
-						<button
-							type="button"
-							onClick={stopClick(onDecrementDuration)}
-							style={durationBtnStyle}
-							data-thumb-control="duration-down"
-							aria-label="durationRatio 減少">
-							−
-						</button>
-						<span data-thumb-control="duration-label" style={{ minWidth: 24, textAlign: "center" }}>
-							{durationLabel}
+					{/* 尺ラベル (x1.5 等)。通常は下辺の小バッジ、ドラッグ中は中央に拡大。尺 1 は通常時のみ非表示。 */}
+					{badgeText && (
+						<span style={durationBadgeStyle} data-thumb-control="duration-label">
+							{badgeText}
 						</span>
-						<button
-							type="button"
-							onClick={stopClick(onIncrementDuration)}
-							style={durationBtnStyle}
-							data-thumb-control="duration-up"
-							aria-label="durationRatio 増加">
-							+
-						</button>
-					</div>
+					)}
+
+					{/* 右端ドラッグで幅=尺をリサイズ。選択時のみ reveal。 */}
+					<div
+						style={resizeHandleStyle}
+						data-thumb-control="duration-resize"
+						data-thumb-reveal
+						onPointerDown={handleResizeDown}
+						onPointerMove={handleResizeMove}
+						onPointerUp={handleResizeUp}
+						onPointerCancel={handleResizeUp}
+						onClick={(e) => e.stopPropagation()}
+						role="slider"
+						aria-label="表示尺をドラッグで調整"
+						aria-valuenow={effectiveRatio}
+						aria-valuemin={MIN_DURATION}
+						aria-valuemax={MAX_DURATION}
+					/>
 				</>
 			)}
 		</div>

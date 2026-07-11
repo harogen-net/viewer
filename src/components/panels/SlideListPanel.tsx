@@ -80,8 +80,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		deleteSlide,
 		setSlideJoining,
 		setSlideDisabled,
-		incrementSlideDurationRatio,
-		decrementSlideDurationRatio,
+		setSlideDurationRatio,
 	} = useSlideMutation();
 
 	// 編集ストリップ (!wrap) で選択(=編集中)スライドを水平中央へ寄せる共通処理。
@@ -359,8 +358,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 										selected={i === selectedIndex}
 										bgColor={bgColor}
 										onClick={() => setSelectedIndex(i)}
-										onIncrementDuration={() => incrementSlideDurationRatio(i)}
-										onDecrementDuration={() => decrementSlideDurationRatio(i)}
+										onSetDuration={(r) => setSlideDurationRatio(i, r)}
 										onToggleJoining={() => setSlideJoining(i, !slide.joining)}
 										onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
 										thumbHeight={THUMB_HEIGHT}
@@ -399,8 +397,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 												onEdit={() => enterEdit(i)}
 												onDuplicate={() => handleDuplicateAt(i)}
 												onDelete={() => void handleDeleteAt(i)}
-												onIncrementDuration={() => incrementSlideDurationRatio(i)}
-												onDecrementDuration={() => decrementSlideDurationRatio(i)}
+												onSetDuration={(r) => setSlideDurationRatio(i, r)}
 												onToggleJoining={() => setSlideJoining(i, !slide.joining)}
 												onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
 												thumbHeight={THUMB_HEIGHT}

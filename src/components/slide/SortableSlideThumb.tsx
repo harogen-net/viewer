@@ -25,8 +25,7 @@ interface SortableSlideThumbProps extends SlideViewProps {
 	onEdit?: () => void;
 	onDuplicate?: () => void;
 	onDelete?: () => void;
-	onIncrementDuration: () => void;
-	onDecrementDuration: () => void;
+	onSetDuration: (ratio: number) => void;
 	onToggleJoining: () => void;
 	onToggleDisabled: () => void;
 	thumbHeight?: number;
@@ -43,8 +42,7 @@ export const SortableSlideThumb: FC<SortableSlideThumbProps> = ({
 	onEdit,
 	onDuplicate,
 	onDelete,
-	onIncrementDuration,
-	onDecrementDuration,
+	onSetDuration,
 	onToggleJoining,
 	onToggleDisabled,
 	thumbHeight,
@@ -76,8 +74,7 @@ export const SortableSlideThumb: FC<SortableSlideThumbProps> = ({
 				onEdit={onEdit}
 				onDuplicate={onDuplicate}
 				onDelete={onDelete}
-				onIncrementDuration={onIncrementDuration}
-				onDecrementDuration={onDecrementDuration}
+				onSetDuration={onSetDuration}
 				onToggleJoining={onToggleJoining}
 				onToggleDisabled={onToggleDisabled}
 				thumbHeight={thumbHeight}
