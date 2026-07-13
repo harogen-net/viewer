@@ -645,15 +645,21 @@ export const replaceImageId = (
 	layerIndex: number,
 	newImageId: string
 ): SlideState | null =>
-	transformSelectedSlideLayers(state, (layers) => {
-		if (layerIndex < 0 || layerIndex >= layers.length) return null;
-		const cur = layers[layerIndex];
-		if (cur.type !== LayerType.IMAGE) return null;
-		if (cur.imageId === newImageId) return null;
-		return layers.map((l, i) =>
-			i === layerIndex ? ({ ...cur, imageId: newImageId } as Layer) : l
-		);
-	});
+	// shared 層なら差し替えた imageId を兄弟へ伝播する (兄弟探索は編集前=旧 imageId で行われる)。
+	// updateImageLayer と同じく withLayerSync を通す。
+	withLayerSync(
+		state,
+		layerIndex,
+		transformSelectedSlideLayers(state, (layers) => {
+			if (layerIndex < 0 || layerIndex >= layers.length) return null;
+			const cur = layers[layerIndex];
+			if (cur.type !== LayerType.IMAGE) return null;
+			if (cur.imageId === newImageId) return null;
+			return layers.map((l, i) =>
+				i === layerIndex ? ({ ...cur, imageId: newImageId } as Layer) : l
+			);
+		})
+	);
 
 /**
  * 全 slide の同 oldImageId を参照する ImageLayer の imageId を newImageId に置換 (v4 Group D D-6b)。

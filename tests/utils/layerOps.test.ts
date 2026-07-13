@@ -604,6 +604,35 @@ describe("layerOps (v4 Group D D-2 純関数)", () => {
 			expect(replaceImageId(s, 0, layer.imageId)).toBeNull();
 		});
 
+		it("replaceImageId: shared layer の差し替えが兄弟へ伝播する", () => {
+			// 3 slide すべてに同 imageId "S" + shared=true。選択は中央 (index 1)。
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: true })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "S", shared: true })], 2, "s1"),
+					makeSlide([makeImageLayer(3, "a2", { imageId: "S", shared: true })], 3, "s2"),
+				],
+				1
+			);
+			const r = replaceImageId(s, 0, "new-img");
+			expect((r?.slides[0].layers[0] as ImageLayer).imageId).toBe("new-img"); // 前隣接
+			expect((r?.slides[1].layers[0] as ImageLayer).imageId).toBe("new-img"); // 編集対象
+			expect((r?.slides[2].layers[0] as ImageLayer).imageId).toBe("new-img"); // 後隣接
+		});
+
+		it("replaceImageId: shared=false は兄弟へ伝播しない", () => {
+			const s = makeState(
+				[
+					makeSlide([makeImageLayer(1, "a0", { imageId: "S", shared: false })], 1, "s0"),
+					makeSlide([makeImageLayer(2, "a1", { imageId: "S", shared: true })], 2, "s1"),
+				],
+				0
+			);
+			const r = replaceImageId(s, 0, "new-img");
+			expect((r?.slides[0].layers[0] as ImageLayer).imageId).toBe("new-img"); // 編集対象のみ
+			expect((r?.slides[1].layers[0] as ImageLayer).imageId).toBe("S"); // 非伝播
+		});
+
 		it("replaceImageIdAll: 全 slide で oldId 参照 layer の imageId を newId に置換", () => {
 			const s = makeState([
 				makeSlide([makeImageLayer(1, "a"), makeImageLayer(2, "b")], 1, "s1"),
