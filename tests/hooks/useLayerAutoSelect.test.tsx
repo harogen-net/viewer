@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useLayerAutoSelect } from "../../src/hooks/useLayerAutoSelect";
+import { useEditViewStore } from "../../src/state/editViewStore";
 import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import type { ImageLayer, Layer, TextLayer } from "../../src/types/Layer";
@@ -70,6 +71,7 @@ beforeEach(() => {
 	useSlideStore.getState().setSlides([]);
 	useLayerStore.getState().setLayers([]);
 	useLayerStore.getState().setSelectedLayer(null);
+	useEditViewStore.getState().setRectEdit(false);
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -91,6 +93,25 @@ const selectLayerUuid = (uuid: string): void => {
 };
 
 describe("useLayerAutoSelect", () => {
+	it("スライド変更で rectEdit が自動 OFF になる (legacy replaceSlide 準拠)", () => {
+		useSlideStore
+			.getState()
+			.setSlides([slide(1, [img(1, "A")]), slide(2, [img(2, "B")])]);
+		selectSlide(0);
+		act(() => useEditViewStore.getState().setRectEdit(true));
+		expect(useEditViewStore.getState().rectEdit).toBe(true);
+		selectSlide(1); // 別スライドへ移動
+		expect(useEditViewStore.getState().rectEdit).toBe(false);
+	});
+
+	it("同一スライド内 (index 不変) では rectEdit を維持する", () => {
+		useSlideStore.getState().setSlides([slide(1, [img(1, "A")])]);
+		selectSlide(0);
+		act(() => useEditViewStore.getState().setRectEdit(true));
+		selectSlide(0); // 同じ index を再選択 = 遷移でない
+		expect(useEditViewStore.getState().rectEdit).toBe(true);
+	});
+
 	it("同一画像 (imageId 一致) を遷移先で自動選択", () => {
 		useSlideStore.getState().setSlides([
 			slide(1, [img(1, "A"), img(2, "B")]),

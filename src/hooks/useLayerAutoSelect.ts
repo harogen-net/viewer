@@ -1,3 +1,4 @@
+import { useEditViewStore } from "@/state/editViewStore";
 import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import type { ImageLayer, Layer, TextLayer } from "@/types/Layer";
@@ -5,6 +6,8 @@ import { useEffect, useRef } from "react";
 
 // スライド遷移時に、直前に選択していたレイヤーと「対応する」レイヤーを自動選択する
 // (legacy EditableSlideView.replaceSlide の autoselect 相当)。
+// あわせて、legacy replaceSlide と同じく rectEdit (矩形連動編集) を自動 OFF にする
+// (付けっぱなしで別スライドに意図せぬ連動が起きるのを防ぐ)。
 //
 // 選択優先度 (いずれも locked でなく visible なレイヤーのみ):
 //   1. 同一画像レイヤー (imageId 一致) / 同一テキストレイヤー (text 一致)
@@ -44,10 +47,14 @@ export const useLayerAutoSelect = (): void => {
 			: -1;
 	}, [selectedLayer, slides, selectedIndex]);
 
-	// スライドが切り替わったら対応レイヤーを自動選択する。
+	// スライドが切り替わったら rectEdit を自動 OFF + 対応レイヤーを自動選択する。
 	useEffect(() => {
 		if (selectedIndex === prevSlideIndexRef.current) return;
 		prevSlideIndexRef.current = selectedIndex;
+
+		// legacy replaceSlide 準拠: スライド変更で rectEdit を解除 (付けっぱなし防止)。
+		// setRectEdit 経由で store と layerOps 側ミラー (rectSyncConfig) の両方が同期される。
+		if (useEditViewStore.getState().rectEdit) useEditViewStore.getState().setRectEdit(false);
 
 		const slide = slides[selectedIndex];
 		if (!slide || slide.layers.length === 0) return;
