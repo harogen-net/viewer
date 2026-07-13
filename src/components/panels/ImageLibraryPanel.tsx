@@ -118,6 +118,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	const toast = useToast();
 	const canPlace = selectedSlideIndex >= 0;
 	const [dragOver, setDragOver] = useState(false);
+	const [dragging, setDragging] = useState(false); // タイル画像をドラッグ中か (Drawer を縮める)
 	const [cols, setCols] = useState<number>(readColsPref); // 1 行あたりの画像数
 	const handleColsChange = (v: number): void => {
 		const c = clampCols(v);
@@ -264,8 +265,16 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				onClose={onClose}
 				title="画像ライブラリ"
 				position="bottom"
-				size="60vh"
+				// ドラッグ中は 60vh→30vh に縮めてドロップ先 (下のドキュメント) を広く見せ、ドロップ/中断で戻す。
+				size={dragging ? "30vh" : "60vh"}
 				padding="md"
+				// 非モーダル化: オーバーレイ/フォーカストラップ/スクロールロックを外し、外側クリックでも閉じない。
+				// これで裏の編集キャンバスがドロップ先として生き、ライブラリ画像を直接ドロップできる
+				// (モーダルの全画面オーバーレイがドラッグ/ドロップを奪っていたのが原因)。
+				withOverlay={false}
+				trapFocus={false}
+				lockScroll={false}
+				closeOnClickOutside={false}
 				data-image-library-panel
 				keepMounted={false}>
 				<Box
@@ -358,6 +367,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 											onReplace={() => handleRequestReplace(id)}
 											onDelete={() => requestDelete(id)}
 											onDownload={() => handleDownload(id, entry.dataURL, entry.name)}
+											onDragStateChange={setDragging}
 										/>
 									))}
 								</SimpleGrid>
@@ -411,7 +421,19 @@ const ImageTile: FC<{
 	onReplace: () => void;
 	onDelete: () => void;
 	onDownload: () => void;
-}> = ({ imageId, dataURL, name, canPlace, onPlace, onReplace, onDelete, onDownload }) => {
+	/** 画像ドラッグの開始/終了 (Drawer を縮める/戻すために親へ通知)。 */
+	onDragStateChange?: (dragging: boolean) => void;
+}> = ({
+	imageId,
+	dataURL,
+	name,
+	canPlace,
+	onPlace,
+	onReplace,
+	onDelete,
+	onDownload,
+	onDragStateChange,
+}) => {
 	const tileStyle: CSSProperties = {
 		position: "relative",
 		border: "1px solid #dee2e6",
@@ -422,9 +444,9 @@ const ImageTile: FC<{
 		display: "flex",
 		alignItems: "center",
 		justifyContent: "center",
-		cursor: "grab",
 		transition: "box-shadow 120ms",
 	};
+	// 画像だけを draggable にする (ゴーストは画像のみ)。カーソルは通常の画像同様デフォルト。
 	const imgStyle: CSSProperties = {
 		maxWidth: "100%",
 		maxHeight: "100%",
@@ -450,20 +472,27 @@ const ImageTile: FC<{
 		overflow: "hidden",
 		textOverflow: "ellipsis",
 	};
-	// ドラッグ元 (§11、legacy: dataTransfer.setData("imageId"))。
-	// tile を編集 canvas へドラッグ → SlideEditView の useDrop が imageId を受けて配置 (D-11)。
-	const handleDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
+	// ドラッグ元は画像 (<img>) 自身にする (§11、legacy: dataTransfer.setData("imageId"))。
+	// tile <div> 全体を draggable にするとゴーストがラベル/メニュー込みになり、カーソルも grab に
+	// なってしまうため、<img> だけを draggable にして「画像だけ」をドラッグする。
+	// 編集 canvas / スライド一覧の useDrop が imageId を受けて配置 (D-11)。
+	const handleDragStart = (e: ReactDragEvent<HTMLImageElement>) => {
 		e.dataTransfer.setData("imageId", imageId);
 		e.dataTransfer.effectAllowed = "copy";
+		// dragstart 内で同期的に DOM (Drawer 高さ) を変えると Chrome がドラッグをキャンセルする。
+		// 次 tick に遅延し、ドラッグ確立後に Drawer を縮める。
+		window.setTimeout(() => onDragStateChange?.(true), 0);
 	};
 	return (
-		<div
-			style={tileStyle}
-			data-image-tile
-			data-image-id={imageId}
-			draggable
-			onDragStart={handleDragStart}>
-			<img src={dataURL} alt={name ?? imageId.slice(0, 8)} style={imgStyle} draggable={false} />
+		<div style={tileStyle} data-image-tile data-image-id={imageId}>
+			<img
+				src={dataURL}
+				alt={name ?? imageId.slice(0, 8)}
+				style={imgStyle}
+				draggable
+				onDragStart={handleDragStart}
+				onDragEnd={() => onDragStateChange?.(false)}
+			/>
 			{/* 操作は右上の … メニューに集約 (配置 / 差し替え / DL / 削除)。FileIOSubMenu と同方針。 */}
 			<div style={menuWrapStyle}>
 				<Menu
@@ -478,8 +507,7 @@ const ImageTile: FC<{
 							variant="default"
 							data-image-menu
 							aria-label="画像の操作メニュー"
-							onClick={(e) => e.stopPropagation()}
-							onDragStart={(e) => e.stopPropagation()}>
+							onClick={(e) => e.stopPropagation()}>
 							<IconDotsVertical size={16} stroke={2} />
 						</ActionIcon>
 					</Menu.Target>
