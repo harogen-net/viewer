@@ -12,13 +12,21 @@ import {
 	Drawer,
 	FileButton,
 	Group,
+	Menu,
 	Paper,
 	ScrollArea,
 	SimpleGrid,
+	Slider,
 	Stack,
 	Text,
-	Tooltip,
 } from "@mantine/core";
+import {
+	IconDotsVertical,
+	IconDownload,
+	IconPlus,
+	IconRefresh,
+	IconTrash,
+} from "@tabler/icons-react";
 import type {
 	CSSProperties,
 	FC,
@@ -76,6 +84,30 @@ const countLayersUsingImage = (imageId: string): number => {
 	return n;
 };
 
+// グリッド 1 行あたりの画像数 (列数)。スライダーで変更し、localStorage に永続化する
+// (Drawer は keepMounted=false で開くたび state がリセットされるため)。
+const COLS_KEY = "imageLibrary.cols";
+const COLS_MIN = 1;
+const COLS_MAX = 8;
+const COLS_DEFAULT = 4;
+const clampCols = (n: number): number => Math.min(COLS_MAX, Math.max(COLS_MIN, Math.round(n)));
+const readColsPref = (): number => {
+	try {
+		const raw = localStorage.getItem(COLS_KEY);
+		const n = raw != null ? Number(raw) : Number.NaN;
+		return Number.isFinite(n) ? clampCols(n) : COLS_DEFAULT;
+	} catch {
+		return COLS_DEFAULT;
+	}
+};
+const writeColsPref = (n: number): void => {
+	try {
+		localStorage.setItem(COLS_KEY, String(n));
+	} catch {
+		/* localStorage 不可でも致命的でない */
+	}
+};
+
 export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose }) => {
 	const imageById = useImageLibraryStore((s) => s.imageById);
 	const { addImageFile, deleteImage, placeImageOnSlide, pruneOrphanImage, pruneUnusedImages } =
@@ -86,6 +118,12 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	const toast = useToast();
 	const canPlace = selectedSlideIndex >= 0;
 	const [dragOver, setDragOver] = useState(false);
+	const [cols, setCols] = useState<number>(readColsPref); // 1 行あたりの画像数
+	const handleColsChange = (v: number): void => {
+		const c = clampCols(v);
+		setCols(c);
+		writeColsPref(c);
+	};
 	const [addError, setAddError] = useState<string | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 	const [pruneConfirmOpen, setPruneConfirmOpen] = useState(false);
@@ -273,6 +311,25 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 								各画像の「配置」で選択中スライドに追加 /「差し替え」でその画像を別ファイルに一括置換
 							</Text>
 						)}
+						{/* 1 行あたりの画像数 (列数) スライダー。値は localStorage に永続化。 */}
+						{entries.length > 0 && (
+							<Group gap="sm" align="center" data-image-cols-control>
+								<Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+									列数: {cols}
+								</Text>
+								<Slider
+									min={COLS_MIN}
+									max={COLS_MAX}
+									step={1}
+									value={cols}
+									onChange={handleColsChange}
+									style={{ width: 200 }}
+									label={null}
+									data-image-cols-slider
+									aria-label="1列あたりの画像数"
+								/>
+							</Group>
+						)}
 						{/* 差し替え用の隠し file input (タイルの「差し替え」から起動)。 */}
 						<input
 							ref={replaceInputRef}
@@ -289,7 +346,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 							</Paper>
 						) : (
 							<ScrollArea type="auto" scrollbarSize={8}>
-								<SimpleGrid cols={4} spacing="sm" data-image-grid>
+								<SimpleGrid cols={cols} spacing="sm" data-image-grid>
 									{entries.map(([id, entry]) => (
 										<ImageTile
 											key={id}
@@ -373,20 +430,11 @@ const ImageTile: FC<{
 		maxHeight: "100%",
 		objectFit: "contain",
 	};
-	const topRightGroupStyle: CSSProperties = {
+	// 操作 (…) メニュートリガー (右上)。
+	const menuWrapStyle: CSSProperties = {
 		position: "absolute",
 		top: 2,
 		right: 2,
-		display: "flex",
-		gap: 2,
-	};
-	// 配置 / 差し替えボタン (左上)。
-	const topLeftGroupStyle: CSSProperties = {
-		position: "absolute",
-		top: 2,
-		left: 2,
-		display: "flex",
-		gap: 2,
 	};
 	const labelStyle: CSSProperties = {
 		position: "absolute",
@@ -416,68 +464,55 @@ const ImageTile: FC<{
 			draggable
 			onDragStart={handleDragStart}>
 			<img src={dataURL} alt={name ?? imageId.slice(0, 8)} style={imgStyle} draggable={false} />
-			{/* 配置 / 差し替え (左上) */}
-			<div style={topLeftGroupStyle}>
-				<Tooltip label={canPlace ? "選択中スライドに配置" : "スライドを選択すると配置できます"}>
-					<ActionIcon
-						size="sm"
-						color="blue"
-						variant="filled"
-						disabled={!canPlace}
-						onClick={(e) => {
-							e.stopPropagation();
-							onPlace();
-						}}
-						data-image-place
-						aria-label="place image">
-						＋
-					</ActionIcon>
-				</Tooltip>
-				<Tooltip label="この画像を別ファイルに一括差し替え (使用中の全箇所)">
-					<ActionIcon
-						size="sm"
-						color="grape"
-						variant="filled"
-						onClick={(e) => {
-							e.stopPropagation();
-							onReplace();
-						}}
-						data-image-replace
-						aria-label="replace image">
-						🔄
-					</ActionIcon>
-				</Tooltip>
-			</div>
-			<div style={topRightGroupStyle}>
-				<Tooltip label="DL (別タブダウンロード)">
-					<ActionIcon
-						size="sm"
-						color="blue"
-						variant="filled"
-						onClick={(e) => {
-							e.stopPropagation();
-							onDownload();
-						}}
-						data-image-download
-						aria-label="download image">
-						↓
-					</ActionIcon>
-				</Tooltip>
-				<Tooltip label="削除">
-					<ActionIcon
-						size="sm"
-						color="red"
-						variant="filled"
-						onClick={(e) => {
-							// tile click と骨ぶつかるのを防ぐ
-							e.stopPropagation();
-							onDelete();
-						}}
-						data-image-delete
-						aria-label="delete image">
-						✕
-					</ActionIcon>
-				</Tooltip>
+			{/* 操作は右上の … メニューに集約 (配置 / 差し替え / DL / 削除)。FileIOSubMenu と同方針。 */}
+			<div style={menuWrapStyle}>
+				<Menu
+					shadow="md"
+					width={240}
+					position="bottom-end"
+					withinPortal
+					transitionProps={{ duration: 0 }}>
+					<Menu.Target>
+						<ActionIcon
+							size="sm"
+							variant="default"
+							data-image-menu
+							aria-label="画像の操作メニュー"
+							onClick={(e) => e.stopPropagation()}
+							onDragStart={(e) => e.stopPropagation()}>
+							<IconDotsVertical size={16} stroke={2} />
+						</ActionIcon>
+					</Menu.Target>
+					<Menu.Dropdown>
+						<Menu.Item
+							leftSection={<IconPlus size={16} />}
+							disabled={!canPlace}
+							onClick={onPlace}
+							data-image-place>
+							選択中スライドに配置
+						</Menu.Item>
+						<Menu.Item
+							leftSection={<IconRefresh size={16} />}
+							onClick={onReplace}
+							data-image-replace>
+							別ファイルに一括差し替え
+						</Menu.Item>
+						<Menu.Item
+							leftSection={<IconDownload size={16} />}
+							onClick={onDownload}
+							data-image-download>
+							ダウンロード
+						</Menu.Item>
+						<Menu.Divider />
+						<Menu.Item
+							color="red"
+							leftSection={<IconTrash size={16} />}
+							onClick={onDelete}
+							data-image-delete>
+							削除
+						</Menu.Item>
+					</Menu.Dropdown>
+				</Menu>
 			</div>
 			<div style={labelStyle} title={name ?? imageId}>
 				{name ?? `${imageId.slice(0, 8)}…`}

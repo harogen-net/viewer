@@ -46,6 +46,14 @@ const seedImages = (entries: Record<string, { dataURL: string; name?: string }>)
 	useImageLibraryStore.setState({ imageById: entries });
 };
 
+// tile の … メニューを開く (項目は portal 内に描画される)。
+const openTileMenu = (id: string): void => {
+	const trigger = document.body.querySelector<HTMLElement>(
+		`[data-image-tile][data-image-id="${id}"] [data-image-menu]`
+	);
+	act(() => trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+};
+
 // imageId を参照する ImageLayer を 1 枚持つ slide (未使用判定テスト用)。
 const slideUsingImage = (imageId: string): Slide => ({
 	id: 1,
@@ -94,6 +102,14 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		expect(document.body.textContent).toContain("ファイルをここにドロップ");
 	});
 
+	it("列数スライダーは画像がある時だけ出る", () => {
+		render(true); // 空
+		expect(document.body.querySelector("[data-image-cols-slider]")).toBeNull();
+		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
+		render(true);
+		expect(document.body.querySelector("[data-image-cols-slider]")).not.toBeNull();
+	});
+
 	it("画像 2 件で grid に 2 tile + 件数表示", () => {
 		seedImages({
 			"id-a": { dataURL: "data:image/png;base64,A", name: "a.png" },
@@ -105,14 +121,18 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		expect(document.body.textContent).toContain("2 件");
 	});
 
-	it("各 tile に data-image-id 属性 + 削除ボタンが付く", () => {
+	it("各 tile に data-image-id 属性 + … 操作メニュートリガーが付く", () => {
 		seedImages({ "id-a": { dataURL: "data:image/png;base64,A", name: "a.png" } });
 		render(true);
 		const tile = document.body.querySelector<HTMLElement>(
 			'[data-image-tile][data-image-id="id-a"]'
 		);
 		expect(tile).not.toBeNull();
-		expect(tile?.querySelector("[data-image-delete]")).not.toBeNull();
+		expect(tile?.querySelector("[data-image-menu]")).not.toBeNull();
+		// 削除は menu を開いて初めて出る (tile 直下には無い)。
+		expect(tile?.querySelector("[data-image-delete]")).toBeNull();
+		openTileMenu("id-a");
+		expect(document.body.querySelector("[data-image-delete]")).not.toBeNull();
 	});
 
 	it("ファイル追加ボタン (data-image-add-button) が描画される", () => {
@@ -141,15 +161,18 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		expect(document.body.textContent).not.toContain("まとめて差替");
 	});
 
-	it("各 tile に 配置 / 差し替え ボタンが付く (クリック自動配置は廃止)", () => {
+	it("… メニューを開くと 配置 / 差し替え / DL / 削除 が出る", () => {
 		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
 		render(true);
+		openTileMenu("id-a");
+		expect(document.body.querySelector("[data-image-place]")).not.toBeNull();
+		expect(document.body.querySelector("[data-image-replace]")).not.toBeNull();
+		expect(document.body.querySelector("[data-image-download]")).not.toBeNull();
+		expect(document.body.querySelector("[data-image-delete]")).not.toBeNull();
+		// tile 本体に click ハンドラ由来の actionable フラグは無い (ドラッグ元のみ)。
 		const tile = document.body.querySelector<HTMLElement>(
 			'[data-image-tile][data-image-id="id-a"]'
 		);
-		expect(tile?.querySelector("[data-image-place]")).not.toBeNull();
-		expect(tile?.querySelector("[data-image-replace]")).not.toBeNull();
-		// tile 本体に click ハンドラ由来の actionable フラグは無い (ドラッグ元のみ)。
 		expect(tile?.getAttribute("data-actionable")).toBeNull();
 	});
 
@@ -159,14 +182,18 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		expect(document.body.querySelector("[data-image-replace-input]")).not.toBeNull();
 	});
 
-	it("配置ボタンはスライド未選択で disabled、選択で enabled", () => {
+	it("配置メニュー項目はスライド未選択で disabled", () => {
 		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
-		// スライド未選択
 		render(true);
-		expect(document.body.querySelector<HTMLButtonElement>("[data-image-place]")?.disabled).toBe(
-			true
-		);
-		// スライド選択
+		openTileMenu("id-a");
+		// Mantine Menu.Item の disabled は data-disabled 属性で表現される。
+		expect(
+			document.body.querySelector("[data-image-place]")?.hasAttribute("data-disabled")
+		).toBe(true);
+	});
+
+	it("配置メニュー項目はスライド選択で enabled", () => {
+		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
 		act(() => {
 			useSlideStore.getState().setSlides([
 				{
@@ -183,18 +210,10 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 			useSlideStore.getState().setSelectedIndex(0);
 		});
 		render(true);
-		expect(document.body.querySelector<HTMLButtonElement>("[data-image-place]")?.disabled).toBe(
-			false
-		);
-	});
-
-	it("各 tile に DL ボタン (data-image-download) が付く", () => {
-		seedImages({ "id-a": { dataURL: "data:image/png;base64,A" } });
-		render(true);
-		const tile = document.body.querySelector<HTMLElement>(
-			'[data-image-tile][data-image-id="id-a"]'
-		);
-		expect(tile?.querySelector("[data-image-download]")).not.toBeNull();
+		openTileMenu("id-a");
+		expect(
+			document.body.querySelector("[data-image-place]")?.hasAttribute("data-disabled")
+		).toBe(false);
 	});
 
 	it("未使用画像がある時「未使用を削除」ボタンが有効 (件数付き)", () => {
