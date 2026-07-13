@@ -8,7 +8,10 @@ import { useEffect, useRef, useState } from "react";
 // 値調整 (§12「入力欄での値調整」):
 //   - Enter      : 入力文字列を parse して反映 (Enter 反映)
 //   - ↑ / ↓      : step 増減。multiply=true は ↑ ×(1+step) / ↓ ÷(1+step) (legacy parity)
-//   - ホイール    : フォーカス中のみ増減 (上スクロール=増、legacy `-sign(deltaY)*v`)
+//   - ホイール    : フォーカス中なら増減 (上スクロール=増、legacy `-sign(deltaY)*v`)。
+//                  有効範囲は祖先の [data-adjust-wheel-scope] (例: Ops パネル) 全体。ポインタが
+//                  入力の真上でなくてもそのパネル内なら反応する。scope が無ければ入力要素自身
+//                  (= 真上のみ) にフォールバック。
 //   - Shift 押下  : shiftStep 指定の入力のみ ↑↓/ホイールの増減量を shiftStep に切替 (粗調整、位置用)
 //   - min / max  : clamp (restrictValue 相当)
 //   - 表示は小数 2 桁で floor (legacy `Math.floor(v*100)/100`)
@@ -110,19 +113,26 @@ export const NumberAdjustInput: FC<NumberAdjustInputProps> = ({
 		commit(next);
 	};
 
-	// ホイール (フォーカス中のみ、上スクロール=増)。native non-passive。
+	// 最新の adjust を ref 経由で参照する (window リスナーを張り直さずに最新の value/step 等を使う)。
+	const adjustRef = useRef(adjust);
+	adjustRef.current = adjust;
+
+	// ホイール: フォーカス中なら祖先 [data-adjust-wheel-scope] (例: Ops パネル) 全体で反応する。
+	// 見つからなければ入力要素自身 (= 真上のみ) にフォールバック。
+	// wheel は React onWheel が passive で preventDefault が効かないため native non-passive で張る。
+	// preventDefault はフォーカス中のみ行うため、非フォーカス時のスクロールは阻害しない。
 	useEffect(() => {
 		const el = elRef.current;
 		if (!el) return;
+		const scope: HTMLElement = el.closest<HTMLElement>("[data-adjust-wheel-scope]") ?? el;
 		const handler = (e: WheelEvent): void => {
 			if (!focusedRef.current || disabled || e.deltaY === 0) return;
-			e.preventDefault();
-			adjust(e.deltaY < 0 ? 1 : -1, e.shiftKey);
+			e.preventDefault(); // フォーカス中はスクロールでなく値調整に使う
+			adjustRef.current(e.deltaY < 0 ? 1 : -1, e.shiftKey);
 		};
-		el.addEventListener("wheel", handler, { passive: false });
-		return () => el.removeEventListener("wheel", handler);
-		// adjust は value/step/multiply/shiftStep/invert に依存。再登録で最新を参照。
-	}, [value, step, multiply, disabled, shiftStep, invert]);
+		scope.addEventListener("wheel", handler, { passive: false });
+		return () => scope.removeEventListener("wheel", handler);
+	}, [disabled]);
 
 	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
 		if (e.key === "Enter") {

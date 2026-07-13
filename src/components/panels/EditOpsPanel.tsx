@@ -216,7 +216,14 @@ export const EditOpsPanel: FC = () => {
 
 	return (
 		// レール半分 (5:5) を埋め、内容がはみ出したらパネル内部でスクロール。
-		<Paper withBorder p="sm" radius="sm" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+		// data-adjust-wheel-scope: NumberAdjustInput のホイール調整の有効範囲 (フォーカス中はこのパネル内
+		// どこでウィールしても値調整に使う。パネル外のスクロールは阻害しない)。
+		<Paper
+			withBorder
+			p="sm"
+			radius="sm"
+			style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+			data-adjust-wheel-scope>
 			<Stack gap="xs">
 				<Title order={5}>Layer Ops</Title>
 

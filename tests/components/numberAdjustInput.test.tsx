@@ -29,14 +29,27 @@ interface HarnessProps {
 	invert?: boolean;
 	onStart?: () => void;
 	onEnd?: () => void;
+	/** true で入力を [data-adjust-wheel-scope] ラッパで囲む (ホイール有効範囲テスト用)。 */
+	scope?: boolean;
 }
 
 // value を state で持ち onAdjust で更新する制御ハーネス (live binding 再現)。
 const lastValue = { v: 0 };
-const Harness = ({ initial, step = 1, multiply, min, max, shiftStep, invert, onStart, onEnd }: HarnessProps) => {
+const Harness = ({
+	initial,
+	step = 1,
+	multiply,
+	min,
+	max,
+	shiftStep,
+	invert,
+	onStart,
+	onEnd,
+	scope,
+}: HarnessProps) => {
 	const [v, setV] = useState(initial);
 	lastValue.v = v;
-	return (
+	const input = (
 		<NumberAdjustInput
 			value={v}
 			step={step}
@@ -53,6 +66,13 @@ const Harness = ({ initial, step = 1, multiply, min, max, shiftStep, invert, onS
 			onAdjustStart={onStart}
 			onAdjustEnd={onEnd}
 		/>
+	);
+	return scope ? (
+		<div data-adjust-wheel-scope data-scope-wrap>
+			{input}
+		</div>
+	) : (
+		input
 	);
 };
 
@@ -119,6 +139,23 @@ describe("NumberAdjustInput (v4 Group D D-10, §12)", () => {
 		expect(lastValue.v).toBe(11);
 		act(() => el.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true })));
 		expect(lastValue.v).toBe(10);
+	});
+
+	it("ホイール: フォーカス中は scope (祖先 [data-adjust-wheel-scope]) 内なら真上でなくても反応、scope 外は無反応", () => {
+		const el = renderHarness({ initial: 10, step: 1, scope: true });
+		const scopeEl = container.querySelector<HTMLElement>("[data-scope-wrap]");
+		if (!scopeEl) throw new Error("scope wrap not found");
+		act(() => el.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		// scope ラッパ上で wheel (入力の真上でない) → 反応する
+		act(() => scopeEl.dispatchEvent(new WheelEvent("wheel", { deltaY: -100 })));
+		expect(lastValue.v).toBe(11);
+		// scope 外 (document.body) の wheel → 反応しない
+		act(() => document.body.dispatchEvent(new WheelEvent("wheel", { deltaY: -100 })));
+		expect(lastValue.v).toBe(11);
+		// blur 後は scope 上でも反応しない
+		act(() => el.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+		act(() => scopeEl.dispatchEvent(new WheelEvent("wheel", { deltaY: -100 })));
+		expect(lastValue.v).toBe(11);
 	});
 
 	it("focus で onAdjustStart、blur で onAdjustEnd が呼ばれる", () => {
