@@ -10,7 +10,8 @@ import { useCallback } from "react";
 //
 // 役割: 「SlideState を変化させる pure な update を受け取り、3 つの副作用を同時に走らせる」
 //   (1) slideStore に新 SlideState を反映 (selectedIndex 経由で layerStore も自動 cascade)
-//   (2) viewerDocumentStore.setModified(true) で下→上 通知
+//   (2) viewerDocumentStore.refreshModified() で modified を再計算 (保存時点の slides と
+//       参照一致すれば clean に落ちる = undo で元に戻した時に「変更あり」が消える)
 //   (3) historyStore.push({ label, before, after }) で undo/redo 用 snapshot 記録
 //
 // update が null を返したら no-op (range check / 値変化なし)。history も記録しない。
@@ -90,7 +91,8 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 			const after = update(before);
 			if (!after) return; // no-op (op が null = 変化なし)
 			applyToStores(after);
-			useViewerDocumentStore.getState().setModified(true);
+			// 保存時点の slides と一致するかで modified を再計算 (undo で元に戻れば clean に落ちる)。
+			useViewerDocumentStore.getState().refreshModified();
 			// afterImages は op 適用後に取得 (op 自体は library を触らないが、差し替え等の呼出側は
 			// この applySlideChange の後で prune するため、ここでは prune 前の library を記録する)。
 			useHistoryStore
@@ -105,6 +107,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 			const after = update(currentSlideState());
 			if (!after) return; // no-op
 			applyToStores(after);
+			// ライブ編集中は常に変更あり (毎フレームの内容比較は避ける)。確定時 recordHistory で再計算する。
 			useViewerDocumentStore.getState().setModified(true);
 			// history は積まない (確定時に recordHistory で 1 件残す)
 		},
@@ -120,6 +123,8 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 		useHistoryStore
 			.getState()
 			.push({ label, before, after, beforeImages: images, afterImages: images });
+		// ライブ編集の確定時に modified を再計算 (入力を保存時の内容に戻していれば clean に落ちる)。
+		useViewerDocumentStore.getState().refreshModified();
 	}, []);
 
 	const snapshot = useCallback((): SlideState => currentSlideState(), []);
@@ -128,14 +133,14 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 		const entry = useHistoryStore.getState().popUndo();
 		if (!entry) return;
 		applyToStores(entry.before, entry.beforeImages);
-		useViewerDocumentStore.getState().setModified(true);
+		useViewerDocumentStore.getState().refreshModified();
 	}, []);
 
 	const redo = useCallback((): void => {
 		const entry = useHistoryStore.getState().popRedo();
 		if (!entry) return;
 		applyToStores(entry.after, entry.afterImages);
-		useViewerDocumentStore.getState().setModified(true);
+		useViewerDocumentStore.getState().refreshModified();
 	}, []);
 
 	const canUndo = useCallback((): boolean => useHistoryStore.getState().canUndo(), []);

@@ -255,6 +255,42 @@ describe("useLayerMutation + useDocumentMutation (v4 Group D D-2)", () => {
 		});
 	});
 
+	describe("modified clean 判定 (load baseline → 編集/undo/内容一致)", () => {
+		// setDocument でロード (savedSlides baseline がセットされる)。
+		const loadDoc = (layers: Layer[]): void => {
+			useViewerDocumentStore.getState().setDocument({
+				title: "t",
+				width: 800,
+				height: 600,
+				createTime: 0,
+				editTime: 0,
+				slides: [makeSlide(1, "s1", layers)],
+			});
+			useSlideStore.getState().setSelectedIndex(0); // updateLayer の対象スライドを選択
+		};
+
+		it("移動 (updateLayer) → undo で modified が false に戻る", () => {
+			loadDoc([makeImageLayer(1, "a", { transX: 10 })]);
+			expect(useViewerDocumentStore.getState().modified).toBe(false);
+
+			act(() => hooks.api.layer.updateLayer(0, { transX: 999 })); // 移動 commit
+			expect(useViewerDocumentStore.getState().modified).toBe(true);
+
+			act(() => hooks.api.doc.undo());
+			expect(useViewerDocumentStore.getState().modified).toBe(false);
+		});
+
+		it("移動 → 変形を元の値に戻す (別配列だが内容一致) で modified が false", () => {
+			loadDoc([makeImageLayer(1, "a", { transX: 10 })]);
+
+			act(() => hooks.api.layer.updateLayer(0, { transX: 999 })); // 移動
+			expect(useViewerDocumentStore.getState().modified).toBe(true);
+
+			act(() => hooks.api.layer.updateLayer(0, { transX: 10 })); // 変形ペースト相当 (元値へ)
+			expect(useViewerDocumentStore.getState().modified).toBe(false);
+		});
+	});
+
 	describe("shared 連動更新 (§7 D-15、facade 経由 1 履歴)", () => {
 		it("shared layer の編集が連続隣接スライドの兄弟へ伝播し、履歴は 1 件", () => {
 			// 2 slide に同 imageId + shared=true。選択スライド 0 の layer を編集。
