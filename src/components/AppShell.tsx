@@ -21,7 +21,7 @@ import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
 import { SlideShowOpsPanel } from "./panels/SlideShowOpsPanel";
 import { SlideshowSettingsModal } from "./panels/SlideshowSettingsModal";
-import { ProgressBar } from "./ProgressBar";
+import { PROGRESS_BAR_HEIGHT, ProgressBar } from "./ProgressBar";
 import { SlideEditView } from "./slide/SlideEditView";
 import { SlideshowShell } from "./SlideshowShell";
 
@@ -222,6 +222,10 @@ const newModeLayoutStyle: CSSProperties = {
 	flexDirection: "column",
 	width: "100vw",
 	height: "100vh",
+	// 上端固定の進捗バーとコンテンツが重ならないよう、バー高さぶんの上パディングを常時確保する
+	// (border-box なので 100vh を超えず、内側領域が縮む。表示/非表示でレイアウトがずれない)。
+	boxSizing: "border-box",
+	paddingTop: PROGRESS_BAR_HEIGHT,
 	// body 全体はスクロールさせず、各領域 (一覧 / canvas) が内部でスクロールする。
 	overflow: "hidden",
 };

@@ -331,12 +331,19 @@ export function serializeHvd(
 export async function serializeHvz(
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	opts?: { encrypted?: EncryptedImageData; imageNames?: Record<string, string> }
+	opts?: {
+		encrypted?: EncryptedImageData;
+		imageNames?: Record<string, string>;
+		/** zip 圧縮の進捗 (0..100)。JSZip generateAsync の onUpdate。 */
+		onZipProgress?: (percent: number) => void;
+	}
 ): Promise<Uint8Array> {
 	const json = serializeHvd(doc, imageDataMap, opts);
 	const zip = new JSZip();
 	zip.file(`${doc.title || "document"}.hvd`, json);
-	return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+	return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }, (meta) =>
+		opts?.onZipProgress?.(meta.percent)
+	);
 }
 
 /**
@@ -346,13 +353,15 @@ export async function serializeHvz(
  */
 export async function parseHvz(
 	buffer: Blob | ArrayBuffer | Uint8Array,
-	fallbackTitle: string
+	fallbackTitle: string,
+	opts?: { onUnzipProgress?: (percent: number) => void }
 ): Promise<ParsedHvd> {
 	const zip = await JSZip.loadAsync(buffer);
 	const entries = Object.values(zip.files).filter((f) => !f.dir);
 	if (entries.length === 0) throw new Error("HVZ: zip に有効なエントリがありません");
 	const target = entries.find((f) => /\.hvd$/i.test(f.name)) ?? entries[0];
-	const text = await target.async("string");
+	// 解凍は非同期チャンクで進む (メインスレッドを長時間止めない)。onUpdate で進捗 (0..100)。
+	const text = await target.async("string", (meta) => opts?.onUnzipProgress?.(meta.percent));
 	return parseHvd(text, fallbackTitle);
 }
 
@@ -407,6 +416,8 @@ export async function serializePng(
 		thumbnailPngDataURL?: string;
 		encrypted?: EncryptedImageData;
 		imageNames?: Record<string, string>;
+		/** zip 圧縮の進捗 (0..100)。 */
+		onZipProgress?: (percent: number) => void;
 	}
 ): Promise<Uint8Array> {
 	const json = serializeHvd(doc, imageDataMap, {
@@ -415,7 +426,9 @@ export async function serializePng(
 	});
 	const zip = new JSZip();
 	zip.file("data.hvd", json);
-	const zipU8a = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+	const zipU8a = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }, (meta) =>
+		options?.onZipProgress?.(meta.percent)
+	);
 
 	const inputPngDataURL = options?.thumbnailPngDataURL ?? TRANSPARENT_PNG_DATA_URL;
 	const embedder = new PNGEmbedder();
@@ -457,12 +470,16 @@ function extractPngChunk(png: Uint8Array, type: number[] = PNG_HVDC_CHUNK_TYPE):
  * legacy SlideStorage の PNG 出力 (`[hv]{title}.png`) と互換。
  * バイトから直接チャンクを取り出す (base64 往復をしない = iOS Safari でも安定)。
  */
-export async function parsePng(buffer: Uint8Array, fallbackTitle: string): Promise<ParsedHvd> {
+export async function parsePng(
+	buffer: Uint8Array,
+	fallbackTitle: string,
+	opts?: { onUnzipProgress?: (percent: number) => void }
+): Promise<ParsedHvd> {
 	const zipBytes = extractPngChunk(buffer);
 	if (!zipBytes) throw new Error("PNG: 埋め込み hvDc チャンクが見つかりません");
 	const zip = await JSZip.loadAsync(zipBytes);
 	const entry = zip.file("data.hvd");
 	if (!entry) throw new Error("PNG: 埋め込み data.hvd エントリなし");
-	const text = await entry.async("string");
+	const text = await entry.async("string", (meta) => opts?.onUnzipProgress?.(meta.percent));
 	return parseHvd(text, fallbackTitle);
 }

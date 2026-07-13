@@ -118,8 +118,8 @@ export type LoadResult =
 export interface StorageApi {
 	/** タイトル一覧を取得 (未ソート)。 */
 	listTitles: () => Promise<StoredSlideTitle[]>;
-	/** タイトル指定でロード。ok 時のみ imageLibraryStore に画像が投入される。 */
-	loadByTitle: (title: string) => Promise<LoadResult>;
+	/** タイトル指定でロード。ok 時のみ imageLibraryStore に画像が投入される。onProgress で 0..1 を報告。 */
+	loadByTitle: (title: string, onProgress?: (fraction: number) => void) => Promise<LoadResult>;
 	/**
 	 * ViewerDocument を保存。override=false (default) なら日付ベースの新タイトル、
 	 * override=true なら doc.title をそのまま使う (= 上書き保存)。
@@ -128,7 +128,11 @@ export interface StorageApi {
 	 */
 	save: (
 		doc: ViewerDocument,
-		options?: { override?: boolean; thumbnail?: StoredDocThumbnail | null }
+		options?: {
+			override?: boolean;
+			thumbnail?: StoredDocThumbnail | null;
+			onProgress?: (fraction: number) => void;
+		}
 	) => Promise<{ title: string } | null>;
 	/** タイトル指定で削除。該当なしも success 扱い。 */
 	deleteByTitle: (title: string) => Promise<void>;
@@ -169,7 +173,9 @@ export function useStorage(): StorageApi {
 	}, []);
 
 	const loadByTitle = useCallback(
-		async (title: string): Promise<LoadResult> => {
+		async (title: string, onProgress?: (fraction: number) => void): Promise<LoadResult> => {
+			const report = onProgress ?? (() => {});
+			report(0.05);
 			const db = await openDb();
 			let jsonStr: string | null = null;
 			try {
@@ -182,20 +188,29 @@ export function useStorage(): StorageApi {
 				db.close();
 			}
 			if (jsonStr == null) return { status: "notfound" };
+			report(0.2);
+			// parseHvd (JSON.parse) は同期でメインスレッドを止めるので、直前で 1 度 yield して
+			// バーに「解析中」を描画させる (なるべく固まって見えないように)。
+			await new Promise<void>((r) => setTimeout(r));
 			const parsed = parseHvd(jsonStr, title);
+			report(0.55);
 			if (parsed.encrypted) {
 				// センシティブ: box の PW で復号を試す (= ロード前の軽い判定)。
 				// 失敗/未入力は unlock が警告モーダルを出す。ここで locked を返し、
 				// **画像なし文書を読み込まずに中止**する (store は一切触らない = 現文書維持)。
 				const enc = parsed.encrypted;
+				report(0.6);
 				const imageData = await unlock((pw) => decryptImageData(enc, pw));
 				if (imageData === null) return { status: "locked" };
+				report(0.9);
 				useImageLibraryStore.getState().setImageLibrary(imageData);
+				report(0.98);
 				return { status: "ok", doc: parsed.doc };
 			}
 			useImageLibraryStore
 				.getState()
 				.setImageLibrary(buildImageEntries(parsed.imageData, parsed.imageNames));
+			report(0.95);
 			return { status: "ok", doc: parsed.doc };
 		},
 		[unlock]
@@ -204,8 +219,14 @@ export function useStorage(): StorageApi {
 	const save = useCallback(
 		async (
 			doc: ViewerDocument,
-			options?: { override?: boolean; thumbnail?: StoredDocThumbnail | null }
+			options?: {
+				override?: boolean;
+				thumbnail?: StoredDocThumbnail | null;
+				/** 保存進捗 (0..1)。暗号化/直列化/書込のフェーズ粗粒度 (JSON.stringify は同期のため滑らかには動かない)。 */
+				onProgress?: (fraction: number) => void;
+			}
 		): Promise<{ title: string } | null> => {
+			const report = options?.onProgress;
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
 			// imageLibraryStore から imageId→dataURL / imageId→name を抽出。
@@ -218,16 +239,20 @@ export function useStorage(): StorageApi {
 			}
 			// センシティブ: 参照中画像をパスワードで暗号化して格納。パスワード未入力(キャンセル)は
 			// 保存中止 (null を返す = 呼び出し側で無音スキップ)。
+			report?.(0.1);
 			let encrypted: EncryptedImageData | undefined;
 			if (doc.isSensitive) {
 				const pw = requirePassword(); // box 値。未入力なら警告して中止。
 				if (pw === null) return null;
+				report?.(0.2);
 				encrypted = await encryptImageData(collectReferencedImages(doc, imageMap), pw);
 			}
+			report?.(0.5); // 直列化 (JSON.stringify) は同期でメインスレッドを止めるため前で報告。
 			const json = serializeHvd({ ...doc, title, editTime: now }, imageMap, {
 				encrypted,
 				imageNames,
 			});
+			report?.(0.7);
 
 			const db = await openDb();
 			try {
@@ -255,6 +280,7 @@ export function useStorage(): StorageApi {
 					);
 				}
 				await txComplete(tx);
+				report?.(0.95);
 			} finally {
 				db.close();
 			}

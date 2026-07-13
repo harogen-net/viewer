@@ -37,6 +37,8 @@ interface ViewerDocumentState {
 	modified: boolean;
 	/** document の load / save / export 等の進捗 (0..1)。実行中でない時は null。 */
 	progress: number | null;
+	/** 進捗バーに添えるラベル (例 "保存中…" / "書き出し中… 3/12")。進捗が null の間は ""。 */
+	progressLabel: string;
 	/** clean 判定用: 最後に save/load した時点の slides 参照 (構造共有なので undo で元参照に戻れば一致)。 */
 	savedSlides: Slide[] | null;
 	/** meta 側 (title/bgColor/寸法) が baseline から編集されたか。slide 履歴では追えないため別管理。 */
@@ -55,13 +57,15 @@ interface ViewerDocumentState {
 	/** meta の一部を更新し modified=true にする (title / bgColor / width など document 設定の編集用)。
 	 *  履歴/slides は触らない。width/height は SSOT なので別途 slide へ再注入すること。 */
 	patchMeta: (patch: Partial<DocumentMeta>) => void;
-	setProgress: (progress: number | null) => void;
+	/** 進捗を更新。progress=null で非表示。label 省略時は現ラベルを維持 (null で "" にクリア)。 */
+	setProgress: (progress: number | null, label?: string) => void;
 }
 
 export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 	meta: null,
 	modified: false,
 	progress: null,
+	progressLabel: "",
 	savedSlides: null,
 	metaDirty: false,
 	setDocument: (doc) => {
@@ -103,5 +107,9 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 		})),
 	patchMeta: (patch) =>
 		set((s) => (s.meta ? { meta: { ...s.meta, ...patch }, modified: true, metaDirty: true } : {})),
-	setProgress: (progress) => set({ progress }),
+	setProgress: (progress, label) =>
+		set((s) => ({
+			progress,
+			progressLabel: progress === null ? "" : (label ?? s.progressLabel),
+		})),
 }));

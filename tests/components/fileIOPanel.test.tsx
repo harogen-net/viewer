@@ -139,7 +139,7 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		expect(navBtn("next")?.disabled).toBe(false);
 		click(navBtn("next"));
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenCalledWith("A"); // 先頭
+		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function)); // 先頭
 	});
 
 	// 回帰: 1 回の選択でロードは 1 回だけ (FileSelector と親が二重にロードしない)。
@@ -148,7 +148,7 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		click(navBtn("next")); // → 先頭 "A" を 1 回ロード
 		await act(async () => {});
 		expect(loadByTitleMock).toHaveBeenCalledTimes(1);
-		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
 	});
 
 	it("▶ で次へ、端 (末尾) では ▶ 無効", async () => {
@@ -157,10 +157,10 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		await act(async () => {});
 		click(navBtn("next")); // → B (index 1)
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenLastCalledWith("B");
+		expect(loadByTitleMock).toHaveBeenLastCalledWith("B", expect.any(Function));
 		click(navBtn("next")); // → C (index 2、末尾)
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenLastCalledWith("C");
+		expect(loadByTitleMock).toHaveBeenLastCalledWith("C", expect.any(Function));
 		expect(navBtn("next")?.disabled).toBe(true); // 末尾で無効
 		expect(navBtn("prev")?.disabled).toBe(false);
 	});
@@ -173,7 +173,7 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		await act(async () => {});
 		click(navBtn("prev")); // A
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenLastCalledWith("A");
+		expect(loadByTitleMock).toHaveBeenLastCalledWith("A", expect.any(Function));
 	});
 });
 
@@ -197,7 +197,7 @@ describe("FileIOPanel 未保存ガード", () => {
 		click(navBtn("next"));
 		await resolveAlert(true); // 破棄して続行
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
 	});
 
 	it("modified=false なら確認なしで即ロード", async () => {
@@ -205,7 +205,7 @@ describe("FileIOPanel 未保存ガード", () => {
 		click(navBtn("next"));
 		await act(async () => {});
 		expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
-		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
 	});
 
 	// 開く処理の同期的副作用 = refreshTitles (listTitles) 呼び出しで「開いたか」を判定する
@@ -278,7 +278,7 @@ describe("FileIOPanel 再読み込み (元に戻す)", () => {
 		expect(useAlertStore.getState().request?.kind).toBe("confirm");
 		await resolveAlert(true);
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenCalledWith("A");
+		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
 	});
 
 	it("確認キャンセルでは再ロードしない", async () => {

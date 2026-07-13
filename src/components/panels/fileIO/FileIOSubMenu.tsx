@@ -1,4 +1,5 @@
 import { useFileIO } from "@/hooks/useFileIO";
+import { useProgress } from "@/hooks/useProgress";
 import { useToast } from "@/hooks/useToast";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
@@ -26,6 +27,7 @@ export const FileIOSubMenu: FC<{
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slides = useSlideStore((s) => s.slides);
 	const toast = useToast();
+	const { run } = useProgress();
 	const { wrap, confirmDiscardIfModified } = useFileIOCommon();
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,22 +38,27 @@ export const FileIOSubMenu: FC<{
 		fn: (
 			doc: ViewerDocument,
 			imageMap: Record<string, string>,
-			imageNames?: Record<string, string>
-		) => Promise<string | null>
+			imageNames?: Record<string, string>,
+			onProgress?: (fraction: number) => void
+		) => Promise<string | null>,
+		label: string
 	) =>
 		wrap(async () => {
 			if (!meta) {
 				toast.info("ドキュメントが未ロードです");
 				return;
 			}
-			const msg = await fn({ ...meta, slides }, collectImageMap(), collectImageNames());
+			// 進捗バー付きで実行 (report を fn へ注入)。高速な書き出しは report を呼ばずバーを出さない。
+			const msg = await run(label, (report) =>
+				fn({ ...meta, slides }, collectImageMap(), collectImageNames(), report)
+			);
 			if (msg) toast.success(msg); // null = パスワード入力キャンセル (無音)
 		});
-	const handleExportHvd = runExport(exportHvd);
-	const handleExportHvz = runExport(exportHvz);
-	const handleExportPng = runExport(exportPng);
+	const handleExportHvd = runExport(exportHvd, "HVD 書き出し中…");
+	const handleExportHvz = runExport(exportHvz, "HVZ 書き出し中…");
+	const handleExportPng = runExport(exportPng, "PNG 書き出し中…");
 	// 有効スライドを全て画像 PNG 化して ZIP 書き出し (§10)。
-	const handleExportZip = runExport(exportAllSlidesZip);
+	const handleExportZip = runExport(exportAllSlidesZip, "全スライド ZIP 書き出し中…");
 
 	// インポートは「ボタン押下時点」で破棄確認する (ファイル選択後ではなく、開く/新規と同じ方針)。
 	//   - 未変更時: user gesture を保てるよう同期でファイルダイアログを開く。
@@ -73,7 +80,8 @@ export const FileIOSubMenu: FC<{
 		if (!file) return;
 		// 破棄確認は handleImportClick (ボタン押下時) で実施済みのため、ここでは行わない。
 		wrap(async () => {
-			const result = await importFile(file);
+			// 進捗バー付き import。未対応拡張子 (null) は Abort 扱いで即消し。
+			const result = await run("読み込み中…", (report) => importFile(file, report));
 			if (!result) {
 				toast.error(`未対応の拡張子です: ${file.name}`);
 				return;

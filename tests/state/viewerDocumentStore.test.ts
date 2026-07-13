@@ -15,10 +15,30 @@ beforeEach(() => {
 		meta: null,
 		modified: false,
 		progress: null,
+		progressLabel: "",
 		savedSlides: null,
 		metaDirty: false,
 	});
 	useSlideStore.getState().setSlides([]);
+});
+
+describe("viewerDocumentStore.setProgress", () => {
+	const s = () => useViewerDocumentStore.getState();
+	it("値とラベルを設定し、label 省略時は現ラベルを維持する", () => {
+		s().setProgress(0.3, "保存中…");
+		expect(s().progress).toBe(0.3);
+		expect(s().progressLabel).toBe("保存中…");
+		// label 省略 → ラベル維持
+		s().setProgress(0.6);
+		expect(s().progress).toBe(0.6);
+		expect(s().progressLabel).toBe("保存中…");
+	});
+	it("null で進捗もラベルもクリアする", () => {
+		s().setProgress(0.5, "x");
+		s().setProgress(null);
+		expect(s().progress).toBeNull();
+		expect(s().progressLabel).toBe("");
+	});
 });
 
 describe("viewerDocumentStore.markSaved", () => {

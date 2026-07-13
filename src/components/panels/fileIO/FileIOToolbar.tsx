@@ -1,5 +1,6 @@
 import { DocumentPickerModal } from "@/components/panels/DocumentPickerModal";
 import { useAlert } from "@/hooks/useAlert";
+import { useProgress } from "@/hooks/useProgress";
 import { useStorage, type StoredSlideTitle } from "@/hooks/useStorage";
 import { useToast } from "@/hooks/useToast";
 import { useSlideStore } from "@/state/slideStore";
@@ -26,6 +27,7 @@ import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 	const { listTitles, loadByTitle, save, deleteByTitle, getThumbnail } = useStorage();
+	const { run } = useProgress();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
@@ -83,12 +85,17 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 		}
 		wrap(async () => {
 			if (confirmDiscard && !(await confirmDiscardIfModified())) return;
-			const res = await loadByTitle(v);
-			if (res.status === "ok") {
+			// 進捗バー付きロード。ok=完了(100%まで伸ばす)、notfound/locked=Abort(即消し)。
+			let outcome: Awaited<ReturnType<typeof loadByTitle>> | undefined;
+			await run("読み込み中…", async (report) => {
+				outcome = await loadByTitle(v, report);
+				return outcome.status === "ok" ? outcome : null;
+			});
+			if (outcome?.status === "ok") {
 				setSelectedTitle(v);
-				setDocument(res.doc);
-				toast.success(`ロードしました: ${res.doc.title} (${res.doc.slides.length} slides)`);
-			} else if (res.status === "notfound") {
+				setDocument(outcome.doc);
+				toast.success(`ロードしました: ${outcome.doc.title} (${outcome.doc.slides.length} slides)`);
+			} else if (outcome?.status === "notfound") {
 				toast.error(`データが見つかりません: ${v}`);
 			}
 			// locked: PW 誤り/未入力。警告モーダルは表示済み。ロードせず現文書・選択を維持する。
@@ -108,12 +115,16 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 			}
 		);
 		if (!confirmed) return;
-		const res = await loadByTitle(title);
-		if (res.status === "ok") {
-			setDocument(res.doc);
-			setSelectedTitle(res.doc.title);
-			toast.success(`再ロードしました: ${res.doc.title}`);
-		} else if (res.status === "notfound") {
+		let outcome: Awaited<ReturnType<typeof loadByTitle>> | undefined;
+		await run("読み込み中…", async (report) => {
+			outcome = await loadByTitle(title, report);
+			return outcome.status === "ok" ? outcome : null;
+		});
+		if (outcome?.status === "ok") {
+			setDocument(outcome.doc);
+			setSelectedTitle(outcome.doc.title);
+			toast.success(`再ロードしました: ${outcome.doc.title}`);
+		} else if (outcome?.status === "notfound") {
 			toast.error(`データが見つかりません: ${title}`);
 		}
 		// locked: 警告モーダル表示済み。再ロードせず現状維持。
@@ -126,18 +137,25 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 				return;
 			}
 			const doc: ViewerDocument = { ...meta, slides };
-			// ビジュアルピッカー用の連結サムネ (active から均等ピック→横連結1枚+コマ数) を生成
-			// (best-effort、失敗時は null = サムネ無し)。
-			// PNG (可逆): 白地に細い色線の簡易イラストは JPEG だと滲み/ブロックで激しく劣化するため。
-			// selectedIndex を起点にサムネを並べる (モーダル初期表示=選択中スライドにできる)。
-			// センシティブ文書は内容が判別できないようぼかしたサムネを保存する (§sensitive-mode-spec)。
-			const thumbnail = await generateDocThumbnailStrip(doc, collectImageMap(), {
-				frameMaxPx: 320,
-				mimeType: "image/png",
-				selectedIndex,
-				blur: meta.isSensitive,
-			}).catch(() => null);
-			const result = await save(doc, { override, thumbnail });
+			// 進捗: サムネ生成 (0..0.3) → save (0.3..1)。save 内の暗号化/直列化/書込を後半に写像。
+			const result = await run("保存中…", async (report) => {
+				report(0.05);
+				// ビジュアルピッカー用の連結サムネ (active から均等ピック→横連結1枚+コマ数) を生成
+				// (best-effort、失敗時は null = サムネ無し)。PNG (可逆): 白地の細線イラストは JPEG で激しく劣化。
+				// selectedIndex を起点に並べる。センシティブ文書はぼかしたサムネを保存 (§sensitive-mode-spec)。
+				const thumbnail = await generateDocThumbnailStrip(doc, collectImageMap(), {
+					frameMaxPx: 320,
+					mimeType: "image/png",
+					selectedIndex,
+					blur: meta.isSensitive,
+				}).catch(() => null);
+				report(0.3);
+				return save(doc, {
+					override,
+					thumbnail,
+					onProgress: (f) => report(0.3 + f * 0.7),
+				});
+			});
 			if (!result) return; // パスワード入力キャンセル = 保存中止 (無音)
 			// 保存名を meta へ同期し modified を解除 (beforeunload / 未保存ガードの誤発火を防ぐ。
 			// override 時は同名、新規時は採番された日付 title を反映 → 直後の上書きが正しい対象になる)。
