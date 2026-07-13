@@ -1,10 +1,6 @@
 import { DocumentPickerModal } from "@/components/panels/DocumentPickerModal";
 import { useAlert } from "@/hooks/useAlert";
-import {
-	useStorage,
-	type StoredDocThumbnail,
-	type StoredSlideTitle,
-} from "@/hooks/useStorage";
+import { useStorage, type StoredSlideTitle } from "@/hooks/useStorage";
 import { useToast } from "@/hooks/useToast";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
@@ -29,7 +25,7 @@ import { FileSelector } from "./FileSelector";
 import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
-	const { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails } = useStorage();
+	const { listTitles, loadByTitle, save, deleteByTitle, getThumbnail } = useStorage();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
@@ -43,7 +39,6 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
 	const [pickerOpen, setPickerOpen] = useState(false);
-	const [thumbnails, setThumbnails] = useState<Record<string, StoredDocThumbnail>>({});
 
 	// title 一覧を refresh (update 降順)。
 	const refreshTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
@@ -57,11 +52,10 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 		refreshTitles().catch((e) => console.error("[FileIOPanel] refreshTitles error:", e));
 	}, [refreshTitles]);
 
-	// ビジュアルピッカー: 一覧 + サムネをまとめ読みしてギャラリーを開く。
+	// ビジュアルピッカー: 一覧 (軽量) だけ読んで開く。サムネは各カードが可視時に個別遅延ロードする。
 	const handleOpenPicker = wrap(async () => {
 		if (!(await confirmDiscardIfModified())) return;
 		await refreshTitles();
-		setThumbnails(await loadThumbnails());
 		setPickerOpen(true);
 	});
 	// ギャラリーでカードを選択 → 閉じてロード (未保存ガードは handleSelectChange 内)。
@@ -268,7 +262,7 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 				opened={pickerOpen}
 				onClose={() => setPickerOpen(false)}
 				titles={titles}
-				thumbnails={thumbnails}
+				loadThumbnail={getThumbnail}
 				selectedTitle={selectedTitle}
 				onPick={handlePick}
 			/>

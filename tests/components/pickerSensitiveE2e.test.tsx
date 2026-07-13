@@ -77,7 +77,7 @@ describe("picker sensitive badge (end-to-end)", () => {
 				<MantineProvider>
 					<DocumentPickerGrid
 						titles={titles}
-						thumbnails={{}}
+						loadThumbnail={async () => null}
 						selectedTitle={null}
 						onPick={() => {}}
 					/>

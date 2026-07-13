@@ -19,7 +19,7 @@ const render = (): void => {
 					opened
 					onClose={() => {}}
 					titles={[]}
-					thumbnails={{}}
+					loadThumbnail={async () => null}
 					selectedTitle={null}
 					onPick={() => {}}
 				/>

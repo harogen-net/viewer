@@ -7,15 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // useStorage / useFileIO は IDB / ファイル依存のため hoisted mock で差し替える
 // (関数 ref を安定させ refreshTitles の effect が無限再実行しないようにする)。
 
-const { listTitlesMock, loadByTitleMock, saveMock, deleteMock, loadThumbnailsMock } = vi.hoisted(
-	() => ({
+const { listTitlesMock, loadByTitleMock, saveMock, deleteMock, loadThumbnailsMock, getThumbnailMock } =
+	vi.hoisted(() => ({
 		listTitlesMock: vi.fn(),
 		loadByTitleMock: vi.fn(),
 		saveMock: vi.fn(),
 		deleteMock: vi.fn(),
 		loadThumbnailsMock: vi.fn(),
-	})
-);
+		getThumbnailMock: vi.fn(),
+	}));
 
 vi.mock("../../src/hooks/useStorage", () => ({
 	useStorage: () => ({
@@ -24,6 +24,7 @@ vi.mock("../../src/hooks/useStorage", () => ({
 		save: saveMock,
 		deleteByTitle: deleteMock,
 		loadThumbnails: loadThumbnailsMock,
+		getThumbnail: getThumbnailMock,
 	}),
 }));
 
@@ -112,6 +113,11 @@ beforeEach(() => {
 	loadThumbnailsMock.mockReset();
 	// A はサムネ有り (連結1枚+frames)、B/C は無し
 	loadThumbnailsMock.mockResolvedValue({ A: { thumb: "data:image/jpeg;base64,T", frames: 3 } });
+	getThumbnailMock.mockReset();
+	// 遅延ロード: title 指定で個別取得 (A のみサムネ有り)。
+	getThumbnailMock.mockImplementation(async (title: string) =>
+		title === "A" ? { thumb: "data:image/jpeg;base64,T", frames: 3 } : null
+	);
 	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	useSlideStore.getState().setSlides([]);
@@ -202,22 +208,26 @@ describe("FileIOPanel 未保存ガード", () => {
 		expect(loadByTitleMock).toHaveBeenCalledWith("A");
 	});
 
-	it("ピッカーを開く操作は modified 時に確認し、キャンセルなら開かない (loadThumbnails 呼ばれない)", async () => {
+	// 開く処理の同期的副作用 = refreshTitles (listTitles) 呼び出しで「開いたか」を判定する
+	// (jsdom では Modal の開くトランジションが進まず本文が mount されないため DOM では判定不可)。
+	it("ピッカーを開く操作は modified 時に確認し、キャンセルなら開かない", async () => {
 		await render();
+		listTitlesMock.mockClear();
 		useViewerDocumentStore.setState({ modified: true });
 		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
 		expect(useAlertStore.getState().request?.kind).toBe("confirm");
 		await resolveAlert(false); // キャンセル
-		expect(loadThumbnailsMock).not.toHaveBeenCalled(); // ピッカーは開かない
+		expect(listTitlesMock).not.toHaveBeenCalled(); // 開く処理が走らない
 	});
 
-	it("ピッカーを開く操作は確認 OK なら開く (loadThumbnails 呼ばれる)", async () => {
+	it("ピッカーを開く操作は確認 OK なら開く", async () => {
 		await render();
+		listTitlesMock.mockClear();
 		useViewerDocumentStore.setState({ modified: true });
 		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
 		await resolveAlert(true); // 破棄して続行
 		await act(async () => {});
-		expect(loadThumbnailsMock).toHaveBeenCalled();
+		expect(listTitlesMock).toHaveBeenCalled(); // 開く処理 (refreshTitles) が走った
 	});
 
 	it("インポートはファイル選択時には確認しない (確認はインポートボタン押下時に移動)", async () => {
@@ -303,15 +313,16 @@ describe("FileIOPanel 再読み込み (元に戻す)", () => {
 });
 
 describe("FileIOPanel ビジュアルピッカー", () => {
-	// Modal はアニメーション付きで jsdom 上は中身が同期マウントされないため、ここでは
-	// 「開く操作で loadThumbnails が呼ばれる」結線のみ検証する。カード描画/クリックは
+	// 開く操作でピッカー (Modal) が表示される結線のみ検証する。サムネは各カードが可視時に
+	// getThumbnail で個別遅延ロードする (一括 loadThumbnails は使わない)。カード描画/クリックは
 	// documentPickerGrid.test.tsx (Modal 非依存) で担保。
-	it("ギャラリーを開くと loadThumbnails が呼ばれる (サムネまとめ読み)", async () => {
+	it("ギャラリーを開くと開く処理が走り、一括 loadThumbnails は呼ばれない (遅延ロード)", async () => {
 		await render();
-		expect(loadThumbnailsMock).not.toHaveBeenCalled();
+		listTitlesMock.mockClear();
 		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
 		await act(async () => {});
-		expect(loadThumbnailsMock).toHaveBeenCalled();
+		expect(listTitlesMock).toHaveBeenCalled(); // 開く処理 (refreshTitles) が走った
+		expect(loadThumbnailsMock).not.toHaveBeenCalled(); // 一括読みは廃止 (各カードが遅延取得)
 	});
 });
 

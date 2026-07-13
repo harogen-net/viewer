@@ -3,16 +3,23 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentPickerGrid } from "../../src/components/panels/DocumentPickerModal";
-import type { StoredSlideTitle } from "../../src/hooks/useStorage";
+import type { StoredDocThumbnail, StoredSlideTitle } from "../../src/hooks/useStorage";
 
-// DocumentPickerGrid (カード描画コア) の単体テスト。Modal を介さないので jsdom で素直に検証できる
-// (Modal ラッパーはアニメーション付きで、描画ロジックはここで担保する)。
+// DocumentPickerGrid (カード描画コア) の単体テスト。Modal を介さないので jsdom で素直に検証できる。
+// サムネは遅延ロード (カード可視時に loadThumbnail を呼ぶ)。jsdom は IntersectionObserver 非対応の
+// ため即ロードにフォールバックする → render 後に Promise を flush すれば strip/N/A が確定する。
 
 const titles: StoredSlideTitle[] = [
 	{ id: 1, title: "A", update: 3 },
 	{ id: 2, title: "B", update: 2 },
 	{ id: 3, title: "C", update: 1 },
 ];
+
+// title→サムネ の map を非同期ローダーに変換 (未登録は null)。
+const loaderFor =
+	(map: Record<string, StoredDocThumbnail>) =>
+	async (title: string): Promise<StoredDocThumbnail | null> =>
+		map[title] ?? null;
 
 let container: HTMLDivElement;
 let root: Root;
@@ -24,13 +31,18 @@ const click = (el: HTMLElement | null): void => {
 	});
 };
 
-const render = (props: Parameters<typeof DocumentPickerGrid>[0]): void => {
-	act(() => {
+const render = async (props: Parameters<typeof DocumentPickerGrid>[0]): Promise<void> => {
+	await act(async () => {
 		root.render(
 			<MantineProvider>
 				<DocumentPickerGrid {...props} />
 			</MantineProvider>
 		);
+	});
+	// 遅延ロードの Promise (effect→loadThumbnail→setState) を flush。
+	await act(async () => {
+		await Promise.resolve();
+		await Promise.resolve();
 	});
 };
 
@@ -46,10 +58,10 @@ afterEach(() => {
 });
 
 describe("DocumentPickerGrid", () => {
-	it("各 title のカードが出る (サムネ有り=strip / 無し=N/A)", () => {
-		render({
+	it("各 title のカードが出る (サムネ有り=strip / 無し=N/A)", async () => {
+		await render({
 			titles,
-			thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 3 } }, // B/C はサムネ無し
+			loadThumbnail: loaderFor({ A: { thumb: "data:image/jpeg;base64,T", frames: 3 } }), // B/C は無し
 			selectedTitle: null,
 			onPick: () => {},
 		});
@@ -61,17 +73,39 @@ describe("DocumentPickerGrid", () => {
 		expect(q('[data-picker-item="C"] [data-picker-na]')).not.toBeNull();
 	});
 
-	it("複数コマサムネはホバーでコマ送り、離脱で先頭へ戻る", () => {
+	it("ロード中はサムネ枠にスピナー、解決後に strip へ切り替わる", async () => {
+		let resolveThumb: (v: StoredDocThumbnail | null) => void = () => {};
+		const pending = new Promise<StoredDocThumbnail | null>((r) => {
+			resolveThumb = r;
+		});
+		await render({
+			titles: [{ id: 1, title: "A", update: 1 }],
+			loadThumbnail: () => pending,
+			selectedTitle: null,
+			onPick: () => {},
+		});
+		// 未解決 → loading スピナー枠
+		expect(q('[data-picker-item="A"] [data-thumb-state="loading"]')).not.toBeNull();
+		expect(q('[data-picker-item="A"] [data-picker-thumb-loading]')).not.toBeNull();
+		// 解決 → strip
+		await act(async () => {
+			resolveThumb({ thumb: "data:image/jpeg;base64,T", frames: 1 });
+			await Promise.resolve();
+		});
+		expect(q('[data-picker-item="A"] [data-picker-thumb]')).not.toBeNull();
+	});
+
+	it("複数コマサムネはホバーでコマ送り、離脱で先頭へ戻る", async () => {
+		await render({
+			titles,
+			loadThumbnail: loaderFor({ A: { thumb: "data:image/jpeg;base64,T", frames: 3 } }),
+			selectedTitle: null,
+			onPick: () => {},
+		});
+		const strip = q('[data-picker-item="A"] [data-picker-thumb]');
+		expect(strip?.getAttribute("data-thumb-frame")).toBe("0");
 		vi.useFakeTimers();
 		try {
-			render({
-				titles,
-				thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 3 } },
-				selectedTitle: null,
-				onPick: () => {},
-			});
-			const strip = q('[data-picker-item="A"] [data-picker-thumb]');
-			expect(strip?.getAttribute("data-thumb-frame")).toBe("0");
 			act(() => {
 				strip?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
 			});
@@ -92,16 +126,16 @@ describe("DocumentPickerGrid", () => {
 		}
 	});
 
-	it("1 コマサムネはホバーしてもコマ送りしない", () => {
+	it("1 コマサムネはホバーしてもコマ送りしない", async () => {
+		await render({
+			titles,
+			loadThumbnail: loaderFor({ A: { thumb: "data:image/jpeg;base64,T", frames: 1 } }),
+			selectedTitle: null,
+			onPick: () => {},
+		});
+		const strip = q('[data-picker-item="A"] [data-picker-thumb]');
 		vi.useFakeTimers();
 		try {
-			render({
-				titles,
-				thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 1 } },
-				selectedTitle: null,
-				onPick: () => {},
-			});
-			const strip = q('[data-picker-item="A"] [data-picker-thumb]');
 			act(() => {
 				strip?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
 			});
@@ -114,32 +148,32 @@ describe("DocumentPickerGrid", () => {
 		}
 	});
 
-	it("カードクリックで onPick(title) が呼ばれる", () => {
+	it("カードクリックで onPick(title) が呼ばれる", async () => {
 		const onPick = vi.fn();
-		render({ titles, thumbnails: {}, selectedTitle: null, onPick });
+		await render({ titles, loadThumbnail: loaderFor({}), selectedTitle: null, onPick });
 		click(q('[data-picker-item="B"]'));
 		expect(onPick).toHaveBeenCalledWith("B");
 	});
 
-	it("選択中カードに data-selected=true", () => {
-		render({ titles, thumbnails: {}, selectedTitle: "B", onPick: () => {} });
+	it("選択中カードに data-selected=true", async () => {
+		await render({ titles, loadThumbnail: loaderFor({}), selectedTitle: "B", onPick: () => {} });
 		expect(q('[data-picker-item="B"]')?.getAttribute("data-selected")).toBe("true");
 		expect(q('[data-picker-item="A"]')?.getAttribute("data-selected")).toBe("false");
 	});
 
-	it("空一覧は案内テキスト", () => {
-		render({ titles: [], thumbnails: {}, selectedTitle: null, onPick: () => {} });
+	it("空一覧は案内テキスト", async () => {
+		await render({ titles: [], loadThumbnail: loaderFor({}), selectedTitle: null, onPick: () => {} });
 		expect(container.textContent).toContain("保存済みドキュメントがありません");
 		expect(container.querySelectorAll("[data-picker-item]").length).toBe(0);
 	});
 
-	it("isSensitive のカードにのみ 🔒 バッジが出る", () => {
-		render({
+	it("isSensitive のカードにのみ 🔒 バッジが出る", async () => {
+		await render({
 			titles: [
 				{ id: 1, title: "A", update: 2, isSensitive: true },
 				{ id: 2, title: "B", update: 1 }, // 非センシティブ
 			],
-			thumbnails: { A: { thumb: "data:image/jpeg;base64,T", frames: 1 } },
+			loadThumbnail: loaderFor({ A: { thumb: "data:image/jpeg;base64,T", frames: 1 } }),
 			selectedTitle: null,
 			onPick: () => {},
 		});
@@ -147,14 +181,14 @@ describe("DocumentPickerGrid", () => {
 		expect(q('[data-picker-item="B"] [data-picker-sensitive]')).toBeNull();
 	});
 
-	it("passwordEmpty=true: センシティブ文書は選択不可 (onPick 呼ばれない)、非センシティブは可", () => {
+	it("passwordEmpty=true: センシティブ文書は選択不可 (onPick 呼ばれない)、非センシティブは可", async () => {
 		const onPick = vi.fn();
-		render({
+		await render({
 			titles: [
 				{ id: 1, title: "S", update: 2, isSensitive: true },
 				{ id: 2, title: "N", update: 1 },
 			],
-			thumbnails: {},
+			loadThumbnail: loaderFor({}),
 			selectedTitle: null,
 			onPick,
 			passwordEmpty: true,
@@ -172,11 +206,11 @@ describe("DocumentPickerGrid", () => {
 		expect(onPick).toHaveBeenCalledWith("N");
 	});
 
-	it("passwordEmpty=false: センシティブ文書も選択できる", () => {
+	it("passwordEmpty=false: センシティブ文書も選択できる", async () => {
 		const onPick = vi.fn();
-		render({
+		await render({
 			titles: [{ id: 1, title: "S", update: 1, isSensitive: true }],
-			thumbnails: {},
+			loadThumbnail: loaderFor({}),
 			selectedTitle: null,
 			onPick,
 			passwordEmpty: false,

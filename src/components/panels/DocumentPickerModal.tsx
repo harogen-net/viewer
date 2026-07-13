@@ -1,6 +1,6 @@
 import type { StoredDocThumbnail, StoredSlideTitle } from "@/hooks/useStorage";
 import { useSensitiveSessionStore } from "@/state/sensitiveSessionStore";
-import { Modal, PasswordInput, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Loader, Modal, PasswordInput, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconLock } from "@tabler/icons-react";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +18,8 @@ import { useEffect, useRef, useState } from "react";
 
 interface DocumentPickerGridProps {
 	titles: StoredSlideTitle[];
-	thumbnails: Record<string, StoredDocThumbnail>;
+	/** 1 ドキュメントのサムネを遅延取得する (カードが可視になった時のみ呼ぶ)。未生成は null。 */
+	loadThumbnail: (title: string) => Promise<StoredDocThumbnail | null>;
 	selectedTitle: string | null;
 	onPick: (title: string) => void;
 	/** パスワード欄が空か。true の間はセンシティブ文書カードを選択不可 (デコードを試みない)。 */
@@ -167,9 +168,76 @@ const ThumbnailStrip: FC<{ thumb: string; frames: number; alt: string }> = ({
 	);
 };
 
+// カードが表示領域に入った時だけサムネを取得する遅延ロード枠。
+//   - idle: 空枠のまま IntersectionObserver で可視化を待つ
+//   - loading: スピナーを枠に表示
+//   - loaded: ThumbnailStrip を表示 (コマ送り対応)
+//   - empty: サムネ未生成 → N/A
+// 全件一括ロードをやめ、可視カードぶんだけ IndexedDB を単発 get することでメモリ/デコードを抑える。
+// IntersectionObserver 非対応環境 (jsdom テスト等) では即ロードにフォールバックする。
+type LoadState = "idle" | "loading" | "loaded" | "empty";
+const LazyDocThumbnail: FC<{
+	title: string;
+	loadThumbnail: (title: string) => Promise<StoredDocThumbnail | null>;
+}> = ({ title, loadThumbnail }) => {
+	const [state, setState] = useState<LoadState>("idle");
+	const [data, setData] = useState<StoredDocThumbnail | null>(null);
+	const boxRef = useRef<HTMLDivElement>(null);
+	const startedRef = useRef(false);
+
+	useEffect(() => {
+		const el = boxRef.current;
+		if (!el) return;
+		let cancelled = false;
+		const load = (): void => {
+			if (startedRef.current) return;
+			startedRef.current = true;
+			setState("loading");
+			loadThumbnail(title)
+				.then((d) => {
+					if (cancelled) return;
+					setData(d);
+					setState(d ? "loaded" : "empty");
+				})
+				.catch(() => {
+					if (!cancelled) setState("empty");
+				});
+		};
+		if (typeof IntersectionObserver === "undefined") {
+			load(); // 非対応環境は即ロード
+			return;
+		}
+		const io = new IntersectionObserver((entries) => {
+			if (entries.some((e) => e.isIntersecting)) {
+				load();
+				io.disconnect();
+			}
+		});
+		io.observe(el);
+		return () => {
+			cancelled = true;
+			io.disconnect();
+		};
+	}, [title, loadThumbnail]);
+
+	if (state === "loaded" && data) {
+		return <ThumbnailStrip thumb={data.thumb} frames={data.frames} alt={title} />;
+	}
+	return (
+		<div ref={boxRef} style={thumbBoxStyle} data-picker-thumb-box data-thumb-state={state}>
+			{state === "loading" && <Loader size="sm" color="gray" data-picker-thumb-loading />}
+			{state === "empty" && (
+				<Text size="xs" c="dimmed" data-picker-na>
+					N/A
+				</Text>
+			)}
+		</div>
+	);
+};
+
 export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 	titles,
-	thumbnails,
+	loadThumbnail,
 	selectedTitle,
 	onPick,
 	passwordEmpty = false,
@@ -184,7 +252,6 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 	return (
 		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="sm" verticalSpacing="sm">
 			{titles.map((t) => {
-				const dt = thumbnails[t.title];
 				const selected = t.title === selectedTitle;
 				// センシティブ文書は PW 欄が空の間は選択不可 (クリックしてもデコードを試みない)。
 				const locked = !!t.isSensitive && passwordEmpty;
@@ -200,15 +267,7 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 						title={locked ? "パスワードを入力すると開けます" : undefined}
 						onClick={locked ? undefined : () => onPick(t.title)}>
 						<div style={{ position: "relative" }}>
-							{dt ? (
-								<ThumbnailStrip thumb={dt.thumb} frames={dt.frames} alt={t.title} />
-							) : (
-								<div style={thumbBoxStyle}>
-									<Text size="xs" c="dimmed" data-picker-na>
-										N/A
-									</Text>
-								</div>
-							)}
+							<LazyDocThumbnail title={t.title} loadThumbnail={loadThumbnail} />
 							{t.isSensitive && (
 								<div
 									style={lockBadgeStyle}

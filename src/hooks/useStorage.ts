@@ -132,8 +132,10 @@ export interface StorageApi {
 	) => Promise<{ title: string } | null>;
 	/** タイトル指定で削除。該当なしも success 扱い。 */
 	deleteByTitle: (title: string) => Promise<void>;
-	/** 全サムネイルを {title: {thumb, frames}} で取得 (ビジュアルピッカー用)。未生成 title は欠落。 */
+	/** 全サムネイルを {title: {thumb, frames}} で取得 (未生成 title は欠落)。※ピッカーは遅延ロードを使う。 */
 	loadThumbnails: () => Promise<Record<string, StoredDocThumbnail>>;
+	/** 単一ドキュメントのサムネを取得 (ピッカーの遅延ロード用、単発 get)。未生成は null。 */
+	getThumbnail: (title: string) => Promise<StoredDocThumbnail | null>;
 }
 
 export function useStorage(): StorageApi {
@@ -292,5 +294,20 @@ export function useStorage(): StorageApi {
 		}
 	}, []);
 
-	return { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails };
+	// 単一ドキュメントのサムネを取得 (ピッカーの遅延ロード用、title キーの単発 get = 軽量)。
+	// 未生成は null。全件一括 (loadThumbnails) の代わりに可視カードぶんだけ呼ぶことでメモリを抑える。
+	const getThumbnail = useCallback(async (title: string): Promise<StoredDocThumbnail | null> => {
+		const db = await openDb();
+		try {
+			const tx = db.transaction(THUMBS_STORE, "readonly");
+			const t = (await reqToPromise(tx.objectStore(THUMBS_STORE).get(title))) as
+				| StoredThumbnail
+				| undefined;
+			return t ? { thumb: t.thumb, frames: t.frames ?? 1 } : null;
+		} finally {
+			db.close();
+		}
+	}, []);
+
+	return { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails, getThumbnail };
 }
