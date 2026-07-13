@@ -6,6 +6,7 @@ import type { ImageLayer, TextLayer } from "../src/types/Layer";
 import { LayerType } from "../src/types/Layer";
 import type { ViewerDocument } from "../src/types/ViewerDocument";
 import {
+	buildImageEntries,
 	parseHvd,
 	parseHvz,
 	parsePng,
@@ -249,6 +250,111 @@ describe("storageCodec (v3 Group B build 1)", () => {
 			);
 			expect(Object.keys(json.imageData)).toEqual(["used"]);
 			expect(json.imageData.used).toBe("data:image/png;base64,AAA=");
+		});
+	});
+
+	describe("imageNames (画像ファイル名の永続化 v3.1)", () => {
+		// image layer 1 枚 (imageId="used") を持つ最小 doc。
+		const makeImageDoc = (): ViewerDocument => {
+			const imgLayer: ImageLayer = {
+				id: 1,
+				uuid: "u",
+				name: "",
+				opacity: 1,
+				locked: false,
+				visible: true,
+				shared: false,
+				transX: 0,
+				transY: 0,
+				scaleX: 1,
+				scaleY: 1,
+				rotation: 0,
+				mirrorH: false,
+				mirrorV: false,
+				type: LayerType.IMAGE,
+				imageId: "used",
+				clipRect: [0, 0, 0, 0],
+				isText: false,
+			};
+			return {
+				title: "t",
+				width: 100,
+				height: 100,
+				createTime: 0,
+				editTime: 0,
+				slides: [
+					{
+						id: 1,
+						uuid: "su",
+						width: 100,
+						height: 100,
+						durationRatio: 1,
+						joining: true,
+						disabled: false,
+						layers: [imgLayer],
+					},
+				],
+			};
+		};
+		const imageMap = { used: "data:image/png;base64,AAA=" };
+
+		it("名前ありで serialize → version 3.1 + imageNames を含み、parse で往復する", () => {
+			const jsonText = serializeHvd(makeImageDoc(), imageMap, {
+				imageNames: { used: "会議資料.png" },
+			});
+			const json = JSON.parse(jsonText);
+			expect(json.version).toBe(3.1);
+			expect(json.imageNames).toEqual({ used: "会議資料.png" });
+			// parse で imageNames が復元される
+			const parsed = parseHvd(jsonText, "t");
+			expect(parsed.imageNames).toEqual({ used: "会議資料.png" });
+		});
+
+		it("名前なし (imageNames 未指定) は version 3 のまま imageNames キーを出さない", () => {
+			const json = JSON.parse(serializeHvd(makeImageDoc(), imageMap));
+			expect(json.version).toBe(3);
+			expect("imageNames" in json).toBe(false);
+		});
+
+		it("空名/未参照 imageId は imageNames に載らない (全て空なら version 3)", () => {
+			const json = JSON.parse(
+				serializeHvd(makeImageDoc(), imageMap, {
+					imageNames: { used: "", orphan: "無関係.png" },
+				})
+			);
+			expect(json.version).toBe(3);
+			expect("imageNames" in json).toBe(false);
+		});
+
+		it("センシティブ (encrypted) 時は imageNames を渡しても出力に含めない (平文名の漏洩防止)", () => {
+			const json = JSON.parse(
+				serializeHvd(makeImageDoc(), imageMap, {
+					encrypted: {
+						security: {
+							version: 1,
+							kdf: "PBKDF2",
+							kdfIterations: 150000,
+							salt: "c2FsdA==",
+							cipher: "AES-GCM",
+							iv: "aXY=",
+						},
+						ciphertext: "Zm9v",
+					},
+					imageNames: { used: "秘密.png" },
+				})
+			);
+			expect(json.isSensitive).toBe(true);
+			expect("imageNames" in json).toBe(false);
+			expect(json.version).toBe(3);
+		});
+
+		it("buildImageEntries は name があれば付与、無ければ dataURL のみ", () => {
+			const entries = buildImageEntries(
+				{ a: "data:1", b: "data:2" },
+				{ a: "図.png" } // b は名前なし
+			);
+			expect(entries.a).toEqual({ dataURL: "data:1", name: "図.png" });
+			expect(entries.b).toEqual({ dataURL: "data:2" });
 		});
 	});
 

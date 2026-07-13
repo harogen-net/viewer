@@ -19,6 +19,9 @@ import { newUuid } from "./uuid";
 // (Group B 以降では hooks/useStorage.ts) が担う。
 
 const HVD_VERSION = 3;
+// imageNames (画像の元ファイル名) を含む文書のマイナーバージョン。名前を持つ文書だけこの版で出力し、
+// 名前なし文書は従来 (3) のまま = 既存ファイルと byte-equal を保つ。読み取りは version に依存しない。
+const HVD_VERSION_WITH_NAMES = 3.1;
 
 // ---- Raw HVD JSON 型定義 (legacy SlideStorage の JSON 構造に対応) ----
 
@@ -61,6 +64,9 @@ export interface RawHvd {
 	editTime?: number;
 	slideData: RawHvdSlide[];
 	imageData?: Record<string, string>;
+	// 画像の元ファイル名 (imageId→name)。任意フィールド (version 3.1〜)。名前が 1 つも無い文書では
+	// 出力しない (= 旧来の名前なし出力と byte-equal を保つ)。センシティブ文書には平文名を載せない (漏洩防止)。
+	imageNames?: Record<string, string>;
 	// センシティブ拡張 (docs/sensitive-mode-spec.md)。sensitive 時は平文 imageData の代わりに
 	// security メタ + 暗号化 imageData (base64) を持つ。
 	isSensitive?: boolean;
@@ -94,7 +100,25 @@ export function collectReferencedImages(
 export interface ParsedHvd {
 	doc: ViewerDocument;
 	imageData: Record<string, string>;
+	/** 画像の元ファイル名 (imageId→name)。無ければ undefined。 */
+	imageNames?: Record<string, string>;
 	encrypted?: EncryptedImageData;
+}
+
+/**
+ * parseHvd 由来の imageData(+imageNames) を imageLibraryStore 用のエントリ辞書へ変換する。
+ * name があれば付与、無ければ dataURL のみ (ロード後のダウンロードが元ファイル名を使えるように)。
+ */
+export function buildImageEntries(
+	imageData: Record<string, string>,
+	imageNames?: Record<string, string>
+): Record<string, { dataURL: string; name?: string }> {
+	const out: Record<string, { dataURL: string; name?: string }> = {};
+	for (const [id, dataURL] of Object.entries(imageData)) {
+		const name = imageNames?.[id];
+		out[id] = name != null && name !== "" ? { dataURL, name } : { dataURL };
+	}
+	return out;
 }
 
 // ---- 補助 ----
@@ -181,7 +205,7 @@ export function parseHvd(jsonText: string, fallbackTitle: string): ParsedHvd {
 			encrypted: { security: raw.security, ciphertext: raw.imageDataEnc },
 		};
 	}
-	return { doc, imageData: raw.imageData ?? {} };
+	return { doc, imageData: raw.imageData ?? {}, imageNames: raw.imageNames };
 }
 
 // ---- serialize ----
@@ -236,7 +260,7 @@ function slideToRaw(slide: Slide): RawHvdSlide {
 export function serializeHvd(
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	opts?: { encrypted?: EncryptedImageData }
+	opts?: { encrypted?: EncryptedImageData; imageNames?: Record<string, string> }
 ): string {
 	// フィールド挿入順をレガシー stringifyData (SlideStorage.ts) に合わせて
 	// byte-equal 互換を狙う: version → screen → bgColor? → createTime? → editTime?
@@ -272,6 +296,21 @@ export function serializeHvd(
 			if (dataURL != null) imageData[id] = dataURL;
 		});
 		out.imageData = imageData;
+
+		// 画像の元ファイル名。参照中かつ名前を持つ image のみ。1 つでもあれば imageNames を出力し、
+		// version を 3.1 に上げる (名前なし文書は version 3 のまま = 既存ファイルと byte-equal)。
+		const names = opts?.imageNames;
+		if (names) {
+			const imageNames: Record<string, string> = {};
+			Array.from(usedImageIds).forEach((id) => {
+				const nm = names[id];
+				if (imageData[id] != null && nm != null && nm !== "") imageNames[id] = nm;
+			});
+			if (Object.keys(imageNames).length > 0) {
+				out.version = HVD_VERSION_WITH_NAMES; // 先頭 version の値だけ差し替え (挿入順は不変)
+				out.imageNames = imageNames;
+			}
+		}
 	}
 
 	return JSON.stringify(out);
@@ -292,7 +331,7 @@ export function serializeHvd(
 export async function serializeHvz(
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	opts?: { encrypted?: EncryptedImageData }
+	opts?: { encrypted?: EncryptedImageData; imageNames?: Record<string, string> }
 ): Promise<Uint8Array> {
 	const json = serializeHvd(doc, imageDataMap, opts);
 	const zip = new JSZip();
@@ -364,9 +403,16 @@ function pngEmbedAsync(
 export async function serializePng(
 	doc: ViewerDocument,
 	imageDataMap: Record<string, string>,
-	options?: { thumbnailPngDataURL?: string; encrypted?: EncryptedImageData }
+	options?: {
+		thumbnailPngDataURL?: string;
+		encrypted?: EncryptedImageData;
+		imageNames?: Record<string, string>;
+	}
 ): Promise<Uint8Array> {
-	const json = serializeHvd(doc, imageDataMap, { encrypted: options?.encrypted });
+	const json = serializeHvd(doc, imageDataMap, {
+		encrypted: options?.encrypted,
+		imageNames: options?.imageNames,
+	});
 	const zip = new JSZip();
 	zip.file("data.hvd", json);
 	const zipU8a = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });

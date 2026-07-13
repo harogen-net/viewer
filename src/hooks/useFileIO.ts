@@ -69,13 +69,22 @@ const canvasToPngBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
 export interface ImportResult {
 	doc: ViewerDocument;
 	imageData: Record<string, string>;
+	/** 画像の元ファイル名 (imageId→name)。無ければ undefined (sensitive/旧形式)。 */
+	imageNames?: Record<string, string>;
 }
+
+// export 関数の共通シグネチャ: imageMap に加え、任意で画像の元ファイル名マップを注入する。
+type ExportFn = (
+	doc: ViewerDocument,
+	imageMap: Record<string, string>,
+	imageNames?: Record<string, string>
+) => Promise<string | null>;
 
 export interface UseFileIO {
 	// export (HVD/HVZ/PNG) はセンシティブ時 PW 入力を伴い、キャンセルで null を返す。
-	exportHvd: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string | null>;
-	exportHvz: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string | null>;
-	exportPng: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string | null>;
+	exportHvd: ExportFn;
+	exportHvz: ExportFn;
+	exportPng: ExportFn;
 	importFile: (file: File) => Promise<ImportResult | null>;
 	/**
 	 * 指定 index のスライドを native 寸法 PNG で書き出す (§4/§10、legacy downloadImage(index))。
@@ -116,10 +125,14 @@ export const useFileIO = (): UseFileIO => {
 	);
 
 	const exportHvd = useCallback(
-		async (doc: ViewerDocument, imageMap: Record<string, string>): Promise<string | null> => {
+		async (
+			doc: ViewerDocument,
+			imageMap: Record<string, string>,
+			imageNames?: Record<string, string>
+		): Promise<string | null> => {
 			const { cancelled, encrypted } = await encryptForExport(doc, imageMap);
 			if (cancelled) return null;
-			const json = serializeHvd(doc, imageMap, { encrypted });
+			const json = serializeHvd(doc, imageMap, { encrypted, imageNames });
 			const filename = `${doc.title || "document"}.hvd`;
 			downloadBlob(new Blob([json], { type: "application/json" }), filename);
 			return `exported: ${filename}`;
@@ -128,10 +141,14 @@ export const useFileIO = (): UseFileIO => {
 	);
 
 	const exportHvz = useCallback(
-		async (doc: ViewerDocument, imageMap: Record<string, string>): Promise<string | null> => {
+		async (
+			doc: ViewerDocument,
+			imageMap: Record<string, string>,
+			imageNames?: Record<string, string>
+		): Promise<string | null> => {
 			const { cancelled, encrypted } = await encryptForExport(doc, imageMap);
 			if (cancelled) return null;
-			const u8a = await serializeHvz(doc, imageMap, { encrypted });
+			const u8a = await serializeHvz(doc, imageMap, { encrypted, imageNames });
 			const filename = `${doc.title || "document"}.hvz`;
 			downloadBlob(new Blob([u8a], { type: "application/zip" }), filename);
 			return `exported: ${filename}`;
@@ -143,7 +160,11 @@ export const useFileIO = (): UseFileIO => {
 	// thumbnail は slideThumbnail で 1 枚目代表 slide を画像レイヤーのみ描画。
 	// センシティブ時は素サムネで内容が漏れるため埋め込まない (Phase 5 でぼかしに置換予定)。
 	const exportPng = useCallback(
-		async (doc: ViewerDocument, imageMap: Record<string, string>): Promise<string | null> => {
+		async (
+			doc: ViewerDocument,
+			imageMap: Record<string, string>,
+			imageNames?: Record<string, string>
+		): Promise<string | null> => {
 			const { cancelled, encrypted } = await encryptForExport(doc, imageMap);
 			if (cancelled) return null;
 			// センシティブ時は内容が判別できないようぼかした代表サムネを埋め込む (§sensitive-mode-spec)。
@@ -151,7 +172,7 @@ export const useFileIO = (): UseFileIO => {
 				(await generateSlideThumbnailDataURL(doc, imageMap, { blur: doc.isSensitive }).catch(
 					() => null
 				)) ?? undefined;
-			const u8a = await serializePng(doc, imageMap, { thumbnailPngDataURL, encrypted });
+			const u8a = await serializePng(doc, imageMap, { thumbnailPngDataURL, encrypted, imageNames });
 			const filename = `[hv]${doc.title || "document"}.png`;
 			downloadBlob(new Blob([u8a], { type: "image/png" }), filename);
 			return `exported: ${filename}`;
@@ -228,7 +249,7 @@ export const useFileIO = (): UseFileIO => {
 				const imageData = await unlock((pw) => decryptImageData(enc, pw));
 				return { doc: parsed.doc, imageData: imageData ?? {} };
 			}
-			return { doc: parsed.doc, imageData: parsed.imageData };
+			return { doc: parsed.doc, imageData: parsed.imageData, imageNames: parsed.imageNames };
 		},
 		[unlock]
 	);

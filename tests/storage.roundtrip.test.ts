@@ -24,8 +24,9 @@ const pngCases = findAllByExt(".png");
 
 // 新コーデックで HVD JSON を parse→再直列化。byte-equal ならフィールド順・値が完全一致。
 function roundtripHvd(hvdJson: string): string {
-	const { doc, imageData } = parseHvd(hvdJson, "roundtrip");
-	return serializeHvd(doc, imageData);
+	const { doc, imageData, imageNames } = parseHvd(hvdJson, "roundtrip");
+	// imageNames を透過 (名前なし fixture では undefined → 出力に含まれず version 3 のまま = byte-equal)。
+	return serializeHvd(doc, imageData, { imageNames });
 }
 
 describe("storageCodec round-trip (P0 regression net, byte-equal §0-9)", () => {

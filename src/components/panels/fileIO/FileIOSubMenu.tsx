@@ -4,7 +4,8 @@ import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
-import { collectImageMap } from "@/utils/collectImageMap";
+import { collectImageMap, collectImageNames } from "@/utils/collectImageMap";
+import { buildImageEntries } from "@/utils/storageCodec";
 import { ActionIcon, Menu } from "@mantine/core";
 import {
 	IconBookDownload,
@@ -32,14 +33,18 @@ export const FileIOSubMenu: FC<{
 	// エクスポート 4 種 (HVD/HVZ/PNG/ZIP) は「未ロード確認 → doc+imageMap を注入して実行 →
 	// 結果メッセージを toast」まで同一。export 関数だけ差し替える共通ラッパーで生成する。
 	const runExport = (
-		fn: (doc: ViewerDocument, imageMap: Record<string, string>) => Promise<string | null>
+		fn: (
+			doc: ViewerDocument,
+			imageMap: Record<string, string>,
+			imageNames?: Record<string, string>
+		) => Promise<string | null>
 	) =>
 		wrap(async () => {
 			if (!meta) {
 				toast.info("ドキュメントが未ロードです");
 				return;
 			}
-			const msg = await fn({ ...meta, slides }, collectImageMap());
+			const msg = await fn({ ...meta, slides }, collectImageMap(), collectImageNames());
 			if (msg) toast.success(msg); // null = パスワード入力キャンセル (無音)
 		});
 	const handleExportHvd = runExport(exportHvd);
@@ -74,7 +79,9 @@ export const FileIOSubMenu: FC<{
 				return;
 			}
 			setDocument(result.doc);
-			useImageLibraryStore.getState().setImageLibrary(result.imageData);
+			useImageLibraryStore
+				.getState()
+				.setImageLibrary(buildImageEntries(result.imageData, result.imageNames));
 			onTitleChange?.(null);
 			toast.success(`インポートしました: ${result.doc.title} (${result.doc.slides.length} slides)`);
 		})();

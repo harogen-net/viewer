@@ -7,7 +7,12 @@ import {
 	decryptImageData,
 	encryptImageData,
 } from "@/utils/sensitiveCrypto";
-import { collectReferencedImages, parseHvd, serializeHvd } from "@/utils/storageCodec";
+import {
+	buildImageEntries,
+	collectReferencedImages,
+	parseHvd,
+	serializeHvd,
+} from "@/utils/storageCodec";
 import { useCallback } from "react";
 
 // HVD IDB アクセス + codec を統合した React 向けストレージ API hook
@@ -186,7 +191,9 @@ export function useStorage(): StorageApi {
 				useImageLibraryStore.getState().setImageLibrary(imageData);
 				return { status: "ok", doc: parsed.doc };
 			}
-			useImageLibraryStore.getState().setImageLibrary(parsed.imageData);
+			useImageLibraryStore
+				.getState()
+				.setImageLibrary(buildImageEntries(parsed.imageData, parsed.imageNames));
 			return { status: "ok", doc: parsed.doc };
 		},
 		[unlock]
@@ -199,11 +206,13 @@ export function useStorage(): StorageApi {
 		): Promise<{ title: string } | null> => {
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
-			// imageLibraryStore から imageId→dataURL 抽出 (Record<string, ImageEntry> → Record<string, string>)
+			// imageLibraryStore から imageId→dataURL / imageId→name を抽出。
 			const imageMap: Record<string, string> = {};
+			const imageNames: Record<string, string> = {};
 			const library = useImageLibraryStore.getState().imageById;
 			for (const [id, entry] of Object.entries(library)) {
 				imageMap[id] = entry.dataURL;
+				if (entry.name != null && entry.name !== "") imageNames[id] = entry.name;
 			}
 			// センシティブ: 参照中画像をパスワードで暗号化して格納。パスワード未入力(キャンセル)は
 			// 保存中止 (null を返す = 呼び出し側で無音スキップ)。
@@ -213,7 +222,10 @@ export function useStorage(): StorageApi {
 				if (pw === null) return null;
 				encrypted = await encryptImageData(collectReferencedImages(doc, imageMap), pw);
 			}
-			const json = serializeHvd({ ...doc, title, editTime: now }, imageMap, { encrypted });
+			const json = serializeHvd({ ...doc, title, editTime: now }, imageMap, {
+				encrypted,
+				imageNames,
+			});
 
 			const db = await openDb();
 			try {
