@@ -371,17 +371,11 @@ export async function parseHvz(
 //   - 1 つの PNG ファイルに hvDc チャンクとして zip (DEFLATE) を埋め込む
 //   - 内部 zip は 1 エントリ "data.hvd" (HVD JSON 文字列、固定名)
 //   - ファイル名規約: `[hv]{title}.png` (新側でも caller が prefix を扱う)
-// PNGEmbedder は pure util 扱い (§0-10 import 可リスト) で class インスタンスを
-// 1 関数内で生成して使い捨てる。
-//
-// 注: serializePng の thumbnail は実 slide 描画でないと意味がないが、
-// Group B 時点では新側 rendering chain (Group A) で SlideView が canvas 出力を
-// 直接持っていない。本 build では暫定で 1x1 透明 PNG を base に embed する
-// (PNG ファイルとして valid、データ往復は機能)。実 slide thumbnail 生成は
-// Group D の AppShell で SlideView canvas 出力経路を整えた後に thumbnail 引数で
-// 渡してもらう設計。
+// PNGEmbedder は pure util 扱いで class インスタンスを 1 関数内で生成して使い捨てる。
+// serializePng は caller から thumbnailPngDataURL を受け取り、未指定時のみ
+// 下記 1x1 透明 PNG を base として使う (PNG ファイルとして valid、データ往復は機能)。
 
-// 1x1 transparent PNG (PNGEmbedder.embed の入力ベース用)
+// 1x1 transparent PNG (PNGEmbedder.embed の入力ベース用、thumbnail 未指定時の fallback)
 const TRANSPARENT_PNG_DATA_URL =
 	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
 

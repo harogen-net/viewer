@@ -25,10 +25,7 @@ import { PROGRESS_BAR_HEIGHT, ProgressBar } from "./ProgressBar";
 import { SlideEditView } from "./slide/SlideEditView";
 import { SlideshowShell } from "./SlideshowShell";
 
-// dual entrypoint: 既定で新側、?legacy=1 でレガシー。AppShell は新側 (= !legacy) でのみ
-// mount される (index.html のブートストラップが ?legacy=1 のとき src/index.ts を読む)。
-
-// 上部グローバルバー (レガシー #menu 相当): スライドショー / ファイル IO / 画像ライブラリ・設定。
+// 上部グローバルバー: スライドショー / ファイル IO / 画像ライブラリ・設定。
 // editable=false (閲覧モード) では編集系トリガ (画像ライブラリ追加・ドキュメント設定) を隠す。
 const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 	const [showSlideshowSettings, setShowSlideshowSettings] = useState(false);

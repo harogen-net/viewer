@@ -5,8 +5,7 @@ import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/new-app.css";
 
-// アプリのエントリポイント (Group E で legacy を撤去し dual entrypoint を統合した単一 root)。
-// index.html が #root にこのモジュールをマウントする。
+// アプリのエントリポイント。index.html が #root にこのモジュールをマウントする。
 
 const rootEl = document.getElementById("root");
 if (!rootEl) {

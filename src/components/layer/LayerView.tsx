@@ -12,8 +12,6 @@ import { LayerContent } from "./LayerContent";
 // transform-origin はレガシーと同様 CSS default (50% 50% = コンテンツ中心)。
 // これにより text のサイズ確定が browser layout 経由で正しく行われる
 // (legacy の `originWidth = textObj.find("span").width()` 相当を browser layout が担保)。
-//
-// 編集モード固有の責務 (selected 表示, locked, クリック等) は Group D で追加する。
 
 // live は編集中ドラッグの暫定 transform (確定前)。指定時はその値で wrapper を描画し、
 // 対象レイヤーをドラッグに即追従させる (store コミットは mouseup 時のみ)。mirror は不変なので layer 側を使う。

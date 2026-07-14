@@ -43,7 +43,7 @@ const ImageLayerContent: FC<{ layer: ImageLayer; clip?: ClipOptions }> = ({ laye
 			/>
 		);
 	}
-	// dataURL 未解決 (HVD に imageData なし、または別 imageId)。Group A 暫定 placeholder。
+	// dataURL 未解決 (HVD に imageData なし、または別 imageId) の placeholder。
 	return (
 		<div
 			style={{
