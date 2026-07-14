@@ -33,6 +33,18 @@ export type NewLayer = DistributiveOmit<Layer, "id" | "uuid">;
 
 // --- 内部 helpers ---
 
+/**
+ * rotation を (-180, 180] に正規化。
+ * `180` は残し、`-180` は `180` に寄せることで、視覚同一値が両端に振動するのを防ぐ。
+ * 非有限値は 0 に落とす (壊れた入力の安全弁)。
+ */
+const normalizeRotationDeg = (v: number): number => {
+	if (!Number.isFinite(v)) return 0;
+	let r = ((v + 180) % 360) - 180;
+	if (r <= -180) r += 360;
+	return r;
+};
+
 /** layers 配列内の最大 id + 1 (slide 内 unique 担保)。 */
 const nextLayerId = (layers: Layer[]): number => {
 	let max = 0;
@@ -407,16 +419,21 @@ export const updateLayer = (
 		transformSelectedSlideLayers(state, (layers) => {
 			if (layerIndex < 0 || layerIndex >= layers.length) return null;
 			const cur = layers[layerIndex] as unknown as Record<string, unknown>;
+			// rotation は (-180, 180] にクランプしてから比較・適用 (§rotation-clamp)
+			const effective: Record<string, unknown> =
+				"rotation" in patch && typeof patch.rotation === "number"
+					? { ...patch, rotation: normalizeRotationDeg(patch.rotation) }
+					: (patch as Record<string, unknown>);
 			// 値変化を簡易検出 (shallow compare)
 			let changed = false;
-			for (const key of Object.keys(patch)) {
-				if (cur[key] !== (patch as Record<string, unknown>)[key]) {
+			for (const key of Object.keys(effective)) {
+				if (cur[key] !== effective[key]) {
 					changed = true;
 					break;
 				}
 			}
 			if (!changed) return null;
-			return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...patch } as Layer) : l));
+			return layers.map((l, i) => (i === layerIndex ? ({ ...l, ...effective } as Layer) : l));
 		})
 	);
 
@@ -694,7 +711,7 @@ export const replaceImageIdAll = (
 
 // --- transform ops (v4 Group D D-4b) ---
 
-/** rotation += deltaDeg。値変化なし (delta=0) は null。 */
+/** rotation += deltaDeg。値変化なし (delta=0) は null。結果は (-180, 180] に正規化。 */
 export const rotateBy = (
 	state: SlideState,
 	layerIndex: number,
@@ -707,8 +724,10 @@ export const rotateBy = (
 			if (layerIndex < 0 || layerIndex >= layers.length) return null;
 			if (deltaDeg === 0) return null;
 			const cur = layers[layerIndex];
+			const next = normalizeRotationDeg(cur.rotation + deltaDeg);
+			if (next === cur.rotation) return null;
 			return layers.map((l, i) =>
-				i === layerIndex ? ({ ...cur, rotation: cur.rotation + deltaDeg } as Layer) : l
+				i === layerIndex ? ({ ...cur, rotation: next } as Layer) : l
 			);
 		})
 	);
