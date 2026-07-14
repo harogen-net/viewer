@@ -58,9 +58,11 @@ v4 では:
 
 ### 終点 (KPI、v3 から継承)
 
+> **改訂 (2026-07-14, closeout §2.1)**: LOC 目標 `< 6,500` は初期見積り誤りにより非現実的だった (実測: Group E 完了時点 src 11,250 + tests 10,603 = 21,853 行)。**LOC KPI は終点条件から除外**し、構造条件 (jQuery 0 / EventDispatcher 0 / view+viewController+viewModel 全削除 / createRoot 1 個) のみを終点判定に採用する。数字合わせでコードを削るのは本末転倒。
+
 | 指標 | 起点 | 目標 |
 |---|---|---|
-| src+tests 合計行数 | ~8,400 | **< 6,500** (Group E の bulk delete 後) |
+| ~~src+tests 合計行数~~ | ~~~8,400~~ | ~~**< 6,500** (Group E の bulk delete 後)~~ → **KPI から除外** (実測 21,853 で fix、以後は自然増減) |
 | jQuery 利用ファイル | 4 (`index.ts` / `Viewer.ts` / `view/slide/EditableSlideView.ts` / `utils/LayerViewFactory.ts`) | **0** |
 | `EventDispatcher` / `PropertyEvent` 参照 | 数十 | **0** |
 | `innerHTML` 直書き | 0 (起点維持) | **0** 維持 |
@@ -106,9 +108,9 @@ build ターン:           legacy ±0, new +N, total +N (LOC 負債として計�
 Group E 削除ターン:     legacy -M, new ±α, total -(M-α) (一括回収)
 ```
 
-**Group A〜D 中は total が単調増加する**前提 (build only のため)。**Group E 完了時点で total が起点比 < 6,500 行**。中間で total を負増させる調整 (= レガシー削除) は §0-3 違反扱い。
+**Group A〜D 中は total が単調増加する**前提 (build only のため)。~~**Group E 完了時点で total が起点比 < 6,500 行**~~ → 2026-07-14 KPI から除外 (§1 改訂参照)。中間で total を負増させる調整 (= レガシー削除) は §0-3 違反扱い。
 
-build ターンの LOC 正増は事前承認不要 (v3 から継承)。報告のみ義務。承認必須は KPI そのものの緩和 (最終終点 < 6,500 行 / byte-equal 等) のみ。
+build ターンの LOC 正増は事前承認不要 (v3 から継承)。報告のみ義務。~~承認必須は KPI そのものの緩和 (最終終点 < 6,500 行 / byte-equal 等) のみ。~~ → LOC KPI 除外に伴い、承認必須は byte-equal 等の構造判定緩和のみ。
 
 ### §0-6. test 同期追加 (v4 で明文化)
 
@@ -266,7 +268,7 @@ Group D の build 完了条件をすべて満たしてから着手する独立�
 - `src/utils/` 静的ヘルパー (DataUtil / DateUtil / PNGEmbedder / SlideToPNGConverter / TypeChecker) の純関数化検討 (任意)
 - 全 test pass + tsc --noEmit error 0 + manual smoke test
 
-**Group E 完了 = §1 終点 KPI 達成**: createRoot 1 個 / jQuery 0 / EventDispatcher 0 / view+viewController+viewModel フォルダ全削除 / src+tests < 6,500 行。
+**Group E 完了 = §1 終点 KPI 達成**: createRoot 1 個 / jQuery 0 / EventDispatcher 0 / view+viewController+viewModel フォルダ全削除 (~~src+tests < 6,500 行~~ → LOC は KPI 除外、§1 改訂参照)。
 
 ---
 
@@ -353,7 +355,7 @@ v3 にあった「§0-1 5 ターン上限超過で自動巻戻し」は v4 で�
 | Group ごとの構成 | build (1-5 ターン) + swap (1 ターン) | **build のみ**。swap は Group E に集約 |
 | swap 上限 | 5 ターン (§0-1) | **撤廃**。build 完了条件のみ |
 | レガシー編集 | build 中禁止、swap 内 import 除去のみ例外 | **Group E まで全期間禁止**、例外なし |
-| LOC 帳簿 | 各 Group 完了ごとに total 単調減少 | **Group E 完了時点で < 6,500**。それまでは単調増加 |
+| LOC 帳簿 | 各 Group 完了ごとに total 単調減少 | ~~**Group E 完了時点で < 6,500**~~ → LOC KPI 除外 (§1 改訂)。それまでは単調増加 |
 | test 追加タイミング | swap コミットに同梱 (§0-6) | **build と同期** (§0-6 改訂) |
 | dual entrypoint 統合 | Group D 末尾の swap で | **Group E で独立フェーズとして** |
 | Group 数 | A/B/C/D (4) | **A/B/C/D/E (5)**、E = 最終 bulk delete |
