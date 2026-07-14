@@ -63,7 +63,7 @@ const ImageLayerContent: FC<{ layer: ImageLayer; clip?: ClipOptions }> = ({ laye
 	);
 };
 
-// レガシー .slide .text CSS (css/index.css L282-291) をそのまま適用。
+// レガシー .slide .text CSS 相当をインラインで適用。
 // 元の構造は <div class="text"><span>{text}</span></div>。
 // display:inline-block + width:auto + height:auto により browser layout が
 // テキスト intrinsic 幅高を確定 → wrapper (inline-block) もそれに包まれる。

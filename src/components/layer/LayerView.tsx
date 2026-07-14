@@ -36,7 +36,7 @@ export const LayerView: FC<{ layer: Layer; live?: LiveTransform | null; decorati
 	if (!layer.visible) return null;
 
 	const wrapperStyle: CSSProperties = {
-		// レガシー .slide .layerWrapper (css/index.css L267-273) と同等
+		// レガシー .slide .layerWrapper 相当
 		display: "inline-block",
 		position: "absolute",
 		left: 0,

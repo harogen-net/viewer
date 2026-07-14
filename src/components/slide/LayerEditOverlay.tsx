@@ -56,7 +56,7 @@ const OUTLINE_THICKNESS_PX = 2;
 const HANDLE_SIZE_PX = 20;
 const ROTATE_HANDLE_GAP_PX = 24;
 
-// 4 隅 anchor 定義 (legacy css/index.css L620-665 互換)
+// 4 隅 anchor 定義 (legacy 互換)
 //   - 位置: 角に貼り付け (translate しない) → anchor の box がフレーム内側に収まる
 //   - 色: nw=orange / ne=red / sw=blue / se=green
 //   - cursor: 方向別 (nw-resize / ne-resize / sw-resize / se-resize)
