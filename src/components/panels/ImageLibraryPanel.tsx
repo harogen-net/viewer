@@ -33,7 +33,7 @@ import type {
 	ChangeEvent as ReactChangeEvent,
 	DragEvent as ReactDragEvent,
 } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // ImageLibraryPanel (v4 Group D D-6a、§0-10 新側内製、Mantine Drawer + Modal)。
 // レガシー src/utils/ImageManager.ts (jQuery + singleton DOM) は import せず新規実装。
@@ -117,8 +117,40 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	const slides = useSlideStore((s) => s.slides);
 	const toast = useToast();
 	const canPlace = selectedSlideIndex >= 0;
-	const [dragOver, setDragOver] = useState(false);
-	const [dragging, setDragging] = useState(false); // タイル画像をドラッグ中か (Drawer を縮める)
+	// ライブラリ画像をドラッグ中は Drawer を閉じて下のキャンバスへドロップできるようにする。
+	// document レベルで dragstart/dragend/mouseup を監視 (per-tile 遅延 true と dragend の
+	// 競合による stuck を避け、また Drawer 内部からドラッグが始まるので portal をまたぐ問題を回避)。
+	const [dragging, setDragging] = useState(false);
+	const shrinkTimer = useRef<number | null>(null);
+	useEffect(() => {
+		const clearPending = (): void => {
+			if (shrinkTimer.current != null) {
+				clearTimeout(shrinkTimer.current);
+				shrinkTimer.current = null;
+			}
+		};
+		const onDocDragStart = (e: DragEvent): void => {
+			// ライブラリ画像のドラッグのときだけ反応 (タイル内発源で判定)。
+			const target = e.target as HTMLElement | null;
+			if (!target?.closest?.("[data-image-tile]")) return;
+			clearPending();
+			// dragstart 内で同期的に state を変えると Chrome がドラッグを中止するため次 tick で反映。
+			shrinkTimer.current = window.setTimeout(() => setDragging(true), 0);
+		};
+		const endDrag = (): void => {
+			clearPending(); // 遅延 true が残っていれば取り消して stuck を防ぐ
+			setDragging(false);
+		};
+		document.addEventListener("dragstart", onDocDragStart);
+		document.addEventListener("mouseup", endDrag);
+		document.addEventListener("dragend", endDrag);
+		return () => {
+			document.removeEventListener("dragstart", onDocDragStart);
+			document.removeEventListener("mouseup", endDrag);
+			document.removeEventListener("dragend", endDrag);
+			clearPending();
+		};
+	}, []);
 	const [cols, setCols] = useState<number>(readColsPref); // 1 行あたりの画像数
 	const handleColsChange = (v: number): void => {
 		const c = clampCols(v);
@@ -160,34 +192,6 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				setAddError(e instanceof Error ? e.message : String(e));
 			}
 		}
-	};
-
-	const handleDrop = async (e: ReactDragEvent<HTMLDivElement>) => {
-		e.preventDefault();
-		setDragOver(false);
-		const files = Array.from(e.dataTransfer?.files ?? []);
-		if (files.length === 0) return;
-		setAddError(null);
-		for (const f of files) {
-			if (!f.type.startsWith("image/")) continue;
-			try {
-				await addImageFile(f);
-			} catch (err) {
-				setAddError(err instanceof Error ? err.message : String(err));
-			}
-		}
-	};
-
-	const handleDragOver = (e: ReactDragEvent<HTMLDivElement>) => {
-		// drop イベント発火のために必須
-		e.preventDefault();
-		if (!dragOver) setDragOver(true);
-	};
-	const handleDragLeave = (e: ReactDragEvent<HTMLDivElement>) => {
-		// 子要素間移動でちらつかないよう、関連要素が panel 外なら解除
-		const related = e.relatedTarget as Node | null;
-		if (related && (e.currentTarget as Node).contains(related)) return;
-		setDragOver(false);
 	};
 
 	const requestDelete = (imageId: string) => {
@@ -237,52 +241,33 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 		downloadDataUrl(dataUrl, name ?? `${imageId.slice(0, 8)}.png`);
 	};
 
-	const dropOverlayStyle: CSSProperties = {
-		position: "absolute",
-		inset: 0,
-		background: "rgba(34, 139, 230, 0.1)",
-		border: "2px dashed #228be6",
-		borderRadius: 8,
-		display: dragOver ? "flex" : "none",
-		alignItems: "center",
-		justifyContent: "center",
-		zIndex: 100,
-		pointerEvents: "none",
-		fontSize: 18,
-		color: "#228be6",
-		fontWeight: 600,
-	};
-
 	const wrapStyle: CSSProperties = {
-		position: "relative",
 		minHeight: "100%",
 	};
 
 	return (
 		<>
 			<Drawer
-				opened={opened}
+				opened={opened && !dragging}
 				onClose={onClose}
 				title="画像ライブラリ"
 				position="bottom"
-				// ドラッグ中は 60vh→30vh に縮めてドロップ先 (下のドキュメント) を広く見せ、ドロップ/中断で戻す。
-				size={dragging ? "30vh" : "60vh"}
+				size={"60vh"}
 				padding="md"
-				// 非モーダル化: オーバーレイ/フォーカストラップ/スクロールロックを外し、外側クリックでも閉じない。
-				// これで裏の編集キャンバスがドロップ先として生き、ライブラリ画像を直接ドロップできる
-				// (モーダルの全画面オーバーレイがドラッグ/ドロップを奪っていたのが原因)。
-				withOverlay={false}
-				trapFocus={false}
-				lockScroll={false}
-				closeOnClickOutside={false}
+				// ドラッグ中だけ非モーダル化 (overlay / trap / scroll lock / click-outside を切る):
+				// Drawer は opened=false で閉じるが、モーダル behaviour が残ると裏の canvas への
+				// ドロップを奪う可能性があるので念のため全て !dragging に連動。
+				// 非ドラッグ時は通常の Drawer (backdrop クリックで閉じる)。
+				withOverlay={!dragging}
+				trapFocus={!dragging}
+				lockScroll={!dragging}
+				closeOnClickOutside={!dragging}
 				data-image-library-panel
-				keepMounted={false}>
-				<Box
-					style={wrapStyle}
-					onDrop={handleDrop}
-					onDragOver={handleDragOver}
-					onDragLeave={handleDragLeave}
-					data-image-library-drop-zone>
+				// keepMounted は dragging に連動: drag 中だけ mount を保って drag 元の <img> が
+				// unmount されないようにする (source が消えると一部ブラウザで drag が abort する)。
+				// 通常 close 時は unmount して DOM/メモリを解放。
+				keepMounted={dragging}>
+				<Box style={wrapStyle}>
 					<Stack gap="md">
 						<Group justify="space-between" align="center">
 							<Text size="sm" c="dimmed">
@@ -351,7 +336,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 
 						{entries.length === 0 ? (
 							<Paper withBorder p="xl" radius="sm" style={{ textAlign: "center" }} data-image-empty>
-								<Text c="dimmed">ファイルをここにドロップ または「画像を追加」ボタンで追加</Text>
+								<Text c="dimmed">「画像を追加」ボタン、またはメインエリアへのドロップで追加</Text>
 							</Paper>
 						) : (
 							<ScrollArea type="auto" scrollbarSize={8}>
@@ -367,20 +352,55 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 											onReplace={() => handleRequestReplace(id)}
 											onDelete={() => requestDelete(id)}
 											onDownload={() => handleDownload(id, entry.dataURL, entry.name)}
-											onDragStateChange={setDragging}
 										/>
 									))}
 								</SimpleGrid>
 							</ScrollArea>
 						)}
 					</Stack>
-
-					{/* drop overlay (dragOver=true で表示) */}
-					<div style={dropOverlayStyle} data-image-drop-overlay>
-						ドロップして画像を追加
-					</div>
 				</Box>
 			</Drawer>
+
+			{/* ドラッグ中だけ画面下部に出るキャンセルゾーン。Mantine を通さない素の div なので
+			    Drawer の size 遷移や overlay 再構築と競合しない。ここへドロップすると何もしない (= キャンセル)。 */}
+			{dragging && (
+				<div
+					style={{
+						position: "fixed",
+						left: 0,
+						right: 0,
+						bottom: 0,
+						height: "20vh",
+						zIndex: 300,
+						background: "white",
+						boxSizing: "border-box",
+						boxShadow: "0 0 8px rgba(0,0,0,0.3)",
+						pointerEvents: "auto",
+						padding: 16,
+					}}
+					onDragOver={(e) => e.preventDefault()}
+					onDrop={(e) => e.preventDefault()}
+					data-image-cancel-zone>
+					<div
+						style={{
+							fontSize: 14,
+							userSelect: "none",
+							border: "1px solid #dee2e6",
+							background: "#f8f9fa",
+							padding: 8,
+							borderRadius: 4,
+							width: "100%",
+							height: "100%",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+						}}>
+						<Text size="sm" c="dimmed">
+							ここへ戻すとキャンセル (ESC でも中断)
+						</Text>
+					</div>
+				</div>
+			)}
 
 			<ConfirmDialog
 				opened={deleteTarget !== null}
@@ -421,19 +441,7 @@ const ImageTile: FC<{
 	onReplace: () => void;
 	onDelete: () => void;
 	onDownload: () => void;
-	/** 画像ドラッグの開始/終了 (Drawer を縮める/戻すために親へ通知)。 */
-	onDragStateChange?: (dragging: boolean) => void;
-}> = ({
-	imageId,
-	dataURL,
-	name,
-	canPlace,
-	onPlace,
-	onReplace,
-	onDelete,
-	onDownload,
-	onDragStateChange,
-}) => {
+}> = ({ imageId, dataURL, name, canPlace, onPlace, onReplace, onDelete, onDownload }) => {
 	const tileStyle: CSSProperties = {
 		position: "relative",
 		border: "1px solid #dee2e6",
@@ -479,9 +487,6 @@ const ImageTile: FC<{
 	const handleDragStart = (e: ReactDragEvent<HTMLImageElement>) => {
 		e.dataTransfer.setData("imageId", imageId);
 		e.dataTransfer.effectAllowed = "copy";
-		// dragstart 内で同期的に DOM (Drawer 高さ) を変えると Chrome がドラッグをキャンセルする。
-		// 次 tick に遅延し、ドラッグ確立後に Drawer を縮める。
-		window.setTimeout(() => onDragStateChange?.(true), 0);
 	};
 	return (
 		<div style={tileStyle} data-image-tile data-image-id={imageId}>
@@ -491,7 +496,6 @@ const ImageTile: FC<{
 				style={imgStyle}
 				draggable
 				onDragStart={handleDragStart}
-				onDragEnd={() => onDragStateChange?.(false)}
 			/>
 			{/* 操作は右上の … メニューに集約 (配置 / 差し替え / DL / 削除)。FileIOSubMenu と同方針。 */}
 			<div style={menuWrapStyle}>

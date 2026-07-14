@@ -99,7 +99,7 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		render(true);
 		expect(document.body.querySelector("[data-image-empty]")).not.toBeNull();
 		expect(document.body.querySelector("[data-image-grid]")).toBeNull();
-		expect(document.body.textContent).toContain("ファイルをここにドロップ");
+		expect(document.body.textContent).toContain("画像を追加");
 	});
 
 	it("列数スライダーは画像がある時だけ出る", () => {
@@ -140,9 +140,9 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		expect(document.body.querySelector("[data-image-add-button]")).not.toBeNull();
 	});
 
-	it("Drop zone コンテナ (data-image-library-drop-zone) が描画される", () => {
+	it("ライブラリ自体へのドロップ受け入れは廃止 (drop-zone コンテナが無い)", () => {
 		render(true);
-		expect(document.body.querySelector("[data-image-library-drop-zone]")).not.toBeNull();
+		expect(document.body.querySelector("[data-image-library-drop-zone]")).toBeNull();
 	});
 
 	it("各画像のラベルに name が表示される", () => {
