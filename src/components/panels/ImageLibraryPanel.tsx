@@ -123,6 +123,39 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	const [dragging, setDragging] = useState(false);
 	const shrinkTimer = useRef<number | null>(null);
 	useEffect(() => {
+		// [DIAG imglib-drag] 特定端末 (Windows Chrome PWA) で dragend/mouseup が発火せず
+		// dragging=true に stuck する報告あり。原因切り分け用に一時ロギングを仕込む。
+		// 抽出方法: DevTools コンソールで `imglib-drag` フィルタ。問題確認後に撤去する。
+		const LOG_TAG = "[imglib-drag]";
+		const t0 = performance.now();
+		const log = (evt: string, extra?: Record<string, unknown>): void => {
+			// eslint-disable-next-line no-console
+			console.log(LOG_TAG, `${(performance.now() - t0).toFixed(0)}ms`, evt, extra ?? {});
+		};
+		const stuckWatchdog = { id: null as number | null };
+		const armWatchdog = (): void => {
+			if (stuckWatchdog.id != null) clearTimeout(stuckWatchdog.id);
+			// 10s 経っても解除イベントが来なければ stuck 判定 (=dragend/mouseup 未発火の証拠)
+			stuckWatchdog.id = window.setTimeout(() => {
+				log("STUCK-DETECTED (>10s no dragend/mouseup)", { dragging: true });
+			}, 10_000);
+		};
+		const disarmWatchdog = (): void => {
+			if (stuckWatchdog.id != null) {
+				clearTimeout(stuckWatchdog.id);
+				stuckWatchdog.id = null;
+			}
+		};
+		const targetInfo = (e: Event): Record<string, unknown> => {
+			const t = e.target as HTMLElement | null;
+			return {
+				tag: t?.tagName,
+				id: t?.id,
+				tile: !!t?.closest?.("[data-image-tile]"),
+				imgId: t?.closest?.("[data-image-tile]")?.getAttribute("data-image-id") ?? null,
+			};
+		};
+
 		const clearPending = (): void => {
 			if (shrinkTimer.current != null) {
 				clearTimeout(shrinkTimer.current);
@@ -132,23 +165,76 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 		const onDocDragStart = (e: DragEvent): void => {
 			// ライブラリ画像のドラッグのときだけ反応 (タイル内発源で判定)。
 			const target = e.target as HTMLElement | null;
+			log("dragstart(doc)", targetInfo(e));
 			if (!target?.closest?.("[data-image-tile]")) return;
 			clearPending();
 			// dragstart 内で同期的に state を変えると Chrome がドラッグを中止するため次 tick で反映。
-			shrinkTimer.current = window.setTimeout(() => setDragging(true), 0);
+			shrinkTimer.current = window.setTimeout(() => {
+				log("setDragging(true) fired via setTimeout");
+				setDragging(true);
+				armWatchdog();
+			}, 0);
 		};
-		const endDrag = (): void => {
+		const endDrag = (source: string) => (e: Event): void => {
+			log(`endDrag via ${source}`, targetInfo(e));
 			clearPending(); // 遅延 true が残っていれば取り消して stuck を防ぐ
+			disarmWatchdog();
 			setDragging(false);
 		};
-		document.addEventListener("dragstart", onDocDragStart);
-		document.addEventListener("mouseup", endDrag);
-		document.addEventListener("dragend", endDrag);
+		// 追加の観測用 (発火してるかどうかを見るため。状態変更は endDrag 経路のみ)
+		const observe = (name: string) => (e: Event): void => {
+			log(`observe: ${name}`, targetInfo(e));
+		};
+		const onStart = onDocDragStart;
+		const onEndDragEnd = endDrag("dragend");
+		const onEndMouseUp = endDrag("mouseup");
+		const onEndPointerUp = endDrag("pointerup");
+		const onEndPointerCancel = endDrag("pointercancel");
+		const onEndDrop = endDrag("drop");
+		const onEndBlur = endDrag("window.blur");
+		const onEndVisChange = (): void => {
+			if (document.visibilityState === "hidden") endDrag("visibilitychange.hidden")(new Event("v"));
+		};
+		const onObserveDragOver = observe("dragover");
+		const onObserveDragEnter = observe("dragenter");
+		const onObserveDragLeave = observe("dragleave");
+
+		document.addEventListener("dragstart", onStart, true);
+		document.addEventListener("mouseup", onEndMouseUp, true);
+		document.addEventListener("dragend", onEndDragEnd, true);
+		document.addEventListener("pointerup", onEndPointerUp, true);
+		document.addEventListener("pointercancel", onEndPointerCancel, true);
+		document.addEventListener("drop", onEndDrop, true);
+		window.addEventListener("blur", onEndBlur, true);
+		document.addEventListener("visibilitychange", onEndVisChange, true);
+		// 発火有無の観測 (throttle しないと大量に出るので dragover は 1s に 1 回だけ)
+		let lastOverLog = 0;
+		const onOverThrottled = (e: Event): void => {
+			const now = performance.now();
+			if (now - lastOverLog > 1000) {
+				lastOverLog = now;
+				onObserveDragOver(e);
+			}
+		};
+		document.addEventListener("dragover", onOverThrottled, true);
+		document.addEventListener("dragenter", onObserveDragEnter, true);
+		document.addEventListener("dragleave", onObserveDragLeave, true);
+		log("listeners attached");
 		return () => {
-			document.removeEventListener("dragstart", onDocDragStart);
-			document.removeEventListener("mouseup", endDrag);
-			document.removeEventListener("dragend", endDrag);
+			document.removeEventListener("dragstart", onStart, true);
+			document.removeEventListener("mouseup", onEndMouseUp, true);
+			document.removeEventListener("dragend", onEndDragEnd, true);
+			document.removeEventListener("pointerup", onEndPointerUp, true);
+			document.removeEventListener("pointercancel", onEndPointerCancel, true);
+			document.removeEventListener("drop", onEndDrop, true);
+			window.removeEventListener("blur", onEndBlur, true);
+			document.removeEventListener("visibilitychange", onEndVisChange, true);
+			document.removeEventListener("dragover", onOverThrottled, true);
+			document.removeEventListener("dragenter", onObserveDragEnter, true);
+			document.removeEventListener("dragleave", onObserveDragLeave, true);
+			disarmWatchdog();
 			clearPending();
+			log("listeners detached");
 		};
 	}, []);
 	const [cols, setCols] = useState<number>(readColsPref); // 1 行あたりの画像数
@@ -252,7 +338,7 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				onClose={onClose}
 				title="画像ライブラリ"
 				position="bottom"
-				size={"60vh"}
+				size={"80vh"}
 				padding="md"
 				// ドラッグ中だけ非モーダル化 (overlay / trap / scroll lock / click-outside を切る):
 				// Drawer は opened=false で閉じるが、モーダル behaviour が残ると裏の canvas への
