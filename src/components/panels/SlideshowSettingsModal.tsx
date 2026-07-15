@@ -1,6 +1,17 @@
-import { useSlideshowStore } from "@/state/slideshowStore";
-import { Group, Modal, NumberInput, Stack, Switch } from "@mantine/core";
+import { DURATION_DEFAULT_MS, INTERVAL_DEFAULT_MS, useSlideshowStore } from "@/state/slideshowStore";
+import { ActionIcon, Button, Group, Modal, Slider, Stack, Switch, Text } from "@mantine/core";
+import { IconRestore } from "@tabler/icons-react";
 import type { FC } from "react";
+
+// legacy (index.html) の select 選択肢を参考にした範囲:
+// - interval: 500..15000 (legacy 選択肢は 500, 1000, 2000..15000。全て step=500 で網羅可能)
+// - duration: 0..5000 (legacy 選択肢は 1(=表示"0"), 500, 1000, 2000..5000)
+const INTERVAL_MIN = 500;
+const INTERVAL_MAX = 15000;
+const INTERVAL_STEP = 500;
+const DURATION_MIN = 0;
+const DURATION_MAX = 5000;
+const DURATION_STEP = 500;
 
 // スライドショー設定モーダル (§9)。SlideShowOpsPanel に散在していた設定 UI
 // (interval / duration / flipX / flipY / 全画面で開始) をモーダルへ分離。
@@ -32,28 +43,52 @@ export const SlideshowSettingsModal: FC<SlideshowSettingsModalProps> = ({ opened
 			centered
 			data-slideshow-settings>
 			<Stack gap="md">
-				<Group gap="xs" grow>
-					<div data-ss-op="interval">
-						<NumberInput
-							label="間隔 interval (ms)"
-							value={intervalMs}
-							onChange={(v) => setIntervalMs(typeof v === "number" ? v : Number(v) || 0)}
-							min={0}
-							step={500}
+				<div data-ss-op="interval">
+					<Group gap={4} align="center" mb={4}>
+						<Text size="sm">間隔 interval: {intervalMs} ms</Text>
+						<ActionIcon
+							variant="subtle"
 							size="sm"
-						/>
-					</div>
-					<div data-ss-op="duration">
-						<NumberInput
-							label="フェード duration (ms)"
-							value={durationMs}
-							onChange={(v) => setDurationMs(typeof v === "number" ? v : Number(v) || 0)}
-							min={0}
-							step={100}
+							onClick={() => setIntervalMs(INTERVAL_DEFAULT_MS)}
+							disabled={intervalMs === INTERVAL_DEFAULT_MS}
+							aria-label="間隔を既定値に戻す"
+							data-ss-op="interval-reset">
+							<IconRestore size={14} />
+						</ActionIcon>
+					</Group>
+					<Slider
+						value={intervalMs}
+						onChange={setIntervalMs}
+						min={INTERVAL_MIN}
+						max={INTERVAL_MAX}
+						step={INTERVAL_STEP}
+						label={(v) => `${v} ms`}
+						size="sm"
+					/>
+				</div>
+				<div data-ss-op="duration">
+					<Group gap={4} align="center" mb={4}>
+						<Text size="sm">フェード duration: {durationMs} ms</Text>
+						<ActionIcon
+							variant="subtle"
 							size="sm"
-						/>
-					</div>
-				</Group>
+							onClick={() => setDurationMs(DURATION_DEFAULT_MS)}
+							disabled={durationMs === DURATION_DEFAULT_MS}
+							aria-label="フェードを既定値に戻す"
+							data-ss-op="duration-reset">
+							<IconRestore size={14} />
+						</ActionIcon>
+					</Group>
+					<Slider
+						value={durationMs}
+						onChange={setDurationMs}
+						min={DURATION_MIN}
+						max={DURATION_MAX}
+						step={DURATION_STEP}
+						label={(v) => `${v} ms`}
+						size="sm"
+					/>
+				</div>
 				<Group gap="md">
 					<div data-ss-op="flip-x">
 						<Switch
@@ -80,6 +115,11 @@ export const SlideshowSettingsModal: FC<SlideshowSettingsModalProps> = ({ opened
 						size="sm"
 					/>
 				</div>
+				<Group justify="flex-end" mt="sm">
+					<Button onClick={onClose} data-ss-op="ok">
+						OK
+					</Button>
+				</Group>
 			</Stack>
 		</Modal>
 	);

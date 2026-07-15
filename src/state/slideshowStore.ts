@@ -5,8 +5,8 @@ import { create } from "zustand";
 // 取得していた。新側はこれらを SlideShowOpsPanel で編集し本 store に集約する
 // (HVD には保存しない = セッション設定。legacy も doc には持たなかった)。
 
-const INTERVAL_DEFAULT_MS = 6000; // legacy #interval 既定
-const DURATION_DEFAULT_MS = 2000; // legacy #duration 既定 (クロスフェード時間)
+export const INTERVAL_DEFAULT_MS = 6000; // legacy #interval 既定
+export const DURATION_DEFAULT_MS = 2000; // legacy #duration 既定 (クロスフェード時間)
 
 interface SlideshowState {
 	/** スライドショー実行中か (SlideshowShell の open に対応)。 */
