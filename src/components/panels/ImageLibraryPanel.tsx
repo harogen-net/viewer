@@ -162,11 +162,15 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				shrinkTimer.current = null;
 			}
 		};
+		// ライブラリ発源のドラッグが in-flight の間だけログ/state 変更を有効化。
+		// (無関係な UI クリックの pointerup/mouseup/blur を拾ってノイズ + 意図せぬ setDragging(false) を防ぐ)
+		let inDrag = false;
 		const onDocDragStart = (e: DragEvent): void => {
 			// ライブラリ画像のドラッグのときだけ反応 (タイル内発源で判定)。
 			const target = e.target as HTMLElement | null;
-			log("dragstart(doc)", targetInfo(e));
 			if (!target?.closest?.("[data-image-tile]")) return;
+			log("dragstart(doc)", targetInfo(e));
+			inDrag = true;
 			clearPending();
 			// dragstart 内で同期的に state を変えると Chrome がドラッグを中止するため次 tick で反映。
 			shrinkTimer.current = window.setTimeout(() => {
@@ -176,13 +180,16 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 			}, 0);
 		};
 		const endDrag = (source: string) => (e: Event): void => {
+			if (!inDrag) return; // ライブラリ drag 中でなければ無視 (無関係なクリック等)
 			log(`endDrag via ${source}`, targetInfo(e));
+			inDrag = false;
 			clearPending(); // 遅延 true が残っていれば取り消して stuck を防ぐ
 			disarmWatchdog();
 			setDragging(false);
 		};
 		// 追加の観測用 (発火してるかどうかを見るため。状態変更は endDrag 経路のみ)
 		const observe = (name: string) => (e: Event): void => {
+			if (!inDrag) return;
 			log(`observe: ${name}`, targetInfo(e));
 		};
 		const onStart = onDocDragStart;
