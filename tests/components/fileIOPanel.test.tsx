@@ -48,9 +48,9 @@ vi.mock("../../src/hooks/useDeviceMode", () => ({
 	useDeviceMode: () => deviceMode,
 }));
 
-import { FileIOPanel } from "../../src/components/panels/FileIOPanel";
 import { AlertHost } from "../../src/components/common/AlertHost";
 import { generateUniqueTitle } from "../../src/components/panels/fileIO/FileIOSubMenu";
+import { FileIOPanel } from "../../src/components/panels/FileIOPanel";
 import { useAlertStore } from "../../src/state/alertStore";
 import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSlideStore } from "../../src/state/slideStore";
@@ -500,6 +500,11 @@ describe("FileIOPanel インポート同時保存", () => {
 		expect(saveMock).toHaveBeenCalled();
 		const savedArg = saveMock.mock.calls[0]?.[0];
 		expect(savedArg?.title).toBe("A(1)"); // 衝突回避
+		// 回帰: スマホ (VIEW モード自動選択) でも書き込めるよう allowInViewMode を必ず立てる。
+		// これが無いと canEditNow が false を返して save() が silent no-op になり、
+		// 「インポートしたのに IDB に残らない」不具合になる。
+		const savedOpts = saveMock.mock.calls[0]?.[1];
+		expect(savedOpts?.allowInViewMode).toBe(true);
 	});
 
 	it("import 成功時、衝突しなければ元 title のまま save を呼ぶ", async () => {
@@ -562,7 +567,7 @@ describe("FileIOPanel スマホ限定 ドキュメント削除", () => {
 		click(findMenuItem("delete-mobile"));
 		await resolveAlert(true); // 確認 OK
 		await act(async () => {});
-		expect(deleteMock).toHaveBeenCalledWith("A");
+		expect(deleteMock).toHaveBeenCalledWith("A", { allowInViewMode: true });
 		// 画面からドキュメントが消える (setDocument(null) が呼ばれる) — 回帰: 以前はメニュー
 		// 削除後も doc が画面に残り「消えていない」ように見えていた。
 		expect(useViewerDocumentStore.getState().meta).toBeNull();

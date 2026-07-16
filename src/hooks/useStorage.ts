@@ -133,10 +133,18 @@ export interface StorageApi {
 			override?: boolean;
 			thumbnail?: StoredDocThumbnail | null;
 			onProgress?: (fraction: number) => void;
+			/**
+			 * VIEW モードでの canEditNow gate をバイパス。スマホ PWA (自動 VIEW) 限定の
+			 * インポート同時保存で使用。UI 側でスマホ限定であることを保証すること。
+			 */
+			allowInViewMode?: boolean;
 		}
 	) => Promise<{ title: string } | null>;
-	/** タイトル指定で削除。該当なしも success 扱い。 */
-	deleteByTitle: (title: string) => Promise<void>;
+	/**
+	 * タイトル指定で削除。該当なしも success 扱い。
+	 * allowInViewMode: VIEW モードでの canEditNow gate をバイパス (スマホ限定の削除導線用)。
+	 */
+	deleteByTitle: (title: string, options?: { allowInViewMode?: boolean }) => Promise<void>;
 	/** 全サムネイルを {title: {thumb, frames}} で取得 (未生成 title は欠落)。※ピッカーは遅延ロードを使う。 */
 	loadThumbnails: () => Promise<Record<string, StoredDocThumbnail>>;
 	/** 単一ドキュメントのサムネを取得 (ピッカーの遅延ロード用、単発 get)。未生成は null。 */
@@ -225,9 +233,11 @@ export function useStorage(): StorageApi {
 				thumbnail?: StoredDocThumbnail | null;
 				/** 保存進捗 (0..1)。暗号化/直列化/書込のフェーズ粗粒度 (JSON.stringify は同期のため滑らかには動かない)。 */
 				onProgress?: (fraction: number) => void;
+				/** VIEW モードでの gate をバイパス (スマホのインポート同時保存で使用)。 */
+				allowInViewMode?: boolean;
 			}
 		): Promise<{ title: string } | null> => {
-			if (!canEditNow("storage.save")) return null;
+			if (!options?.allowInViewMode && !canEditNow("storage.save")) return null;
 			const report = options?.onProgress;
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
@@ -291,23 +301,26 @@ export function useStorage(): StorageApi {
 		[requirePassword]
 	);
 
-	const deleteByTitle = useCallback(async (title: string): Promise<void> => {
-		if (!canEditNow("storage.deleteByTitle")) return;
-		const db = await openDb();
-		try {
-			const tx = db.transaction([TITLES_STORE, DATA_STORE, THUMBS_STORE], "readwrite");
-			const titlesStore = tx.objectStore(TITLES_STORE);
-			const dataStore = tx.objectStore(DATA_STORE);
-			const titles = (await reqToPromise(titlesStore.getAll())) as StoredSlideTitle[];
-			const found = titles.find((t) => t.title === title);
-			if (found) await reqToPromise(titlesStore.delete(found.id));
-			await reqToPromise(dataStore.delete(title));
-			await reqToPromise(tx.objectStore(THUMBS_STORE).delete(title));
-			await txComplete(tx);
-		} finally {
-			db.close();
-		}
-	}, []);
+	const deleteByTitle = useCallback(
+		async (title: string, options?: { allowInViewMode?: boolean }): Promise<void> => {
+			if (!options?.allowInViewMode && !canEditNow("storage.deleteByTitle")) return;
+			const db = await openDb();
+			try {
+				const tx = db.transaction([TITLES_STORE, DATA_STORE, THUMBS_STORE], "readwrite");
+				const titlesStore = tx.objectStore(TITLES_STORE);
+				const dataStore = tx.objectStore(DATA_STORE);
+				const titles = (await reqToPromise(titlesStore.getAll())) as StoredSlideTitle[];
+				const found = titles.find((t) => t.title === title);
+				if (found) await reqToPromise(titlesStore.delete(found.id));
+				await reqToPromise(dataStore.delete(title));
+				await reqToPromise(tx.objectStore(THUMBS_STORE).delete(title));
+				await txComplete(tx);
+			} finally {
+				db.close();
+			}
+		},
+		[]
+	);
 
 	const loadThumbnails = useCallback(async (): Promise<Record<string, StoredDocThumbnail>> => {
 		const db = await openDb();

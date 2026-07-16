@@ -131,6 +131,9 @@ export const FileIOSubMenu: FC<{
 					override: true,
 					thumbnail,
 					onProgress: (f) => report(0.3 + f * 0.7),
+					// スマホ (=VIEW モード自動選択) でも保存を通す。この動線は UI 上スマホ限定ではないが
+					// 「インポート = 破棄確認済み」で明示的に許可済みのアクション扱いにする。
+					allowInViewMode: true,
 				});
 			});
 			if (saved) {
@@ -158,7 +161,7 @@ export const FileIOSubMenu: FC<{
 			return;
 		}
 		if (!(await alert.confirm(`delete "${target}" ?`))) return;
-		await deleteByTitle(target);
+		await deleteByTitle(target, { allowInViewMode: true });
 		// 画面上のドキュメントもクリア (通常モードの selectedTitle と違い、スマホは現在ロード中
 		// のものを対象にするため、削除後に doc/画像を残すと「消えていない」ように見える)。
 		setDocument(null);
