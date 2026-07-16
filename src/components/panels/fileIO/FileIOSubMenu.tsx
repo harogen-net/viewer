@@ -159,6 +159,10 @@ export const FileIOSubMenu: FC<{
 		}
 		if (!(await alert.confirm(`delete "${target}" ?`))) return;
 		await deleteByTitle(target);
+		// 画面上のドキュメントもクリア (通常モードの selectedTitle と違い、スマホは現在ロード中
+		// のものを対象にするため、削除後に doc/画像を残すと「消えていない」ように見える)。
+		setDocument(null);
+		useImageLibraryStore.getState().setImageLibrary({});
 		toast.success(`削除しました: ${target}`);
 		onListChanged?.();
 	});
@@ -170,7 +174,7 @@ export const FileIOSubMenu: FC<{
 
 	return (
 		<>
-			<Menu shadow="md" width={200}>
+			<Menu shadow="md" width={200} transitionProps={{ duration: 0 }}>
 				<Menu.Target>
 					<ActionIcon
 						variant="default"

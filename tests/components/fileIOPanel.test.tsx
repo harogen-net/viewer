@@ -40,6 +40,14 @@ const { noopFileIO } = vi.hoisted(() => ({
 }));
 vi.mock("../../src/hooks/useFileIO", () => ({ useFileIO: () => noopFileIO }));
 
+// jsdom UA は非モバイル固定なので isMobile を差し替えられる mock を用意 (test 内で切替可能)。
+const { deviceMode } = vi.hoisted(() => ({
+	deviceMode: { isMobile: false, isPortrait: false },
+}));
+vi.mock("../../src/hooks/useDeviceMode", () => ({
+	useDeviceMode: () => deviceMode,
+}));
+
 import { FileIOPanel } from "../../src/components/panels/FileIOPanel";
 import { AlertHost } from "../../src/components/common/AlertHost";
 import { generateUniqueTitle } from "../../src/components/panels/fileIO/FileIOSubMenu";
@@ -120,6 +128,9 @@ beforeEach(() => {
 	getThumbnailMock.mockImplementation(async (title: string) =>
 		title === "A" ? { thumb: "data:image/jpeg;base64,T", frames: 3 } : null
 	);
+	// device mode を既定 (PC) に戻す (テストごとに mutate されている可能性を排除)。
+	deviceMode.isMobile = false;
+	deviceMode.isPortrait = false;
 	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	useSlideStore.getState().setSlides([]);
@@ -132,6 +143,11 @@ beforeEach(() => {
 afterEach(() => {
 	act(() => root.unmount());
 	container.remove();
+	// Mantine の Portal (Menu.Dropdown/Modal 等) は document.body 直下に残るため明示除去。
+	// 残ると次テストの document.querySelector が古いノードを拾って flake する。
+	document
+		.querySelectorAll("[data-portal],[data-mantine-portal]")
+		.forEach((n) => n.remove());
 	useAlertStore.getState().clear();
 });
 
@@ -497,5 +513,82 @@ describe("FileIOPanel インポート同時保存", () => {
 		await triggerImport();
 		const savedArg = saveMock.mock.calls[0]?.[0];
 		expect(savedArg?.title).toBe("fresh");
+	});
+});
+
+describe("FileIOPanel スマホ限定 ドキュメント削除", () => {
+	// Mantine Menu.Dropdown は Portal で document 直下に出るため document から検索。
+	const findMenuItem = (dataAction: string): HTMLElement | null =>
+		document.querySelector<HTMLElement>(`[data-action="${dataAction}"]`);
+
+	// 「…」トリガ (submenu の ActionIcon) を開く。dropdown が portal でマウントされるのを待つ。
+	const openSubMenu = async (): Promise<void> => {
+		// FileIOSubMenu の ActionIcon aria-label="その他の操作"
+		const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="その他の操作"]');
+		expect(trigger).not.toBeNull();
+		await act(async () => {
+			trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+	};
+
+	beforeEach(() => {
+		deviceMode.isMobile = true; // スマホモード有効
+		deleteMock.mockClear();
+		deleteMock.mockResolvedValue(undefined);
+	});
+
+	it("スマホでは削除メニューが表示される (readOnly でも)", async () => {
+		await render(true); // readOnly でも出す
+		useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+		await openSubMenu();
+		expect(findMenuItem("delete-mobile")).not.toBeNull();
+	});
+
+	it("PC では削除メニューは表示されない", async () => {
+		deviceMode.isMobile = false;
+		await render(false);
+		useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+		await openSubMenu();
+		expect(findMenuItem("delete-mobile")).toBeNull();
+	});
+
+	it("削除実行で IDB から削除され、doc/画像がクリアされる", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+			useImageLibraryStore.getState().setImageLibrary({ x: { dataURL: "data:y" } });
+		});
+		await openSubMenu();
+		click(findMenuItem("delete-mobile"));
+		await resolveAlert(true); // 確認 OK
+		await act(async () => {});
+		expect(deleteMock).toHaveBeenCalledWith("A");
+		// 画面からドキュメントが消える (setDocument(null) が呼ばれる) — 回帰: 以前はメニュー
+		// 削除後も doc が画面に残り「消えていない」ように見えていた。
+		expect(useViewerDocumentStore.getState().meta).toBeNull();
+		expect(useImageLibraryStore.getState().imageById).toEqual({});
+	});
+
+	it("確認キャンセルでは削除しない", async () => {
+		await render(true);
+		useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+		await openSubMenu();
+		click(findMenuItem("delete-mobile"));
+		await resolveAlert(false);
+		expect(deleteMock).not.toHaveBeenCalled();
+		expect(useViewerDocumentStore.getState().meta).not.toBeNull();
+	});
+
+	it("未保存 (titles に無い title) では削除メニューが disabled", async () => {
+		await render(true);
+		useViewerDocumentStore.setState({ meta: makeMeta("unsaved-doc"), modified: false });
+		await openSubMenu();
+		const item = findMenuItem("delete-mobile") as HTMLButtonElement | null;
+		expect(item).not.toBeNull();
+		// Mantine Menu.Item の disabled は data-disabled 属性 or aria-disabled で表現される
+		expect(
+			item?.getAttribute("data-disabled") !== null ||
+				item?.getAttribute("aria-disabled") === "true"
+		).toBe(true);
 	});
 });
