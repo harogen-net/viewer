@@ -284,7 +284,16 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 						削除
 					</Button>
 				)}
-				<FileIOSubMenu readOnly={readOnly} onTitleChange={handleSelectChange} />
+				<FileIOSubMenu
+					readOnly={readOnly}
+					titles={titles}
+					onTitleChange={handleSelectChange}
+					onListChanged={() => {
+						refreshTitles().catch((e) =>
+							console.error("[FileIOPanel] refreshTitles error:", e)
+						);
+					}}
+				/>
 			</Group>
 			<DocumentPickerModal
 				opened={pickerOpen}

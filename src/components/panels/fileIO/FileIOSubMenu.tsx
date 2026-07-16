@@ -1,11 +1,15 @@
+import { useAlert } from "@/hooks/useAlert";
+import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useFileIO } from "@/hooks/useFileIO";
 import { useProgress } from "@/hooks/useProgress";
+import { type StoredSlideTitle, useStorage } from "@/hooks/useStorage";
 import { useToast } from "@/hooks/useToast";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import { collectImageMap, collectImageNames } from "@/utils/collectImageMap";
+import { generateDocThumbnailStrip } from "@/utils/slideThumbnail";
 import { buildImageEntries } from "@/utils/storageCodec";
 import { ActionIcon, Menu } from "@mantine/core";
 import {
@@ -13,20 +17,39 @@ import {
 	IconDotsVertical,
 	IconPackageExport,
 	IconPackageImport,
+	IconTrash,
 } from "@tabler/icons-react";
 import type { ChangeEvent, FC } from "react";
 import { useRef } from "react";
 import { useFileIOCommon } from "./useFileIOCommon";
 
+// 既存 title と衝突しないよう "(1)", "(2)"... のサフィックスを付与 (インポート同時保存の
+// 上書き防止用。base 自体が未使用ならそのまま返す)。
+export const generateUniqueTitle = (base: string, existing: StoredSlideTitle[]): string => {
+	const used = new Set(existing.map((t) => t.title));
+	if (!used.has(base)) return base;
+	for (let i = 1; i < 10000; i++) {
+		const candidate = `${base}(${i})`;
+		if (!used.has(candidate)) return candidate;
+	}
+	// 極端に多い場合はタイムスタンプで一意化 (現実的にはまず到達しない)。
+	return `${base}(${Date.now()})`;
+};
+
 export const FileIOSubMenu: FC<{
 	readOnly?: boolean;
+	titles: StoredSlideTitle[];
 	onTitleChange?: (title: string | null) => void;
-}> = ({ readOnly = false, onTitleChange }) => {
+	onListChanged?: () => void;
+}> = ({ readOnly = false, titles, onTitleChange, onListChanged }) => {
 	const { exportHvd, exportHvz, exportPng, importFile, exportAllSlidesZip } = useFileIO();
+	const { save, deleteByTitle } = useStorage();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slides = useSlideStore((s) => s.slides);
 	const toast = useToast();
+	const alert = useAlert();
+	const { isMobile } = useDeviceMode();
 	const { run } = useProgress();
 	const { wrap, confirmDiscardIfModified } = useFileIOCommon();
 
@@ -86,17 +109,64 @@ export const FileIOSubMenu: FC<{
 				toast.error(`未対応の拡張子です: ${file.name}`);
 				return;
 			}
-			setDocument(result.doc);
+			// 同名衝突は "(n)" サフィックスで回避 (既存レコード上書きを防ぐ)。
+			const uniqueTitle = generateUniqueTitle(result.doc.title, titles);
+			const savedDoc: ViewerDocument = { ...result.doc, title: uniqueTitle };
+			setDocument(savedDoc);
 			useImageLibraryStore
 				.getState()
 				.setImageLibrary(buildImageEntries(result.imageData, result.imageNames));
 			onTitleChange?.(null);
-			toast.success(`インポートしました: ${result.doc.title} (${result.doc.slides.length} slides)`);
+			// インポート同時保存 (スマホでは IDB を触る他手段が無いため必須。PC でも紛失予防で常時実行)。
+			// センシティブは PW 入力 (キャンセルで save 中止=無音)。生成失敗はサムネ無しで保存。
+			const saved = await run("保存中…", async (report) => {
+				report(0.05);
+				const thumbnail = await generateDocThumbnailStrip(savedDoc, collectImageMap(), {
+					frameMaxPx: 320,
+					mimeType: "image/png",
+					blur: savedDoc.isSensitive,
+				}).catch(() => null);
+				report(0.3);
+				return save(savedDoc, {
+					override: true,
+					thumbnail,
+					onProgress: (f) => report(0.3 + f * 0.7),
+				});
+			});
+			if (saved) {
+				onListChanged?.();
+				toast.success(
+					`インポートして保存しました: ${saved.title} (${savedDoc.slides.length} slides)`
+				);
+			} else {
+				// PW キャンセル等で保存中止: doc はメモリ上に残っている旨だけ通知。
+				toast.info(`インポートしました: ${savedDoc.title} (保存はスキップされました)`);
+			}
 		})();
 	};
 
+	// スマホモード限定: 現在ロード中のドキュメントを削除 (通常モードの handleDelete と同挙動)。
+	// スマホでは FileSelector が非表示のため selectedTitle を使えず、meta.title を対象にする。
+	const handleMobileDelete = wrap(async () => {
+		if (!meta) {
+			toast.info("ドキュメントが未ロードです");
+			return;
+		}
+		const target = meta.title;
+		if (!titles.some((t) => t.title === target)) {
+			toast.info(`未保存のためデータストア上に存在しません: ${target}`);
+			return;
+		}
+		if (!(await alert.confirm(`delete "${target}" ?`))) return;
+		await deleteByTitle(target);
+		toast.success(`削除しました: ${target}`);
+		onListChanged?.();
+	});
+
 	const hasSlides = slides.length > 0;
 	const hasEnabledSlide = slides.some((s) => !s.disabled);
+	// スマホ削除の可否: 現在のドキュメントが IDB に保存済み (titles に含まれる) のときのみ有効。
+	const canMobileDelete = !!meta && titles.some((t) => t.title === meta.title);
 
 	return (
 		<>
@@ -150,6 +220,22 @@ export const FileIOSubMenu: FC<{
 								disabled={!hasEnabledSlide}
 								data-action="export-zip">
 								全スライド ZIP ダウンロード
+							</Menu.Item>
+						</>
+					)}
+					{/* スマホモード限定の削除導線。スマホは readOnly でも表示 (スマホでは
+					    表側の「削除」ボタンが出ないため、削除する術がこのメニューしかない)。 */}
+					{isMobile && (
+						<>
+							<Menu.Divider />
+							<Menu.Label>削除</Menu.Label>
+							<Menu.Item
+								leftSection={<IconTrash stroke={2} />}
+								onClick={handleMobileDelete}
+								disabled={!canMobileDelete}
+								color="red"
+								data-action="delete-mobile">
+								ドキュメントを削除
 							</Menu.Item>
 						</>
 					)}

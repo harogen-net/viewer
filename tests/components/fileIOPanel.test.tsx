@@ -42,6 +42,7 @@ vi.mock("../../src/hooks/useFileIO", () => ({ useFileIO: () => noopFileIO }));
 
 import { FileIOPanel } from "../../src/components/panels/FileIOPanel";
 import { AlertHost } from "../../src/components/common/AlertHost";
+import { generateUniqueTitle } from "../../src/components/panels/fileIO/FileIOSubMenu";
 import { useAlertStore } from "../../src/state/alertStore";
 import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSlideStore } from "../../src/state/slideStore";
@@ -431,5 +432,70 @@ describe("FileIOPanel 閲覧モード (readOnly)", () => {
 		expect(has('[data-action="save"]')).toBe(true);
 		expect(has('[data-action="delete"]')).toBe(true);
 		expect(has('[data-action="reload"]')).toBe(true);
+	});
+});
+
+describe("generateUniqueTitle (import 同時保存の衝突回避)", () => {
+	it("既存に無ければ base をそのまま返す", () => {
+		expect(generateUniqueTitle("fresh", [{ id: 1, title: "A", update: 1 }])).toBe("fresh");
+	});
+
+	it("既存と衝突すれば (1)、更に衝突すれば (2)…と採番する", () => {
+		const existing = [
+			{ id: 1, title: "A", update: 1 },
+			{ id: 2, title: "A(1)", update: 2 },
+			{ id: 3, title: "A(2)", update: 3 },
+		];
+		expect(generateUniqueTitle("A", existing)).toBe("A(3)");
+	});
+
+	it("空リストなら base をそのまま返す", () => {
+		expect(generateUniqueTitle("x", [])).toBe("x");
+	});
+});
+
+describe("FileIOPanel インポート同時保存", () => {
+	// importFile の結果を差し替えるためのセットアップ。
+	// mock 対象は hoisted noopFileIO.importFile なので mockImplementationOnce で 1 回だけ差し替える。
+	const triggerImport = async (): Promise<void> => {
+		const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+		const file = new File(["x"], "a.hvd", { type: "text/plain" });
+		Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+		await act(async () => {
+			fileInput?.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+	};
+
+	beforeEach(() => {
+		// 他 describe の save 呼び出しが calls に混ざらないようクリア。
+		saveMock.mockClear();
+	});
+
+	it("import 成功時、同名 title 衝突なら (1) サフィックスで save を呼ぶ", async () => {
+		// listTitles は [A, B, C] を返す設定 (beforeEach)。同名 "A" を import。
+		noopFileIO.importFile.mockImplementationOnce(async () => ({
+			doc: makeDoc("A"), // "A" は既存と衝突
+			imageData: {},
+			imageNames: {},
+		}));
+		saveMock.mockResolvedValueOnce({ title: "A(1)" });
+		await render(false);
+		await triggerImport();
+		expect(saveMock).toHaveBeenCalled();
+		const savedArg = saveMock.mock.calls[0]?.[0];
+		expect(savedArg?.title).toBe("A(1)"); // 衝突回避
+	});
+
+	it("import 成功時、衝突しなければ元 title のまま save を呼ぶ", async () => {
+		noopFileIO.importFile.mockImplementationOnce(async () => ({
+			doc: makeDoc("fresh"),
+			imageData: {},
+			imageNames: {},
+		}));
+		saveMock.mockResolvedValueOnce({ title: "fresh" });
+		await render(false);
+		await triggerImport();
+		const savedArg = saveMock.mock.calls[0]?.[0];
+		expect(savedArg?.title).toBe("fresh");
 	});
 });
