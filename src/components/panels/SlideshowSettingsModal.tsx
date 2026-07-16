@@ -1,3 +1,4 @@
+import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { DURATION_DEFAULT_MS, INTERVAL_DEFAULT_MS, useSlideshowStore } from "@/state/slideshowStore";
 import { ActionIcon, Button, Group, Modal, Slider, Stack, Switch, Text } from "@mantine/core";
 import { IconRestore } from "@tabler/icons-react";
@@ -34,6 +35,9 @@ export const SlideshowSettingsModal: FC<SlideshowSettingsModalProps> = ({ opened
 	const setFlipX = useSlideshowStore((s) => s.setFlipX);
 	const setFlipY = useSlideshowStore((s) => s.setFlipY);
 	const setStartFullscreen = useSlideshowStore((s) => s.setStartFullscreen);
+	// mobile では Fullscreen API が事実上使えない (iOS Safari 非対応 + PWA は既に全画面) ため
+	// トグルを隠す。設定値自体は残す (mobile→PC で復帰した時に戻る)。
+	const { isMobile } = useDeviceMode();
 
 	return (
 		<Modal
@@ -107,14 +111,16 @@ export const SlideshowSettingsModal: FC<SlideshowSettingsModalProps> = ({ opened
 						/>
 					</div>
 				</Group>
-				<div data-ss-op="fullscreen">
-					<Switch
-						label="全画面で開始"
-						checked={startFullscreen}
-						onChange={(e) => setStartFullscreen(e.currentTarget.checked)}
-						size="sm"
-					/>
-				</div>
+				{!isMobile && (
+					<div data-ss-op="fullscreen">
+						<Switch
+							label="全画面で開始"
+							checked={startFullscreen}
+							onChange={(e) => setStartFullscreen(e.currentTarget.checked)}
+							size="sm"
+						/>
+					</div>
+				)}
 				<Group justify="flex-end" mt="sm">
 					<Button onClick={onClose} data-ss-op="ok">
 						OK

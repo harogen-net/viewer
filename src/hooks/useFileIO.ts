@@ -1,20 +1,21 @@
 import { useSensitivePassword } from "@/hooks/useSensitivePassword";
+import { canEditNow } from "@/state/viewerModeStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import {
-	type EncryptedImageData,
-	decryptImageData,
-	encryptImageData,
+    type EncryptedImageData,
+    decryptImageData,
+    encryptImageData,
 } from "@/utils/sensitiveCrypto";
 import { drawSlideToCanvas, generateSlideThumbnailDataURL } from "@/utils/slideThumbnail";
 import {
-	type ParsedHvd,
-	collectReferencedImages,
-	parseHvd,
-	parseHvz,
-	parsePng,
-	serializeHvd,
-	serializeHvz,
-	serializePng,
+    type ParsedHvd,
+    collectReferencedImages,
+    parseHvd,
+    parseHvz,
+    parsePng,
+    serializeHvd,
+    serializeHvz,
+    serializePng,
 } from "@/utils/storageCodec";
 import JSZip from "jszip";
 import { useCallback } from "react";
@@ -140,6 +141,7 @@ export const useFileIO = (): UseFileIO => {
 			imageMap: Record<string, string>,
 			imageNames?: Record<string, string>
 		): Promise<string | null> => {
+			if (!canEditNow("exportHvd")) return null;
 			const { cancelled, encrypted } = await encryptForExport(doc, imageMap);
 			if (cancelled) return null;
 			const json = serializeHvd(doc, imageMap, { encrypted, imageNames });
@@ -157,6 +159,7 @@ export const useFileIO = (): UseFileIO => {
 			imageNames?: Record<string, string>,
 			onProgress?: (fraction: number) => void
 		): Promise<string | null> => {
+			if (!canEditNow("exportHvz")) return null;
 			onProgress?.(0.05);
 			const { cancelled, encrypted } = await encryptForExport(doc, imageMap);
 			if (cancelled) return null;
@@ -183,6 +186,7 @@ export const useFileIO = (): UseFileIO => {
 			imageNames?: Record<string, string>,
 			onProgress?: (fraction: number) => void
 		): Promise<string | null> => {
+			if (!canEditNow("exportPng")) return null;
 			onProgress?.(0.05);
 			const { cancelled, encrypted } = await encryptForExport(doc, imageMap);
 			if (cancelled) return null;
@@ -211,6 +215,7 @@ export const useFileIO = (): UseFileIO => {
 			imageMap: Record<string, string>,
 			index: number
 		): Promise<string> => {
+			if (!canEditNow("exportSlidePng")) return "";
 			const slide = doc.slides[index];
 			if (!slide) throw new Error(`invalid slide index: ${index}`);
 			const canvas = await drawSlideToCanvas(slide, doc.bgColor, imageMap);
@@ -230,6 +235,7 @@ export const useFileIO = (): UseFileIO => {
 			_imageNames?: Record<string, string>,
 			onProgress?: (fraction: number) => void
 		): Promise<string> => {
+			if (!canEditNow("exportAllSlidesZip")) return "";
 			const enabledCount = doc.slides.filter((s) => !s.disabled).length;
 			if (enabledCount === 0) {
 				throw new Error("有効なスライドがありません (最低 1 枚を有効化してください)");

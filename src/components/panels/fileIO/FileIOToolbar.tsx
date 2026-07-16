@@ -1,5 +1,6 @@
 import { DocumentPickerModal } from "@/components/panels/DocumentPickerModal";
 import { useAlert } from "@/hooks/useAlert";
+import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useProgress } from "@/hooks/useProgress";
 import { useStorage, type StoredSlideTitle } from "@/hooks/useStorage";
 import { useToast } from "@/hooks/useToast";
@@ -37,6 +38,7 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 	const alert = useAlert();
 	const toast = useToast();
 	const { wrap, confirmDiscardIfModified } = useFileIOCommon();
+	const { isMobile } = useDeviceMode();
 
 	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
 	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
@@ -206,13 +208,18 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 					size="xs"
 					color="yellow"
 					variant="filled"
-					w={100}
 					onClick={handleOpenPicker}
 					data-action="open-picker">
 					開く
 				</Button>
 
-				<FileSelector titles={titles} selectedTitle={selectedTitle} onChange={handleSelectChange} />
+				{!isMobile && (
+					<FileSelector
+						titles={titles}
+						selectedTitle={selectedTitle}
+						onChange={handleSelectChange}
+					/>
+				)}
 				{!readOnly && (
 					<>
 						<Tooltip label="保存時の状態に戻す (未保存の変更を破棄)" disabled={canReload}>

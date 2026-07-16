@@ -1,4 +1,5 @@
 import { useBeforeUnloadGuard } from "@/hooks/useBeforeUnloadGuard";
+import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useImageDimensionBackfill } from "@/hooks/useImageLibraryMutation";
 import { useLayerAutoSelect } from "@/hooks/useLayerAutoSelect";
 import { useRectSyncConfig } from "@/hooks/useLayerMutation";
@@ -44,18 +45,18 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 				<Flex direction="row" gap="sm" align="stretch">
 					<SlideShowOpsPanel />
 					<FileIOPanel readOnly={!editable} />
-					{editable && (
-						<ActionIcon.Group>
-							<Tooltip label="スライドショー設定">
-								<ActionIcon
-									variant="default"
-									onClick={() => setShowSlideshowSettings(true)}
-									data-open-slideshow-settings>
-									🎬
-								</ActionIcon>
-							</Tooltip>
-						</ActionIcon.Group>
-					)}
+					{/* スライドショー設定は playback settings (interval/duration/flip 等) で document を
+					    書き換えない。VIEW モードでも常に開けるようにする。 */}
+					<ActionIcon.Group>
+						<Tooltip label="スライドショー設定">
+							<ActionIcon
+								variant="default"
+								onClick={() => setShowSlideshowSettings(true)}
+								data-open-slideshow-settings>
+								🎬
+							</ActionIcon>
+						</Tooltip>
+					</ActionIcon.Group>
 				</Flex>
 			</div>
 			<SlideshowShell open={slideshowRunning} onClose={stopSlideshow} />
@@ -221,8 +222,16 @@ const newModeLayoutStyle: CSSProperties = {
 	height: "100vh",
 	// 上端固定の進捗バーとコンテンツが重ならないよう、バー高さぶんの上パディングを常時確保する
 	// (border-box なので 100vh を超えず、内側領域が縮む。表示/非表示でレイアウトがずれない)。
+	// iOS PWA (apple-mobile-web-app-status-bar-style=black-translucent) では
+	// 上端が status bar と重なるため safe-area-inset-top を加算する。
 	boxSizing: "border-box",
-	paddingTop: PROGRESS_BAR_HEIGHT,
+	paddingTop: `calc(${PROGRESS_BAR_HEIGHT}px + env(safe-area-inset-top, 0px))`,
+	// landscape の iPhone ノッチ側 / ホームインジケータ側にかかる領域を回避するため、
+	// 左右に safe-area-inset を確保する。ポートレートでは inset=0 なので影響しない。
+	// スライドショーは position:fixed のオーバーレイで別レイヤーのため、このパディングは効かない。
+	paddingLeft: "env(safe-area-inset-left, 0px)",
+	paddingRight: "env(safe-area-inset-right, 0px)",
+	paddingBottom: "env(safe-area-inset-bottom, 0px)",
 	// body 全体はスクロールさせず、各領域 (一覧 / canvas) が内部でスクロールする。
 	overflow: "hidden",
 };
@@ -273,7 +282,19 @@ export const AppShell: FC = () => {
 	// スライド遷移時に対応レイヤー (同一画像/テキスト/同形状) を自動選択 (legacy 相当)。
 	useLayerAutoSelect();
 	const mode = useViewerModeStore((s) => s.mode);
+	// 端末軸 (mobile UA) と 起動モード (VIEW/EDIT) は独立。user-select OFF は端末軸で判定。
+	const { isMobile } = useDeviceMode();
 	const editable = mode === ViewerMode.EDIT;
+	// mobile 環境では全要素の user-select を切る (styles/index.css で html[data-mobile-env] を受ける)。
+	// タップで意図しない選択状態が発生し以降のタップが解除に消費される事象を防ぐ。
+	useEffect(() => {
+		const html = document.documentElement;
+		if (isMobile) html.setAttribute("data-mobile-env", "");
+		else html.removeAttribute("data-mobile-env");
+		return () => {
+			html.removeAttribute("data-mobile-env");
+		};
+	}, [isMobile]);
 	// 起動時に document が無ければ自動で新規作成 (編集モードのみ、トースト無し)。
 	// 「document 未ロード」の混乱を招く空状態を避ける。
 	useEffect(() => {

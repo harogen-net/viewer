@@ -1,3 +1,4 @@
+import { useViewerModeStore, ViewerMode } from "@/state/viewerModeStore";
 import "fake-indexeddb/auto";
 
 // jsdom の HTMLImageElement.src は load イベントを発火しないため、
@@ -68,4 +69,9 @@ if (typeof Blob !== "undefined" && typeof Blob.prototype.text !== "function") {
 		});
 	};
 }
+
+// jsdom の innerHeight=768 は isMobileEnv() の SMALL_VIEWPORT_PX(900) 判定に引っかかり、
+// viewerModeStore の初期モードが VIEW になってしまう。テストは既定で EDIT モード想定
+// (VIEW モードを検証したいテストは自前で setState する) のため、setup で EDIT に上書き。
+useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
 

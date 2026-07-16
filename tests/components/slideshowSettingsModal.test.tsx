@@ -8,10 +8,17 @@ import { useSlideshowStore } from "../../src/state/slideshowStore";
 // §9 SlideshowSettingsModal: SlideShowOpsPanel から分離した設定 UI
 // (interval / duration / flipX / flipY / 全画面で開始)。設定値は slideshowStore。
 
+const setUserAgent = (ua: string): void => {
+	Object.defineProperty(navigator, "userAgent", { configurable: true, value: ua });
+};
+const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
+const originalUa = navigator.userAgent;
+
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+	setUserAgent(originalUa);
 	useSlideshowStore.setState({
 		running: false,
 		intervalMs: 6000,
@@ -28,6 +35,7 @@ beforeEach(() => {
 afterEach(() => {
 	act(() => root.unmount());
 	container.remove();
+	setUserAgent(originalUa);
 });
 
 const render = (opened: boolean): void => {
@@ -75,5 +83,14 @@ describe("SlideshowSettingsModal (§9)", () => {
 		if (!fs) throw new Error("fullscreen switch not found");
 		act(() => fs.click());
 		expect(useSlideshowStore.getState().startFullscreen).toBe(true);
+	});
+
+	it("mobile UA では 全画面で開始トグルを描画しない (iOS Safari で fullscreen 事実上不可)", () => {
+		setUserAgent(IPHONE_UA);
+		render(true);
+		expect(op("fullscreen")).toBeNull();
+		// 他の設定 UI は残っている
+		expect(op("interval")).not.toBeNull();
+		expect(op("flip-x")).not.toBeNull();
 	});
 });

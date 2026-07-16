@@ -1,6 +1,6 @@
 import type { StoredDocThumbnail, StoredSlideTitle } from "@/hooks/useStorage";
 import { useSensitiveSessionStore } from "@/state/sensitiveSessionStore";
-import { Loader, Modal, PasswordInput, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Loader, Modal, PasswordInput, Stack, Text } from "@mantine/core";
 import { IconLock } from "@tabler/icons-react";
 import type { CSSProperties, FC } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -28,6 +28,9 @@ interface DocumentPickerGridProps {
 
 // ホバーでコマ送りする間隔 (ms)。
 const CYCLE_MS = 600;
+// カード 1 枚の最小幅 (px)。CSS Grid の minmax(MIN, 1fr) auto-fill でこの値未満に潰さない。
+// 狭いコンテナ (スマホ portrait 等) では自動で列数が減り、item はこの幅以上を保つ。
+const PICKER_ITEM_MIN_W = 180;
 
 const cardStyle = (selected: boolean, locked: boolean): CSSProperties => ({
 	display: "flex",
@@ -249,8 +252,16 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 			</Text>
 		);
 	}
+	// 列数は viewport ではなくコンテナ幅で決める: minmax(MIN, 1fr) の auto-fill で
+	// 幅が狭い時は自動で列数が減り、item が MIN 未満に潰れない。
+	// これで狭窓/スマホでもサムネが読める大きさを維持できる (旧: mobile+portrait のみ 1 列固定)。
+	const gridStyle: CSSProperties = {
+		display: "grid",
+		gridTemplateColumns: `repeat(auto-fill, minmax(${PICKER_ITEM_MIN_W}px, 1fr))`,
+		gap: 12,
+	};
 	return (
-		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="sm" verticalSpacing="sm">
+		<div style={gridStyle}>
 			{titles.map((t) => {
 				const selected = t.title === selectedTitle;
 				// センシティブ文書は PW 欄が空の間は選択不可 (クリックしてもデコードを試みない)。
@@ -287,7 +298,7 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 					</button>
 				);
 			})}
-		</SimpleGrid>
+		</div>
 	);
 };
 

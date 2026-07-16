@@ -50,7 +50,7 @@ export const FileSelector: FC<{
 				onChange={onChange}
 				data={selectData}
 				size="xs"
-				w={200}
+				style={{ flex: "1 1 140px", minWidth: 120, maxWidth: 240 }}
 				nothingFoundMessage="(該当なし)"
 				radius={0}
 			/>

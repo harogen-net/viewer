@@ -24,3 +24,44 @@
 .g {
 	border: 1px solid green !important;
 }
+
+/*
+ * スライドショー実行中は safe-area (iPhone のノッチ / ホームインジケータ) まで
+ * 背景を黒くする。SlideshowShell が html に data-slideshow-active を付与/除去する。
+ * viewport-fit=cover (index.html) と併せることで、PWA でセーフエリアが白いままの違和感を解消。
+ *
+ * ポートレート起動 slideshow はオーバーレイを 90° 回転するため、iOS の 100vh が
+ * ノッチ含まずに解釈された場合に上端が「素の body 色 (白)」で残ってしまう。
+ * html / body / #root 全てに黒を敷いておくことで、オーバーレイが仮に届かない
+ * ピクセルがあっても背景は黒になる。
+ */
+html[data-slideshow-active],
+html[data-slideshow-active] body,
+html[data-slideshow-active] #root {
+	background: #000 !important;
+}
+
+/*
+ * mobile 環境ではテキスト選択を全面 OFF。
+ *   タップ操作で意図しない選択状態 (ハイライト / 長押しコンテキスト) が発生し、以降の
+ *   タップが選択解除に消費されて UI が反応しない事象を防ぐ。data-mobile-env は AppShell が
+ *   useDeviceMode().isMobile (UA 判定 = device 軸) を見て html に付与/除去する。
+ *   起動モード (VIEW/EDIT) とは独立軸。
+ */
+html[data-mobile-env],
+html[data-mobile-env] * {
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+}
+
+/*
+ * mobile 環境では画面全体のオーバースクロール (バウンス / pull-to-refresh) を止める。
+ *   iOS Safari では body が非スクロールでも指を離す時に微妙にバウンスするのを抑える。
+ *   個別スクロール領域 (SlideListPanel の ScrollArea 等) は自分の overflow に閉じているので
+ *   この指定は内側スクロールを妨げない (overscroll-behavior は containing block 単位)。
+ */
+html[data-mobile-env],
+html[data-mobile-env] body {
+	overscroll-behavior: none;
+}

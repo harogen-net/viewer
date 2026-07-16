@@ -1,4 +1,5 @@
 import { useAlert } from "@/hooks/useAlert";
+import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useDocSettingsStore } from "@/state/docSettingsStore";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
@@ -29,6 +30,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 	const [showImageLibrary, setShowImageLibrary] = useState(false);
 	const openDocSettings = useDocSettingsStore((s) => s.openEdit);
 	const imageCount = useImageLibraryStore((s) => Object.keys(s.imageById).length);
+	const { isMobile } = useDeviceMode();
 
 	// ドキュメントを閉じる (store クリア)。未保存変更があれば破棄確認してから。
 	const handleCloseDocument = async (): Promise<void> => {
@@ -47,65 +49,67 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 			<Stack gap="xs">
 				<FileIOToolbar readOnly={readOnly} />
 
-				<Paper withBorder p="6" radius="sm">
-					{!meta ? (
-						<Text size="sm" c="dimmed">
-							ドキュメント未ロード
-						</Text>
-					) : (
-						<Group justify="space-between" align="center">
-							<Group>
-								<Tooltip label="ドキュメントを閉じる">
-									<ActionIcon
-										variant="default"
-										onClick={handleCloseDocument}
-										data-action="close-document"
-										aria-label="ドキュメントを閉じる">
-										✕
-									</ActionIcon>
-								</Tooltip>
-								<Text size="sm">{meta.title}</Text>
-								{modified ? (
-									<Pill
-										size="xs"
-										styles={{
-											root: {
-												backgroundColor: `var(--mantine-primary-color-filled)`,
-												color: `var(--mantine-primary-color-contrast)`,
-											},
-										}}>
-										変更あり
-									</Pill>
-								) : null}
-							</Group>
-							{!readOnly && (
-								<Group gap="xs">
-									<Button
-										variant="filled"
-										color="gray"
-										size="xs"
-										leftSection={<IconFileSettings stroke={2} />}
-										onClick={openDocSettings}
-										data-open-doc-settings>
-										ドキュメント設定
-									</Button>
-									<Button
-										variant="filled"
-										color="gray"
-										size="xs"
-										leftSection={<IconLibraryPhoto stroke={2} />}
-										rightSection={
-											imageCount > 0 ? <span className="text-xs">({imageCount})</span> : null
-										}
-										onClick={() => setShowImageLibrary(true)}
-										data-open-image-library>
-										画像ライブラリ
-									</Button>
+				{!isMobile && (
+					<Paper withBorder p="6" radius="sm">
+						{!meta ? (
+							<Text size="sm" c="dimmed">
+								ドキュメント未ロード
+							</Text>
+						) : (
+							<Group justify="space-between" align="center">
+								<Group>
+									<Tooltip label="ドキュメントを閉じる">
+										<ActionIcon
+											variant="default"
+											onClick={handleCloseDocument}
+											data-action="close-document"
+											aria-label="ドキュメントを閉じる">
+											✕
+										</ActionIcon>
+									</Tooltip>
+									<Text size="sm">{meta.title}</Text>
+									{modified ? (
+										<Pill
+											size="xs"
+											styles={{
+												root: {
+													backgroundColor: `var(--mantine-primary-color-filled)`,
+													color: `var(--mantine-primary-color-contrast)`,
+												},
+											}}>
+											変更あり
+										</Pill>
+									) : null}
 								</Group>
-							)}
-						</Group>
-					)}
-				</Paper>
+								{!readOnly && (
+									<Group gap="xs">
+										<Button
+											variant="filled"
+											color="gray"
+											size="xs"
+											leftSection={<IconFileSettings stroke={2} />}
+											onClick={openDocSettings}
+											data-open-doc-settings>
+											ドキュメント設定
+										</Button>
+										<Button
+											variant="filled"
+											color="gray"
+											size="xs"
+											leftSection={<IconLibraryPhoto stroke={2} />}
+											rightSection={
+												imageCount > 0 ? <span className="text-xs">({imageCount})</span> : null
+											}
+											onClick={() => setShowImageLibrary(true)}
+											data-open-image-library>
+											画像ライブラリ
+										</Button>
+									</Group>
+								)}
+							</Group>
+						)}
+					</Paper>
+				)}
 			</Stack>
 			{!readOnly && (
 				<>

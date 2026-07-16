@@ -1,17 +1,18 @@
 import { useSensitivePassword } from "@/hooks/useSensitivePassword";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { canEditNow } from "@/state/viewerModeStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import { DateUtil } from "@/utils/DateUtil";
 import {
-	type EncryptedImageData,
-	decryptImageData,
-	encryptImageData,
+    type EncryptedImageData,
+    decryptImageData,
+    encryptImageData,
 } from "@/utils/sensitiveCrypto";
 import {
-	buildImageEntries,
-	collectReferencedImages,
-	parseHvd,
-	serializeHvd,
+    buildImageEntries,
+    collectReferencedImages,
+    parseHvd,
+    serializeHvd,
 } from "@/utils/storageCodec";
 import { useCallback } from "react";
 
@@ -226,6 +227,7 @@ export function useStorage(): StorageApi {
 				onProgress?: (fraction: number) => void;
 			}
 		): Promise<{ title: string } | null> => {
+			if (!canEditNow("storage.save")) return null;
 			const report = options?.onProgress;
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
@@ -290,6 +292,7 @@ export function useStorage(): StorageApi {
 	);
 
 	const deleteByTitle = useCallback(async (title: string): Promise<void> => {
+		if (!canEditNow("storage.deleteByTitle")) return;
 		const db = await openDb();
 		try {
 			const tx = db.transaction([TITLES_STORE, DATA_STORE, THUMBS_STORE], "readwrite");

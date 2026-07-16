@@ -3,6 +3,7 @@ import { type ImageEntry, useImageLibraryStore } from "@/state/imageLibraryStore
 import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import { canEditNow } from "@/state/viewerModeStore";
 import type { SlideState } from "@/types/SlideState";
 import { useCallback } from "react";
 
@@ -86,6 +87,7 @@ const applyToStores = (next: SlideState, images?: Record<string, ImageEntry>): v
 export const useDocumentMutation = (): UseDocumentMutation => {
 	const applySlideChange = useCallback(
 		(label: string, update: (state: SlideState) => SlideState | null): void => {
+			if (!canEditNow(label)) return;
 			const before = currentSlideState();
 			const beforeImages = currentImages();
 			const after = update(before);
@@ -104,6 +106,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 
 	const applySlideChangeLive = useCallback(
 		(update: (state: SlideState) => SlideState | null): void => {
+			if (!canEditNow("applySlideChangeLive")) return;
 			const after = update(currentSlideState());
 			if (!after) return; // no-op
 			applyToStores(after);
@@ -115,6 +118,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	);
 
 	const recordHistory = useCallback((label: string, before: SlideState): void => {
+		if (!canEditNow(`recordHistory:${label}`)) return;
 		const after = currentSlideState();
 		// 変化なし (slides 参照が同一) は記録しない
 		if (after.slides === before.slides) return;
@@ -130,6 +134,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	const snapshot = useCallback((): SlideState => currentSlideState(), []);
 
 	const undo = useCallback((): void => {
+		if (!canEditNow("undo")) return;
 		const entry = useHistoryStore.getState().popUndo();
 		if (!entry) return;
 		applyToStores(entry.before, entry.beforeImages);
@@ -137,6 +142,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	}, []);
 
 	const redo = useCallback((): void => {
+		if (!canEditNow("redo")) return;
 		const entry = useHistoryStore.getState().popRedo();
 		if (!entry) return;
 		applyToStores(entry.after, entry.afterImages);
