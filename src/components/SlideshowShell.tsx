@@ -30,14 +30,24 @@ const CURSOR_IDLE_MS = 2000;
 
 // ルート要素。open の間は常にこの黒 DIV を描画し (まず真っ黒を担保)、中身だけを
 // 状況 (スライド有無) に応じて差し替える。
-const overlayStyle: CSSProperties = {
+// 外側 = 常に inset:0 で safe-area まで黒を塗る (rotate 有無に依存しない)。
+// 内側 = rotate/寸法計算を担う (portrait 時に 90° 回転で landscape 表示)。
+// この分離により portrait rotate 時に内側の 100vh が safe-area を含まない場合でも
+// 外側が top/bottom のギャップを黒で埋めるため、上端に body の白が残らない。
+const overlayOuterStyle: CSSProperties = {
 	position: "fixed",
 	inset: 0,
-	width: "100vw",
-	height: "100vh",
 	zIndex: 9999,
 	background: "#000",
 	overflow: "hidden",
+};
+
+// 内側 (rotate 中は 90° 回転しつつ寸法を swap)。translate(-50%,-50%) で外側中央にアラインし、
+// center 原点で回転。inset:0 のままだと元ポートレートの矩形が回転で外側からはみ出す。
+const overlayInnerBaseStyle: CSSProperties = {
+	position: "absolute",
+	inset: 0,
+	// 外側で黒を担保しているので inner の bg は不要 (差し替え時のちらつき原因になり得るため未指定)。
 };
 
 // UI は CSS hover で出す。起動時は全 UI 非表示 (.ss-fade = opacity 0)、要素を hover した時だけ表示。
@@ -576,13 +586,15 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 
 	return (
 		<div
-			style={{ ...overlayStyle, ...rotatedOverlayStyle, cursor: stageCursor }}
+			style={overlayOuterStyle}
 			ref={overlayRef}
 			onMouseMove={handleMouseMove}
 			data-slideshow-overlay
 			data-slideshow-rotate={rotate ? "portrait" : undefined}>
 			<style>{SS_HOVER_CSS}</style>
-			{body}
+			<div style={{ ...overlayInnerBaseStyle, ...rotatedOverlayStyle, cursor: stageCursor }}>
+				{body}
+			</div>
 		</div>
 	);
 };

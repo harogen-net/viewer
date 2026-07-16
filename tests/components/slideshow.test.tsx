@@ -154,6 +154,23 @@ describe("SlideshowShell (§9)", () => {
 		act(() => ss("mirror-h")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		expect(useSlideshowStore.getState().flipX).toBe(true);
 	});
+
+	// safe-area 黒塗り: ルートを外側 (常に inset:0 + bg:#000) と内側 (rotate 変形) の 2 層にし、
+	// 内側の rotate/寸法計算に関わらず safe-area まで必ず黒で塗る (iOS PWA portrait 起動時に
+	// 上部 notch/status bar が白いままになる問題の回帰防止)。
+	it("overlay ルートは外側 (bg #000 + inset:0) と内側の 2 層構造", () => {
+		act(() => useSlideStore.getState().setSlides([makeSlide(1)]));
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+		const outer = container.querySelector<HTMLElement>("[data-slideshow-overlay]");
+		expect(outer).not.toBeNull();
+		expect(outer?.style.position).toBe("fixed");
+		expect(outer?.style.inset).toBe("0");
+		// safe-area まで黒: 外側は必ず #000
+		expect(outer?.style.background).toContain("rgb(0, 0, 0)");
+		// 内側 (child div) が存在する: rotate 変形やカーソル担当。
+		const inner = outer?.querySelector<HTMLElement>(":scope > div:not([data-slide-id])");
+		expect(inner).not.toBeNull();
+	});
 });
 
 describe("SlideshowShell join keep tween (§9, transform/opacity/clip 補間)", () => {
