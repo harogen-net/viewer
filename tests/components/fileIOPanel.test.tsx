@@ -470,7 +470,7 @@ describe("generateUniqueTitle (import 同時保存の衝突回避)", () => {
 	});
 });
 
-describe("FileIOPanel インポート同時保存", () => {
+describe("FileIOPanel インポート同時保存 (スマホ限定)", () => {
 	// importFile の結果を差し替えるためのセットアップ。
 	// mock 対象は hoisted noopFileIO.importFile なので mockImplementationOnce で 1 回だけ差し替える。
 	const triggerImport = async (): Promise<void> => {
@@ -485,6 +485,7 @@ describe("FileIOPanel インポート同時保存", () => {
 	beforeEach(() => {
 		// 他 describe の save 呼び出しが calls に混ざらないようクリア。
 		saveMock.mockClear();
+		deviceMode.isMobile = true; // インポート同時保存はスマホ限定
 	});
 
 	it("import 成功時、同名 title 衝突なら (1) サフィックスで save を呼ぶ", async () => {
@@ -519,6 +520,18 @@ describe("FileIOPanel インポート同時保存", () => {
 		const savedArg = saveMock.mock.calls[0]?.[0];
 		expect(savedArg?.title).toBe("fresh");
 	});
+	it("PC (非スマホ) では import しても save を呼ばない (从来通り手動保存運用)", async () => {
+		deviceMode.isMobile = false; // PC 条件に戻す
+		noopFileIO.importFile.mockImplementationOnce(async () => ({
+			doc: makeDoc("pc-doc"),
+			imageData: {},
+			imageNames: {},
+		}));
+		await render(false);
+		await triggerImport();
+		expect(saveMock).not.toHaveBeenCalled(); // PC はメモリに載せるだけ
+	});
+
 });
 
 describe("FileIOPanel スマホ限定 ドキュメント削除", () => {

@@ -117,7 +117,13 @@ export const FileIOSubMenu: FC<{
 				.getState()
 				.setImageLibrary(buildImageEntries(result.imageData, result.imageNames));
 			onTitleChange?.(null);
-			// インポート同時保存 (スマホでは IDB を触る他手段が無いため必須。PC でも紛失予防で常時実行)。
+			// インポート同時保存はスマホモード限定 (スマホは IDB を触る他手段が無いため必須)。
+			// PC では従来通り「メモリに載せるだけ」で、ユーザが明示的に保存ボタンを押す運用。
+			if (!isMobile) {
+				toast.success(`インポートしました: ${savedDoc.title} (${savedDoc.slides.length} slides)`);
+				return;
+			}
+			// スマホは VIEW モード自動選択のため allowInViewMode で gate をバイパスする。
 			// センシティブは PW 入力 (キャンセルで save 中止=無音)。生成失敗はサムネ無しで保存。
 			const saved = await run("保存中…", async (report) => {
 				report(0.05);
@@ -131,8 +137,6 @@ export const FileIOSubMenu: FC<{
 					override: true,
 					thumbnail,
 					onProgress: (f) => report(0.3 + f * 0.7),
-					// スマホ (=VIEW モード自動選択) でも保存を通す。この動線は UI 上スマホ限定ではないが
-					// 「インポート = 破棄確認済み」で明示的に許可済みのアクション扱いにする。
 					allowInViewMode: true,
 				});
 			});
