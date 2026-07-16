@@ -1,5 +1,6 @@
 import { DocSettingsMode, useDocSettingsStore } from "@/state/docSettingsStore";
 import { useHistoryStore } from "@/state/historyStore";
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import { DateUtil } from "@/utils/DateUtil";
@@ -81,6 +82,8 @@ export const DocumentSettingsModal: FC = () => {
 		const h = Math.max(1, Math.round(height));
 		if (mode === DocSettingsMode.NEW) {
 			// 既定 document をベースに draft を載せて新規作成 (slides 空)。
+			// 前ドキュメントの画像を引き継がないよう image library をクリア。
+			useImageLibraryStore.getState().setImageLibrary({});
 			setDocument({
 				...createNewViewerDocument(),
 				title,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 import { createNewViewerDocument } from "../../src/utils/viewerDocumentFactory";
@@ -20,6 +21,7 @@ beforeEach(() => {
 		metaDirty: false,
 	});
 	useSlideStore.getState().setSlides([]);
+	useImageLibraryStore.getState().setImageLibrary({});
 });
 
 describe("viewerDocumentStore.setProgress", () => {
@@ -193,5 +195,17 @@ describe("clean 判定 (savedSlides 参照比較 + metaDirty)", () => {
 		useSlideStore.getState().setSlides(edited);
 		store().refreshModified();
 		expect(store().modified).toBe(false);
+	});
+});
+
+describe("viewerDocumentStore.setDocument", () => {
+	it("null (close) で image library がクリアされる", () => {
+		useImageLibraryStore
+			.getState()
+			.setImageLibrary({ img1: { dataURL: "data:x" }, img2: { dataURL: "data:y" } });
+		expect(Object.keys(useImageLibraryStore.getState().imageById).length).toBe(2);
+
+		useViewerDocumentStore.getState().setDocument(null);
+		expect(useImageLibraryStore.getState().imageById).toEqual({});
 	});
 });

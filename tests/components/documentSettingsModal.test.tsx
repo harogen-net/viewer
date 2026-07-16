@@ -8,6 +8,7 @@ import {
 } from "../../src/components/panels/DocumentSettingsModal";
 import { DocSettingsMode, useDocSettingsStore } from "../../src/state/docSettingsStore";
 import { useHistoryStore } from "../../src/state/historyStore";
+import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 import type { Slide } from "../../src/types/Slide";
@@ -167,5 +168,14 @@ describe("DocumentSettingsModal new (新規作成)", () => {
 		expect(doc.modified).toBe(false); // setDocument は modified=false
 		expect(useSlideStore.getState().slides).toHaveLength(0); // 新規は空
 		expect(useDocSettingsStore.getState().mode).toBeNull();
+	});
+
+	it("作成で image library がクリアされる (前ドキュメントの画像を引き継がない)", () => {
+		useImageLibraryStore
+			.getState()
+			.setImageLibrary({ img1: { dataURL: "data:x" }, img2: { dataURL: "data:y" } });
+		render("new");
+		click(q("[data-doc-save]"));
+		expect(useImageLibraryStore.getState().imageById).toEqual({});
 	});
 });

@@ -4,6 +4,7 @@ import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useProgress } from "@/hooks/useProgress";
 import { useStorage, type StoredSlideTitle } from "@/hooks/useStorage";
 import { useToast } from "@/hooks/useToast";
+import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
@@ -73,6 +74,8 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 	const handleNew = wrap(async () => {
 		if (!(await confirmDiscardIfModified())) return;
 		setSelectedTitle(null);
+		// 新規作成は前ドキュメントの画像を引き継がない (画像ライブラリをクリア)。
+		useImageLibraryStore.getState().setImageLibrary({});
 		setDocument({ ...createNewViewerDocument(), title: DateUtil.getDateString() });
 		toast.success("新規ドキュメントを作成しました");
 	});

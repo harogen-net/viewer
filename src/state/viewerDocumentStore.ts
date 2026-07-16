@@ -3,6 +3,7 @@ import type { Slide } from "../types/Slide";
 import type { ViewerDocument } from "../types/ViewerDocument";
 import { useClipboardStore } from "./clipboardStore";
 import { useHistoryStore } from "./historyStore";
+import { useImageLibraryStore } from "./imageLibraryStore";
 import { useSlideStore } from "./slideStore";
 
 /** ViewerDocument から slides を除いたメタ部分 (slides は slideStore が保持)。 */
@@ -76,6 +77,10 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 		useClipboardStore.getState().clear();
 		if (doc === null) {
 			useSlideStore.getState().setSlides([]);
+			// close 時は image library もクリア (次に開くドキュメントの画像と混ざらないよう)。
+			// 新規作成 (setDocument(newDoc)) は callsite でクリアする — load 経由の setDocument は
+			// 直前に setImageLibrary(...) を済ませているのでここで触ってはいけない。
+			useImageLibraryStore.getState().setImageLibrary({});
 			// baseline を現在の slides 参照に取る (以後 undo でここへ戻れば clean 判定)。
 			set({ meta: null, modified: false, metaDirty: false, savedSlides: null });
 		} else {

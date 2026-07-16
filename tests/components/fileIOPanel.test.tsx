@@ -43,6 +43,7 @@ vi.mock("../../src/hooks/useFileIO", () => ({ useFileIO: () => noopFileIO }));
 import { FileIOPanel } from "../../src/components/panels/FileIOPanel";
 import { AlertHost } from "../../src/components/common/AlertHost";
 import { useAlertStore } from "../../src/state/alertStore";
+import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 import type { Slide } from "../../src/types/Slide";
@@ -121,6 +122,7 @@ beforeEach(() => {
 	useAlertStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	useSlideStore.getState().setSlides([]);
+	useImageLibraryStore.getState().setImageLibrary({});
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -334,11 +336,14 @@ describe("FileIOPanel ドキュメントを閉じる", () => {
 		await render();
 		act(() => {
 			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+			useImageLibraryStore.getState().setImageLibrary({ img1: { dataURL: "data:x" } });
 		});
 		click(closeBtn());
 		await act(async () => {});
 		expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
 		expect(useViewerDocumentStore.getState().meta).toBeNull();
+		// close で image library もクリア (次に開くドキュメントに画像が持ち越されないよう)。
+		expect(useImageLibraryStore.getState().imageById).toEqual({});
 	});
 
 	it("未保存変更ありは確認し、キャンセルなら閉じない", async () => {
@@ -361,6 +366,25 @@ describe("FileIOPanel ドキュメントを閉じる", () => {
 		await resolveAlert(true); // 破棄して閉じる
 		await act(async () => {});
 		expect(useViewerDocumentStore.getState().meta).toBeNull();
+	});
+});
+
+describe("FileIOPanel 新規ドキュメント", () => {
+	const newBtn = (): HTMLButtonElement | null =>
+		container.querySelector<HTMLButtonElement>('[data-action="new"]');
+
+	it("新規作成で image library がクリアされる (前ドキュメントの画像を引き継がない)", async () => {
+		await render(false);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+			useImageLibraryStore
+				.getState()
+				.setImageLibrary({ img1: { dataURL: "data:x" }, img2: { dataURL: "data:y" } });
+		});
+		click(newBtn());
+		await act(async () => {});
+		expect(useImageLibraryStore.getState().imageById).toEqual({});
+		expect(useViewerDocumentStore.getState().meta).not.toBeNull(); // 新規 doc が入っている
 	});
 });
 
