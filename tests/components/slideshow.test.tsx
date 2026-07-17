@@ -92,6 +92,18 @@ describe("SlideshowShell (§9)", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
+	it("slideshow 中は theme-color を黒にし、終了で元へ戻す (元が無ければ meta を除去)", () => {
+		// テスト環境の index.html には theme-color meta は無い。
+		expect(document.querySelector('meta[name="theme-color"]')).toBeNull();
+		act(() => root.render(<SlideshowShell open={true} onClose={() => {}} />));
+		expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(
+			"#000000"
+		);
+		// open=false で effect の cleanup が走り、元々無かった meta は除去される。
+		act(() => root.render(<SlideshowShell open={false} onClose={() => {}} />));
+		expect(document.querySelector('meta[name="theme-color"]')).toBeNull();
+	});
+
 	it("全 disabled も「有効スライド無し」扱い", () => {
 		act(() =>
 			useSlideStore

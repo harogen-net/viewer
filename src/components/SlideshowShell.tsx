@@ -117,14 +117,6 @@ const cornerBtnStyle: CSSProperties = {
 	userSelect: "none",
 	zIndex: 10000,
 };
-// 各隅: 画面隅に密着 (top/left=0 等)、内側を向く角だけ角丸 (borderRadius: TL TR BR BL)。
-const cornerPos = {
-	tl: { top: 0, left: 0, borderRadius: `0 0 ${CORNER_R}px 0` }, // 内側 = 右下
-	tr: { top: 0, right: 0, borderRadius: `0 0 0 ${CORNER_R}px` }, // 内側 = 左下
-	bl: { bottom: 0, left: 0, borderRadius: `0 ${CORNER_R}px 0 0` }, // 内側 = 右上
-	br: { bottom: 0, right: 0, borderRadius: `${CORNER_R}px 0 0 0` }, // 内側 = 左上
-} as const;
-
 export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
@@ -161,11 +153,27 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	const rotate = open && isMobile && isPortrait;
 	// スライドショー実行中は <html> に属性を付け、safe-area まで黒背景を効かせる
 	// (styles/index.css + index.html の viewport-fit=cover と連動)。
+	// あわせて theme-color を黒にする: iOS Safari は portrait のタブ上部バーを theme-color
+	// (無ければページ色) で塗るため、既定だと上部セーフエリアが白く残り没入感を損なう。
+	// landscape は Safari が上部バーを畳むため元々黒。終了時に元の値へ戻す (無ければ meta を除去)。
 	useEffect(() => {
 		if (!open) return;
 		const html = document.documentElement;
 		html.setAttribute("data-slideshow-active", "");
-		return () => html.removeAttribute("data-slideshow-active");
+		let themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+		const createdHere = themeMeta === null;
+		const prevContent = themeMeta?.getAttribute("content") ?? null;
+		if (!themeMeta) {
+			themeMeta = document.createElement("meta");
+			themeMeta.setAttribute("name", "theme-color");
+			document.head.appendChild(themeMeta);
+		}
+		themeMeta.setAttribute("content", "#000000");
+		return () => {
+			html.removeAttribute("data-slideshow-active");
+			if (createdHere) themeMeta?.remove();
+			else if (prevContent !== null) themeMeta?.setAttribute("content", prevContent);
+		};
 	}, [open]);
 	// viewport 寸法は state で持ち、scale は render 中に同期計算する (post-paint 反映による
 	// 初回 scale=1 の白ちらつきを防ぐ)。resize 時のみ state を更新。
@@ -328,6 +336,23 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 				transition: "opacity 200ms ease",
 			}
 		: {};
+	// 隅/端の UI をセーフエリア (ノッチ / Dynamic Island / ホームインジケータ / 角丸) の
+	// 外へ逃がすための各辺インセット。env() は常に「物理ビューポート」基準なので、portrait
+	// rotate 中 (overlay を 90°CW 回転) は content 座標系と物理辺の対応がずれる:
+	//   content top ↔ 物理right / content left ↔ 物理top / content right ↔ 物理bottom / content bottom ↔ 物理left
+	// そのため rotate 時は env をこの対応で入れ替える。非 rotate (PC/landscape) は素直に対応。
+	// 非モバイルでは env=0 になり従来どおり画面隅に密着する (Fitts の法則を維持)。
+	const safeTop = rotate ? "env(safe-area-inset-right, 0px)" : "env(safe-area-inset-top, 0px)";
+	const safeLeft = rotate ? "env(safe-area-inset-top, 0px)" : "env(safe-area-inset-left, 0px)";
+	const safeRight = rotate ? "env(safe-area-inset-bottom, 0px)" : "env(safe-area-inset-right, 0px)";
+	const safeBottom = rotate ? "env(safe-area-inset-left, 0px)" : "env(safe-area-inset-bottom, 0px)";
+	// 4 隅ボタンの配置 (画面隅ではなくセーフエリア境界に密着)。内側を向く角だけ角丸。
+	const cornerPosSafe = {
+		tl: { top: safeTop, left: safeLeft, borderRadius: `0 0 ${CORNER_R}px 0` },
+		tr: { top: safeTop, right: safeRight, borderRadius: `0 0 0 ${CORNER_R}px` },
+		bl: { bottom: safeBottom, left: safeLeft, borderRadius: `0 ${CORNER_R}px 0 0` },
+		br: { bottom: safeBottom, right: safeRight, borderRadius: `${CORNER_R}px 0 0 0` },
+	} as const;
 	const cornerSize = isMobile ? 72 : 48;
 	const cornerFont = isMobile ? 32 : 22;
 	const cornerBtnDyn: CSSProperties = {
@@ -344,6 +369,8 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 		padding: controlPad,
 		gap: controlGap,
 		fontSize: controlFont,
+		// ホームインジケータ (portrait は物理下 = rotate 時 content 左) の上に浮かせる。
+		bottom: safeBottom,
 	};
 	const btnDyn: CSSProperties = {
 		...btnStyle,
@@ -373,8 +400,8 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 		userSelect: "none",
 		zIndex: 10000,
 	};
-	const navLeft: CSSProperties = { ...navBase, left: 0, borderRadius: `0 ${CORNER_R}px ${CORNER_R}px 0` };
-	const navRight: CSSProperties = { ...navBase, right: 0, borderRadius: `${CORNER_R}px 0 0 ${CORNER_R}px` };
+	const navLeft: CSSProperties = { ...navBase, left: safeLeft, borderRadius: `0 ${CORNER_R}px ${CORNER_R}px 0` };
+	const navRight: CSSProperties = { ...navBase, right: safeRight, borderRadius: `${CORNER_R}px 0 0 ${CORNER_R}px` };
 
 	// 中身: 有効スライドが無ければメッセージ、あれば stage + コントロール。
 	// ルート (黒 overlay) は常に描画されるので、開始時は必ず真っ黒。
@@ -471,7 +498,7 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 							type="button"
 							style={{
 								...cornerBtnDyn,
-								...cornerPos.tl,
+								...cornerPosSafe.tl,
 								background: "transparent",
 							}}
 							onClick={togglePause}
@@ -484,7 +511,7 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 					<button
 						type="button"
 						className={fadeClass}
-						style={{ ...cornerBtnDyn, ...cornerPos.tl }}
+						style={{ ...cornerBtnDyn, ...cornerPosSafe.tl }}
 						onClick={toggleFullscreen}
 						data-ss="fullscreen"
 						aria-label="fullscreen">
@@ -494,7 +521,7 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 				<button
 					type="button"
 					className={fadeClass}
-					style={{ ...cornerBtnDyn, ...cornerPos.tr, ...mobileUIStyle }}
+					style={{ ...cornerBtnDyn, ...cornerPosSafe.tr, ...mobileUIStyle }}
 					onClick={isMobile ? wrapMobileClick(onClose) : onClose}
 					data-ss="close"
 					aria-label="close">
@@ -503,7 +530,7 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 				<button
 					type="button"
 					className={fadeClass}
-					style={{ ...cornerBtnDyn, ...cornerPos.bl, ...mobileUIStyle }}
+					style={{ ...cornerBtnDyn, ...cornerPosSafe.bl, ...mobileUIStyle }}
 					onClick={isMobile ? wrapMobileClick(toggleFlipX) : toggleFlipX}
 					data-ss="mirror-h">
 					⇄
@@ -511,7 +538,7 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 				<button
 					type="button"
 					className={fadeClass}
-					style={{ ...cornerBtnDyn, ...cornerPos.br, ...mobileUIStyle }}
+					style={{ ...cornerBtnDyn, ...cornerPosSafe.br, ...mobileUIStyle }}
 					onClick={isMobile ? wrapMobileClick(toggleFlipY) : toggleFlipY}
 					data-ss="mirror-v">
 					⇅
