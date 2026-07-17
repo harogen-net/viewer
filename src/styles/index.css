@@ -64,4 +64,20 @@ html[data-mobile-env] * {
 html[data-mobile-env],
 html[data-mobile-env] body {
 	overscroll-behavior: none;
+	/* ページ(body)自体は絶対にスクロールさせない (各領域が内部で個別スクロールする設計)。
+	   iOS では 100vh が可視領域より大きく解釈され、その差ぶん body が縦スクロールできて
+	   しまう不具合があったため、html/body を可視高に固定して overflow を殺す。 */
+	height: 100%;
+	overflow: hidden;
+}
+
+/*
+ * アプリのルートレイアウト (AppShell の data-viewer-mode を持つ div) の高さ。
+ * iOS の 100vh は動的ブラウザ UI / safe-area 分だけ可視領域より大きくなり縦スクロールを
+ * 生むため、dvh (動的ビューポート = 実可視高) に一致させる。dvh 非対応環境 (iOS 16.3 以前
+ * 等) は先行の 100vh にフォールバックする。
+ */
+[data-viewer-mode] {
+	height: 100vh;
+	height: 100dvh;
 }

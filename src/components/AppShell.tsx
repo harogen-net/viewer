@@ -219,9 +219,10 @@ const newModeLayoutStyle: CSSProperties = {
 	display: "flex",
 	flexDirection: "column",
 	width: "100vw",
-	height: "100vh",
+	// height は styles/index.css の [data-viewer-mode] で指定 (100dvh, 100vh フォールバック)。
+	// iOS の 100vh は可視領域より大きく解釈され body が縦スクロールできてしまうため dvh を使う。
 	// 上端固定の進捗バーとコンテンツが重ならないよう、バー高さぶんの上パディングを常時確保する
-	// (border-box なので 100vh を超えず、内側領域が縮む。表示/非表示でレイアウトがずれない)。
+	// (border-box なので高さを超えず、内側領域が縮む。表示/非表示でレイアウトがずれない)。
 	// iOS PWA (apple-mobile-web-app-status-bar-style=black-translucent) では
 	// 上端が status bar と重なるため safe-area-inset-top を加算する。
 	boxSizing: "border-box",
