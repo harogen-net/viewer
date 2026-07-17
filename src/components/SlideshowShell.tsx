@@ -1,5 +1,6 @@
 import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useSlideshowPlayer } from "@/hooks/useSlideshowPlayer";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import { useSlideStore } from "@/state/slideStore";
 import { useSlideshowStore } from "@/state/slideshowStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
@@ -151,6 +152,9 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	// device 軸 (useDeviceMode) で判定 — 起動モード (VIEW/EDIT) とは独立。PC で portrait window
 	// にした場合の意図しない回転は isMobile=false で弾かれる。
 	const rotate = open && isMobile && isPortrait;
+	// スライドショー表示中は画面の自動ロック / スリープを抑止する (Screen Wake Lock)。
+	// 受動的に眺める場面のため。open=false で自動解放。非対応環境 (iOS 16.3 以前等) は no-op。
+	useWakeLock(open);
 	// スライドショー実行中は <html> に属性を付け、safe-area まで黒背景を効かせる
 	// (styles/index.css + index.html の viewport-fit=cover と連動)。
 	// あわせて theme-color を黒にする: iOS Safari は portrait のタブ上部バーを theme-color
