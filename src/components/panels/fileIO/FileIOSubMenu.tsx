@@ -14,6 +14,7 @@ import { buildImageEntries } from "@/utils/storageCodec";
 import { ActionIcon, Menu } from "@mantine/core";
 import {
 	IconBookDownload,
+	IconDeviceFloppy,
 	IconDotsVertical,
 	IconPackageExport,
 	IconPackageImport,
@@ -22,19 +23,6 @@ import {
 import type { ChangeEvent, FC } from "react";
 import { useRef } from "react";
 import { useFileIOCommon } from "./useFileIOCommon";
-
-// 既存 title と衝突しないよう "(1)", "(2)"... のサフィックスを付与 (インポート同時保存の
-// 上書き防止用。base 自体が未使用ならそのまま返す)。
-export const generateUniqueTitle = (base: string, existing: StoredSlideTitle[]): string => {
-	const used = new Set(existing.map((t) => t.title));
-	if (!used.has(base)) return base;
-	for (let i = 1; i < 10000; i++) {
-		const candidate = `${base}(${i})`;
-		if (!used.has(candidate)) return candidate;
-	}
-	// 極端に多い場合はタイムスタンプで一意化 (現実的にはまず到達しない)。
-	return `${base}(${Date.now()})`;
-};
 
 export const FileIOSubMenu: FC<{
 	readOnly?: boolean;
@@ -45,8 +33,10 @@ export const FileIOSubMenu: FC<{
 	const { exportHvd, exportHvz, exportPng, importFile, exportAllSlidesZip } = useFileIO();
 	const { save, deleteByTitle } = useStorage();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
+	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const slides = useSlideStore((s) => s.slides);
+	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const toast = useToast();
 	const alert = useAlert();
 	const { isMobile } = useDeviceMode();
@@ -109,48 +99,52 @@ export const FileIOSubMenu: FC<{
 				toast.error(`未対応の拡張子です: ${file.name}`);
 				return;
 			}
-			// 同名衝突は "(n)" サフィックスで回避 (既存レコード上書きを防ぐ)。
-			const uniqueTitle = generateUniqueTitle(result.doc.title, titles);
-			const savedDoc: ViewerDocument = { ...result.doc, title: uniqueTitle };
-			setDocument(savedDoc);
+			// インポートはメモリロードのみ (通常のインポート)。IDB への保存はスマホ/PC とも
+			// ユーザが明示的に「保存」を押した時に行う (サムネ生成もそのタイミング)。
+			setDocument(result.doc);
 			useImageLibraryStore
 				.getState()
 				.setImageLibrary(buildImageEntries(result.imageData, result.imageNames));
 			onTitleChange?.(null);
-			// インポート同時保存はスマホモード限定 (スマホは IDB を触る他手段が無いため必須)。
-			// PC では従来通り「メモリに載せるだけ」で、ユーザが明示的に保存ボタンを押す運用。
-			if (!isMobile) {
-				toast.success(`インポートしました: ${savedDoc.title} (${savedDoc.slides.length} slides)`);
-				return;
-			}
-			// スマホは VIEW モード自動選択のため allowInViewMode で gate をバイパスする。
-			// センシティブは PW 入力 (キャンセルで save 中止=無音)。生成失敗はサムネ無しで保存。
-			const saved = await run("保存中…", async (report) => {
-				report(0.05);
-				const thumbnail = await generateDocThumbnailStrip(savedDoc, collectImageMap(), {
-					frameMaxPx: 320,
-					mimeType: "image/png",
-					blur: savedDoc.isSensitive,
-				}).catch(() => null);
-				report(0.3);
-				return save(savedDoc, {
-					override: true,
-					thumbnail,
-					onProgress: (f) => report(0.3 + f * 0.7),
-					allowInViewMode: true,
-				});
-			});
-			if (saved) {
-				onListChanged?.();
-				toast.success(
-					`インポートして保存しました: ${saved.title} (${savedDoc.slides.length} slides)`
-				);
-			} else {
-				// PW キャンセル等で保存中止: doc はメモリ上に残っている旨だけ通知。
-				toast.info(`インポートしました: ${savedDoc.title} (保存はスキップされました)`);
-			}
+			toast.success(`インポートしました: ${result.doc.title} (${result.doc.slides.length} slides)`);
 		})();
 	};
+
+	// スマホモード限定: 現在ロード中のドキュメントを IDB に保存 (通常モードの handleSave と同挙動)。
+	// スマホは表側の「保存」ボタンが出ない (readOnly) ため、この導線が唯一の保存手段。
+	// VIEW モード自動選択のため allowInViewMode で gate をバイパスする。
+	const handleMobileSave = wrap(async () => {
+		if (!meta) {
+			toast.info("ドキュメントが未ロードです");
+			return;
+		}
+		const doc: ViewerDocument = { ...meta, slides };
+		// 名前付き document は上書き、未命名 ("(new)"/"") は新規 (date title) 保存 (通常モードと同基準)。
+		const canOverride = meta.title !== "" && meta.title !== "(new)";
+		// 進捗: サムネ生成 (0..0.3) → save (0.3..1)。センシティブはぼかしたサムネを保存。
+		// 生成失敗は best-effort でサムネ無し保存。PW 入力キャンセル時は save が null (無音中止)。
+		const result = await run("保存中…", async (report) => {
+			report(0.05);
+			const thumbnail = await generateDocThumbnailStrip(doc, collectImageMap(), {
+				frameMaxPx: 320,
+				mimeType: "image/png",
+				selectedIndex,
+				blur: meta.isSensitive,
+			}).catch(() => null);
+			report(0.3);
+			return save(doc, {
+				override: canOverride,
+				thumbnail,
+				onProgress: (f) => report(0.3 + f * 0.7),
+				allowInViewMode: true,
+			});
+		});
+		if (!result) return; // パスワード入力キャンセル = 保存中止 (無音)
+		// 保存名を meta へ同期し modified を解除 (未保存ガードの誤発火を防ぐ)。
+		markSaved(result.title);
+		toast.success(`保存しました: ${result.title}`);
+		onListChanged?.();
+	});
 
 	// スマホモード限定: 現在ロード中のドキュメントを削除 (通常モードの handleDelete と同挙動)。
 	// スマホでは FileSelector が非表示のため selectedTitle を使えず、meta.title を対象にする。
@@ -234,12 +228,19 @@ export const FileIOSubMenu: FC<{
 							</Menu.Item>
 						</>
 					)}
-					{/* スマホモード限定の削除導線。スマホは readOnly でも表示 (スマホでは
-					    表側の「削除」ボタンが出ないため、削除する術がこのメニューしかない)。 */}
+					{/* スマホモード限定の保存/削除導線。スマホは readOnly でも表示 (スマホでは
+					    表側の「保存」「削除」ボタンが出ないため、これらの術がこのメニューにしかない)。 */}
 					{isMobile && (
 						<>
 							<Menu.Divider />
-							<Menu.Label>削除</Menu.Label>
+							<Menu.Label>ファイル</Menu.Label>
+							<Menu.Item
+								leftSection={<IconDeviceFloppy stroke={2} />}
+								onClick={handleMobileSave}
+								disabled={!hasSlides}
+								data-action="save-mobile">
+								ドキュメントを保存
+							</Menu.Item>
 							<Menu.Item
 								leftSection={<IconTrash stroke={2} />}
 								onClick={handleMobileDelete}

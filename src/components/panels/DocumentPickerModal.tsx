@@ -277,7 +277,12 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 						disabled={locked}
 						title={locked ? "パスワードを入力すると開けます" : undefined}
 						onClick={locked ? undefined : () => onPick(t.title)}>
-						<div style={{ position: "relative" }}>
+						{/* width:100% を明示する理由: 親カードは <button> の flex-column。
+						    WebKit (iOS Safari) は button を flex コンテナにすると align-items:stretch
+						    を効かせず、この wrapper がクロス軸で content 幅に潰れる。結果 thumbBoxStyle
+						    の width:100% が 0 に解決してサムネ枠が消える。明示 100% で button の確定幅に
+						    解決させて回避する (desktop Chrome/FF は stretch が効くため元々問題なし)。 */}
+						<div style={{ position: "relative", width: "100%" }}>
 							<LazyDocThumbnail title={t.title} loadThumbnail={loadThumbnail} />
 							{t.isSensitive && (
 								<div

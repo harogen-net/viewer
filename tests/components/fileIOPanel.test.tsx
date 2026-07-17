@@ -49,7 +49,6 @@ vi.mock("../../src/hooks/useDeviceMode", () => ({
 }));
 
 import { AlertHost } from "../../src/components/common/AlertHost";
-import { generateUniqueTitle } from "../../src/components/panels/fileIO/FileIOSubMenu";
 import { FileIOPanel } from "../../src/components/panels/FileIOPanel";
 import { useAlertStore } from "../../src/state/alertStore";
 import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
@@ -451,104 +450,83 @@ describe("FileIOPanel 閲覧モード (readOnly)", () => {
 	});
 });
 
-describe("generateUniqueTitle (import 同時保存の衝突回避)", () => {
-	it("既存に無ければ base をそのまま返す", () => {
-		expect(generateUniqueTitle("fresh", [{ id: 1, title: "A", update: 1 }])).toBe("fresh");
+// Mantine Menu.Dropdown は Portal で document 直下に出るため document から検索。
+const findMenuItem = (dataAction: string): HTMLElement | null =>
+	document.querySelector<HTMLElement>(`[data-action="${dataAction}"]`);
+// 「…」トリガ (submenu の ActionIcon) を開く。dropdown が portal でマウントされるのを待つ。
+const openSubMenu = async (): Promise<void> => {
+	const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="その他の操作"]');
+	expect(trigger).not.toBeNull();
+	await act(async () => {
+		trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 	});
+};
+// Mantine Menu.Item の disabled は data-disabled or aria-disabled で表現される。
+const isMenuItemDisabled = (el: HTMLElement | null): boolean =>
+	el?.getAttribute("data-disabled") !== null || el?.getAttribute("aria-disabled") === "true";
 
-	it("既存と衝突すれば (1)、更に衝突すれば (2)…と採番する", () => {
-		const existing = [
-			{ id: 1, title: "A", update: 1 },
-			{ id: 2, title: "A(1)", update: 2 },
-			{ id: 3, title: "A(2)", update: 3 },
-		];
-		expect(generateUniqueTitle("A", existing)).toBe("A(3)");
-	});
-
-	it("空リストなら base をそのまま返す", () => {
-		expect(generateUniqueTitle("x", [])).toBe("x");
-	});
-});
-
-describe("FileIOPanel インポート同時保存 (スマホ限定)", () => {
-	// importFile の結果を差し替えるためのセットアップ。
-	// mock 対象は hoisted noopFileIO.importFile なので mockImplementationOnce で 1 回だけ差し替える。
-	const triggerImport = async (): Promise<void> => {
-		const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
-		const file = new File(["x"], "a.hvd", { type: "text/plain" });
-		Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
-		await act(async () => {
-			fileInput?.dispatchEvent(new Event("change", { bubbles: true }));
-		});
-	};
-
+describe("FileIOPanel スマホ限定 ドキュメント保存", () => {
 	beforeEach(() => {
-		// 他 describe の save 呼び出しが calls に混ざらないようクリア。
+		deviceMode.isMobile = true; // スマホモード有効
 		saveMock.mockClear();
-		deviceMode.isMobile = true; // インポート同時保存はスマホ限定
+		saveMock.mockResolvedValue({ title: "A" });
 	});
 
-	it("import 成功時、同名 title 衝突なら (1) サフィックスで save を呼ぶ", async () => {
-		// listTitles は [A, B, C] を返す設定 (beforeEach)。同名 "A" を import。
-		noopFileIO.importFile.mockImplementationOnce(async () => ({
-			doc: makeDoc("A"), // "A" は既存と衝突
-			imageData: {},
-			imageNames: {},
-		}));
-		saveMock.mockResolvedValueOnce({ title: "A(1)" });
+	it("スマホでは保存メニューが表示される (readOnly でも)", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		await openSubMenu();
+		expect(findMenuItem("save-mobile")).not.toBeNull();
+	});
+
+	it("PC では保存メニューは表示されない", async () => {
+		deviceMode.isMobile = false;
 		await render(false);
-		await triggerImport();
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		await openSubMenu();
+		expect(findMenuItem("save-mobile")).toBeNull();
+	});
+
+	it("保存実行で allowInViewMode 付きで save を呼び、名前付きは上書き・modified 解除", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		await openSubMenu();
+		click(findMenuItem("save-mobile"));
+		await act(async () => {});
 		expect(saveMock).toHaveBeenCalled();
-		const savedArg = saveMock.mock.calls[0]?.[0];
-		expect(savedArg?.title).toBe("A(1)"); // 衝突回避
-		// 回帰: スマホ (VIEW モード自動選択) でも書き込めるよう allowInViewMode を必ず立てる。
-		// これが無いと canEditNow が false を返して save() が silent no-op になり、
-		// 「インポートしたのに IDB に残らない」不具合になる。
+		const savedDoc = saveMock.mock.calls[0]?.[0];
 		const savedOpts = saveMock.mock.calls[0]?.[1];
+		expect(savedDoc?.title).toBe("A");
+		// 回帰: スマホ (VIEW モード自動選択) でも書き込めるよう allowInViewMode を必ず立てる。
 		expect(savedOpts?.allowInViewMode).toBe(true);
+		expect(savedOpts?.override).toBe(true); // 名前付き ("A") は上書き
+		// markSaved で未保存ガードが解除される。
+		expect(useViewerDocumentStore.getState().modified).toBe(false);
 	});
 
-	it("import 成功時、衝突しなければ元 title のまま save を呼ぶ", async () => {
-		noopFileIO.importFile.mockImplementationOnce(async () => ({
-			doc: makeDoc("fresh"),
-			imageData: {},
-			imageNames: {},
-		}));
-		saveMock.mockResolvedValueOnce({ title: "fresh" });
-		await render(false);
-		await triggerImport();
-		const savedArg = saveMock.mock.calls[0]?.[0];
-		expect(savedArg?.title).toBe("fresh");
+	it("スライドが無いと保存メニューは disabled", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+			useSlideStore.getState().setSlides([]); // hasSlides=false
+		});
+		await openSubMenu();
+		const item = findMenuItem("save-mobile");
+		expect(item).not.toBeNull();
+		expect(isMenuItemDisabled(item)).toBe(true);
 	});
-	it("PC (非スマホ) では import しても save を呼ばない (从来通り手動保存運用)", async () => {
-		deviceMode.isMobile = false; // PC 条件に戻す
-		noopFileIO.importFile.mockImplementationOnce(async () => ({
-			doc: makeDoc("pc-doc"),
-			imageData: {},
-			imageNames: {},
-		}));
-		await render(false);
-		await triggerImport();
-		expect(saveMock).not.toHaveBeenCalled(); // PC はメモリに載せるだけ
-	});
-
 });
 
 describe("FileIOPanel スマホ限定 ドキュメント削除", () => {
-	// Mantine Menu.Dropdown は Portal で document 直下に出るため document から検索。
-	const findMenuItem = (dataAction: string): HTMLElement | null =>
-		document.querySelector<HTMLElement>(`[data-action="${dataAction}"]`);
-
-	// 「…」トリガ (submenu の ActionIcon) を開く。dropdown が portal でマウントされるのを待つ。
-	const openSubMenu = async (): Promise<void> => {
-		// FileIOSubMenu の ActionIcon aria-label="その他の操作"
-		const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="その他の操作"]');
-		expect(trigger).not.toBeNull();
-		await act(async () => {
-			trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-		});
-	};
-
 	beforeEach(() => {
 		deviceMode.isMobile = true; // スマホモード有効
 		deleteMock.mockClear();
