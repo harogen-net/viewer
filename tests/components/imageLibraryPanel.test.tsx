@@ -6,6 +6,7 @@ import { ImageLibraryPanel } from "../../src/components/panels/ImageLibraryPanel
 import type { Slide } from "../../src/types/Slide";
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
+import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
 
@@ -20,6 +21,7 @@ let root: Root;
 beforeEach(() => {
 	useSlideStore.getState().setSlides([]);
 	useImageLibraryStore.setState({ imageById: {} });
+	useLayerStore.getState().setLayers([]); // selectedLayer も null に戻す
 	useHistoryStore.getState().clear();
 	useViewerDocumentStore.setState({ meta: null, modified: false });
 	container = document.createElement("div");
@@ -233,5 +235,61 @@ describe("ImageLibraryPanel (v4 Group D D-6a)", () => {
 		expect(
 			document.body.querySelector<HTMLButtonElement>("[data-image-prune-unused]")?.disabled
 		).toBe(true);
+	});
+
+	// --- ライブラリ内画像で選択レイヤーを差し替え (タイル左上の差し替えアイコン) ---
+
+	// imageId "cur" を参照する未ロック ImageLayer を選択中状態にする。
+	const selectImageLayer = (opts?: { locked?: boolean }): Slide => {
+		const slide = slideUsingImage("cur");
+		slide.layers[0].locked = opts?.locked ?? false;
+		act(() => {
+			useSlideStore.getState().setSlides([slide]);
+			useSlideStore.getState().setSelectedIndex(0);
+			// setSelectedIndex は selectedLayer を null に戻すので、その後に選択レイヤーを設定する。
+			useLayerStore.getState().setSelectedLayer(slide.layers[0]);
+		});
+		return slide;
+	};
+
+	const replaceBtn = (id: string): HTMLElement | null =>
+		document.body.querySelector<HTMLElement>(
+			`[data-image-tile][data-image-id="${id}"] [data-image-replace-selected]`
+		);
+
+	it("未ロック ImageLayer 選択中は、現在画像以外のタイルに差し替えアイコンが出る", () => {
+		selectImageLayer();
+		seedImages({ cur: { dataURL: "data:a" }, other: { dataURL: "data:b" } });
+		render(true);
+		// 現在画像のタイルには出ない (差し替え不要)、別画像のタイルには出る。
+		expect(replaceBtn("cur")).toBeNull();
+		expect(replaceBtn("other")).not.toBeNull();
+	});
+
+	it("選択レイヤーが無いときは差し替えアイコンが出ない", () => {
+		// setSelectedIndex 未実行 = selectedLayer null。
+		seedImages({ cur: { dataURL: "data:a" }, other: { dataURL: "data:b" } });
+		render(true);
+		expect(replaceBtn("cur")).toBeNull();
+		expect(replaceBtn("other")).toBeNull();
+	});
+
+	it("選択レイヤーがロック中なら差し替えアイコンが出ない", () => {
+		selectImageLayer({ locked: true });
+		seedImages({ cur: { dataURL: "data:a" }, other: { dataURL: "data:b" } });
+		render(true);
+		expect(replaceBtn("other")).toBeNull();
+	});
+
+	it("差し替えアイコン押下で選択レイヤーの imageId がそのタイルの画像に変わる", () => {
+		selectImageLayer();
+		seedImages({ cur: { dataURL: "data:a" }, other: { dataURL: "data:b" } });
+		render(true);
+		const btn = replaceBtn("other");
+		expect(btn).not.toBeNull();
+		act(() => btn?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+		// 選択レイヤー (index 0) の imageId が "cur" → "other" に差し替わる。transform は不問。
+		const layer = useSlideStore.getState().slides[0].layers[0];
+		expect(layer.type === "image" ? layer.imageId : null).toBe("other");
 	});
 });

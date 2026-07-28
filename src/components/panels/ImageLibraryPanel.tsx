@@ -3,6 +3,7 @@ import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
 import { useLayerMutation } from "@/hooks/useLayerMutation";
 import { useToast } from "@/hooks/useToast";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import { downloadDataUrl } from "@/utils/domUtils";
 import {
@@ -19,12 +20,14 @@ import {
 	Slider,
 	Stack,
 	Text,
+	Tooltip,
 } from "@mantine/core";
 import {
 	IconDotsVertical,
 	IconDownload,
 	IconPlus,
 	IconRefresh,
+	IconReplace,
 	IconTrash,
 } from "@tabler/icons-react";
 import type {
@@ -44,12 +47,17 @@ import { useEffect, useRef, useState } from "react";
 //   - panel 全体への drop zone (ファイル drop で追加、複数ファイル対応)
 //   - 画像削除 (ConfirmDialog で「使用中の N レイヤーも削除されます」確認)
 //
-// 操作はタイル上のボタンで明示的に行う (クリック自動配置・mode タブは廃止):
-//   - 配置 (＋): 選択中スライドにこの画像を中央 contain 配置
-//   - 差し替え (🔄): 選択中 ImageLayer の画像をこの画像で全 slide 一括差し替え
+// 操作はタイル右上の … メニューで明示的に行う (クリック自動配置・mode タブは廃止):
+//   - 配置: 選択中スライドにこの画像を中央 contain 配置
+//   - 別ファイルに一括差し替え: タイルの画像を "外部ファイル" で全 slide 一括差し替え
 //                    (LayerOps の同一画像差し替え = replaceImageIdAll と同等、旧画像は孤児なら除去)
-//   - DL (↓) / 削除 (✕)
+//   - DL / 削除
 //   - タイル本体は編集 canvas へのドラッグ元 (D-11、imageId を dataTransfer に載せる)
+//
+// 差し替えモード (ライブラリ内画像で選択レイヤーを差し替え):
+//   - 未ロックの ImageLayer を選択中にライブラリを開くと、各タイル左上に差し替えアイコンが出て、
+//     押下でそのタイルの画像に "選択中レイヤーのみ" を差し替える (replaceImageId、transform 維持)。
+//   - 現在画像のタイルは差し替えアイコンを非表示。差し替え後は Drawer を閉じて結果を見せる。
 //
 // UI:
 //   - Mantine Drawer (size=80%、画面右側スライドイン)
@@ -112,11 +120,37 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	const imageById = useImageLibraryStore((s) => s.imageById);
 	const { addImageFile, deleteImage, placeImageOnSlide, pruneOrphanImage, pruneUnusedImages } =
 		useImageLibraryMutation();
-	const { replaceImageIdAll } = useLayerMutation();
+	const { replaceImageId, replaceImageIdAll } = useLayerMutation();
 	const selectedSlideIndex = useSlideStore((s) => s.selectedIndex);
 	const slides = useSlideStore((s) => s.slides);
+	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 	const toast = useToast();
 	const canPlace = selectedSlideIndex >= 0;
+
+	// 選択中レイヤーの差し替え (ライブラリ内画像で置換)。
+	// EditOpsPanel と同様に selectedLayer の現在 index を毎回 findIndex で求める。
+	// 対象は「選択中スライドにある、未ロックの ImageLayer」のみ (対象範囲は選択レイヤー 1 枚)。
+	const selectedSlide = selectedSlideIndex >= 0 ? slides[selectedSlideIndex] : null;
+	const selectedLayerIndex =
+		selectedSlide && selectedLayer
+			? selectedSlide.layers.findIndex((l) => l.uuid === selectedLayer.uuid)
+			: -1;
+	const selectedImageLayer =
+		selectedLayerIndex >= 0 && selectedSlide ? selectedSlide.layers[selectedLayerIndex] : null;
+	// 差し替え可否: ImageLayer かつ未ロックのときだけタイルを差し替えボタン化する。
+	const canReplaceSelected = selectedImageLayer?.type === "image" && !selectedImageLayer.locked;
+	const selectedLayerImageId =
+		selectedImageLayer?.type === "image" ? selectedImageLayer.imageId : null;
+
+	// タイル押下で選択レイヤーの imageId をそのタイルの画像へ差し替え、Drawer を閉じて結果を見せる。
+	// 同一画像なら no-op (layerOps.replaceImageId 側でも弾かれるが、close/通知の無駄も避ける)。
+	const handleReplaceSelectedLayer = (imageId: string) => {
+		if (!canReplaceSelected || selectedLayerIndex < 0) return;
+		if (imageId === selectedLayerImageId) return;
+		replaceImageId(selectedLayerIndex, imageId);
+		toast.success("選択中レイヤーの画像を差し替えました");
+		onClose();
+	};
 	// ライブラリ画像をドラッグ中は Drawer を閉じて下のキャンバスへドロップできるようにする。
 	// document レベルで dragstart/dragend/mouseup を監視 (per-tile 遅延 true と dragend の
 	// 競合による stuck を避け、また Drawer 内部からドラッグが始まるので portal をまたぐ問題を回避)。
@@ -179,19 +213,23 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				armWatchdog();
 			}, 0);
 		};
-		const endDrag = (source: string) => (e: Event): void => {
-			if (!inDrag) return; // ライブラリ drag 中でなければ無視 (無関係なクリック等)
-			log(`endDrag via ${source}`, targetInfo(e));
-			inDrag = false;
-			clearPending(); // 遅延 true が残っていれば取り消して stuck を防ぐ
-			disarmWatchdog();
-			setDragging(false);
-		};
+		const endDrag =
+			(source: string) =>
+			(e: Event): void => {
+				if (!inDrag) return; // ライブラリ drag 中でなければ無視 (無関係なクリック等)
+				log(`endDrag via ${source}`, targetInfo(e));
+				inDrag = false;
+				clearPending(); // 遅延 true が残っていれば取り消して stuck を防ぐ
+				disarmWatchdog();
+				setDragging(false);
+			};
 		// 追加の観測用 (発火してるかどうかを見るため。状態変更は endDrag 経路のみ)
-		const observe = (name: string) => (e: Event): void => {
-			if (!inDrag) return;
-			log(`observe: ${name}`, targetInfo(e));
-		};
+		const observe =
+			(name: string) =>
+			(e: Event): void => {
+				if (!inDrag) return;
+				log(`observe: ${name}`, targetInfo(e));
+			};
 		const onStart = onDocDragStart;
 		const onEndDragEnd = endDrag("dragend");
 		const onEndMouseUp = endDrag("mouseup");
@@ -441,6 +479,9 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 											dataURL={entry.dataURL}
 											name={entry.name}
 											canPlace={canPlace}
+											canReplaceSelected={canReplaceSelected}
+											isCurrentLayerImage={id === selectedLayerImageId}
+											onReplaceSelectedLayer={() => handleReplaceSelectedLayer(id)}
 											onPlace={() => handlePlace(id)}
 											onReplace={() => handleRequestReplace(id)}
 											onDelete={() => requestDelete(id)}
@@ -530,11 +571,28 @@ const ImageTile: FC<{
 	dataURL: string;
 	name?: string;
 	canPlace: boolean;
+	// canReplaceSelected: 選択中レイヤー (未ロック ImageLayer) があり、タイルを差し替えボタン化できる。
+	canReplaceSelected: boolean;
+	// isCurrentLayerImage: このタイルが選択中レイヤーの現在画像 (= 差し替え不要、使用中表示)。
+	isCurrentLayerImage: boolean;
+	onReplaceSelectedLayer: () => void;
 	onPlace: () => void;
 	onReplace: () => void;
 	onDelete: () => void;
 	onDownload: () => void;
-}> = ({ imageId, dataURL, name, canPlace, onPlace, onReplace, onDelete, onDownload }) => {
+}> = ({
+	imageId,
+	dataURL,
+	name,
+	canPlace,
+	canReplaceSelected,
+	isCurrentLayerImage,
+	onReplaceSelectedLayer,
+	onPlace,
+	onReplace,
+	onDelete,
+	onDownload,
+}) => {
 	const tileStyle: CSSProperties = {
 		position: "relative",
 		border: "1px solid #dee2e6",
@@ -556,11 +614,22 @@ const ImageTile: FC<{
 	// 操作 (…) メニュートリガー (右上)。
 	const menuWrapStyle: CSSProperties = {
 		position: "absolute",
-		top: 2,
-		right: 2,
+		top: 4,
+		right: 4,
+		zIndex: 2,
+	};
+	// 差し替えモード時のみタイル左上に出る差し替えアイコンボタン (… メニューと左右対)。
+	// canReplaceSelected の間だけ表示し、押下でそのタイルの画像に選択レイヤーを差し替える。
+	// 現在画像のタイルは差し替え不要なのでボタン自体を非表示にする (下の JSX 条件)。
+	const replaceBtnStyle: CSSProperties = {
+		position: "absolute",
+		top: 4,
+		left: 4,
+		zIndex: 2,
 	};
 	const labelStyle: CSSProperties = {
 		position: "absolute",
+		zIndex: 2,
 		left: 0,
 		right: 0,
 		bottom: 0,
@@ -590,6 +659,24 @@ const ImageTile: FC<{
 				draggable
 				onDragStart={handleDragStart}
 			/>
+			{/* 差し替えモード (選択中に未ロック ImageLayer あり): タイル左上に差し替えアイコンを出す。
+			    押下でそのタイルの画像へ選択レイヤーを差し替える。現在画像のタイルは非表示。 */}
+			{canReplaceSelected && !isCurrentLayerImage && (
+				<Tooltip label="この画像に差し替え" withArrow>
+					<ActionIcon
+						variant="filled"
+						size="md"
+						style={replaceBtnStyle}
+						onClick={(e) => {
+							e.stopPropagation();
+							onReplaceSelectedLayer();
+						}}
+						data-image-replace-selected
+						aria-label={"選択中レイヤーをこの画像に差し替え"}>
+						<IconReplace size={16} stroke={2} />
+					</ActionIcon>
+				</Tooltip>
+			)}
 			{/* 操作は右上の … メニューに集約 (配置 / 差し替え / DL / 削除)。FileIOSubMenu と同方針。 */}
 			<div style={menuWrapStyle}>
 				<Menu
@@ -600,7 +687,7 @@ const ImageTile: FC<{
 					transitionProps={{ duration: 0 }}>
 					<Menu.Target>
 						<ActionIcon
-							size="sm"
+							size="md"
 							variant="default"
 							data-image-menu
 							aria-label="画像の操作メニュー"
