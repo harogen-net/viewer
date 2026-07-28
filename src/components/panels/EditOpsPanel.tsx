@@ -17,6 +17,8 @@ import {
 } from "@/utils/layerOps";
 import {
 	ActionIcon,
+	Card,
+	Collapse,
 	Group,
 	Paper,
 	Slider,
@@ -27,7 +29,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import type { ChangeEvent, FC } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 // EditOpsPanel (v4 Group D D-4a、§0-10 新側内製、Mantine UI)。
 // レガシー src/viewController/EditViewController.ts (446 行 jQuery) は import せず新規実装。
@@ -162,11 +164,16 @@ export const EditOpsPanel: FC = () => {
 			})
 		: null;
 	const clipContentSize = isImageLayer ? measureContentSize() : null;
+	// クリップ UI は場所を取るので Collapse で畳む (既定は閉)。ヘッダーをクリックで開閉。
+	const [clipOpen, setClipOpen] = useState(false);
+	// clip の live 反映のみ (history の開始/確定は呼び元が担う)。
+	//   - Slider    : onChange で beginSliderEditIfNeeded → onChangeEnd で endSliderEdit (1 ドラッグ 1 履歴)
+	//   - 数値入力  : onAdjustStart/onAdjustEnd (= handlePropStart/handlePropEnd、focus→blur 1 履歴)
+	// スライダーと入力は同じ clipRect を編集する 2 経路 (どちらか一方の操作単位で undo が 1 件)。
 	const handleClipChange = (edgeIndex: 0 | 1 | 2 | 3, value: number) => {
 		if (!imageLayer || layerIndex < 0) return;
 		const next: [number, number, number, number] = [...imageLayer.clipRect];
 		next[edgeIndex] = Math.max(0, Math.floor(value));
-		beginSliderEditIfNeeded();
 		applySlideChangeLive((s) => updateImageLayerOp(s, layerIndex, { clipRect: next }));
 	};
 	const handleClipReset = () => {
@@ -225,7 +232,7 @@ export const EditOpsPanel: FC = () => {
 			style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
 			data-adjust-wheel-scope>
 			<Stack gap="xs">
-				<Title order={5}>Layer Ops</Title>
+				{/* <Title order={5}>Layer Ops</Title> */}
 
 				{/* 変形 (形状) コピー / 貼付 (D-8)。レイヤー間の transform 複写は選択レイヤー操作なので
 				    EditOpsPanel に残す。汎用 clipboard (copy/cut/paste) は EditToolbar へ移設。 */}
@@ -453,73 +460,106 @@ export const EditOpsPanel: FC = () => {
 					</Stack>
 				)}
 
-				{/* clipRect 4 slider (D-6b、ImageLayer のみ、上/右/下/左) */}
+				{/* clipRect 4 行 (D-6b、ImageLayer のみ、上/右/下/左)。各行 = スライダー + 数値入力ボックス。
+				    スライダーはそのまま残し、読み取り専用表示を NumberAdjustInput に変えて直接入力 / ↑↓ /
+				    ホイール調整も可能にした。max は content 実測サイズ (未測定は disabled)。 */}
 				{imageLayer && (
-					<Stack gap={4} data-edit-op-group="clip-rect">
-						<Group gap={6} justify="space-between" align="center">
-							<Text size="xs" c="dimmed">
-								クリップ (T/R/B/L)
-							</Text>
-							<Tooltip label="クリップリセット (0,0,0,0)">
-								<ActionIcon
-									size="xs"
-									variant="subtle"
-									onClick={handleClipReset}
-									disabled={!canEditLayer}
-									data-edit-op="reset-clip"
-									aria-label="reset clip">
-									↺
-								</ActionIcon>
-							</Tooltip>
-						</Group>
-						{[
-							{
-								key: "top",
-								label: "T",
-								idx: 0 as const,
-								max: clipContentSize?.h ?? 0,
-							},
-							{
-								key: "right",
-								label: "R",
-								idx: 1 as const,
-								max: clipContentSize?.w ?? 0,
-							},
-							{
-								key: "bottom",
-								label: "B",
-								idx: 2 as const,
-								max: clipContentSize?.h ?? 0,
-							},
-							{
-								key: "left",
-								label: "L",
-								idx: 3 as const,
-								max: clipContentSize?.w ?? 0,
-							},
-						].map((row) => (
-							<Group key={row.key} gap={6} align="center">
-								<Text size="xs" ff="monospace" w={16}>
-									{row.label}
-								</Text>
-								<Slider
-									value={imageLayer.clipRect[row.idx]}
-									onChange={(v) => handleClipChange(row.idx, v)}
-									onChangeEnd={endSliderEdit("edit clip")}
-									disabled={!canEditLayer || row.max <= 0}
-									min={0}
-									max={Math.max(row.max, 1)}
-									step={1}
-									label={null}
-									data-edit-op={`clip-${row.key}`}
-									style={{ flex: 1 }}
-								/>
-								<Text size="xs" ff="monospace" w={36} ta="right">
-									{imageLayer.clipRect[row.idx]}
-								</Text>
+					<Card withBorder p="xs" radius="sm" data-edit-op-group="clip">
+						<Stack gap={4} data-edit-op-group="clip-rect">
+							<Group gap={6} justify="space-between" align="center" wrap="nowrap">
+								{/* ヘッダー全体をクリックで開閉。 */}
+								<Group
+									gap={4}
+									align="center"
+									wrap="nowrap"
+									onClick={() => setClipOpen((o) => !o)}
+									style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
+									data-edit-op="clip-toggle"
+									aria-expanded={clipOpen}>
+									<Title size="xs">クリップ (T/R/B/L)</Title>
+								</Group>
+								{clipOpen && (
+									<Tooltip label="クリップリセット (0,0,0,0)">
+										<ActionIcon
+											size="xs"
+											variant="subtle"
+											onClick={handleClipReset}
+											disabled={!canEditLayer}
+											data-edit-op="reset-clip"
+											aria-label="reset clip">
+											↺
+										</ActionIcon>
+									</Tooltip>
+								)}
 							</Group>
-						))}
-					</Stack>
+							<Collapse in={clipOpen}>
+								<Stack gap={4}>
+									{[
+										{
+											key: "top",
+											label: "T",
+											idx: 0 as const,
+											max: clipContentSize?.h ?? 0,
+										},
+										{
+											key: "right",
+											label: "R",
+											idx: 1 as const,
+											max: clipContentSize?.w ?? 0,
+										},
+										{
+											key: "bottom",
+											label: "B",
+											idx: 2 as const,
+											max: clipContentSize?.h ?? 0,
+										},
+										{
+											key: "left",
+											label: "L",
+											idx: 3 as const,
+											max: clipContentSize?.w ?? 0,
+										},
+									].map((row) => (
+										<Group key={row.key} gap={6} align="center" wrap="nowrap">
+											<Text size="xs" ff="monospace" w={16}>
+												{row.label}
+											</Text>
+											<Slider
+												value={imageLayer.clipRect[row.idx]}
+												onChange={(v) => {
+													beginSliderEditIfNeeded();
+													handleClipChange(row.idx, v);
+												}}
+												onChangeEnd={endSliderEdit("edit clip")}
+												disabled={!canEditLayer || row.max <= 0}
+												min={0}
+												max={Math.max(row.max, 1)}
+												step={1}
+												label={null}
+												data-edit-op={`clip-${row.key}`}
+												style={{ flex: 1 }}
+											/>
+											<NumberAdjustInput
+												value={imageLayer.clipRect[row.idx]}
+												// legacy VMHistoricalVariableInput の clip 入力は {v:-25, min:0}。
+												// 負 v = ↑ で減 / ↓ で増 (= invert)、増減量 25、下限 0 (legacy parity)。
+												step={25}
+												invert
+												min={0}
+												max={row.max}
+												disabled={!canEditLayer || row.max <= 0}
+												dataAdjust={`clip-${row.key}`}
+												aria-label={`クリップ ${row.label}`}
+												onAdjust={(v) => handleClipChange(row.idx, v)}
+												onAdjustStart={handlePropStart}
+												onAdjustEnd={() => handlePropEnd("edit clip")}
+											/>
+										</Group>
+									))}
+								</Stack>
+							</Collapse>
+						</Stack>
+					</Card>
 				)}
 
 				{hasSelection && isLocked && (

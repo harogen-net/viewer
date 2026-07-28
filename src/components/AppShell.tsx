@@ -133,7 +133,7 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 		background: "#f1f3f5",
 	};
 
-	const sideRailWidth = 260; // 右レールの固定幅。EditOpsPanel / LayerListPanel を縦 5:5 で並べる。
+	const sideRailWidth = 300; // 右レールの固定幅。EditOpsPanel / LayerListPanel を縦 5:5 で並べる。
 
 	// 右レール: EditOpsPanel / LayerListPanel を縦 5:5 で並べる (各々が内部スクロール)。
 	const sideRailStyle: CSSProperties = {

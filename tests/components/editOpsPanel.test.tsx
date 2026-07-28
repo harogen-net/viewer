@@ -1,8 +1,16 @@
 import { MantineProvider } from "@mantine/core";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EditOpsPanel } from "../../src/components/panels/EditOpsPanel";
+
+// clip 入力の max は content 実測サイズ (measureScaledLayerSize) 依存で、jsdom では 0 → disabled、
+// かつ max=0 clamp で値が 0 に潰れる。clip の機能テスト用に実測サイズを固定でモックする
+// (downloadDataUrl 等 他の export は本物を維持)。
+vi.mock("../../src/utils/domUtils", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../src/utils/domUtils")>();
+	return { ...actual, measureScaledLayerSize: () => ({ w: 400, h: 300 }) };
+});
 import { useAlertStore } from "../../src/state/alertStore";
 import { useClipboardStore } from "../../src/state/clipboardStore";
 import { useHistoryStore } from "../../src/state/historyStore";
@@ -106,6 +114,9 @@ const clickByOp = (op: string): void => {
 		btn.click();
 	});
 };
+
+// クリップ UI は既定で畳まれている。ヘッダー (clip-toggle) をクリックして展開する。
+const openClip = (): void => clickByOp("clip-toggle");
 
 // useAlert (モーダル) は非同期。ハンドラが積んだ pending リクエストを store 経由で resolve する。
 const resolveAlert = async (value: boolean | string | null): Promise<void> => {
@@ -274,18 +285,35 @@ describe("EditOpsPanel (v4 Group D D-6b) - clipRect", () => {
 		// 選択時に描画
 		selectLayer("u-1");
 		expect(container.querySelector('[data-edit-op-group="clip-rect"]')).not.toBeNull();
-		// T/R/B/L slider + reset button
+		// T/R/B/L slider + 数値入力 (NumberAdjustInput)。Collapse 内だが既定閉でも DOM には存在。
 		expect(container.querySelector('[data-edit-op="clip-top"]')).not.toBeNull();
 		expect(container.querySelector('[data-edit-op="clip-right"]')).not.toBeNull();
 		expect(container.querySelector('[data-edit-op="clip-bottom"]')).not.toBeNull();
 		expect(container.querySelector('[data-edit-op="clip-left"]')).not.toBeNull();
+		expect(container.querySelector('[data-adjust="clip-top"]')).not.toBeNull();
+		// reset は展開時のみ描画。
+		expect(container.querySelector('[data-edit-op="reset-clip"]')).toBeNull();
+		openClip();
 		expect(container.querySelector('[data-edit-op="reset-clip"]')).not.toBeNull();
+	});
+
+	it("クリップUIは既定で畳まれ、ヘッダークリックで開閉する", () => {
+		seedSlide([makeImageLayer(1, "u-1")]);
+		render();
+		selectLayer("u-1");
+		// 既定は閉 → reset は非描画。
+		expect(container.querySelector('[data-edit-op="reset-clip"]')).toBeNull();
+		openClip(); // 開く
+		expect(container.querySelector('[data-edit-op="reset-clip"]')).not.toBeNull();
+		openClip(); // 再クリックで閉じる
+		expect(container.querySelector('[data-edit-op="reset-clip"]')).toBeNull();
 	});
 
 	it("reset-clip ボタンで clipRect が [0,0,0,0] に戻る", () => {
 		seedSlide([makeImageLayer(1, "u-1", { clipRect: [10, 20, 30, 40] })]);
 		render();
 		selectLayer("u-1");
+		openClip();
 		clickByOp("reset-clip");
 		const stored = useSlideStore.getState().slides[0].layers[0] as ImageLayer;
 		expect(stored.clipRect).toEqual([0, 0, 0, 0]);
@@ -296,8 +324,53 @@ describe("EditOpsPanel (v4 Group D D-6b) - clipRect", () => {
 		seedSlide([makeImageLayer(1, "u-1", { locked: true, clipRect: [10, 0, 0, 0] })]);
 		render();
 		selectLayer("u-1");
+		openClip();
 		const btn = container.querySelector<HTMLButtonElement>('[data-edit-op="reset-clip"]');
 		expect(btn?.disabled).toBe(true);
+	});
+
+	// clip 入力ボックス (NumberAdjustInput)。max は測定モックで w=400/h=300 に固定。
+	const clipInput = (key: string): HTMLInputElement => {
+		const el = container.querySelector<HTMLInputElement>(`[data-adjust="clip-${key}"]`);
+		if (!el) throw new Error(`clip input not found: ${key}`);
+		return el;
+	};
+
+	it("クリップ入力は ↑ で -25 / ↓ で +25 (legacy {v:-25} 準拠、invert)", () => {
+		seedSlide([makeImageLayer(1, "u-1", { clipRect: [100, 0, 0, 0] })]);
+		render();
+		selectLayer("u-1");
+		openClip();
+		const el = clipInput("top");
+		expect(el.disabled).toBe(false); // 測定モックで max>0 → 有効
+		act(() => el.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
+		expect((useSlideStore.getState().slides[0].layers[0] as ImageLayer).clipRect[0]).toBe(75);
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
+		expect((useSlideStore.getState().slides[0].layers[0] as ImageLayer).clipRect[0]).toBe(100);
+		// 入力中 (blur 前) は history を積まない。
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
+	it("クリップ入力に直接入力 → Enter で反映、blur で history 1 件", () => {
+		seedSlide([makeImageLayer(1, "u-1", { clipRect: [0, 0, 0, 0] })]);
+		render();
+		selectLayer("u-1");
+		openClip();
+		const el = clipInput("top");
+		act(() => el.dispatchEvent(new FocusEvent("focusin", { bubbles: true })));
+		act(() => {
+			const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+			setter?.call(el, "50");
+			el.dispatchEvent(new Event("input", { bubbles: true }));
+		});
+		act(() => el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+		expect((useSlideStore.getState().slides[0].layers[0] as ImageLayer).clipRect[0]).toBe(50);
+		act(() => el.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+		expect(useHistoryStore.getState().past.length).toBe(1);
+		expect(
+			(useHistoryStore.getState().past[0].before.slides[0].layers[0] as ImageLayer).clipRect[0]
+		).toBe(0);
 	});
 });
 
