@@ -17,6 +17,7 @@ import {
 } from "@/utils/layerOps";
 import {
 	ActionIcon,
+	Button,
 	Card,
 	Collapse,
 	Group,
@@ -28,6 +29,7 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
+import { IconClipboard, IconClipboardCopy } from "@tabler/icons-react";
 import type { ChangeEvent, FC } from "react";
 import { useRef, useState } from "react";
 
@@ -236,104 +238,46 @@ export const EditOpsPanel: FC = () => {
 
 				{/* 変形 (形状) コピー / 貼付 (D-8)。レイヤー間の transform 複写は選択レイヤー操作なので
 				    EditOpsPanel に残す。汎用 clipboard (copy/cut/paste) は EditToolbar へ移設。 */}
-				<Group gap={4}>
+				<Button.Group data-edit-op-group="transform">
 					<Tooltip label="変形情報コピー">
-						<ActionIcon
+						<Button
+							size="compact-sm"
 							variant="default"
+							style={{ flex: 1 }}
 							onClick={clipboard.copyTransform}
 							disabled={!hasSelection}
 							data-edit-op="copy-transform"
 							aria-label="copy transform">
-							⤳
-						</ActionIcon>
+							<IconClipboard size={16} stroke={2} />
+						</Button>
 					</Tooltip>
 					<Tooltip label="変形情報貼付">
-						<ActionIcon
+						<Button
+							size="compact-sm"
 							variant="default"
+							style={{ flex: 1 }}
 							onClick={clipboard.pasteTransform}
 							disabled={!canEditLayer || !clipboard.canPasteTransform}
 							data-edit-op="paste-transform"
 							aria-label="paste transform">
-							⤵
-						</ActionIcon>
+							<IconClipboardCopy size={16} stroke={2} />
+						</Button>
 					</Tooltip>
-					{/* 反転 H / V トグル (±90°/フィット/整列 は EditToolbar、回転リセットは回転入力に統合) */}
-					<Group gap={4}>
-						<Tooltip label="水平反転">
-							<ActionIcon
-								variant={selectedLayer?.mirrorH ? "filled" : "default"}
-								onClick={() => layer.toggleMirrorH(layerIndex)}
-								disabled={!canEditLayer}
-								data-edit-op="mirror-h"
-								aria-label="toggle mirror horizontal">
-								⇄
-							</ActionIcon>
-						</Tooltip>
-						<Tooltip label="垂直反転">
-							<ActionIcon
-								variant={selectedLayer?.mirrorV ? "filled" : "default"}
-								onClick={() => layer.toggleMirrorV(layerIndex)}
-								disabled={!canEditLayer}
-								data-edit-op="mirror-v"
-								aria-label="toggle mirror vertical">
-								⇅
-							</ActionIcon>
-						</Tooltip>
-					</Group>
-					{/* 画像差し替え / ダウンロード (ImageLayer のみ) */}
-					{imageLayer && (
-						<Group gap={4}>
-							<Tooltip label="画像を差し替え (このレイヤーのみ)">
-								<ActionIcon
-									variant="default"
-									onClick={() => openReplacePicker("single")}
-									disabled={!canEditLayer}
-									data-edit-op="replace-image"
-									aria-label="replace image">
-									🔄
-								</ActionIcon>
-							</Tooltip>
-							<Tooltip label="画像を差し替え (同一画像を全スライドで一括)">
-								<ActionIcon
-									variant="default"
-									onClick={() => openReplacePicker("all")}
-									disabled={!canEditLayer}
-									data-edit-op="replace-image-all"
-									aria-label="replace image all">
-									🔁
-								</ActionIcon>
-							</Tooltip>
-							<Tooltip label="この画像をダウンロード">
-								<ActionIcon
-									variant="default"
-									onClick={handleDownloadImage}
-									data-edit-op="download-image"
-									aria-label="download image">
-									⬇
-								</ActionIcon>
-							</Tooltip>
-							<input
-								ref={replaceInputRef}
-								type="file"
-								accept="image/*"
-								onChange={handleReplaceImageFile}
-								style={{ display: "none" }}
-								data-edit-op="replace-image-input"
-							/>
-						</Group>
-					)}
-				</Group>
+				</Button.Group>
 
 				{/* 数値プロパティ (X / Y / 拡大率 / 回転、§12 Enter/↑↓/ホイール調整) */}
-				{/* key=uuid: レイヤー切替で入力を作り直す。NumberAdjustInput は focus 中 draft を value に
-				    同期しないため、入力 focus 中に別レイヤーへ切り替えると blur 時に前レイヤーの draft が
-				    新レイヤーへ commit され不正変形になる。uuid 変化で remount し draft を持ち越さない
-				    (同一レイヤー編集中は uuid 不変なので remount しない)。 */}
+				{/* key=`props-${uuid}`: レイヤー切替で入力を作り直す。NumberAdjustInput は focus 中 draft を
+				    value に同期しないため、入力 focus 中に別レイヤーへ切り替えると blur 時に前レイヤーの draft
+				    が新レイヤーへ commit され不正変形になる。uuid 変化で remount し draft を持ち越さない
+				    (同一レイヤー編集中は uuid 不変なので remount しない)。
+				    接頭辞 `props-` は下のテキスト編集 Stack (`text-${uuid}`) と "同じ親内でキー衝突させない"
+				    ため必須。テキストレイヤー選択時は両 Stack が同時描画され、素の uuid だと React が
+				    「same key」で子を複製/欠落させる (レイヤー切替のたびに props UI が累積する不具合)。 */}
 				{selectedLayer && hasSelection && (
-					<Stack gap={4} data-edit-op-group="props" key={selectedLayer.uuid}>
+					<Stack gap={4} data-edit-op-group="props" key={`props-${selectedLayer.uuid}`}>
 						<Group gap={6} align="center" wrap="nowrap">
 							<Text size="xs" c="dimmed" w={40}>
-								X
+								position
 							</Text>
 							<NumberAdjustInput
 								value={selectedLayer.transX}
@@ -347,9 +291,6 @@ export const EditOpsPanel: FC = () => {
 								onAdjustStart={handlePropStart}
 								onAdjustEnd={() => handlePropEnd("edit X")}
 							/>
-							<Text size="xs" c="dimmed" w={40}>
-								Y
-							</Text>
 							<NumberAdjustInput
 								value={selectedLayer.transY}
 								step={25}
@@ -380,6 +321,31 @@ export const EditOpsPanel: FC = () => {
 								onAdjustStart={handlePropStart}
 								onAdjustEnd={() => handlePropEnd("edit scale")}
 							/>
+							{/* 反転 H / V トグル (±90°/フィット/整列 は EditToolbar、回転リセットは回転入力に統合) */}
+							<Group gap={4}>
+								<Tooltip label="水平反転">
+									<ActionIcon
+										variant={selectedLayer?.mirrorH ? "filled" : "default"}
+										onClick={() => layer.toggleMirrorH(layerIndex)}
+										disabled={!canEditLayer}
+										data-edit-op="mirror-h"
+										aria-label="toggle mirror horizontal">
+										⇄
+									</ActionIcon>
+								</Tooltip>
+								<Tooltip label="垂直反転">
+									<ActionIcon
+										variant={selectedLayer?.mirrorV ? "filled" : "default"}
+										onClick={() => layer.toggleMirrorV(layerIndex)}
+										disabled={!canEditLayer}
+										data-edit-op="mirror-v"
+										aria-label="toggle mirror vertical">
+										⇅
+									</ActionIcon>
+								</Tooltip>
+							</Group>
+						</Group>
+						<Group gap={6} align="center" wrap="nowrap">
 							<Text
 								size="xs"
 								c="dimmed"
@@ -442,7 +408,7 @@ export const EditOpsPanel: FC = () => {
 
 				{/* テキスト編集 (D-9、TextLayer のみ表示)。key=uuid: 数値入力と同理由で切替時に作り直す。 */}
 				{textLayer && (
-					<Stack gap={2} data-edit-op-group="text" key={selectedLayer?.uuid}>
+					<Stack gap={2} data-edit-op-group="text" key={`text-${selectedLayer?.uuid}`}>
 						<Text size="xs" c="dimmed">
 							テキスト
 						</Text>
@@ -459,6 +425,51 @@ export const EditOpsPanel: FC = () => {
 						/>
 					</Stack>
 				)}
+
+				<Group gap={4} style={{ width: "100%" }}>
+					{/* 画像差し替え / ダウンロード (ImageLayer のみ) */}
+					{imageLayer && (
+						<Group gap={4}>
+							<Tooltip label="画像を差し替え (このレイヤーのみ)">
+								<ActionIcon
+									variant="default"
+									onClick={() => openReplacePicker("single")}
+									disabled={!canEditLayer}
+									data-edit-op="replace-image"
+									aria-label="replace image">
+									🔄
+								</ActionIcon>
+							</Tooltip>
+							<Tooltip label="画像を差し替え (同一画像を全スライドで一括)">
+								<ActionIcon
+									variant="default"
+									onClick={() => openReplacePicker("all")}
+									disabled={!canEditLayer}
+									data-edit-op="replace-image-all"
+									aria-label="replace image all">
+									🔁
+								</ActionIcon>
+							</Tooltip>
+							<Tooltip label="この画像をダウンロード">
+								<ActionIcon
+									variant="default"
+									onClick={handleDownloadImage}
+									data-edit-op="download-image"
+									aria-label="download image">
+									⬇
+								</ActionIcon>
+							</Tooltip>
+							<input
+								ref={replaceInputRef}
+								type="file"
+								accept="image/*"
+								onChange={handleReplaceImageFile}
+								style={{ display: "none" }}
+								data-edit-op="replace-image-input"
+							/>
+						</Group>
+					)}
+				</Group>
 
 				{/* clipRect 4 行 (D-6b、ImageLayer のみ、上/右/下/左)。各行 = スライダー + 数値入力ボックス。
 				    スライダーはそのまま残し、読み取り専用表示を NumberAdjustInput に変えて直接入力 / ↑↓ /

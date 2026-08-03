@@ -160,9 +160,12 @@ describe("EditOpsPanel (v4 Group D D-4a)", () => {
 	it("選択 layer なしでは編集系ボタンが disabled、数値/透明度グループは非表示", () => {
 		seedSlide([makeImageLayer(1, "u-1")]);
 		render();
-		expect(container.querySelector<HTMLButtonElement>('[data-edit-op="mirror-h"]')?.disabled).toBe(
-			true
-		);
+		// 変形コピペは常時描画。未選択では copy が disabled。
+		expect(
+			container.querySelector<HTMLButtonElement>('[data-edit-op="copy-transform"]')?.disabled
+		).toBe(true);
+		// mirror H/V は数値プロパティ Stack 内に移設されたため、未選択では描画されない。
+		expect(container.querySelector('[data-edit-op="mirror-h"]')).toBeNull();
 		// 数値プロパティ / 透明度は選択時のみ描画される。
 		expect(container.querySelector('[data-edit-op-group="props"]')).toBeNull();
 		expect(container.querySelector('[data-edit-op-group="opacity"]')).toBeNull();
@@ -577,6 +580,43 @@ describe("EditOpsPanel 数値プロパティ入力 (v4 Group D D-10, §12)", () 
 		expect((layers[0] as ImageLayer).transX).toBe(10); // A も draft 12345 が確定しない (focus 中切替で破棄)
 		// 切替後の入力は B の値を表示
 		expect(adjustInput("transX").value).toBe("999");
+	});
+});
+
+// 回帰: 数値プロパティ Stack (key=`props-${uuid}`) とテキスト編集 Stack (key=`text-${uuid}`) は
+// 同じ親の兄弟。以前は両方とも素の uuid をキーにしており、テキストレイヤー選択時に「same key」衝突
+// → レイヤー切替のたびに props UI が複製/累積する不具合があった。接頭辞キーで一意化した。
+describe("EditOpsPanel key 衝突回帰 (props/text Stack)", () => {
+	const mixedSlide = (): Slide =>
+		makeSlide([
+			makeImageLayer(1, "u-img"),
+			{
+				id: 2,
+				uuid: "u-txt",
+				name: "",
+				opacity: 1,
+				locked: false,
+				visible: true,
+				shared: false,
+				...baseTransform,
+				type: "text",
+				text: "hi",
+			},
+		]);
+
+	it("画像↔テキストを何度切り替えても props/text グループは重複しない", () => {
+		useSlideStore.getState().setSlides([mixedSlide()]);
+		useSlideStore.getState().setSelectedIndex(0);
+		render();
+		const props = () => container.querySelectorAll('[data-edit-op-group="props"]').length;
+		const text = () => container.querySelectorAll('[data-edit-op-group="text"]').length;
+		for (let i = 0; i < 6; i++) {
+			selectLayer(i % 2 === 0 ? "u-img" : "u-txt");
+			// props はどのレイヤーでも 1 個だけ (累積しない)。
+			expect(props()).toBe(1);
+			// text は テキストレイヤー選択時のみ 1 個。
+			expect(text()).toBe(i % 2 === 0 ? 0 : 1);
+		}
 	});
 });
 

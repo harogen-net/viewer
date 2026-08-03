@@ -20,7 +20,17 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Button, Paper, ScrollArea, Stack, Text, Tooltip } from "@mantine/core";
+import {
+	ActionIcon,
+	Button,
+	Divider,
+	Paper,
+	ScrollArea,
+	Stack,
+	Text,
+	Tooltip,
+} from "@mantine/core";
+import { IconX } from "@tabler/icons-react";
 import type { CSSProperties, FC } from "react";
 
 // LayerListPanel (v4 Group D D-5、§0-10 新側内製、Mantine UI)。
@@ -115,18 +125,6 @@ const LayerRow: FC<LayerRowProps> = ({
 		fontSize: 12,
 		opacity: on ? 1 : 0.28,
 	});
-	const deleteBtnStyle: CSSProperties = {
-		minWidth: 18,
-		height: 18,
-		lineHeight: "16px",
-		textAlign: "center",
-		padding: 0,
-		border: "none",
-		background: "transparent",
-		cursor: "pointer",
-		fontSize: 12,
-		color: "#e03131",
-	};
 	// 行 onClick (選択) を起こさないよう stopPropagation してからトグル/削除を実行。
 	const stop = (fn: () => void) => (e: { stopPropagation: () => void }) => {
 		e.stopPropagation();
@@ -140,8 +138,6 @@ const LayerRow: FC<LayerRowProps> = ({
 			data-layer-id={layer.id}
 			data-selected={selected ? "true" : "false"}
 			onClick={onClick}>
-			{/* 種類アイコン */}
-			<span style={iconStyle}>{iconOf(layer)}</span>
 			{/* 状態トグル列 */}
 			<button
 				type="button"
@@ -173,18 +169,21 @@ const LayerRow: FC<LayerRowProps> = ({
 				onClick={stop(onToggleShared)}>
 				🔗
 			</button>
+			<Divider orientation="vertical" style={{ height: 16, margin: "0 4px" }} />
+			{/* 種類アイコン */}
+			<span style={iconStyle}>{iconOf(layer)}</span>
 			{/* 名前 */}
 			<span style={labelStyle}>{labelOf(layer)}</span>
 			{/* 削除ボタン (レガシー: その slide からこの layer を削除) */}
-			<button
-				type="button"
-				style={deleteBtnStyle}
+			<ActionIcon
+				size="xs"
+				variant="outline"
 				title="このレイヤーを削除"
 				data-toggle="delete"
 				aria-label="delete layer"
 				onClick={stop(onDelete)}>
-				🗑
-			</button>
+				<IconX size={16} stroke={2} />
+			</ActionIcon>
 		</div>
 	);
 };
@@ -265,28 +264,16 @@ export const LayerListPanel: FC = () => {
 			style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
 			<Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
 				{/* Layer 順序変更 */}
-				<Button.Group style={{ width: "100%" }} >
-					<Tooltip label="最前面">
+				<Button.Group style={{ width: "100%" }}>
+					<Tooltip label="最背面">
 						<Button
 							variant="default"
 							size="compact-sm"
-							onClick={() => layerMutation.bringToFront(layerIndex)}
+							onClick={() => layerMutation.sendToBack(layerIndex)}
 							disabled={!canEditLayer}
-							data-edit-op="bring-to-front"
-							aria-label="bring to front">
-							⤒
-						</Button>
-					</Tooltip>
-					<Tooltip label="1 段上げる">
-						<Button
-							variant="default"
-							size="compact-sm"
-							style={{ flex: 1 }}
-							onClick={() => layerMutation.bringForward(layerIndex)}
-							disabled={!canEditLayer}
-							data-edit-op="bring-forward"
-							aria-label="bring forward">
-							↑
+							data-edit-op="send-to-back"
+							aria-label="send to back">
+							⤓
 						</Button>
 					</Tooltip>
 					<Tooltip label="1 段下げる">
@@ -301,15 +288,27 @@ export const LayerListPanel: FC = () => {
 							↓
 						</Button>
 					</Tooltip>
-					<Tooltip label="最背面">
+					<Tooltip label="1 段上げる">
 						<Button
 							variant="default"
 							size="compact-sm"
-							onClick={() => layerMutation.sendToBack(layerIndex)}
+							style={{ flex: 1 }}
+							onClick={() => layerMutation.bringForward(layerIndex)}
 							disabled={!canEditLayer}
-							data-edit-op="send-to-back"
-							aria-label="send to back">
-							⤓
+							data-edit-op="bring-forward"
+							aria-label="bring forward">
+							↑
+						</Button>
+					</Tooltip>
+					<Tooltip label="最前面">
+						<Button
+							variant="default"
+							size="compact-sm"
+							onClick={() => layerMutation.bringToFront(layerIndex)}
+							disabled={!canEditLayer}
+							data-edit-op="bring-to-front"
+							aria-label="bring to front">
+							⤒
 						</Button>
 					</Tooltip>
 				</Button.Group>
