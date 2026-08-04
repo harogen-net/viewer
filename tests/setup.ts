@@ -1,4 +1,6 @@
+import { useAppLockStore } from "@/state/appLockStore";
 import { useViewerModeStore, ViewerMode } from "@/state/viewerModeStore";
+import { AppLockStatus } from "@/types/AppLock";
 import "fake-indexeddb/auto";
 
 // jsdom の HTMLImageElement.src は load イベントを発火しないため、
@@ -47,6 +49,32 @@ if (typeof window !== "undefined" && typeof (window as unknown as { ResizeObserv
 		disconnect(): void {}
 	};
 }
+// この環境の jsdom の localStorage は setItem すら持たない空オブジェクト。実装側は try/catch で
+// 握りつぶすので落ちはしないが、永続化を検証できない (appLock の設定など)。メモリ実装で補う。
+if (
+	typeof window !== "undefined" &&
+	typeof (window.localStorage as unknown as { setItem?: unknown })?.setItem !== "function"
+) {
+	const map = new Map<string, string>();
+	Object.defineProperty(window, "localStorage", {
+		configurable: true,
+		value: {
+			getItem: (k: string) => (map.has(k) ? map.get(k) : null),
+			setItem: (k: string, v: string) => {
+				map.set(k, String(v));
+			},
+			removeItem: (k: string) => {
+				map.delete(k);
+			},
+			clear: () => map.clear(),
+			key: (i: number) => Array.from(map.keys())[i] ?? null,
+			get length() {
+				return map.size;
+			},
+		},
+	});
+}
+
 // useFileIO.importFile が File.arrayBuffer() / File.text() を呼ぶため、test 環境
 // でも本番と同じ経路で動作させるためのもの (jsdom 25 の Blob は両関数を持たない)。
 if (typeof Blob !== "undefined" && typeof Blob.prototype.arrayBuffer !== "function") {
@@ -74,4 +102,16 @@ if (typeof Blob !== "undefined" && typeof Blob.prototype.text !== "function") {
 // viewerModeStore の初期モードが VIEW になってしまう。テストは既定で EDIT モード想定
 // (VIEW モードを検証したいテストは自前で setState する) のため、setup で EDIT に上書き。
 useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
+
+// アプリロックも既定で無効にしておく (jsdom の innerHeight=768 で isMobileEnv() が true に
+// なるため、localStorage にレコードが残るケースで既存テストが巻き添えでロックされないように)。
+useAppLockStore.setState({
+	status: AppLockStatus.DISABLED,
+	record: null,
+	webauthnAvailable: false,
+	failureCount: 0,
+	busy: false,
+	lastFailure: null,
+	lockoutUntil: 0,
+});
 

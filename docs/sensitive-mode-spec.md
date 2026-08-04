@@ -8,6 +8,7 @@
 - docs/migration-roadmap.md
 - docs/mode-spec.md
 - docs/state-management-design.md
+- docs/app-lock-spec.md（アプリロック。**本仕様とは別軸の機能**でパスワードを共用しない）
 
 ## 1. 機能概要
 - 各ドキュメントは `isSensitive` を持つ。

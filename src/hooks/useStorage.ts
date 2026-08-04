@@ -149,6 +149,15 @@ export interface StorageApi {
 	loadThumbnails: () => Promise<Record<string, StoredDocThumbnail>>;
 	/** 単一ドキュメントのサムネを取得 (ピッカーの遅延ロード用、単発 get)。未生成は null。 */
 	getThumbnail: (title: string) => Promise<StoredDocThumbnail | null>;
+	/**
+	 * 保存済みドキュメントを全消去 (DB ごと削除)。アプリロックのパスコードを忘れた場合の
+	 * 唯一の回復手段 (docs/app-lock-spec.md)。取り消し不可。
+	 *
+	 * canEditNow gate は掛けない: スマホは常に VIEW モードになる (viewerModeStore) ため、
+	 * gate を掛けるとロックアウトされた端末からリセットできなくなる。呼出側 (ロック画面) が
+	 * 二段階確認を担保すること。
+	 */
+	eraseAllDocuments: () => Promise<void>;
 }
 
 export function useStorage(): StorageApi {
@@ -351,5 +360,25 @@ export function useStorage(): StorageApi {
 		}
 	}, []);
 
-	return { listTitles, loadByTitle, save, deleteByTitle, loadThumbnails, getThumbnail };
+	// DB ごと削除する。個別 delete を回すより確実で、object store 構成の変更にも追従する。
+	const eraseAllDocuments = useCallback(async (): Promise<void> => {
+		await new Promise<void>((resolve) => {
+			const req = indexedDB.deleteDatabase(DB_NAME);
+			// blocked (他タブが DB を開いている) でも解決させる。削除は次回クローズ時に完了し、
+			// ここで待ち続けるとリセットが固まって回復手段として機能しなくなる。
+			req.onsuccess = () => resolve();
+			req.onerror = () => resolve();
+			req.onblocked = () => resolve();
+		});
+	}, []);
+
+	return {
+		listTitles,
+		loadByTitle,
+		save,
+		deleteByTitle,
+		loadThumbnails,
+		getThumbnail,
+		eraseAllDocuments,
+	};
 }

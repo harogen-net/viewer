@@ -43,6 +43,7 @@
 ### 2.4 セキュリティ
 - 非センシティブ文書
 - センシティブ文書（認証成功/失敗）
+- アプリロック（無効 / ロック中 / 解錠済み × 生体認証あり/なし）
 
 ## 3. フェーズ別テストゲート
 ### Phase 1 ゲート
@@ -106,6 +107,66 @@
 ### 4.6 履歴
 - 編集 100 ステップで上限管理が機能する
 - Transaction の undo/redo で整合が崩れない
+
+### 4.7 アプリロック
+詳細は docs/app-lock-spec.md。自動テストは以下でカバー済み。
+
+- ゲート（`tests/components/appShellGate.test.tsx`）
+  - LOCKED ではアプリ本体を描画しない（TopBar / スライド一覧が DOM に無い）
+  - LOCKED では起動時の document 自動生成が走らない = 認証前の副作用ゼロ
+  - DISABLED では従来どおり動作する（既存挙動の保持）
+- 解錠（`tests/components/appLockScreen.test.tsx`）
+  - 正しいパスコードで解錠、誤りでは LOCKED のまま + 失敗回数が増える
+  - credential 未登録なら生体認証ボタンを出さない
+  - 生体認証の失敗はパスコードのクールダウンを発動させない
+- 生体認証の自動呼び出し（`tests/components/appLockScreen.test.tsx`）
+  - 可視状態でマウントされると自動で解錠を試みる
+  - 非表示でマウントされた時は呼ばず、可視になってから呼ぶ（再ロック経路）
+  - ロック 1 サイクルにつき 1 回しか試さない
+  - 失敗してもエラー表示せず、失敗回数も増やさない。ボタンとパスコードは使えるまま
+- バイパス防止（`tests/hooks/useAppLock.test.tsx`）
+  - 誤ったパスコードでは disableLock / changePasscode / unregisterBiometrics を拒否する
+  - パスコード不要でロックを無効化する API が公開されていない
+  - クールダウン中は照合せず THROTTLED を返す
+- パスコード入力 UI（`tests/components/appLockScreen.test.tsx`, `tests/components/appLockSettingsModal.test.tsx`）
+  - ロック画面・設定モーダルともテキスト入力欄を置かない（DOM に `input` が存在しない）
+  - 0〜9 と削除キーが揃い、桁数表示が増減する。最大桁数で打ち止め
+  - 最小桁数に達するまで送信ボタンが押せない
+  - 物理キーボード（数字 / Backspace / Enter）でも操作できる
+- 桁数到達での自動照合（`tests/components/appLockScreen.test.tsx`）
+  - 桁数が分かっているときは解錠ボタンを出さず、桁数到達で自動解錠する
+  - ドットは正解の桁数ぶん表示する（キーは expectedLength では塞がず、上限は最大桁数のみ）
+  - 桁数に達する前は照合しない（PBKDF2 を無駄に回さない）
+  - 失敗すると入力がクリアされ、そのまま打ち直して解錠できる
+  - 失敗後も解錠ボタンは出さない（トルツメ）
+  - 桁数を持たない旧レコードは解錠成功時に桁数が補完される
+  - 設定モーダルは 1 画面 1 キーパッド、明るい配色（`tone="light"`）
+- 設定のステップ遷移（`tests/components/appLockSettingsModal.test.tsx`）
+  - 有効化: 説明 → 入力 → 確認 → 生体認証の確認 → 完了
+  - 確認が一致しなければ入力画面へ戻し、有効化しない
+  - 変更: 現行が違えば新規入力へ進ませない
+  - 無効化: 誤ったパスコードでは無効化されない
+  - 生体認証の登録はパスコード不要、解除は必要
+  - 閉じて開き直すと入力が持ち越されない
+- 永続化（`tests/state/appLockStore.test.ts`）
+  - UNLOCKED は localStorage に一切書かれない（リロードで必ず再ロック）
+  - レコードが無い / 壊れている場合は DISABLED（fail-open）
+- 解錠セッション（`tests/hooks/useAppSession.test.tsx`）
+  - 無操作 5 分でロックし、5 分未満ではロックしない
+  - 操作（pointerdown / keydown / wheel / touchstart）でセッションが延長される
+  - セッション内の復帰では再認証を求めない。セッション切れの復帰（visibilitychange / pageshow）でロックする
+  - hidden へ遷移しただけではロックしない
+  - 表示中の再生（スライドショー）はセッションを延長する。再生終了後もそこから 5 分は解錠が続く
+  - 非表示のまま再生していても延長されない（伏せて放置した端末が解錠され続けない）
+  - 期限切れの復帰では再生中でもロックする
+  - 解錠中以外は監視しない、アンマウント後は無反応
+- 検証子 / WebAuthn（`tests/utils/appLockPasscode.test.ts`, `tests/utils/webauthnLock.test.ts`）
+  - 検証子に平文パスコードも sentinel 文字列も現れない
+  - kdfIterations を下限未満へ書き換えたレコードを拒否する（ダウングレード防止）
+  - create/get に `userVerification:"required"` と `platform` を渡す、`rp.id` を指定しない
+  - challenge は 32 byte かつ呼び出しごとに異なる
+
+**実機のみで確認できる項目**は docs/app-lock-spec.md §10 を参照（standalone とタブでのストレージ共有、iOS での WebAuthn 動作、PBKDF2 の実測時間など）。secure context が必要なため https 配信で行う。
 
 ## 5. 自動化方針
 - 単体

@@ -16,12 +16,14 @@ import {
 	IconBookDownload,
 	IconDeviceFloppy,
 	IconDotsVertical,
+	IconLock,
 	IconPackageExport,
 	IconPackageImport,
 	IconTrash,
 } from "@tabler/icons-react";
 import type { ChangeEvent, FC } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { AppLockSettingsModal } from "../AppLockSettingsModal";
 import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOSubMenu: FC<{
@@ -44,6 +46,8 @@ export const FileIOSubMenu: FC<{
 	const { wrap, confirmDiscardIfModified } = useFileIOCommon();
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	// 画面ロック設定。スマホで開ける汎用メニューがこの ⋮ しかないためここに同居させる。
+	const [showAppLockSettings, setShowAppLockSettings] = useState(false);
 
 	// エクスポート 4 種 (HVD/HVZ/PNG/ZIP) は「未ロード確認 → doc+imageMap を注入して実行 →
 	// 結果メッセージを toast」まで同一。export 関数だけ差し替える共通ラッパーで生成する。
@@ -249,10 +253,24 @@ export const FileIOSubMenu: FC<{
 								data-action="delete-mobile">
 								ドキュメントを削除
 							</Menu.Item>
+							{/* 画面ロック (アプリ起動時の認証)。端末ローカル設定なのでスマホ限定で出す
+							    — PC で登録してもスマホには何の効果もないため。 */}
+							<Menu.Divider />
+							<Menu.Label>アプリ</Menu.Label>
+							<Menu.Item
+								leftSection={<IconLock stroke={2} />}
+								onClick={() => setShowAppLockSettings(true)}
+								data-action="app-lock-settings">
+								画面ロック
+							</Menu.Item>
 						</>
 					)}
 				</Menu.Dropdown>
 			</Menu>
+			<AppLockSettingsModal
+				opened={showAppLockSettings}
+				onClose={() => setShowAppLockSettings(false)}
+			/>
 			<input
 				ref={fileInputRef}
 				type="file"
