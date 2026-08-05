@@ -151,15 +151,9 @@
 - 永続化（`tests/state/appLockStore.test.ts`）
   - UNLOCKED は localStorage に一切書かれない（リロードで必ず再ロック）
   - レコードが無い / 壊れている場合は DISABLED（fail-open）
-- 解錠セッション（`tests/hooks/useAppSession.test.tsx`）
-  - 無操作 5 分でロックし、5 分未満ではロックしない
-  - 操作（pointerdown / keydown / wheel / touchstart）でセッションが延長される
-  - セッション内の復帰では再認証を求めない。セッション切れの復帰（visibilitychange / pageshow）でロックする
-  - hidden へ遷移しただけではロックしない
-  - 表示中の再生（スライドショー）はセッションを延長する。再生終了後もそこから 5 分は解錠が続く
-  - 非表示のまま再生していても延長されない（伏せて放置した端末が解錠され続けない）
-  - 期限切れの復帰では再生中でもロックする
-  - 解錠中以外は監視しない、アンマウント後は無反応
+- 再ロック / 解錠セッション（`SESSION_TIMEOUT_MS` で分岐、docs/app-lock-spec.md §6）
+  - `= 0`（現在の既定、`tests/hooks/useAppSession.test.tsx`）: hidden / pagehide / freeze で即ロック。visible のままの visibilitychange ではロックしない。スライドショー再生中でも即ロックする。解錠中以外は監視しない、アンマウント後は無反応
+  - `> 0`（セッション方式、`tests/hooks/useAppSessionTimeout.test.tsx`。定数を `vi.mock` で差し替えてテスト）: 無操作で設定時間が経つとロックし、それ未満ではロックしない。操作（pointerdown / keydown / wheel / touchstart）でセッションが延長される。セッション内の復帰では再認証を求めない。セッション切れの復帰（visibilitychange / pageshow）でロックする。表示中の再生（スライドショー）はセッションを延長し、再生終了後も設定時間は解錠が続く。非表示のまま再生していても延長されない。期限切れの復帰では再生中でもロックする
 - 検証子 / WebAuthn（`tests/utils/appLockPasscode.test.ts`, `tests/utils/webauthnLock.test.ts`）
   - 検証子に平文パスコードも sentinel 文字列も現れない
   - kdfIterations を下限未満へ書き換えたレコードを拒否する（ダウングレード防止）

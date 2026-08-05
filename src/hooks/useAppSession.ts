@@ -5,21 +5,16 @@ import { useEffect } from "react";
 /**
  * active (= 解錠中) の間、解錠セッションを管理する。docs/app-lock-spec.md §6。
  *
- * セッションは最後の操作から SESSION_TIMEOUT_MS (5 分) 有効で、操作のたびに延長される。
- * セッション中はバックグラウンドへ回して戻っても再認証を求めない。
+ * SESSION_TIMEOUT_MS (state/appLockStore.ts) が挙動を決める:
+ *   - 0: 猶予なし。バックグラウンドへ回った瞬間に即ロックする (延長/ポーリングは一切走らない)
+ *   - >0: セッション方式。最後の操作からその ms が経つとロック、操作のたびに延長される。
+ *     セッション中はバックグラウンドへ回して戻っても再認証を求めない
  *
- * ロックする契機は 2 つ:
- *   1. 表示中の無操作 — ポーリングで期限を監視する
- *   2. 可視状態へ復帰した瞬間 — 期限切れならその場でロック
- *
- * 2 が必要なのは、バックグラウンドではタイマーが絞られる / 凍結されるため 1 が当てにならない
- * こと。逆に 1 が必要なのは、端末を机に置いたまま前面に残っているケースを拾うため。
- *
- * 時刻は performance.now() (単調増加) を使う。Date.now() だと端末時計を巻き戻して
- * 「経過時間が負 = まだ有効」に見せられる。
+ * 実機で試した結果、猶予 (キャッシュ) は不要と判断し現在は 0 にしている。定数を戻せば
+ * セッション方式に復帰できるよう、分岐ごと残してある。
  */
 
-/** 表示中の期限監視の間隔 (ms)。5 分の判定にこの粒度で十分。 */
+/** 表示中の期限監視の間隔 (ms)。SESSION_TIMEOUT_MS > 0 のときだけ使う。 */
 const POLL_INTERVAL_MS = 10_000;
 /** セッション延長の間引き (ms)。操作ごとに store を書き換えるのを抑える。 */
 const TOUCH_THROTTLE_MS = 1_000;
@@ -39,6 +34,35 @@ export function useAppSession(active: boolean): void {
 			useSlideshowStore.getState().stop();
 			store().lock();
 		};
+
+		// SESSION_TIMEOUT_MS <= 0: 猶予なし。延長/ポーリングの類は一切走らせず
+		// (「関連処理を何もしない」)、バックグラウンド遷移を検知した瞬間に即ロックする。
+		// セッション導入前の useAppRelock と同じ挙動。
+		if (SESSION_TIMEOUT_MS <= 0) {
+			const onHidden = (): void => {
+				if (document.visibilityState !== "visible") relock();
+			};
+			document.addEventListener("visibilitychange", onHidden);
+			window.addEventListener("pagehide", relock);
+			document.addEventListener("freeze", relock);
+			return () => {
+				document.removeEventListener("visibilitychange", onHidden);
+				window.removeEventListener("pagehide", relock);
+				document.removeEventListener("freeze", relock);
+			};
+		}
+
+		// ここから先は SESSION_TIMEOUT_MS > 0 のときだけ。
+		//
+		// ロックする契機は 2 つ:
+		//   1. 表示中の無操作 — ポーリングで期限を監視する
+		//   2. 可視状態へ復帰した瞬間 — 期限切れならその場でロック
+		//
+		// 2 が必要なのは、バックグラウンドではタイマーが絞られる / 凍結されるため 1 が当てに
+		// ならないこと。逆に 1 が必要なのは、端末を机に置いたまま前面に残っているケースを拾うため。
+		//
+		// 時刻は performance.now() (単調増加) を使う。Date.now() だと端末時計を巻き戻して
+		// 「経過時間が負 = まだ有効」に見せられる。
 
 		const expired = (): boolean =>
 			isSessionExpired(store().lastActivityAt, performance.now(), SESSION_TIMEOUT_MS);
