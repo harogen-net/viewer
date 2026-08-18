@@ -39,13 +39,20 @@ const overlayStyle: CSSProperties = {
 		"env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)",
 };
 
-// スクロール可能な親の中で中央寄せする。overflow:auto の親に align-items:center を直接付けると
-// 内容が親より高いときに上端が切れて届かなくなるため、min-height:100% のラッパーを挟む。
+// スクロール可能な親の中で寄せる。overflow:auto の親に align-items を直接付けると
+// 内容が親より高いときに上端が切れて届かなくなるため、min-height:100% のラッパーを挟む
+// (min-height なので内容が高ければラッパー自体が伸び、下寄せでも上端は切れない)。
+//
+// 縦は中央ではなく下寄せにする。中央だとキーパッドが画面の上半分に食い込み、端末を持った手の
+// 親指が届かない (特に縦持ちの大画面)。下端に貼り付けると誤タップとホームインジケータに当たるので
+// 少しだけ浮かせる。左右は中央のまま。
 const centerWrapStyle: CSSProperties = {
 	minHeight: "100%",
 	display: "flex",
-	alignItems: "center",
+	alignItems: "flex-end",
 	justifyContent: "center",
+	paddingBottom: "clamp(8px, 5vh, 40px)",
+	boxSizing: "border-box",
 };
 
 const panelStyle: CSSProperties = {

@@ -18,12 +18,15 @@ import { useEffect, useRef } from "react";
 // (SlideshowShell の SS_HOVER_CSS / ToastHost の TOAST_ANIM_CSS と同じ手法)。
 //
 // キーサイズを CSS 変数にしているのは縦の余白対策: manifest が orientation:landscape なので
-// スマホでは viewport の高さが 400px 前後しかなく、68px キー (4 行 = 314px) だとタイトルや
+// スマホでは viewport の高さが 400px 前後しかなく、76px キー (4 行 = 349px) だとタイトルや
 // 解錠ボタンが画面外へ押し出される。高さに応じて縮める。
+//
+// 各段の値は「指で押せる最小サイズ」を下限に決めている。iOS HIG / Material の推奨は 44px 前後、
+// タップ精度は 48px を超えると頭打ちになるため、一番狭い段でも 50px を割らない。
 const KEYPAD_CSS = `
-[data-passcode-keypad]{--pk-key:68px;--pk-gap:14px;--pk-font:26px}
-@media (max-height:560px){[data-passcode-keypad]{--pk-key:52px;--pk-gap:10px;--pk-font:20px}}
-@media (max-height:440px){[data-passcode-keypad]{--pk-key:42px;--pk-gap:8px;--pk-font:17px}}
+[data-passcode-keypad]{--pk-key:76px;--pk-gap:15px;--pk-font:29px}
+@media (max-height:560px){[data-passcode-keypad]{--pk-key:59px;--pk-gap:11px;--pk-font:23px}}
+@media (max-height:440px){[data-passcode-keypad]{--pk-key:48px;--pk-gap:9px;--pk-font:19px}}
 [data-passcode-tone="dark"]{--pk-fg:#fff;--pk-bg:rgba(255,255,255,.14);--pk-bg-active:rgba(255,255,255,.28);--pk-dot-bd:rgba(255,255,255,.45)}
 [data-passcode-tone="light"]{--pk-fg:#212529;--pk-bg:rgba(0,0,0,.06);--pk-bg-active:rgba(0,0,0,.15);--pk-dot-bd:rgba(0,0,0,.3)}
 [data-passcode-key]{width:var(--pk-key);height:var(--pk-key);line-height:var(--pk-key);font-size:var(--pk-font);color:var(--pk-fg);background:var(--pk-bg);transition:background-color .12s ease,transform .06s ease}
@@ -31,7 +34,7 @@ const KEYPAD_CSS = `
 [data-passcode-key]:active:not(:disabled){background-color:var(--pk-bg-active);transform:scale(.94)}
 [data-passcode-key]:disabled{opacity:.35}
 [data-passcode-grid]{grid-template-columns:repeat(3,var(--pk-key));gap:var(--pk-gap)}
-[data-passcode-dot]{width:12px;height:12px;border-radius:50%;box-sizing:border-box}
+[data-passcode-dot]{width:14px;height:14px;border-radius:50%;box-sizing:border-box}
 [data-passcode-dot="filled"]{background:var(--pk-fg)}
 [data-passcode-dot="empty"]{background:transparent;border:1.5px solid var(--pk-dot-bd)}
 `;
@@ -63,11 +66,11 @@ const keyStyle: CSSProperties = {
 
 const dotsRowStyle: CSSProperties = {
 	display: "flex",
-	gap: 12,
+	gap: 14,
 	justifyContent: "center",
 	alignItems: "center",
 	// 入力が伸びても行の高さが変わらないようにする。
-	minHeight: 16,
+	minHeight: 18,
 	flexWrap: "wrap",
 };
 
