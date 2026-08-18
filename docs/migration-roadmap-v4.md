@@ -1,5 +1,9 @@
 # 移行ロードマップ v4 (Forward-only build 版)
 
+> **歴史的記録**: 移行 v4 の計画書。forward-only build 方針で、これに沿って完了した。当時の記述をそのまま残しており、**現状ではない**。
+> ファイル名・用語は当時のもので、既に存在しないパスやモードの旧称を含む。
+> 現在の構成は [function-list.md](function-list.md)、モード用語は [mode-spec.md](mode-spec.md) §1 を見ること。
+
 > 作成日: 2026-06-20
 > 起点コミット: `cae71b14` (2026-06-20、v3 Group A swap 復元 + Group B build 1-8 完了状態)
 > 旧 v3 ([migration-roadmap-v3.archived.md](migration-roadmap-v3.archived.md)) は Strangler fig + per-Group swap 方針で稼動した結果、実装してみて「**新側を継続構築する方がコードが clear になる**」とユーザ判断 (2026-06-20)。本書はその方針転換を反映した版。

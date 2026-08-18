@@ -1,5 +1,9 @@
 # 移行クローズアウト (v4 Forward-only build 完了振り返り)
 
+> **歴史的記録**: 移行完了時の振り返り。当時の記述をそのまま残しており、**現状ではない**。
+> ファイル名・用語は当時のもので、既に存在しないパスやモードの旧称を含む。
+> 現在の構成は [function-list.md](function-list.md)、モード用語は [mode-spec.md](mode-spec.md) §1 を見ること。
+
 > 作成日: 2026-07-03
 > 完了コミット: `15398fc4`（Group E: レガシー一括削除 + entrypoint 統合）
 > 位置づけ: [migration-postmortem.md](migration-postmortem.md) は移行“途中”の反省文（§4 に残作業見立て）。本書は **v4 の完了時点** の振り返り。方針は [migration-roadmap-v4.md](migration-roadmap-v4.md)。

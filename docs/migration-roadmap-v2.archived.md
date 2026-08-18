@@ -1,5 +1,9 @@
 # 移行ロードマップ v2 (`da01238` 起点版)
 
+> **歴史的記録**: 移行 v2 の計画書。当時の記述をそのまま残しており、**現状ではない**。
+> ファイル名・用語は当時のもので、既に存在しないパスやモードの旧称を含む。
+> 現在の構成は [function-list.md](function-list.md)、モード用語は [mode-spec.md](mode-spec.md) §1 を見ること。
+
 > 作成日: 2026-06-19
 > 起点コミット: `da01238438b14a3c24aeaf3ba29dd1ee7add7097` (2024-07-11)
 > 旧ロードマップ ([migration-roadmap.md](migration-roadmap.md)) は 10 日 +118% で失敗。本書は反省文 ([migration-postmortem.md](migration-postmortem.md)) を踏まえ、**起点コミットからやり直す**前提で再設計。

@@ -1,5 +1,9 @@
 # React 移行ロードマップ（段階計画）
 
+> **歴史的記録**: 移行 v1 計画書のアーカイブ。当時の記述をそのまま残しており、**現状ではない**。
+> ファイル名・用語は当時のもので、既に存在しないパスやモードの旧称を含む。
+> 現在の構成は [function-list.md](function-list.md)、モード用語は [mode-spec.md](mode-spec.md) §1 を見ること。
+
 ## 目的
 本ドキュメントは、現行 jQuery アプリを React へ段階的に移行する際の実行順序、完了条件、ロールバック方針を定義する。
 機能の棚卸しは [docs/function-list.md](docs/function-list.md) を参照する。

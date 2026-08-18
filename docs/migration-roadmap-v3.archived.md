@@ -1,5 +1,9 @@
 # 移行ロードマップ v3 (Strangler fig 版)
 
+> **歴史的記録**: 移行 v3 の計画書。per-Group swap 方式で破綻し、v4 へ転換した。当時の記述をそのまま残しており、**現状ではない**。
+> ファイル名・用語は当時のもので、既に存在しないパスやモードの旧称を含む。
+> 現在の構成は [function-list.md](function-list.md)、モード用語は [mode-spec.md](mode-spec.md) §1 を見ること。
+
 > 作成日: 2026-06-20
 > 起点コミット: `c1936d80` (2026-06-20、v2 P0 / P1 / P2 サブ 1 完了状態)
 > 旧 v2 ([migration-roadmap-v2.archived.md](migration-roadmap-v2.archived.md)) は §0-1 (ターン単位の置換原子性) が v2 §2 P2 step 8 (`EditableSlideView` 692 行 + 5 子 View の絡み合い) に対して構造的に成立せず停止。

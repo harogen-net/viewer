@@ -1,4 +1,4 @@
-# モード仕様書（browser mode / mobile pwa mode）
+# モード仕様書（PCモード / スマホモード / 一覧モード / 編集モード）
 
 ## 目的
 
@@ -10,39 +10,33 @@
 - docs/function-list.md
 - docs/migration-roadmap.md
 
-## 実装状況（2026-06-09）
+## 実装状況（2026-08-18 現在）
+
+用語は §1 を参照。ここに挙げるファイルは実在するものだけ。
 
 - 実装済み
-  - React + Mantine Runtime Shell 導入
-  - React 製 Slide List mirror（閲覧ミラー）
-  - query 強制モード（`?mode=browser|mobile`）
-  - standalone + mobile 判定による mode 解決
-  - mobile pwa mode 時の編集/保存系初期ゲート
-  - mobile pwa mode 時の readonly UI ガード（編集領域非表示）
-  - action-level reject（保存/出力/背景更新）
-  - readonly 時のスライド並び替え禁止
-  - Viewer command / slideStore 経路の add/clone/remove/sort reject
-  - FileSelector の dispose reject（保存データ削除禁止）
-  - FeatureGate 粒度拡張（canImport / canDeleteSavedData）
-  - 縦起動時の transform 回転フォールバック
+  - 起動モード解決（URL クエリ + スマホ環境判定）と store 化
+  - スマホモード時の書込ゲート（action-level reject）と編集 UI の非表示
+  - 書込操作の種別による部分開放（§3.1 の `WriteCapability`）
+  - 縦起動時の landscape ロック + transform 回転フォールバック
+  - スマホモード限定の保存 / 別名で保存 / 削除導線（⋮ メニュー）
 - 実装ファイル
-  - `src/react/mountRuntimeShell.tsx`
-  - `src/react/RuntimeShell.tsx`
-  - `src/types/styles.d.ts`
-  - `src/runtime/applyFeatureGate.ts`
-  - `src/runtime/mode.ts`
-  - `src/runtime/featureGate.ts`
-  - `src/runtime/mobileOrientation.ts`
-  - `src/index.ts`
-  - `src/Viewer.ts`
-  - `css/index.css`
+  - `src/state/launchModeStore.ts` — 起動モード解決・書込 gate（§1 軸 A / 軸 C）
+  - `src/state/slideStore.ts` — `editingIndex`（§1 軸 B の実体）
+  - `src/components/AppMain.tsx` — モード別レイアウト分岐
+  - `src/components/panels/SlideListPanel.tsx` — 一覧 / 編集ストリップ
+  - `src/components/panels/SlidePlaybackPanel.tsx` — スマホモードの再生設定バー（§3.1）
+  - `src/components/panels/fileIO/FileIOSubMenu.tsx` — スマホモード限定の保存 / 削除導線
+  - `src/hooks/useOrientationLock.ts` — 画面向き（§4）
+  - `src/utils/mobileDetect.ts` — スマホ環境判定（§2.1）
 - 未実装
-  - feature gate の網羅化（全編集操作単位の reject 実装）
+  - 書込ゲートの網羅（現状は mutation hook 単位。個別操作の抜けは §3.1 の基準で判断する）
   - orientation フォールバックの端末別最適化（セーフエリア調整など）
 
 注記:
 
-- mobile pwa mode では import は「読込用途」として許可し、保存/出力は拒否する。
+- スマホモードでは import は「読込用途」として許可し、エクスポートは拒否する。
+  保存は ⋮ メニューからの手動操作のみ許可する（§3.1）。
 
 ## 1. 用語
 
@@ -103,22 +97,22 @@
   - UA（補助）
   - 画面サイズ（補助）
 - 強制指定
-  - URL クエリ `?mode=browser|mobile`
+  - URL クエリ `?mode=mobile`（旧名 `?mode=view` も受ける）
 
 ### 2.2 判定優先順位
 
 1. クエリパラメータ（最優先）
-2. standalone かつスマホ判定なら mobile pwa mode
-3. それ以外は browser mode
+2. スマホ判定なら スマホモード
+3. それ以外は PCモード
 
 ### 2.3 フォールバック
 
-- 判定不能時は browser mode
+- 判定不能時は PCモード
 - 不正クエリ値は無視し通常判定へ
 
 ## 3. 機能可否マトリクス
 
-| 機能カテゴリ                        | browser mode | mobile pwa mode |
+| 機能カテゴリ                        | PCモード | スマホモード |
 | ----------------------------------- | ------------ | --------------- |
 | スライド一覧閲覧                    | 可           | 可              |
 | スライドショー再生                  | 可           | 可              |
@@ -135,7 +129,7 @@
 
 注記:
 
-- mobile pwa mode で「原則不可」とした項目は、将来要件で解放する場合も feature flag 管理で対応する。
+- スマホモードで「原則不可」とした項目を解放する場合は §3.1 の `WriteCapability` で種別を切る。
 
 ### 3.1 操作種別による部分開放（WriteCapability）
 
@@ -164,7 +158,7 @@ SLIDE_PLAYBACK に入れる基準は「破壊的でない（スライドもレ�
 
 ### 4.1 要件
 
-- mobile pwa mode は横画面 UX を前提とする。
+- スマホモードは横画面 UX を前提とする。
 - 縦起動時も横画面として動作させる。
 
 ### 4.2 実装順序
@@ -194,16 +188,19 @@ SLIDE_PLAYBACK に入れる基準は「破壊的でない（スライドもレ�
 
 ### 6.1 制御方式
 
-- App レベルで `mode` を保持し、feature gate で UI を制御する。
-- 無効機能は「非表示」または「disabled + 理由表示」を統一する。
+- 起動モードは `launchModeStore` に保持し、UI の出し分けと書込 gate の両方をここから引く。
+- UI で無効化する機能は「非表示」に統一する（disabled + 理由表示は使っていない）。
+- UI を隠すだけでは足りない（ショートカット等で mutation が発火しうる）ため、
+  書込は必ず `canWriteNow()` でも弾く（§3）。
 
-### 6.2 画面別ルール
+### 6.2 起動モード別ルール
 
-- browser mode
+- PCモード
   - 全編集 UI を表示
-- mobile pwa mode
+- スマホモード
   - 編集系 UI 非表示
-  - 閲覧・再生導線のみ表示
+  - 閲覧・再生導線に加え、選択スライドの再生設定バー（§3.1）と
+    ⋮ メニューの保存 / 別名で保存 / 削除を表示
 
 ## 7. 受け入れ基準
 
@@ -212,10 +209,11 @@ SLIDE_PLAYBACK に入れる基準は「破壊的でない（スライドもレ�
 - スマホ縦起動時でも横画面 UX が成立する。
 - モードごとの可否マトリクスに反する操作が行えない。
 
-## 8. 実装タスク（初版）
+## 8. 残タスク
 
-- `modeResolver` 実装
-- `featureGate` 定義（機能キー一覧）
-- `useOrientationLock`（API + transform フォールバック）実装
-- モード別ヘッダ/メニュー分岐
-- 受け入れテスト（PC、スマホPWA、縦起動）
+初版の実装タスク（modeResolver / featureGate / useOrientationLock / モード別分岐 /
+受け入れテスト）はすべて完了済み。現在の残りは以下。
+
+- 実機検証（スマホ実機での画面向きフォールバック、セーフエリア、タップ精度）。
+  ローカルの `npm run dev` では確認できない項目がある（`app-lock-spec.md` §10 と同様）。
+- 書込ゲートの網羅性レビュー（§3.1 の基準に照らして、開放漏れ／開放しすぎが無いか）。

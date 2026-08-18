@@ -1,7 +1,7 @@
 # テスト計画（段階移行）
 
 ## 目的
-段階移行中の回帰を防ぎ、browser mode / mobile pwa mode / センシティブモードを含む品質を保証する。
+段階移行中の回帰を防ぎ、PCモード / スマホモード / センシティブモードを含む品質を保証する。
 
 ## 関連ドキュメント
 - docs/function-list.md
@@ -33,8 +33,8 @@
 - スマホ PWA（iOS Safari PWA / Android Chrome PWA）
 
 ### 2.2 モード
-- browser mode
-- mobile pwa mode
+- PCモード
+- スマホモード
 
 ### 2.3 画面向き
 - 横起動
@@ -48,8 +48,8 @@
 ## 3. フェーズ別テストゲート
 ### Phase 1 ゲート
 - 起動判定が仕様通り
-- browser mode で閲覧 + スライドショー起動可能
-- mobile pwa mode で編集 UI が無効
+- PCモード で閲覧 + スライドショー起動可能
+- スマホモード で編集 UI が無効
 
 ### Phase 2 ゲート
 - hvd/hvz/png の読込成功
@@ -80,13 +80,13 @@
 
 ## 4. テストケース（抜粋）
 ### 4.1 モード判定
-- `?mode=mobile` で強制 mobile pwa mode になる
-- `?mode=browser` で強制 browser mode になる
-- standalone + スマホで mobile pwa mode になる
+- `?mode=mobile` で強制スマホモードになる（旧名 `?mode=view` も受ける）
+- クエリ指定なし・スマホ環境でなければ PCモードになる（`?mode=browser` という指定は存在しない）
+- スマホ環境判定が true でスマホモードになる
 
 ### 4.2 機能ゲート
-- mobile pwa mode でレイヤー編集 action が reject される
-- mobile pwa mode で削除・上書き操作が実行されない
+- スマホモード でレイヤー編集 action が reject される
+- スマホモード で削除・上書き操作が実行されない
 
 ### 4.3 画面向き
 - 縦起動時に transform フォールバックが適用される

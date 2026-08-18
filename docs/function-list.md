@@ -1,80 +1,36 @@
-# Viewer アプリ 機能一覧（現行 jQuery 実装）
+# Viewer アプリ 機能一覧
 
 ## 目的
 
-このドキュメントは、jQuery ベース実装を React へ移行するための事前棚卸しとして、現行アプリのユーザー機能を整理したものです。
+本書はアプリのユーザー機能の一覧（§1〜14b）である。元は jQuery 実装から React へ移行する
+ための事前棚卸しとして書かれ、移行完了時のパリティ判定の基準として使われた
+（[migration-closeout-v4.md](migration-closeout-v4.md) §1.2）。移行後も**現行機能の
+一覧として維持する**。
 
-## 追加の移行要件（今回確定）
+- モードの定義は重複させない。[mode-spec.md](mode-spec.md) §1 が唯一の定義。
+- 移行の計画・経過・振り返りは [migration-closeout-v4.md](migration-closeout-v4.md) と
+  [migration-postmortem.md](migration-postmortem.md) にある（本書には残さない）。
 
-- PC ブラウザでは「ブラウザモード」で起動する
-- スマホ PWA では「スマホモード」で起動する
-- ブラウザモードでは編集を可能にする
-- スマホ PWA では基本的に閲覧のみとする
-- スマホモードは横画面固定を前提とする
-- スマホが縦画面で起動した場合も、横画面として振る舞わせる
-- センシティブモードをサポートする
-  - パスワード文字列を UI に入力しないと表示できない
-  - モードはドキュメントファイル単位で ON/OFF 可能
-  - ON の場合は画像データを SHA ベースで暗号化して保存する
-- 原則は同一 HTML（同一エントリ）で実装する
-- ただし機能上の制約が強い場合は HTML 分離を許容する
+## モード / 画面向き
 
-## モード定義（移行設計用）
+mode-spec.md に集約した（本書に写すと二重管理になり、実際に古い記述が残っていた）。
 
-- browser mode（PC ブラウザ）
-  - 現行 VIEW_AND_EDIT 相当
-  - スライド編集、レイヤー編集、保存/読込、入出力、スライドショー
-- mobile pwa mode（スマホ PWA）
-  - 現行 VIEW_ONLY を拡張した閲覧特化モード
-  - 基本機能: 一覧表示、スライドショー再生、ミラー設定、読込
-  - 制限機能: レイヤー編集、履歴操作、画像管理、破壊的操作（削除/上書き）
-
-## 起動判定の基本方針（提案）
-
-- 判定軸
-  - Display Mode: `window.matchMedia('(display-mode: standalone)')`
-  - User Agent / 画面幅: スマホ判定の補助として利用
-- 判定ルール
-  - standalone かつスマホ端末: mobile pwa mode
-  - それ以外: browser mode
-- フォールバック
-  - 判定不能時は browser mode を既定にする
-  - クエリパラメータで強制起動モードを上書き可能にする（例: `?mode=browser|mobile`）
-
-## スマホモードの画面向き要件（今回追加）
-
-- 目標
-  - mobile pwa mode は常に横画面 UX を提供する
-- 第一手段
-  - Screen Orientation API による landscape ロックを試行する
-- 第二手段（必須フォールバック）
-  - 端末が縦向きの場合、ルート要素を transform 回転して横向き表示にする
-  - 実装イメージ:
-    - `transform: rotate(90deg)`
-    - `transform-origin: center center`
-    - 回転後の表示領域に合わせて幅高さを入れ替える
-    - 例: `width: 100vh`, `height: 100vw`
-- 付帯要件
-  - リサイズ/向き変更イベントで再レイアウトする
-  - セーフエリア（ノッチ）を考慮する
-  - 回転適用中もタップ位置と UI ヒット領域がずれないことを確認する
-
-## スマホモードの受け入れ条件（画面向き）
-
-- PWA を縦向きで起動しても、表示と操作が横画面前提で成立する
-- 画面回転後 1 秒以内にレイアウトが安定する
-- スライド一覧表示とスライドショー操作が縦起動時でも破綻しない
-- ブラウザモードのレイアウトには影響しない
+- 用語の定義（PCモード / スマホモード / 一覧モード / 編集モード）: [mode-spec.md](mode-spec.md) §1
+- 起動判定: 同 §2
+- モード別の機能可否マトリクス: 同 §3
+- 画面向き（landscape ロックと transform フォールバック）: 同 §4
+- センシティブモード: [sensitive-mode-spec.md](sensitive-mode-spec.md)
+- アプリロック: [app-lock-spec.md](app-lock-spec.md)
 
 ## 1. 起動・モード管理
 
-- 起動時に Viewer を初期化する
-- 起動モードを切替する
-  - VIEW_AND_EDIT: 一覧 + 編集 + スライドショー
-  - VIEW_ONLY: 閲覧中心（一部 UI 非表示）
-- 画面モード切替
-  - SELECT（一覧中心）
-  - EDIT（編集中心）
+- 起動時にアプリを初期化する
+- 起動モードを端末から解決する（mode-spec.md §1 軸 A）
+  - PCモード: 一覧 + 編集 + スライドショー
+  - スマホモード: 閲覧中心（編集 UI 非表示。再生設定のみ変更可）
+- 画面モードを切り替える（同 §1 軸 B）
+  - 一覧モード（スライド一覧が画面全体）
+  - 編集モード（特定スライドを編集画面で編集）
 
 ## 2. ドキュメント管理
 
@@ -189,23 +145,16 @@
 
 ## 14. セキュリティ / センシティブモード
 
-- 現状
-  - 実装途中機能として存在する前提で、移行時に正式仕様化する
-- 基本仕様
-  - ドキュメントごとに `isSensitive` を保持する
-  - `isSensitive=true` のドキュメントは、パスワード入力に成功するまで表示しない
-  - パスワード未入力または不一致時は、画像復号を行わず表示不可とする
-- 保存仕様
-  - `isSensitive=true` の場合、画像データを SHA ベース方式で暗号化して保存する
-  - `isSensitive=false` の場合、既存形式で保存する
-- 読込仕様
-  - センシティブドキュメント読込時はパスワード入力 UI を表示する
-  - 認証成功後に画像データを復号して描画する
-  - 認証失敗時はデータ内容を表示しない
-- 移行時の注意
-  - 既存非センシティブデータとの後方互換を維持する
-  - センシティブ判定フラグはファイルメタデータに明示する
-  - browser mode / mobile pwa mode の両方で閲覧可否ポリシーを統一する
+正式仕様は [sensitive-mode-spec.md](sensitive-mode-spec.md)。実装済み。以下は要約。
+
+- ドキュメントごとに `isSensitive` を保持する（文書単位のガード）
+- `isSensitive=true` の文書は、パスワード入力に成功するまで表示しない。
+  未入力・不一致では画像を復号せず表示不可とする
+- 保存時は参照中の画像データを暗号化して格納する（**PBKDF2 + AES-GCM**。
+  旧記述の「SHA ベース方式」は誤りで、実装はこちら）
+- 読込時はパスワード入力 UI を出し、認証成功後に復号して描画する
+- 非センシティブ文書は従来形式のまま保存し、後方互換を保つ
+- 閲覧可否のポリシーは PCモード / スマホモードで共通
 
 ## 14b. アプリロック（スマホ限定の起動ゲート）
 
@@ -259,60 +208,19 @@
 
 ---
 
-## React 移行時の初期分割案（機能単位）
+## 主な実装ファイル
 
-- App シェル・モード管理
-- ドキュメント状態管理（slides, meta, dirty）
-- スライド一覧
-- 編集キャンバス
-- レイヤープロパティパネル
-- スライドショー
-- 永続化（IndexedDB）
-- インポート/エクスポート
-- 画像アセット管理
-- 履歴（Undo/Redo）
+移行時の分割案・HTML 構成方針・MVVM からの移行メモは削除した（いずれも完了済みで、
+現行構成を知る役には立たない）。移行の経過と結果は
+[migration-closeout-v4.md](migration-closeout-v4.md) にある。以下は現行の入口となるファイル。
 
-## React 移行時のモード別提供機能
-
-- browser mode で提供
-  - 本ドキュメント 1 から 13 の全機能
-- mobile pwa mode で提供
-  - 1 起動・モード管理（閲覧向け）
-  - 3 スライド一覧機能（閲覧に必要な範囲）
-  - 9 スライドショー機能
-  - 10 保存・読込・入出力のうち「読込中心」
-  - 13 UI 補助機能のうち閲覧に必要な範囲
-
-## HTML 構成方針
-
-- 第一案: 単一 HTML + React ルーティング/条件レンダリング
-  - 利点: 実装資産の共有、保守性、配布導線の単純化
-- 第二案: HTML 分離（browser 用 / mobile-pwa 用）
-  - 適用条件:
-    - 初期ロードサイズ差が大きく、分割効果が明確
-    - セキュリティや運用要件で編集 UI を物理分離したい
-    - PWA キャッシュ戦略を分離しないと要件を満たせない
-  - 現時点推奨: まずは単一 HTML で開始し、必要時に分離
-
-## 現行 MVVM 的実装の移行メモ
-
-- 現行
-  - Model: `Slide`, `Layer`, `ViewerDocument`
-  - ViewModel/UI Binding: legacy binding helper はPhase3で削除済み
-  - View + Controller: `view/*`, `viewController/*`
-- React 移行
-  - legacy binding helper の責務は React state + hooks + command/bridge 経路へ置換
-  - Command ベース履歴は独立ストア化して UI から疎結合にする
-  - モード切替は App レベルの feature gate で統制する
-
-## 主な参照コード
-
-- src/Viewer.ts
-- src/viewController/EditViewController.ts
-- src/viewController/SlideShowViewController.ts
-- src/view/slide/EditableSlideView.tsx
-- src/utils/SlideStorage.ts
-- src/utils/ImageManager.ts
-- src/viewController/file/FileSelector.ts
-- src/utils/HistoryManager.ts
-- src/utils/DropHelper.ts
+- `src/main.tsx` — 唯一の entrypoint（`createRoot` はここだけ）
+- `src/components/AppShell.tsx` — アプリロックのゲート
+- `src/components/AppMain.tsx` — モード別レイアウト
+- `src/state/launchModeStore.ts` — 起動モードと書込 gate
+- `src/state/slideStore.ts` — slides / 選択 / 編集対象（画面モードの実体）
+- `src/state/viewerDocumentStore.ts` — ドキュメント meta と未保存フラグ
+- `src/state/historyStore.ts` — Undo/Redo
+- `src/utils/storageCodec.ts` — HVD/HVZ/PNG の直列化（レガシーと byte-equal）
+- `src/hooks/useStorage.ts` — IndexedDB 保存/読込
+- `src/hooks/useFileIO.ts` — インポート / エクスポート

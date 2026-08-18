@@ -13,7 +13,7 @@
 ## 関連ドキュメント
 
 - docs/sensitive-mode-spec.md（センシティブ文書のパスワード。**本機能とは別軸**）
-- docs/mode-spec.md（browser mode / mobile pwa mode の判定）
+- docs/mode-spec.md（PCモード / スマホモード の判定と用語定義）
 - docs/function-list.md §14
 - docs/test-plan.md §2.4 / §4.7
 
