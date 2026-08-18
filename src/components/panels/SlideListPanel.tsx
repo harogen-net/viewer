@@ -23,7 +23,7 @@ import {
 	sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
-import type { CSSProperties, FC } from "react";
+import type { CSSProperties, FC, MouseEvent as ReactMouseEvent } from "react";
 import { Fragment, useCallback, useEffect, useRef } from "react";
 import { SlideListContextMenu } from "./SlideListContextMenu";
 
@@ -82,6 +82,25 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 		setSlideDisabled,
 		setSlideDurationRatio,
 	} = useSlideMutation();
+
+	// 一覧モードでスライド以外の「地面」をクリックしたら選択を解除する。
+	// 編集モードで解除しないのは、選択 = 編集対象であり、降りる操作は × close が担うため。
+	//
+	// 判定はイベントの発生元がサムネ配下かどうかで行う。currentTarget との一致比較では、
+	// サムネ間の隙間やスクロール領域の余白など「サムネでない子要素」を拾えない。
+	const isListMode = editingIndex < 0;
+	const handleGroundClick = (e: ReactMouseEvent<HTMLDivElement>): void => {
+		if (!isListMode) return;
+		const el = e.target as HTMLElement;
+		// サムネ本体は地面ではない。PC では dnd-kit が並べ替え要素に role="button" を付けるため
+		// 下のコントロール除外にも引っかかるが、スマホは dnd-kit を通さないためこの判定が要る。
+		if (el.closest("[data-slide-index]")) return;
+		// コントロール上のクリックも地面ではない。前後移動・追加ボタンはサムネの外にあるため、
+		// 除外しないと「押した瞬間に選択が解除される」ことになる (回帰済み: 選択ナビが壊れた)。
+		if (el.closest("button, input, a, [role='button'], [role='slider']")) return;
+		if (selectedIndex < 0) return; // 既に未選択 (無駄な cascade を起こさない)
+		setSelectedIndex(-1);
+	};
 
 	// 編集ストリップ (!listMode) で選択(=編集中)スライドを水平中央へ寄せる共通処理。
 	// legacy ListViewController.scrollToSelected (EDIT) の
@@ -290,6 +309,7 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 			onDragOver={mobileMode ? undefined : dropProps.onDragOver}
 			onDragLeave={mobileMode ? undefined : dropProps.onDragLeave}
 			onDrop={mobileMode ? undefined : dropProps.onDrop}
+			onClick={handleGroundClick}
 			data-slide-list-drop-zone>
 			{!mobileMode && <style>{THUMB_REVEAL_CSS}</style>}
 			{!mobileMode && (

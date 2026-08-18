@@ -631,6 +631,77 @@ describe("SlideListPanel スマホモード (mobileMode)", () => {
 	});
 });
 
+describe("SlideListPanel 地面クリックで選択解除", () => {
+	// 一覧モードでは選択中スライドに調整バー (SlidePlaybackPanel) が出るため、
+	// 選択を降りる手段が必要。編集モードでは選択 = 編集対象なので解除しない。
+	const clickOn = (el: Element | null): void => {
+		expect(el).not.toBeNull();
+		act(() => {
+			el?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+	};
+	const ground = (): Element | null => container.querySelector("[data-slide-list-drop-zone]");
+
+	it("一覧モード: サムネ以外の地面クリックで選択が解除される", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useSlideStore.getState().setSelectedIndex(1);
+		render(false, true);
+
+		clickOn(ground());
+		expect(useSlideStore.getState().selectedIndex).toBe(-1);
+	});
+
+	it("スマホモードでも解除される (スマホは常に一覧モード)", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a")]);
+		useSlideStore.getState().setSelectedIndex(0);
+		render(true, true);
+
+		clickOn(ground());
+		expect(useSlideStore.getState().selectedIndex).toBe(-1);
+	});
+
+	// スマホモードで検証する。PC では dnd-kit が並べ替え要素に role="button" を付けるため
+	// コントロール除外側にも引っかかり、サムネ除外が効いているかを判別できない。
+	it("スマホモード: サムネのクリックでは解除されない (選択が即座に消えない)", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useSlideStore.getState().setSelectedIndex(0);
+		render(true, true);
+
+		clickOn(container.querySelector('[data-slide-index="1"]'));
+		expect(useSlideStore.getState().selectedIndex).toBe(1);
+	});
+
+	it("PCモード: サムネのクリックでも解除されない", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useSlideStore.getState().setSelectedIndex(0);
+		render(false, true);
+
+		clickOn(container.querySelector('[data-slide-index="1"]'));
+		expect(useSlideStore.getState().selectedIndex).toBe(1);
+	});
+
+	// 回帰: パネル全体に onClick を張った当初、サムネ外にある前後移動ボタンのクリックまで
+	// 地面と見なして「押した瞬間に選択が解除される」状態になっていた。
+	it("パネル内のボタンのクリックでは解除されない", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useSlideStore.getState().setSelectedIndex(0);
+		render(false, false); // 前後移動ボタンは編集モード (listMode=false) に出る
+
+		clickOn(container.querySelector("[data-action='select-next']"));
+		expect(useSlideStore.getState().selectedIndex).toBe(1);
+	});
+
+	it("編集モードでは地面クリックで解除されない (選択 = 編集対象)", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		// setEditingIndex(1) は selectedIndex も 1 に合わせる = 編集モード。
+		useSlideStore.getState().setEditingIndex(1);
+		render(false, false);
+
+		clickOn(ground());
+		expect(useSlideStore.getState().selectedIndex).toBe(1);
+	});
+});
+
 describe("SlideListPanel listMode (複数行ギャラリー)", () => {
 	it("listMode=false は単一行 (nowrap)、listMode=true は複数行 (wrap)", () => {
 		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
