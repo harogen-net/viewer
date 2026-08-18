@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useStorage, type StorageApi } from "../../src/hooks/useStorage";
 import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
-import { useViewerModeStore, ViewerMode } from "../../src/state/viewerModeStore";
+import { useLaunchModeStore, LaunchMode } from "../../src/state/launchModeStore";
 import type { ViewerDocument } from "../../src/types/ViewerDocument";
 
 // v3 Group B build 3: useStorage hook の単体テスト。
@@ -224,45 +224,45 @@ describe("useStorage (v3 Group B build 3)", () => {
 	});
 });
 
-// VIEW モード (スマホ PWA 自動選択時) での書き込み gate テスト:
+// スマホモード (スマホ PWA 自動選択時) での書き込み gate テスト:
 // 既定 (allowInViewMode=false) では save/delete が silent no-op になることと、
 // allowInViewMode=true では IDB に実際に書かれることを検証する。
 describe("useStorage VIEW mode gate (allowInViewMode bypass)", () => {
 	beforeEach(() => {
-		useViewerModeStore.setState({ mode: ViewerMode.VIEW });
+		useLaunchModeStore.setState({ mode: LaunchMode.MOBILE });
 	});
 	afterEach(() => {
-		useViewerModeStore.setState({ mode: ViewerMode.EDIT });
+		useLaunchModeStore.setState({ mode: LaunchMode.PC });
 	});
 
-	it("VIEW モード: save() は 既定で silent no-op (null 返し、IDB に書かれない)", async () => {
+	it("スマホモード: save() は 既定で silent no-op (null 返し、IDB に書かれない)", async () => {
 		const res = await storage.api.save(makeDoc("blocked"), { override: true });
 		expect(res).toBeNull();
 		const titles = await storage.api.listTitles();
 		expect(titles.find((t) => t.title === "blocked")).toBeUndefined();
 	});
 
-	it("VIEW モード: allowInViewMode=true なら IDB に実書きされる", async () => {
+	it("スマホモード: allowInViewMode=true なら IDB に実書きされる", async () => {
 		const res = await storage.api.save(makeDoc("allowed"), { override: true, allowInViewMode: true });
 		expect(res?.title).toBe("allowed");
 		const titles = await storage.api.listTitles();
 		expect(titles.some((t) => t.title === "allowed")).toBe(true);
 	});
 
-	it("VIEW モード: deleteByTitle() は 既定で silent no-op (IDB のレコードが残る)", async () => {
+	it("スマホモード: deleteByTitle() は 既定で silent no-op (IDB のレコードが残る)", async () => {
 		// EDIT で seed してから VIEW に切替え (beforeEach で VIEW になっているので EDIT に戻す)。
-		useViewerModeStore.setState({ mode: ViewerMode.EDIT });
+		useLaunchModeStore.setState({ mode: LaunchMode.PC });
 		await storage.api.save(makeDoc("keep-me"), { override: true });
-		useViewerModeStore.setState({ mode: ViewerMode.VIEW });
+		useLaunchModeStore.setState({ mode: LaunchMode.MOBILE });
 		await storage.api.deleteByTitle("keep-me");
 		const titles = await storage.api.listTitles();
 		expect(titles.some((t) => t.title === "keep-me")).toBe(true); // gate で 次の 削除 は スキップされる
 	});
 
-	it("VIEW モード: allowInViewMode=true なら IDB から実除かれる", async () => {
-		useViewerModeStore.setState({ mode: ViewerMode.EDIT });
+	it("スマホモード: allowInViewMode=true なら IDB から実除かれる", async () => {
+		useLaunchModeStore.setState({ mode: LaunchMode.PC });
 		await storage.api.save(makeDoc("purge"), { override: true });
-		useViewerModeStore.setState({ mode: ViewerMode.VIEW });
+		useLaunchModeStore.setState({ mode: LaunchMode.MOBILE });
 		await storage.api.deleteByTitle("purge", { allowInViewMode: true });
 		const titles = await storage.api.listTitles();
 		expect(titles.find((t) => t.title === "purge")).toBeUndefined();

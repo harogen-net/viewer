@@ -1,5 +1,5 @@
 import { useAppLockStore } from "@/state/appLockStore";
-import { useViewerModeStore, ViewerMode } from "@/state/viewerModeStore";
+import { useLaunchModeStore, LaunchMode } from "@/state/launchModeStore";
 import { AppLockStatus } from "@/types/AppLock";
 import "fake-indexeddb/auto";
 
@@ -99,9 +99,9 @@ if (typeof Blob !== "undefined" && typeof Blob.prototype.text !== "function") {
 }
 
 // jsdom の innerHeight=768 は isMobileEnv() の SMALL_VIEWPORT_PX(900) 判定に引っかかり、
-// viewerModeStore の初期モードが VIEW になってしまう。テストは既定で EDIT モード想定
-// (VIEW モードを検証したいテストは自前で setState する) のため、setup で EDIT に上書き。
-useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
+// launchModeStore の初期モードが VIEW になってしまう。テストは既定で PCモード想定
+// (スマホモードを検証したいテストは自前で setState する) のため、setup で EDIT に上書き。
+useLaunchModeStore.setState({ mode: LaunchMode.PC, isMobileEnv: false });
 
 // アプリロックも既定で無効にしておく (jsdom の innerHeight=768 で isMobileEnv() が true に
 // なるため、localStorage にレコードが残るケースで既存テストが巻き添えでロックされないように)。

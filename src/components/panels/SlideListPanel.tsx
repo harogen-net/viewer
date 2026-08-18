@@ -59,12 +59,12 @@ const THUMB_REVEAL_CSS = `
 	}
 `;
 
-// readOnly (閲覧モード): 追加/複製/削除/前後移動ボタン・per-thumb 編集コントロール・
+// mobileMode (スマホモード): 追加/複製/削除/前後移動ボタン・per-thumb 編集コントロール・
 // D&D 並べ替え・右クリックメニューを隠し、クリック選択のみ可にする。
-// wrap (ギャラリー表示): 単一行横スクロールでなく複数行に折り返す (未編集時に領域を広く使う)。
-export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
-	readOnly = false,
-	wrap = false,
+// listMode (ギャラリー表示): 単一行横スクロールでなく複数行に折り返す (未編集時に領域を広く使う)。
+export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = ({
+	mobileMode = false,
+	listMode = false,
 }) => {
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
@@ -83,17 +83,17 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		setSlideDurationRatio,
 	} = useSlideMutation();
 
-	// 編集ストリップ (!wrap) で選択(=編集中)スライドを水平中央へ寄せる共通処理。
+	// 編集ストリップ (!listMode) で選択(=編集中)スライドを水平中央へ寄せる共通処理。
 	// legacy ListViewController.scrollToSelected (EDIT) の
 	//   scrollLeft = thumb.left + container.scrollLeft - container.width/2 + thumb.width/2
 	// と同じ計算。viewport 内のみスクロールしページ全体は動かさない。
 	//   - always=true : 常に中央 (選択 / モード変更時)
 	//   - always=false: 可視範囲外の時だけ寄せる (リサイズ追随、手動スクロールを尊重)
-	// 一覧 (wrap=縦スクロール) は対象外: 見切れてもホイールで掘れて領域も広く、追随不要。
+	// 一覧 (listMode=縦スクロール) は対象外: 見切れてもホイールで掘れて領域も広く、追随不要。
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const scrollSelectedIntoView = useCallback(
 		(always: boolean, behavior: ScrollBehavior): void => {
-			if (wrap || selectedIndex < 0) return;
+			if (listMode || selectedIndex < 0) return;
 			const vp = viewportRef.current;
 			const el = vp?.querySelector<HTMLElement>(`[data-slide-index="${selectedIndex}"]`);
 			if (!vp || !el) return;
@@ -106,18 +106,18 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 			if (typeof vp.scrollTo === "function") vp.scrollTo({ left, behavior });
 			else vp.scrollLeft = left;
 		},
-		[wrap, selectedIndex]
+		[listMode, selectedIndex]
 	);
 
 	// 選択変更 / モード変更 (一覧→編集ストリップ) 時: 中央へスムーズに寄せる。
-	// (scrollSelectedIntoView は wrap / selectedIndex を依存に持つので、それらの変化で再実行される)
+	// (scrollSelectedIntoView は listMode / selectedIndex を依存に持つので、それらの変化で再実行される)
 	useEffect(() => {
 		scrollSelectedIntoView(true, "smooth");
 	}, [scrollSelectedIntoView, slides.length]);
 
 	// viewport の **寸法変化** に追随する (根本対策)。
 	// フルスクリーン化/解除・ウィンドウリサイズ・回転・パネル開閉などで表示領域が変わると、
-	// px ベースのスクロール位置が陳腐化し編集中スライドが画面外へずれるが、状態 (selectedIndex/wrap)
+	// px ベースのスクロール位置が陳腐化し編集中スライドが画面外へずれるが、状態 (selectedIndex/listMode)
 	// は変わらないため上の effect は再実行されない。ResizeObserver で寸法変化を検知し、見切れ時のみ
 	// 即時に寄せ直す。スライドショー復帰もフルスクリーン解除の寸法変化としてここで解決される。
 	useEffect(() => {
@@ -226,27 +226,27 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 		pointerEvents: "none",
 	};
 
-	// thumb コンテナは wrap=true (ギャラリー) で複数行へ折り返す。DnD も wrap 時は 2 次元 (rect) 戦略。
-	const sortStrategy = wrap ? rectSortingStrategy : horizontalListSortingStrategy;
+	// thumb コンテナは listMode=true (ギャラリー) で複数行へ折り返す。DnD も listMode 時は 2 次元 (rect) 戦略。
+	const sortStrategy = listMode ? rectSortingStrategy : horizontalListSortingStrategy;
 
 	// thumb 列コンテナの共通 style (閲覧/編集の両 path で共有)。
-	// wrap (複数行) では行間を広めに取り alignContent:flex-start で上詰めにする。
+	// listMode (複数行) では行間を広めに取り alignContent:flex-start で上詰めにする。
 	const thumbRowStyle: CSSProperties = {
 		display: "flex",
 		flexDirection: "row",
-		flexWrap: wrap ? "wrap" : "nowrap",
-		alignItems: wrap ? "flex-start" : "center",
+		flexWrap: listMode ? "wrap" : "nowrap",
+		alignItems: listMode ? "flex-start" : "center",
 		alignContent: "flex-start",
 		// 横 (column) gap は 0。スライド間の区切り/接触は SlideJoinIndicator が担う
-		// (結合中=隙間ゼロで接触、非結合=区切り線 + 隙間)。wrap 時の行間 (row gap) のみ残す。
-		gap: wrap ? "12px 0" : 0,
+		// (結合中=隙間ゼロで接触、非結合=区切り線 + 隙間)。listMode 時の行間 (row gap) のみ残す。
+		gap: listMode ? "12px 0" : 0,
 		paddingBottom: 4,
 		minHeight: THUMB_HEIGHT + 12,
 	};
 
 	// 新規スライド追加ボタン (legacy newSlideBtn 相当): リスト末尾に配置 (空でも表示)。
 	const addSlideButton =
-		!readOnly && canAdd ? (
+		!mobileMode && canAdd ? (
 			<button
 				type="button"
 				onClick={handleAddSlide}
@@ -258,7 +258,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 					minWidth: 56,
 					// 横 gap を 0 にしたため、最後のスライドと接触しないよう左に間隔を確保。
 					marginLeft: 8,
-					alignSelf: wrap ? "flex-start" : "center",
+					alignSelf: listMode ? "flex-start" : "center",
 					border: "2px dashed #adb5bd",
 					borderRadius: 4,
 					background: "rgba(0,0,0,0.02)",
@@ -274,30 +274,30 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 			</button>
 		) : null;
 
-	// 閲覧モードは画像ドロップ追加・右クリックメニューも無効。
+	// スマホモードは画像ドロップ追加・右クリックメニューも無効。
 	const body = (
 		<Paper
 			withBorder
 			p="sm"
 			radius="sm"
-			// wrap (ギャラリー) 時は領域の高さいっぱいに伸ばし、下に空白を残さない。
+			// listMode (ギャラリー) 時は領域の高さいっぱいに伸ばし、下に空白を残さない。
 			style={
-				wrap
+				listMode
 					? { position: "relative", height: "100%", display: "flex", flexDirection: "column" }
 					: { position: "relative" }
 			}
 			bg="gray.3"
-			onDragOver={readOnly ? undefined : dropProps.onDragOver}
-			onDragLeave={readOnly ? undefined : dropProps.onDragLeave}
-			onDrop={readOnly ? undefined : dropProps.onDrop}
+			onDragOver={mobileMode ? undefined : dropProps.onDragOver}
+			onDragLeave={mobileMode ? undefined : dropProps.onDragLeave}
+			onDrop={mobileMode ? undefined : dropProps.onDrop}
 			data-slide-list-drop-zone>
-			{!readOnly && <style>{THUMB_REVEAL_CSS}</style>}
-			{!readOnly && (
+			{!mobileMode && <style>{THUMB_REVEAL_CSS}</style>}
+			{!mobileMode && (
 				<div style={dropOverlayStyle} data-slide-list-drop-overlay>
 					ドロップで画像スライドを追加
 				</div>
 			)}
-			<Stack gap="xs" style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
+			<Stack gap="xs" style={listMode ? { flex: 1, minHeight: 0 } : undefined}>
 				<Group justify="space-between" align="center">
 					<Group>
 						<Title order={5}>Slide List</Title>
@@ -307,8 +307,8 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 						</Text>
 					</Group>
 
-					{/* 前後スライド選択 (◀▶) は編集モード (!wrap) のみ表示。新規追加はリスト末尾へ移設。 */}
-					{!readOnly && !wrap && (
+					{/* 前後スライド選択 (◀▶) は編集モード (listMode=false) のみ表示。新規追加はリスト末尾へ移設。 */}
+					{!mobileMode && !listMode && (
 						<Group gap={4}>
 							<Tooltip label="前のスライドを選択" disabled={!canSelectPrev}>
 								<ActionIcon
@@ -339,16 +339,16 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 					<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 						{addSlideButton}
 						<Text size="xs" c="dimmed">
-							スライドがありません{!readOnly && canAdd && " (＋ で追加)"}
+							スライドがありません{!mobileMode && canAdd && " (＋ で追加)"}
 						</Text>
 					</div>
-				) : readOnly ? (
-					// 閲覧モード: D&D 無し・編集コントロール無しの素の一覧 (クリック選択のみ)。
+				) : mobileMode ? (
+					// スマホモード: D&D 無し・編集コントロール無しの素の一覧 (クリック選択のみ)。
 					<ScrollArea
 						type="auto"
 						scrollbarSize={14}
 						viewportRef={viewportRef}
-						style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
+						style={listMode ? { flex: 1, minHeight: 0 } : undefined}>
 						<div style={thumbRowStyle} data-slide-count={slides.length}>
 							{slides.map((slide, i) => (
 								<Fragment key={slide.uuid}>
@@ -362,7 +362,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 										onToggleJoining={() => setSlideJoining(i, !slide.joining)}
 										onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
 										thumbHeight={THUMB_HEIGHT}
-										readOnly
+										mobileMode
 									/>
 									{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
 								</Fragment>
@@ -382,7 +382,7 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 								type="auto"
 								scrollbarSize={14}
 								viewportRef={viewportRef}
-								style={wrap ? { flex: 1, minHeight: 0 } : undefined}>
+								style={listMode ? { flex: 1, minHeight: 0 } : undefined}>
 								<div style={thumbRowStyle} data-slide-count={slides.length}>
 									{slides.map((slide, i) => (
 										<Fragment key={slide.uuid}>
@@ -415,5 +415,5 @@ export const SlideListPanel: FC<{ readOnly?: boolean; wrap?: boolean }> = ({
 			</Stack>
 		</Paper>
 	);
-	return readOnly ? body : <SlideListContextMenu>{body}</SlideListContextMenu>;
+	return mobileMode ? body : <SlideListContextMenu>{body}</SlideListContextMenu>;
 };

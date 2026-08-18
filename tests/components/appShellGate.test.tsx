@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppShell } from "../../src/components/AppShell";
 import { APP_LOCK_RECORD_VERSION, useAppLockStore } from "../../src/state/appLockStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
-import { useViewerModeStore, ViewerMode } from "../../src/state/viewerModeStore";
+import { useLaunchModeStore, LaunchMode } from "../../src/state/launchModeStore";
 import type { AppLockRecord } from "../../src/types/AppLock";
 import { AppLockStatus } from "../../src/types/AppLock";
 
@@ -43,8 +43,8 @@ beforeEach(() => {
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
-	// 起動時の自動 document 生成が走るかどうかを見たいので EDIT モード + document 未ロード。
-	useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
+	// 起動時の自動 document 生成が走るかどうかを見たいので PCモード + document 未ロード。
+	useLaunchModeStore.setState({ mode: LaunchMode.PC, isMobileEnv: false });
 	useViewerDocumentStore.getState().setDocument(null);
 });
 

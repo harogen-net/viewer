@@ -27,7 +27,7 @@ import { FileIOSubMenu } from "./FileIOSubMenu";
 import { FileSelector } from "./FileSelector";
 import { useFileIOCommon } from "./useFileIOCommon";
 
-export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
+export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false }) => {
 	const { listTitles, loadByTitle, save, deleteByTitle, getThumbnail } = useStorage();
 	const { run } = useProgress();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
@@ -195,13 +195,13 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 	return (
 		<>
 			<Group gap="xs" wrap="wrap">
-				{!readOnly && (
+				{!mobileMode && (
 					<Button
 						leftSection={<IconFileSpark stroke={2} />}
 						size="xs"
 						variant="default"
 						onClick={handleNew}
-						disabled={readOnly}
+						disabled={mobileMode}
 						data-action="new">
 						新規
 					</Button>
@@ -223,7 +223,7 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 						onChange={handleSelectChange}
 					/>
 				)}
-				{!readOnly && (
+				{!mobileMode && (
 					<>
 						<Tooltip label="保存時の状態に戻す (未保存の変更を破棄)" disabled={canReload}>
 							<Button
@@ -271,7 +271,7 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 					</>
 				)}
 
-				{!readOnly && (
+				{!mobileMode && (
 					<Button
 						leftSection={<IconTrash stroke={2} />}
 						size="xs"
@@ -285,7 +285,7 @@ export const FileIOToolbar: FC<{ readOnly?: boolean }> = ({ readOnly = false }) 
 					</Button>
 				)}
 				<FileIOSubMenu
-					readOnly={readOnly}
+					mobileMode={mobileMode}
 					titles={titles}
 					onTitleChange={handleSelectChange}
 					onListChanged={() => {

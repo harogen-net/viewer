@@ -46,12 +46,52 @@
 
 ## 1. 用語
 
-- browser mode
-  - PC ブラウザ起動時のモード
-  - 編集可能
-- mobile pwa mode
-  - スマホ PWA 起動時のモード
-  - 基本的に閲覧のみ
+**モードは 2 軸ある。混同しないこと（実際に混同して実装を誤ったことがある）。**
+
+### 軸 A: 起動モード（端末で決まる。実行中は変わらない）
+
+| 呼び方 | コード上の表現（唯一の形） | 旧称（もう使わない） |
+| --- | --- | --- |
+| **PCモード** | `LaunchMode.PC` / `isPcMode()` / `pcMode` | browser mode, `ViewerMode.EDIT`, `editable` |
+| **スマホモード** | `LaunchMode.MOBILE` / `mobileMode` | mobile pwa mode, `ViewerMode.VIEW`, `readOnly`, 閲覧モード |
+
+- store は `src/state/launchModeStore.ts`（`useLaunchModeStore`）。
+- PCモードは編集可能。スマホモードは閲覧中心（§3.1 の再生設定のみ例外的に書込可）。
+- 判定は §2。`?mode=mobile` で PC でもスマホモードにできる（旧名 `?mode=view` も受ける）。
+
+### 軸 B: 画面モード（実行中に切り替わる）
+
+| 呼び方 | 意味 | コード上の表現（唯一の形） | 旧称（もう使わない） |
+| --- | --- | --- | --- |
+| **一覧モード** | スライド一覧が画面全体に表示されている状態 | `editingIndex < 0` / `isListMode` / `listMode === true` | 一覧選択モード, `wrap` |
+| **編集モード** | 特定のスライドを編集画面で編集している状態 | `editingIndex >= 0` / `isEditMode` | 詳細編集モード, `detailMode` |
+
+- **スマホモードは編集モードに入れない**（編集移行の導線がスマホでは描画されない）。
+  したがってスマホモードでは常に一覧モードである。
+- 編集モードでは一覧が画面下部のストリップ（単一行）になり、一覧モードでは複数行の
+  ギャラリーとして領域いっぱいに広がる（`SlideListPanel` の `listMode` prop）。
+
+### 軸 C: 書込可否（モードではないが、軸 A から決まる）
+
+「編集」という語が軸 B の呼び名と衝突するため、書込権限側は **write** で表す。
+
+| コード上の表現 | 意味 |
+| --- | --- |
+| `WriteCapability.FULL` | 文書構造・レイヤー・画像・保存など書込全般。PCモード限定 |
+| `WriteCapability.SLIDE_PLAYBACK` | スライド単位の再生設定。スマホモードでも許可（§3.1） |
+| `canWriteNow(action, capability)` | mutation hook 先頭の gate |
+| `isWriteAllowed(mode, capability)` | 上記の純関数版 |
+
+旧称: `EditCapability` / `canEditNow` / `isCapabilityAllowed` / `isEditable` / `useCanEdit`。
+
+### 命名の規則（統一済み）
+
+- 軸 A と軸 B で「編集」の語を二重に使わない。軸 A は **PC / MOBILE**、軸 B は **LIST / EDIT**、
+  書込権限は **WRITE** で表す。
+- 以前は `ViewerMode.EDIT`（実体は軸 A の PCモード）という命名で、軸 B の「編集モード」と
+  衝突していた。実際にこれが原因で「編集モードでない場合」という条件を軸 A と誤解し、
+  実装をやり直した。現在は上表の名前だけを使う（旧称はコードに残っていない）。
+- 日本語も上表の太字だけを使う（「閲覧モード」「browser mode」「詳細編集モード」等は廃止）。
 
 ## 2. 起動判定仕様
 
@@ -97,25 +137,25 @@
 
 - mobile pwa mode で「原則不可」とした項目は、将来要件で解放する場合も feature flag 管理で対応する。
 
-### 3.1 操作種別による部分開放（EditCapability）
+### 3.1 操作種別による部分開放（WriteCapability）
 
-当初は「VIEW モードなら全書込を拒否」の二値だったが、スマホで実運用したところ
+当初は「スマホモードなら全書込を拒否」の二値だったが、スマホで実運用したところ
 「スライドショーの見え方だけは手元で直したい」という要求が出たため、書込操作を種別で分けた。
 
-- `EditCapability.FULL` — 文書構造・レイヤー・画像・保存など編集全般。EDIT モード限定。
-- `EditCapability.SLIDE_PLAYBACK` — スライド単位の**有効/無効・表示尺・結合**。VIEW モードでも許可。
+- `WriteCapability.FULL` — 文書構造・レイヤー・画像・保存など編集全般。PCモード限定。
+- `WriteCapability.SLIDE_PLAYBACK` — スライド単位の**有効/無効・表示尺・結合**。スマホモードでも許可。
 
 SLIDE_PLAYBACK に入れる基準は「破壊的でない（スライドもレイヤーも消えない）」かつ
 「スライドショーの見え方しか変わらない」こと。追加/削除/複製/並び替えと一括操作は含めない
 （一括操作は 1 タップの影響が全スライドに及ぶため）。
 
-- gate 実装: `canEditNow(action, capability)` / `isCapabilityAllowed(mode, capability)`
-  （`src/state/viewerModeStore.ts`）。`applySlideChange` の第 3 引数で渡す。
+- gate 実装: `canWriteNow(action, capability)` / `isWriteAllowed(mode, capability)`
+  （`src/state/launchModeStore.ts`）。`applySlideChange` の第 3 引数で渡す。
 - UI: `SlidePlaybackPanel`（`src/components/panels/SlidePlaybackPanel.tsx`）。
   一覧の下の調整バーで、選択中スライドに対して操作する。配置は PC のサムネ上コントロールに
   合わせ、有効=左 / 表示尺=中央 / 結合=右。サムネ上のコントロール（25px / 16px / 10px）は
   マウス前提の寸法でタッチには小さすぎるため流用しない。
-- Undo/Redo は開放していない。VIEW での変更も history に積まれるが undo は FULL 扱いで拒否される。
+- Undo/Redo は開放していない。スマホモードでの変更も history に積まれるが undo は FULL 扱いで拒否される。
 - 保存は自動化していない。⋮ メニュー >「ドキュメントを保存」「別名で保存...」の手動導線のみ。
   未保存であることは ⋮ の赤ドット（Mantine `Indicator`）とメニューのセクションラベル
   「ファイル（未保存）」で示す。

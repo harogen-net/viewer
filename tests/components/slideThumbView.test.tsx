@@ -39,17 +39,17 @@ const renderThumb = (
 	overrides: Partial<typeof baseHandlers> & {
 		selected?: boolean;
 		index?: number;
-		readOnly?: boolean;
+		mobileMode?: boolean;
 	} = {},
 ): void => {
-	const { selected = false, index = 0, readOnly = false, ...handlers } = overrides;
+	const { selected = false, index = 0, mobileMode = false, ...handlers } = overrides;
 	act(() => {
 		root.render(
 			<SlideThumbView
 				slide={slide}
 				index={index}
 				selected={selected}
-				readOnly={readOnly}
+				mobileMode={mobileMode}
 				{...baseHandlers}
 				{...handlers}
 			/>,
@@ -84,11 +84,11 @@ describe("SlideThumbView thumb 内 UI (v4 Group C C-9)", () => {
 			expect(getControl("duration-label")?.textContent).toBe("x0.6");
 		});
 
-		it("!readOnly で右端リサイズハンドルが出る / readOnly では出ない", () => {
-			renderThumb(makeSlide(), { readOnly: false });
+		it("!mobileMode で右端リサイズハンドルが出る / mobileMode では出ない", () => {
+			renderThumb(makeSlide(), { mobileMode: false });
 			expect(getControl("duration-resize")).not.toBeNull();
 
-			renderThumb(makeSlide(), { readOnly: true });
+			renderThumb(makeSlide(), { mobileMode: true });
 			expect(getControl("duration-resize")).toBeNull();
 		});
 

@@ -13,11 +13,11 @@ import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useLayerStore } from "../../src/state/layerStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
-import { useViewerModeStore, ViewerMode } from "../../src/state/viewerModeStore";
+import { useLaunchModeStore, LaunchMode } from "../../src/state/launchModeStore";
 import type { Slide } from "../../src/types/Slide";
 
-// VIEW モード action-level reject (docs/mode-spec.md §3)。
-// mutation 系 hook が VIEW モードでは silent no-op になり、store / history / library を
+// スマホモード action-level reject (docs/mode-spec.md §3)。
+// mutation 系 hook が スマホモードでは silent no-op になり、store / history / library を
 // 一切書き換えないことを 1 件ずつ検証する。
 // (UI hide だけではキーボードショートカット等で mutation が発火しうるための保険。)
 
@@ -77,16 +77,16 @@ beforeEach(() => {
 	useViewerDocumentStore.getState().setModified(false);
 	useHistoryStore.getState().clear();
 	hooks = setupHooks();
-	useViewerModeStore.setState({ mode: ViewerMode.VIEW, isMobileEnv: false });
+	useLaunchModeStore.setState({ mode: LaunchMode.MOBILE, isMobileEnv: false });
 });
 
 afterEach(() => {
 	hooks.teardown();
-	useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
+	useLaunchModeStore.setState({ mode: LaunchMode.PC, isMobileEnv: false });
 	vi.restoreAllMocks();
 });
 
-describe("VIEW モードでの action-level reject", () => {
+describe("スマホモードでの action-level reject", () => {
 	it("useSlideMutation: mutation が no-op (slides / history / modified 不変)", () => {
 		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
 		useViewerDocumentStore.getState().setModified(false);
@@ -102,7 +102,7 @@ describe("VIEW モードでの action-level reject", () => {
 	});
 
 	// スライド単位の再生設定 (有効/無効・表示尺・結合) だけは VIEW でも通す
-	// (EditCapability.SLIDE_PLAYBACK)。スマホで手元からスライドショーを調整するための開放。
+	// (WriteCapability.SLIDE_PLAYBACK)。スマホで手元からスライドショーを調整するための開放。
 	it("useSlideMutation: 有効/無効の切替は VIEW でも通る", () => {
 		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
 		useViewerDocumentStore.getState().setModified(false);
@@ -169,7 +169,7 @@ describe("VIEW モードでの action-level reject", () => {
 
 	it("useDocumentMutation.undo / redo が no-op (history pop しない)", () => {
 		// 1 件 push (EDIT で 1 度だけ切り替えて仕込む)
-		useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
+		useLaunchModeStore.setState({ mode: LaunchMode.PC, isMobileEnv: false });
 		useSlideStore.getState().setSlides([makeSlide(1, "a")]);
 		hooks.api.slide.addSlide(400, 300);
 		expect(useHistoryStore.getState().past.length).toBe(1);
@@ -177,7 +177,7 @@ describe("VIEW モードでの action-level reject", () => {
 		const slidesBefore = useSlideStore.getState().slides.length;
 
 		// VIEW に戻して undo/redo が no-op であることを検証
-		useViewerModeStore.setState({ mode: ViewerMode.VIEW, isMobileEnv: false });
+		useLaunchModeStore.setState({ mode: LaunchMode.MOBILE, isMobileEnv: false });
 		hooks.api.doc.undo();
 		expect(useHistoryStore.getState().past.length).toBe(pastLen);
 		expect(useSlideStore.getState().slides.length).toBe(slidesBefore);
@@ -191,11 +191,11 @@ describe("VIEW モードでの action-level reject", () => {
 
 	it("useImageLibraryMutation.deleteImage は 0 を返し library / slides 不変", () => {
 		// EDIT で 1 件追加してから VIEW でも消えないことを確認
-		useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
+		useLaunchModeStore.setState({ mode: LaunchMode.PC, isMobileEnv: false });
 		useImageLibraryStore.getState().addImage("img-1", { dataURL: "data:image/png;base64,x" });
 		expect(Object.keys(useImageLibraryStore.getState().imageById).length).toBe(1);
 
-		useViewerModeStore.setState({ mode: ViewerMode.VIEW, isMobileEnv: false });
+		useLaunchModeStore.setState({ mode: LaunchMode.MOBILE, isMobileEnv: false });
 		const removed = hooks.api.image.deleteImage("img-1");
 		expect(removed).toBe(0);
 		expect(Object.keys(useImageLibraryStore.getState().imageById).length).toBe(1);

@@ -4,12 +4,12 @@ import { MAX_DURATION, MIN_DURATION } from "@/utils/slideOps";
 import { ActionIcon, Checkbox, Group, Switch, Text } from "@mantine/core";
 import type { CSSProperties, FC } from "react";
 
-// 閲覧モード (スマホ) 用の「選択スライドの再生設定」調整バー。
+// スマホモード (スマホ) 用の「選択スライドの再生設定」調整バー。
 //
-// スマホは常に VIEW モードで編集 UI が出ないが、スライドショーの見え方だけは手元で
+// スマホは常に スマホモードで編集 UI が出ないが、スライドショーの見え方だけは手元で
 // 直したい (無効化して飛ばす / 表示尺を伸ばす / 前のスライドと結合する) という要求への回答。
 // 触れるのはこの 3 種だけで、追加・削除・並び替え・レイヤーには触れない
-// (gate 側も EditCapability.SLIDE_PLAYBACK でこの 3 種だけを通す)。
+// (gate 側も WriteCapability.SLIDE_PLAYBACK でこの 3 種だけを通す)。
 //
 // サムネ上の既存コントロールを流用しない理由:
 //   サムネは高さ 110px で、有効チェック 25px / 結合矢印 16px / 尺ハンドル 10px という

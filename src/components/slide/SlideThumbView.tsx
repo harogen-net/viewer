@@ -45,8 +45,8 @@ interface SlideThumbViewProps extends SlideViewProps {
 	onToggleDisabled: () => void;
 	/** thumb の固定高さ (px)。デフォルト 110 (legacy THUMB_HEIGHT 互換)。 */
 	thumbHeight?: number;
-	/** 閲覧モード: 有効/無効・結合・duration の編集コントロールを隠す (選択のみ可)。 */
-	readOnly?: boolean;
+	/** スマホモード: 有効/無効・結合・duration の編集コントロールを隠す (選択のみ可)。 */
+	mobileMode?: boolean;
 }
 
 // canvas 再描画 debounce ms (legacy CanvasSlideView.refresh の setTimeout 100ms 互換)。
@@ -113,7 +113,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 	onToggleJoining,
 	onToggleDisabled,
 	thumbHeight = 110,
-	readOnly = false,
+	mobileMode = false,
 }) => {
 	// 右端ドラッグ中の暫定尺 (null=非ドラッグ)。ドラッグ中は store を触らず幅/ラベルだけ即時追従し、
 	// 離した時に onSetDuration で 1 回だけ確定 (履歴を汚さない)。
@@ -338,7 +338,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 			/>
 
 			{/* 尺ラベル (x1.5 等)。通常は下辺の小バッジ、ドラッグ中は中央に拡大。尺 1 は通常時のみ非表示。
-			    readOnly でも出す: 閲覧モードでも SlidePlaybackPanel から尺を変えられるので、
+			    mobileMode でも出す: スマホモードでも SlidePlaybackPanel から尺を変えられるので、
 			    現在値が読めないと操作結果が分からない (サムネ幅の伸縮だけでは判別しづらい)。 */}
 			{badgeText && (
 				<span style={durationBadgeStyle} data-thumb-control="duration-label">
@@ -346,9 +346,9 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 				</span>
 			)}
 
-			{/* 編集コントロール (有効/無効・結合・duration ドラッグ) は readOnly で非表示。
-			    閲覧モードでの値変更は SlidePlaybackPanel が担う (サムネ上の的はタッチには小さすぎる)。 */}
-			{!readOnly && (
+			{/* 編集コントロール (有効/無効・結合・duration ドラッグ) は mobileMode で非表示。
+			    スマホモードでの値変更は SlidePlaybackPanel が担う (サムネ上の的はタッチには小さすぎる)。 */}
+			{!mobileMode && (
 				<>
 					{/* スライド内アクション (legacy 配置: 編集=左上 / 削除=右上 / 複製=右下)。選択不要。 */}
 					{onEdit && (

@@ -130,7 +130,7 @@ const clearRecord = (): void => {
 };
 
 interface AppLockStoreState {
-	/** 現在の状態。モジュール初期化時に 1 回だけ確定する (viewerModeStore と同方針)。 */
+	/** 現在の状態。モジュール初期化時に 1 回だけ確定する (launchModeStore と同方針)。 */
 	status: AppLockStatus;
 	/** 永続レコード (未設定は null)。設定 UI と解錠フローが参照する。 */
 	record: AppLockRecord | null;

@@ -1,5 +1,5 @@
 // モバイル環境判定 (docs/mode-spec.md §2)。
-// isMobileEnv(): mobile UA OR 小 viewport → VIEW モード自動切替の gate。
+// isMobileEnv(): mobile UA OR 小 viewport → スマホモード自動切替の gate。
 // PWA (standalone) 要件は課さない: モバイルは閲覧用途なので browser 経由でも VIEW 固定にする。
 // PC で VIEW にしたい場合は `?mode=view` を明示指定する (それ以外は EDIT 既定)。
 // SSR / test 環境 (window undefined) 時は false。

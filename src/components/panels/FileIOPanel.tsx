@@ -20,10 +20,10 @@ import { ImageLibraryPanel } from "./ImageLibraryPanel";
 //   - import / export (HVD/HVZ/PNG):  useFileIO に委譲 (doc / imageMap を注入)
 //   - store 反映 (setDocument / setImageLibrary) は本 component 側で行う
 
-// readOnly (閲覧モード) では書込系 (新規 / 保存 / 上書き / import / 削除 / 元に戻す) を隠し、
+// mobileMode (スマホモード) では書込系 (新規 / 保存 / 上書き / import / 削除 / 元に戻す) を隠し、
 // 開く (一覧 / 前後移動 / ギャラリー) と出力 (PNG/HVD/HVZ/ZIP) のみ残す。
 
-export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
+export const FileIOPanel: FC<{ mobileMode?: boolean }> = ({ mobileMode = false }) => {
 	const alert = useAlert();
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const modified = useViewerDocumentStore((s) => s.modified);
@@ -47,7 +47,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 	return (
 		<>
 			<Stack gap="xs">
-				<FileIOToolbar readOnly={readOnly} />
+				<FileIOToolbar mobileMode={mobileMode} />
 
 				{!isMobile && (
 					<Paper withBorder p="6" radius="sm">
@@ -81,7 +81,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 										</Pill>
 									) : null}
 								</Group>
-								{!readOnly && (
+								{!mobileMode && (
 									<Group gap="xs">
 										<Button
 											variant="filled"
@@ -111,7 +111,7 @@ export const FileIOPanel: FC<{ readOnly?: boolean }> = ({ readOnly = false }) =>
 					</Paper>
 				)}
 			</Stack>
-			{!readOnly && (
+			{!mobileMode && (
 				<>
 					<ImageLibraryPanel opened={showImageLibrary} onClose={() => setShowImageLibrary(false)} />
 					<DocumentSettingsModal />

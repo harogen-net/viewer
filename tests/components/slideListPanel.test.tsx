@@ -47,11 +47,11 @@ const resolveAlert = async (value: boolean | string | null): Promise<void> => {
 	});
 };
 
-const render = (readOnly = false, wrap = false): void => {
+const render = (mobileMode = false, listMode = false): void => {
 	act(() => {
 		root.render(
 			<MantineProvider>
-				<SlideListPanel readOnly={readOnly} wrap={wrap} />
+				<SlideListPanel mobileMode={mobileMode} listMode={listMode} />
 			</MantineProvider>
 		);
 	});
@@ -205,7 +205,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 			expect(s.editingIndex).toBe(1); // 編集対象も追従
 		});
 
-		it("wrap (ギャラリー) では前後選択ボタンを表示しない", () => {
+		it("listMode (ギャラリー) では前後選択ボタンを表示しない", () => {
 			useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
 			useSlideStore.getState().setSelectedIndex(0);
 			render(false, true);
@@ -596,7 +596,7 @@ describe("SlideListPanel ドラッグ&ドロップ (v4 Group D D-12)", () => {
 	});
 });
 
-describe("SlideListPanel 閲覧モード (readOnly)", () => {
+describe("SlideListPanel スマホモード (mobileMode)", () => {
 	const seedDoc = (slides: Slide[]): void => {
 		useViewerDocumentStore.getState().setDocument({
 			title: "test",
@@ -623,7 +623,7 @@ describe("SlideListPanel 閲覧モード (readOnly)", () => {
 		expect(container.querySelectorAll("[data-thumb-canvas]").length).toBe(2);
 	});
 
-	it("編集モード (既定) では追加ボタン・DnD が出る", () => {
+	it("PCモード (既定) では追加ボタン・DnD が出る", () => {
 		seedDoc([makeSlide(1, "a"), makeSlide(2, "b")]);
 		render(false);
 		expect(container.querySelector("[data-action='add']")).not.toBeNull();
@@ -631,8 +631,8 @@ describe("SlideListPanel 閲覧モード (readOnly)", () => {
 	});
 });
 
-describe("SlideListPanel wrap (複数行ギャラリー)", () => {
-	it("wrap=false は単一行 (nowrap)、wrap=true は複数行 (wrap)", () => {
+describe("SlideListPanel listMode (複数行ギャラリー)", () => {
+	it("listMode=false は単一行 (nowrap)、listMode=true は複数行 (wrap)", () => {
 		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
 		render(false, false);
 		const row1 = container.querySelector<HTMLElement>("[data-slide-count]");
@@ -645,7 +645,7 @@ describe("SlideListPanel wrap (複数行ギャラリー)", () => {
 });
 
 describe("SlideListPanel 選択スライドの中央スクロール (編集ストリップ遷移)", () => {
-	// jsdom に scrollTo が無いので spy を生やす。中央化 effect は !wrap (ストリップ) 時のみ走る。
+	// jsdom に scrollTo が無いので spy を生やす。中央化 effect は !listMode (ストリップ) 時のみ走る。
 	let restoreScrollTo: (() => void) | undefined;
 	let scrollToSpy: ReturnType<typeof vi.fn>;
 	beforeEach(() => {
@@ -663,17 +663,17 @@ describe("SlideListPanel 選択スライドの中央スクロール (編集ス�
 	});
 	afterEach(() => restoreScrollTo?.());
 
-	it("wrap (一覧) では中央スクロールせず、!wrap (編集ストリップ) へ遷移で中央スクロールが走る", () => {
+	it("listMode (一覧) では中央スクロールせず、!listMode (編集ストリップ) へ遷移で中央スクロールが走る", () => {
 		useSlideStore
 			.getState()
 			.setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c"), makeSlide(4, "d")]);
 		useSlideStore.getState().setSelectedIndex(3);
 
-		// wrap (ギャラリー): 水平中央化はしない
+		// listMode (ギャラリー): 水平中央化はしない
 		render(false, true);
 		expect(scrollToSpy).not.toHaveBeenCalled();
 
-		// !wrap (編集ストリップ) へ遷移: selectedIndex 不変でも wrap 変化で中央スクロールが走る
+		// !listMode (編集ストリップ) へ遷移: selectedIndex 不変でも listMode 変化で中央スクロールが走る
 		render(false, false);
 		expect(scrollToSpy).toHaveBeenCalled();
 	});
@@ -766,7 +766,7 @@ describe("SlideListPanel viewport リサイズ追随 (編集ストリップ・�
 		expect(arg?.behavior).toBe("auto");
 	});
 
-	it("一覧 (wrap) では viewport リサイズで追随しない (縦は対象外)", () => {
+	it("一覧 (listMode) では viewport リサイズで追随しない (縦は対象外)", () => {
 		useSlideStore
 			.getState()
 			.setSlides([makeSlide(1, "a"), makeSlide(2, "b"), makeSlide(3, "c"), makeSlide(4, "d")]);

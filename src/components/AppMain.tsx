@@ -6,7 +6,7 @@ import { useShellKeyboard } from "@/hooks/useShellKeyboard";
 import { useSlideshowStore } from "@/state/slideshowStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
-import { useViewerModeStore, ViewerMode } from "@/state/viewerModeStore";
+import { useLaunchModeStore, LaunchMode } from "@/state/launchModeStore";
 import { DateUtil } from "@/utils/DateUtil";
 import { createNewViewerDocument } from "@/utils/viewerDocumentFactory";
 import { ActionIcon, Box, Flex, Text, Tooltip } from "@mantine/core";
@@ -36,8 +36,8 @@ import { SlideshowShell } from "./SlideshowShell";
 // 載り得るため、ロック画面の裏に残さない)。
 
 // 上部グローバルバー: スライドショー / ファイル IO / 画像ライブラリ・設定。
-// editable=false (閲覧モード) では編集系トリガ (画像ライブラリ追加・ドキュメント設定) を隠す。
-const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
+// pcMode=false (スマホモード) では編集系トリガ (画像ライブラリ追加・ドキュメント設定) を隠す。
+const TopBar: FC<{ pcMode: boolean }> = ({ pcMode }) => {
 	const [showSlideshowSettings, setShowSlideshowSettings] = useState(false);
 	const slideshowRunning = useSlideshowStore((s) => s.running);
 	const stopSlideshow = useSlideshowStore((s) => s.stop);
@@ -51,9 +51,9 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 			<div style={topBarStyle} data-top-bar>
 				<Flex direction="row" gap="sm" align="stretch">
 					<SlideShowOpsPanel />
-					<FileIOPanel readOnly={!editable} />
+					<FileIOPanel mobileMode={!pcMode} />
 					{/* スライドショー設定は playback settings (interval/duration/flip 等) で document を
-					    書き換えない。VIEW モードでも常に開けるようにする。 */}
+					    書き換えない。スマホモードでも常に開けるようにする。 */}
 					<ActionIcon.Group>
 						<Tooltip label="スライドショー設定">
 							<ActionIcon
@@ -76,8 +76,8 @@ const TopBar: FC<{ editable: boolean }> = ({ editable }) => {
 };
 
 // メイン領域 (レガシー #main 相当): 中央 canvas (上に編集ツールバー) + 右 sideMenu (property / layer)。
-// editable=false では編集ツールバー・右レール (EditOps / Layer) を隠し、canvas 閲覧のみ。
-const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
+// pcMode=false では編集ツールバー・右レール (EditOps / Layer) を隠し、canvas 閲覧のみ。
+const MainArea: FC<{ pcMode: boolean }> = ({ pcMode }) => {
 	const slides = useSlideStore((s) => s.slides);
 	// MainArea は編集対象 (editingIndex) を描画する。選択 (selectedIndex) ではない。
 	const editingIndex = useSlideStore((s) => s.editingIndex);
@@ -166,7 +166,7 @@ const MainArea: FC<{ editable: boolean }> = ({ editable }) => {
 
 	// 編集 UI (ツールバー + 右レール) は「編集モード かつ スライド選択中」のみ表示 (レガシー .canvas 相当)。
 	// スライド未選択時はキャンバスの案内のみ。
-	const showEditUI = editable && !!slide;
+	const showEditUI = pcMode && !!slide;
 
 	return (
 		<div style={mainAreaStyle} data-main-area>
@@ -251,14 +251,14 @@ const topBarStyle: CSSProperties = {
 	overflowX: "auto",
 };
 // スライド一覧領域 (レガシー #main .list 相当)。
-// 詳細編集モード: canvas の下の固定高さ帯 (単一行)。高さは内容 (1 行) で決まり伸びない。
+// 編集モード: canvas の下の固定高さ帯 (単一行)。高さは内容 (1 行) で決まり伸びない。
 // 横方向は SlideListPanel 内の ScrollArea が担当。
 const listStripStyle: CSSProperties = {
 	flex: "0 0 auto",
 	borderTop: "1px solid #dee2e6",
 	padding: 8,
 };
-// 一覧選択モード: canvas が無い分まで広げ、複数行ギャラリーで領域いっぱいに使う (内部縦スクロール)。
+// 一覧モード: canvas が無い分まで広げ、複数行ギャラリーで領域いっぱいに使う (内部縦スクロール)。
 const listExpandedStyle: CSSProperties = {
 	flex: 1,
 	minHeight: 0,
@@ -272,43 +272,43 @@ export const AppMain: FC = () => {
 	useBeforeUnloadGuard();
 	// スライド遷移時に対応レイヤー (同一画像/テキスト/同形状) を自動選択 (legacy 相当)。
 	useLayerAutoSelect();
-	const mode = useViewerModeStore((s) => s.mode);
-	const editable = mode === ViewerMode.EDIT;
-	// 起動時に document が無ければ自動で新規作成 (編集モードのみ、トースト無し)。
+	const mode = useLaunchModeStore((s) => s.mode);
+	const pcMode = mode === LaunchMode.PC;
+	// 起動時に document が無ければ自動で新規作成 (PCモードのみ、トースト無し)。
 	// 「document 未ロード」の混乱を招く空状態を避ける。
 	useEffect(() => {
-		if (editable && useViewerDocumentStore.getState().meta === null) {
+		if (pcMode && useViewerDocumentStore.getState().meta === null) {
 			useViewerDocumentStore
 				.getState()
 				.setDocument({ ...createNewViewerDocument(), title: DateUtil.getDateString() });
 		}
-		// マウント時 1 回のみ (editable は起動モード由来で不変)。
+		// マウント時 1 回のみ (pcMode は起動モード由来で不変)。
 		// biome-ignore lint/correctness/useExhaustiveDependencies: 起動時 1 回のみ
 	}, []);
-	// 内部動作モード (レガシー相当) でレイアウトが変わる。ViewerMode (起動モード) とは別軸:
-	//   - 詳細編集モード (editable かつ スライド選択中):
+	// 内部動作モード (レガシー相当) でレイアウトが変わる。LaunchMode (起動モード) とは別軸:
+	//   - 編集モード (pcMode かつ スライド選択中):
 	//       TopBar(固定) / 編集エリア(最大) / スライド一覧(1 行・固定)
-	//   - 一覧選択モード (未選択 / 閲覧起動):
+	//   - 一覧モード (未選択 / 閲覧起動):
 	//       TopBar(固定) / スライド一覧(複数行・最大)。編集エリアは無し
-	// (× close で選択解除 → 一覧選択モードへ戻る。VIEW 起動では常に一覧選択モード)
+	// (× close で選択解除 → 一覧モードへ戻る。VIEW 起動では常に一覧モード)
 	const slides = useSlideStore((s) => s.slides);
-	// 詳細編集モードは editingIndex (編集対象) で駆動する。selectedIndex (選択) ではない。
+	// 編集モードは editingIndex (編集対象) で駆動する。selectedIndex (選択) ではない。
 	const editingIndex = useSlideStore((s) => s.editingIndex);
-	const detailMode = editable && editingIndex >= 0 && !!slides[editingIndex];
+	const isEditMode = pcMode && editingIndex >= 0 && !!slides[editingIndex];
 	return (
 		<>
 			<div style={newModeLayoutStyle} data-viewer-mode={mode}>
-				<TopBar editable={editable} />
-				{detailMode && <MainArea editable={editable} />}
+				<TopBar pcMode={pcMode} />
+				{isEditMode && <MainArea pcMode={pcMode} />}
 				<div
-					style={detailMode ? listStripStyle : listExpandedStyle}
+					style={isEditMode ? listStripStyle : listExpandedStyle}
 					data-slide-list-area
-					data-list-expanded={detailMode ? "false" : "true"}>
-					<SlideListPanel readOnly={!editable} wrap={!detailMode} />
+					data-list-expanded={isEditMode ? "false" : "true"}>
+					<SlideListPanel mobileMode={!pcMode} listMode={!isEditMode} />
 				</div>
-				{/* 閲覧モードでも選択スライドの再生設定 (有効/無効・表示尺) だけは触れるようにする。
+				{/* スマホモードでも選択スライドの再生設定 (有効/無効・表示尺) だけは触れるようにする。
 				    編集モードではサムネ上のコントロールが同じ役割を担うので出さない。 */}
-				{!editable && <SlidePlaybackPanel />}
+				{!pcMode && <SlidePlaybackPanel />}
 			</div>
 			<ProgressBar />
 			<AlertHost />

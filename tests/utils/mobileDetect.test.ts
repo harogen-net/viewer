@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isMobileEnv } from "../../src/utils/mobileDetect";
 
 // mobile 判定 (docs/mode-spec.md §2):
-//   mobile UA OR viewport <= 900 → VIEW モード自動切替の gate。
+//   mobile UA OR viewport <= 900 → スマホモード自動切替の gate。
 // PWA (standalone) 要件は課さない — mobile browser でも VIEW 固定にする方針。
 // jsdom の innerWidth/Height / userAgent を差し替えて分岐を検証する。
 

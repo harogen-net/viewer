@@ -1,6 +1,6 @@
 import { useSensitivePassword } from "@/hooks/useSensitivePassword";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
-import { canEditNow } from "@/state/viewerModeStore";
+import { canWriteNow } from "@/state/launchModeStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import { DateUtil } from "@/utils/DateUtil";
 import {
@@ -134,7 +134,7 @@ export interface StorageApi {
 			thumbnail?: StoredDocThumbnail | null;
 			onProgress?: (fraction: number) => void;
 			/**
-			 * VIEW モードでの canEditNow gate をバイパス。スマホ PWA (自動 VIEW) 限定の
+			 * スマホモードでの canWriteNow gate をバイパス。スマホ PWA (自動 VIEW) 限定の
 			 * インポート同時保存で使用。UI 側でスマホ限定であることを保証すること。
 			 */
 			allowInViewMode?: boolean;
@@ -142,7 +142,7 @@ export interface StorageApi {
 	) => Promise<{ title: string } | null>;
 	/**
 	 * タイトル指定で削除。該当なしも success 扱い。
-	 * allowInViewMode: VIEW モードでの canEditNow gate をバイパス (スマホ限定の削除導線用)。
+	 * allowInViewMode: スマホモードでの canWriteNow gate をバイパス (スマホ限定の削除導線用)。
 	 */
 	deleteByTitle: (title: string, options?: { allowInViewMode?: boolean }) => Promise<void>;
 	/** 全サムネイルを {title: {thumb, frames}} で取得 (未生成 title は欠落)。※ピッカーは遅延ロードを使う。 */
@@ -153,7 +153,7 @@ export interface StorageApi {
 	 * 保存済みドキュメントを全消去 (DB ごと削除)。アプリロックのパスコードを忘れた場合の
 	 * 唯一の回復手段 (docs/app-lock-spec.md)。取り消し不可。
 	 *
-	 * canEditNow gate は掛けない: スマホは常に VIEW モードになる (viewerModeStore) ため、
+	 * canWriteNow gate は掛けない: スマホは常に スマホモードになる (launchModeStore) ため、
 	 * gate を掛けるとロックアウトされた端末からリセットできなくなる。呼出側 (ロック画面) が
 	 * 二段階確認を担保すること。
 	 */
@@ -242,11 +242,11 @@ export function useStorage(): StorageApi {
 				thumbnail?: StoredDocThumbnail | null;
 				/** 保存進捗 (0..1)。暗号化/直列化/書込のフェーズ粗粒度 (JSON.stringify は同期のため滑らかには動かない)。 */
 				onProgress?: (fraction: number) => void;
-				/** VIEW モードでの gate をバイパス (スマホのインポート同時保存で使用)。 */
+				/** スマホモードでの gate をバイパス (スマホのインポート同時保存で使用)。 */
 				allowInViewMode?: boolean;
 			}
 		): Promise<{ title: string } | null> => {
-			if (!options?.allowInViewMode && !canEditNow("storage.save")) return null;
+			if (!options?.allowInViewMode && !canWriteNow("storage.save")) return null;
 			const report = options?.onProgress;
 			const title = options?.override ? doc.title : DateUtil.getDateString();
 			const now = Date.now();
@@ -312,7 +312,7 @@ export function useStorage(): StorageApi {
 
 	const deleteByTitle = useCallback(
 		async (title: string, options?: { allowInViewMode?: boolean }): Promise<void> => {
-			if (!options?.allowInViewMode && !canEditNow("storage.deleteByTitle")) return;
+			if (!options?.allowInViewMode && !canWriteNow("storage.deleteByTitle")) return;
 			const db = await openDb();
 			try {
 				const tx = db.transaction([TITLES_STORE, DATA_STORE, THUMBS_STORE], "readwrite");

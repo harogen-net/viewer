@@ -6,7 +6,7 @@ import { useLayerStore } from "./layerStore";
 //
 // legacy 準拠の 2 index:
 //   - selectedIndex: 選択 (ハイライト)。一覧でも編集中でも持つ。編集対象ではない。
-//   - editingIndex:  編集対象 (詳細編集モードの駆動)。-1 = 一覧モード (非編集)。
+//   - editingIndex:  編集対象 (編集モードの駆動)。-1 = 一覧モード (非編集)。
 //   - 編集モードでは両者は一致する (setEditingIndex が selectedIndex も合わせる)。
 //
 // 設計方針:
@@ -21,7 +21,7 @@ interface SlideState {
 	slides: Slide[];
 	/** 選択 (ハイライト)。編集対象ではない。 */
 	selectedIndex: number;
-	/** 編集対象 (詳細編集モード駆動)。-1 = 一覧モード。編集中は selectedIndex と一致。 */
+	/** 編集対象 (編集モード駆動)。-1 = 一覧モード。編集中は selectedIndex と一致。 */
 	editingIndex: number;
 	setSlides: (slides: Slide[]) => void;
 	setSelectedIndex: (index: number) => void;

@@ -28,11 +28,11 @@ import { AppLockSettingsModal } from "../AppLockSettingsModal";
 import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOSubMenu: FC<{
-	readOnly?: boolean;
+	mobileMode?: boolean;
 	titles: StoredSlideTitle[];
 	onTitleChange?: (title: string | null) => void;
 	onListChanged?: () => void;
-}> = ({ readOnly = false, titles, onTitleChange, onListChanged }) => {
+}> = ({ mobileMode = false, titles, onTitleChange, onListChanged }) => {
 	const { exportHvd, exportHvz, exportPng, importFile, exportAllSlidesZip } = useFileIO();
 	const { save, deleteByTitle } = useStorage();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
@@ -119,8 +119,8 @@ export const FileIOSubMenu: FC<{
 	};
 
 	// スマホモード限定の保存本体。通常モードの handleSave と同挙動。
-	// スマホは表側の「保存」ボタンが出ない (readOnly) ため、この導線が唯一の保存手段。
-	// VIEW モード自動選択のため allowInViewMode で gate をバイパスする。
+	// スマホは表側の「保存」ボタンが出ない (mobileMode) ため、この導線が唯一の保存手段。
+	// スマホモード自動選択のため allowInViewMode で gate をバイパスする。
 	//
 	// PC の FileIOToolbar.handleSave(override) と同じ形にする:
 	//   override=true  → doc.title へ上書き保存
@@ -224,7 +224,7 @@ export const FileIOSubMenu: FC<{
 						data-action="import">
 						インポート
 					</Menu.Item>
-					{!readOnly && (
+					{!mobileMode && (
 						<>
 							<Menu.Divider />
 							<Menu.Label>エクスポート</Menu.Label>
@@ -258,7 +258,7 @@ export const FileIOSubMenu: FC<{
 							</Menu.Item>
 						</>
 					)}
-					{/* スマホモード限定の保存/削除導線。スマホは readOnly でも表示 (スマホでは
+					{/* スマホモード限定の保存/削除導線。スマホは mobileMode でも表示 (スマホでは
 					    表側の「保存」「削除」ボタンが出ないため、これらの術がこのメニューにしかない)。 */}
 					{isMobile && (
 						<>

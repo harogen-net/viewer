@@ -1,4 +1,4 @@
-import { EditCapability } from "@/state/viewerModeStore";
+import { WriteCapability } from "@/state/launchModeStore";
 import type { NewLayer } from "@/utils/layerOps";
 import * as slideOps from "@/utils/slideOps";
 import { useMemo } from "react";
@@ -8,7 +8,7 @@ import { useDocumentMutation } from "./useDocumentMutation";
 // useDocumentMutation.applySlideChange に slideOps 純関数を注入するだけの薄 wrapper。
 // SlideListPanel などはこの hook 経由で mutation を行う (store を直接 mutate しない)。
 //
-// 有効/無効・表示尺・結合は SLIDE_PLAYBACK 種別で渡し、VIEW モード (スマホ) でも通す。
+// 有効/無効・表示尺・結合は SLIDE_PLAYBACK 種別で渡し、スマホモード (スマホ) でも通す。
 // いずれもスライドもレイヤーも消さず、スライドショーの見え方しか変えないため。
 // 追加/削除/複製/並び替えと一括操作 (setAll* / enableOnly / deleteAllDisabled) は既定の
 // FULL のまま = VIEW では拒否される。一括操作は 1 タップの影響範囲が全スライドに及ぶため。
@@ -52,13 +52,13 @@ export const useSlideMutation = (): UseSlideMutation => {
 				applySlideChange(
 					joining ? "join slide" : "split slide",
 					(s) => slideOps.setSlideJoining(s, index, joining),
-					EditCapability.SLIDE_PLAYBACK
+					WriteCapability.SLIDE_PLAYBACK
 				),
 			setSlideDisabled: (index, disabled) =>
 				applySlideChange(
 					disabled ? "disable slide" : "enable slide",
 					(s) => slideOps.setSlideDisabled(s, index, disabled),
-					EditCapability.SLIDE_PLAYBACK
+					WriteCapability.SLIDE_PLAYBACK
 				),
 			setAllJoining: (joining) =>
 				applySlideChange(joining ? "join all slides" : "split all slides", (s) =>
@@ -76,19 +76,19 @@ export const useSlideMutation = (): UseSlideMutation => {
 				applySlideChange(
 					"set duration ratio",
 					(s) => slideOps.setSlideDurationRatio(s, index, ratio),
-					EditCapability.SLIDE_PLAYBACK
+					WriteCapability.SLIDE_PLAYBACK
 				),
 			incrementSlideDurationRatio: (index) =>
 				applySlideChange(
 					"duration up",
 					(s) => slideOps.incrementSlideDurationRatio(s, index),
-					EditCapability.SLIDE_PLAYBACK
+					WriteCapability.SLIDE_PLAYBACK
 				),
 			decrementSlideDurationRatio: (index) =>
 				applySlideChange(
 					"duration down",
 					(s) => slideOps.decrementSlideDurationRatio(s, index),
-					EditCapability.SLIDE_PLAYBACK
+					WriteCapability.SLIDE_PLAYBACK
 				),
 		}),
 		[applySlideChange]

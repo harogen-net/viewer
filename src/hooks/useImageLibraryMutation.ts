@@ -2,7 +2,7 @@ import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
-import { canEditNow } from "@/state/viewerModeStore";
+import { canWriteNow } from "@/state/launchModeStore";
 import { sha256DataUrl } from "@/utils/imageHash";
 import { buildFitImageLayer } from "@/utils/layerOps";
 import { useCallback, useEffect } from "react";
@@ -85,7 +85,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 
 	const addImageDataUrl = useCallback(
 		async (dataUrl: string, name?: string): Promise<string> => {
-			if (!canEditNow("addImageDataUrl")) return "";
+			if (!canWriteNow("addImageDataUrl")) return "";
 			const id = await sha256DataUrl(dataUrl);
 			const existing = useImageLibraryStore.getState().imageById[id];
 			if (existing) return id;
@@ -106,7 +106,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 
 	const addImageFile = useCallback(
 		async (file: File, name?: string): Promise<string> => {
-			if (!canEditNow("addImageFile")) return "";
+			if (!canWriteNow("addImageFile")) return "";
 			if (!file.type.startsWith("image/")) {
 				throw new Error(`not an image file: ${file.type}`);
 			}
@@ -118,7 +118,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 
 	const deleteImage = useCallback(
 		(imageId: string): number => {
-			if (!canEditNow("deleteImage")) return 0;
+			if (!canWriteNow("deleteImage")) return 0;
 			// 先に該当 layer 数を数える
 			const slides = useSlideStore.getState().slides;
 			let count = 0;
@@ -138,7 +138,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 
 	const pruneOrphanImage = useCallback(
 		(imageId: string): boolean => {
-			if (!canEditNow("pruneOrphanImage")) return false;
+			if (!canWriteNow("pruneOrphanImage")) return false;
 			const slides = useSlideStore.getState().slides;
 			const stillUsed = slides.some((s) =>
 				s.layers.some((l) => l.type === "image" && l.imageId === imageId)
@@ -151,7 +151,7 @@ export const useImageLibraryMutation = (): UseImageLibraryMutation => {
 	);
 
 	const pruneUnusedImages = useCallback((): number => {
-		if (!canEditNow("pruneUnusedImages")) return 0;
+		if (!canWriteNow("pruneUnusedImages")) return 0;
 		const slides = useSlideStore.getState().slides;
 		const referenced = new Set<string>();
 		for (const s of slides) {

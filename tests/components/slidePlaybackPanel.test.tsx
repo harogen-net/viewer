@@ -6,12 +6,12 @@ import { SlidePlaybackPanel } from "../../src/components/panels/SlidePlaybackPan
 import { useHistoryStore } from "../../src/state/historyStore";
 import { useSlideStore } from "../../src/state/slideStore";
 import { useViewerDocumentStore } from "../../src/state/viewerDocumentStore";
-import { useViewerModeStore, ViewerMode } from "../../src/state/viewerModeStore";
+import { useLaunchModeStore, LaunchMode } from "../../src/state/launchModeStore";
 import type { Slide } from "../../src/types/Slide";
 import { MAX_DURATION, MIN_DURATION } from "../../src/utils/slideOps";
 
-// 閲覧モード (スマホ) の調整バー。選択中スライドの有効/無効・表示尺・結合を変更できる。
-// 検証の主眼は「VIEW モードでもこの 3 種が実際に store へ届くこと」。gate 側の許可
+// スマホモード (スマホ) の調整バー。選択中スライドの有効/無効・表示尺・結合を変更できる。
+// 検証の主眼は「スマホモードでもこの 3 種が実際に store へ届くこと」。gate 側の許可
 // (mutationGates.test.tsx) と UI の結線が両方揃わないと機能しないため、ここは UI 経由で見る。
 
 const makeSlide = (uuid: string, over: Partial<Slide> = {}): Slide => ({
@@ -62,18 +62,18 @@ beforeEach(() => {
 	useSlideStore.getState().setSlides([]);
 	useHistoryStore.getState().clear();
 	useViewerDocumentStore.getState().setModified(false);
-	// このバーは閲覧モード専用。VIEW で組む。
-	useViewerModeStore.setState({ mode: ViewerMode.VIEW, isMobileEnv: true });
+	// このバーはスマホモード専用。VIEW で組む。
+	useLaunchModeStore.setState({ mode: LaunchMode.MOBILE, isMobileEnv: true });
 });
 
 afterEach(() => {
 	act(() => root.unmount());
 	container.remove();
-	useViewerModeStore.setState({ mode: ViewerMode.EDIT, isMobileEnv: false });
+	useLaunchModeStore.setState({ mode: LaunchMode.PC, isMobileEnv: false });
 	vi.restoreAllMocks();
 });
 
-describe("SlidePlaybackPanel (閲覧モードの調整バー)", () => {
+describe("SlidePlaybackPanel (スマホモードの調整バー)", () => {
 	it("スライドが無ければ何も描画しない (空のバーで縦を消費しない)", () => {
 		render();
 		expect(q("[data-slide-playback-panel]")).toBeNull();
@@ -91,7 +91,7 @@ describe("SlidePlaybackPanel (閲覧モードの調整バー)", () => {
 		expect((q('[data-slide-playback-duration="down"]') as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it("有効チェックの操作が VIEW モードでも slide に届く", () => {
+	it("有効チェックの操作が スマホモードでも slide に届く", () => {
 		useSlideStore.getState().setSlides([makeSlide("a")]);
 		useSlideStore.getState().setSelectedIndex(0);
 		render();
@@ -105,7 +105,7 @@ describe("SlidePlaybackPanel (閲覧モードの調整バー)", () => {
 		expect(useSlideStore.getState().slides[0].disabled).toBe(false);
 	});
 
-	it("結合スイッチの操作が VIEW モードでも slide に届く", () => {
+	it("結合スイッチの操作が スマホモードでも slide に届く", () => {
 		useSlideStore.getState().setSlides([makeSlide("a"), makeSlide("b")]);
 		useSlideStore.getState().setSelectedIndex(0);
 		render();

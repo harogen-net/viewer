@@ -33,7 +33,7 @@ export interface UseDropOptions {
 	onImageId?: (imageId: string) => void | Promise<void>;
 	/** OS ファイル (image/*) が drop されたとき。natural-sort 済みで 1 件ずつ呼ばれる。 */
 	onFile?: (file: File) => void | Promise<void>;
-	/** true の間は dragover ハイライトも drop 処理も行わない (mobile pwa 等で閲覧専用化)。 */
+	/** true の間は dragover ハイライトも drop 処理も行わない (スマホモード 等で閲覧専用化)。 */
 	disabled?: boolean;
 }
 

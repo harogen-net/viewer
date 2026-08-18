@@ -3,7 +3,7 @@ import { type ImageEntry, useImageLibraryStore } from "@/state/imageLibraryStore
 import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
-import { canEditNow, EditCapability } from "@/state/viewerModeStore";
+import { canWriteNow, WriteCapability } from "@/state/launchModeStore";
 import type { SlideState } from "@/types/SlideState";
 import { useCallback } from "react";
 
@@ -25,13 +25,13 @@ export interface UseDocumentMutation {
 	 * SlideState mutation を適用。
 	 * @param label  undo/redo UI 表示用の操作名 (例: "move slide")
 	 * @param update (state: SlideState) => SlideState | null
-	 * @param capability この操作の種別。既定は FULL (EDIT モード限定)。
-	 *        VIEW モードでも通したい操作だけ SLIDE_PLAYBACK を渡す。
+	 * @param capability この操作の種別。既定は FULL (PCモード限定)。
+	 *        スマホモードでも通したい操作だけ SLIDE_PLAYBACK を渡す。
 	 */
 	applySlideChange: (
 		label: string,
 		update: (state: SlideState) => SlideState | null,
-		capability?: EditCapability
+		capability?: WriteCapability
 	) => void;
 	/**
 	 * history を積まずに SlideState mutation を即時適用する (live 反映用)。
@@ -95,9 +95,9 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 		(
 			label: string,
 			update: (state: SlideState) => SlideState | null,
-			capability: EditCapability = EditCapability.FULL
+			capability: WriteCapability = WriteCapability.FULL
 		): void => {
-			if (!canEditNow(label, capability)) return;
+			if (!canWriteNow(label, capability)) return;
 			const before = currentSlideState();
 			const beforeImages = currentImages();
 			const after = update(before);
@@ -116,7 +116,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 
 	const applySlideChangeLive = useCallback(
 		(update: (state: SlideState) => SlideState | null): void => {
-			if (!canEditNow("applySlideChangeLive")) return;
+			if (!canWriteNow("applySlideChangeLive")) return;
 			const after = update(currentSlideState());
 			if (!after) return; // no-op
 			applyToStores(after);
@@ -128,7 +128,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	);
 
 	const recordHistory = useCallback((label: string, before: SlideState): void => {
-		if (!canEditNow(`recordHistory:${label}`)) return;
+		if (!canWriteNow(`recordHistory:${label}`)) return;
 		const after = currentSlideState();
 		// 変化なし (slides 参照が同一) は記録しない
 		if (after.slides === before.slides) return;
@@ -144,7 +144,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	const snapshot = useCallback((): SlideState => currentSlideState(), []);
 
 	const undo = useCallback((): void => {
-		if (!canEditNow("undo")) return;
+		if (!canWriteNow("undo")) return;
 		const entry = useHistoryStore.getState().popUndo();
 		if (!entry) return;
 		applyToStores(entry.before, entry.beforeImages);
@@ -152,7 +152,7 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	}, []);
 
 	const redo = useCallback((): void => {
-		if (!canEditNow("redo")) return;
+		if (!canWriteNow("redo")) return;
 		const entry = useHistoryStore.getState().popRedo();
 		if (!entry) return;
 		applyToStores(entry.after, entry.afterImages);

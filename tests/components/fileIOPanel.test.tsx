@@ -92,11 +92,11 @@ const resolveAlert = async (value: boolean): Promise<void> => {
 	});
 };
 
-const render = async (readOnly = false): Promise<void> => {
+const render = async (mobileMode = false): Promise<void> => {
 	await act(async () => {
 		root.render(
 			<MantineProvider>
-				<FileIOPanel readOnly={readOnly} />
+				<FileIOPanel mobileMode={mobileMode} />
 				<AlertHost />
 			</MantineProvider>
 		);
@@ -407,7 +407,7 @@ describe("FileIOPanel 新規ドキュメント", () => {
 describe("FileIOPanel ドキュメント設定 / 画像ライブラリ トリガ", () => {
 	const has = (sel: string): boolean => !!container.querySelector(sel);
 
-	it("編集モード + meta ありで トリガ両ボタンが出る", async () => {
+	it("PCモード + meta ありで トリガ両ボタンが出る", async () => {
 		await render(false);
 		act(() => {
 			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
@@ -416,7 +416,7 @@ describe("FileIOPanel ドキュメント設定 / 画像ライブラリ トリガ
 		expect(has("[data-open-image-library]")).toBe(true);
 	});
 
-	it("readOnly では meta ありでも両ボタンを隠す", async () => {
+	it("mobileMode では meta ありでも両ボタンを隠す", async () => {
 		await render(true);
 		act(() => {
 			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
@@ -426,7 +426,7 @@ describe("FileIOPanel ドキュメント設定 / 画像ライブラリ トリガ
 	});
 });
 
-describe("FileIOPanel 閲覧モード (readOnly)", () => {
+describe("FileIOPanel スマホモード (mobileMode)", () => {
 	const has = (sel: string): boolean => !!container.querySelector(sel);
 
 	it("書込系の表トグル (保存/再ロード/削除) を隠し、開く系は残す", async () => {
@@ -442,7 +442,7 @@ describe("FileIOPanel 閲覧モード (readOnly)", () => {
 		expect(has('[data-file-nav="next"]')).toBe(true);
 	});
 
-	it("編集モード (既定) では表の書込系 (保存/削除/再ロード) が出る", async () => {
+	it("PCモード (既定) では表の書込系 (保存/削除/再ロード) が出る", async () => {
 		await render(false);
 		expect(has('[data-action="save"]')).toBe(true);
 		expect(has('[data-action="delete"]')).toBe(true);
@@ -472,7 +472,7 @@ describe("FileIOPanel スマホ限定 ドキュメント保存", () => {
 		saveMock.mockResolvedValue({ title: "A" });
 	});
 
-	it("スマホでは保存メニューが表示される (readOnly でも)", async () => {
+	it("スマホでは保存メニューが表示される (mobileMode でも)", async () => {
 		await render(true);
 		act(() => {
 			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
@@ -506,7 +506,7 @@ describe("FileIOPanel スマホ限定 ドキュメント保存", () => {
 		const savedDoc = saveMock.mock.calls[0]?.[0];
 		const savedOpts = saveMock.mock.calls[0]?.[1];
 		expect(savedDoc?.title).toBe("A");
-		// 回帰: スマホ (VIEW モード自動選択) でも書き込めるよう allowInViewMode を必ず立てる。
+		// 回帰: スマホ (スマホモード自動選択) でも書き込めるよう allowInViewMode を必ず立てる。
 		expect(savedOpts?.allowInViewMode).toBe(true);
 		expect(savedOpts?.override).toBe(true); // 名前付き ("A") は上書き
 		// markSaved で未保存ガードが解除される。
@@ -631,8 +631,8 @@ describe("FileIOPanel スマホ限定 ドキュメント削除", () => {
 		deleteMock.mockResolvedValue(undefined);
 	});
 
-	it("スマホでは削除メニューが表示される (readOnly でも)", async () => {
-		await render(true); // readOnly でも出す
+	it("スマホでは削除メニューが表示される (mobileMode でも)", async () => {
+		await render(true); // mobileMode でも出す
 		useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
 		await openSubMenu();
 		expect(findMenuItem("delete-mobile")).not.toBeNull();

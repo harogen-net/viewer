@@ -124,7 +124,7 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	const meta = useViewerDocumentStore((s) => s.meta);
 	const bgColor = meta?.bgColor;
 	// mobile 環境ではタップターゲット拡大 + UI 常時表示 + ポーズ砂時計を表示 (hover が効かないため)。
-	// 「閲覧モード (VIEW)」ではなく「スマホ端末 (mobile UA)」で分岐する — 両者は独立軸。
+	// 「スマホモード (VIEW)」ではなく「スマホ端末 (mobile UA)」で分岐する — 両者は独立軸。
 	// isPortrait は overlay の 90° 回転 (portrait → landscape 見た目) にも使う。
 	const { isMobile, isPortrait } = useDeviceMode();
 
