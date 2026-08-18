@@ -101,6 +101,62 @@ describe("VIEW モードでの action-level reject", () => {
 		expect(useViewerDocumentStore.getState().modified).toBe(false);
 	});
 
+	// スライド単位の再生設定 (有効/無効・表示尺・結合) だけは VIEW でも通す
+	// (EditCapability.SLIDE_PLAYBACK)。スマホで手元からスライドショーを調整するための開放。
+	it("useSlideMutation: 有効/無効の切替は VIEW でも通る", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		useViewerDocumentStore.getState().setModified(false);
+		useHistoryStore.getState().clear();
+
+		hooks.api.slide.setSlideDisabled(0, true);
+
+		expect(useSlideStore.getState().slides[0].disabled).toBe(true);
+		// history と modified も通常の編集と同じように動く (保存すれば残る変更なので)。
+		expect(useHistoryStore.getState().past.length).toBe(1);
+		expect(useViewerDocumentStore.getState().modified).toBe(true);
+	});
+
+	it("useSlideMutation: 表示尺の増減と直接指定は VIEW でも通る", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a")]);
+
+		hooks.api.slide.incrementSlideDurationRatio(0);
+		expect(useSlideStore.getState().slides[0].durationRatio).toBeGreaterThan(1);
+
+		hooks.api.slide.decrementSlideDurationRatio(0);
+		expect(useSlideStore.getState().slides[0].durationRatio).toBe(1);
+
+		hooks.api.slide.setSlideDurationRatio(0, 3);
+		expect(useSlideStore.getState().slides[0].durationRatio).toBe(3);
+	});
+
+	it("useSlideMutation: 結合の切替は VIEW でも通る", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+		// makeSlide は joining: true で作られるので、まず解除してから結合し直す。
+		hooks.api.slide.setSlideJoining(0, false);
+		expect(useSlideStore.getState().slides[0].joining).toBe(false);
+
+		hooks.api.slide.setSlideJoining(0, true);
+		expect(useSlideStore.getState().slides[0].joining).toBe(true);
+	});
+
+	// 一括操作は 1 タップの影響が全スライドに及ぶため VIEW では開けていない。
+	// 「再生設定なら何でも通る」に緩んでいないことを確認する。
+	it("useSlideMutation: 一括操作 / 複製は VIEW では通らない", () => {
+		useSlideStore.getState().setSlides([makeSlide(1, "a"), makeSlide(2, "b")]);
+
+		hooks.api.slide.setAllDisabled(true);
+		hooks.api.slide.setAllJoining(false);
+		hooks.api.slide.enableOnly(0);
+		hooks.api.slide.deleteAllDisabled();
+		hooks.api.slide.duplicateSlide(0);
+
+		const slides = useSlideStore.getState().slides;
+		expect(slides.length).toBe(2);
+		expect(slides.every((s) => !s.disabled)).toBe(true);
+		expect(slides.every((s) => s.joining)).toBe(true);
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
 	it("useLayerMutation: mutation が no-op", () => {
 		useSlideStore.getState().setSlides([makeSlide(1, "a")]);
 		useSlideStore.getState().setSelectedIndex(0);

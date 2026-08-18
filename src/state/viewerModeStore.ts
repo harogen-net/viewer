@@ -32,13 +32,39 @@ export const resolveViewerMode = (search: string, mobile: boolean): ViewerMode =
 export const isEditable = (mode: ViewerMode): boolean => mode === ViewerMode.EDIT;
 
 /**
+ * 書込操作の種別 (docs/mode-spec.md §3)。VIEW モードで通す範囲を操作単位で決めるために持つ。
+ *
+ * 当初は「VIEW モードなら全書込を拒否」の二値だったが、スマホ (常に VIEW) で
+ * スライドショーの見え方だけは調整したいという要求が出た。全部開けると文書構造や
+ * レイヤーまで触れてしまうので、再生設定だけを別種別として切り出す。
+ */
+export const EditCapability = {
+	/** 文書構造・レイヤー・画像・保存など編集全般。EDIT モード限定。 */
+	FULL: "full",
+	/**
+	 * スライド単位の再生設定 (有効/無効・表示尺・結合)。VIEW モードでも許可する。
+	 * 破壊的でなく (スライドもレイヤーも消えない)、スライドショーの見え方だけが変わる操作に限る。
+	 * 追加/削除/複製/並び替えと一括操作は含めない。
+	 */
+	SLIDE_PLAYBACK: "slidePlayback",
+} as const;
+export type EditCapability = (typeof EditCapability)[keyof typeof EditCapability];
+
+/** その操作種別が現在のモードで許可されるか (純関数)。 */
+export const isCapabilityAllowed = (mode: ViewerMode, capability: EditCapability): boolean =>
+	isEditable(mode) || capability === EditCapability.SLIDE_PLAYBACK;
+
+/**
  * mutation hook の先頭で呼ぶ gate (§3)。
- * VIEW モードでは false を返し、呼出側は early return する (silent no-op)。
+ * 許可されない操作は false を返し、呼出側は early return する (silent no-op)。
  * throw ではなく silent にするのは、キーボードショートカット等の暴発で UI エラーを
  * 出さないため。開発時デバッグ用に console.warn だけ残す。
  */
-export const canEditNow = (action?: string): boolean => {
-	if (isEditable(useViewerModeStore.getState().mode)) return true;
+export const canEditNow = (
+	action?: string,
+	capability: EditCapability = EditCapability.FULL
+): boolean => {
+	if (isCapabilityAllowed(useViewerModeStore.getState().mode, capability)) return true;
 	if (action) console.warn(`[viewerMode] rejected in VIEW mode: ${action}`);
 	return false;
 };
@@ -59,3 +85,7 @@ export const useViewerModeStore = create<ViewerModeState>()(() => ({
 
 /** 編集可能か (React 用 selector hook)。mutation hook の gate 判定に使う。 */
 export const useCanEdit = (): boolean => useViewerModeStore((s) => isEditable(s.mode));
+
+/** 操作種別ごとの可否 (React 用 selector hook)。UI の出し分けに使う。 */
+export const useCanEditCapability = (capability: EditCapability): boolean =>
+	useViewerModeStore((s) => isCapabilityAllowed(s.mode, capability));

@@ -1,4 +1,5 @@
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
+import { MAX_DURATION, MIN_DURATION } from "@/utils/slideOps";
 import { drawSlideToCanvas } from "@/utils/slideThumbnail";
 import type {
 	CSSProperties,
@@ -51,9 +52,6 @@ interface SlideThumbViewProps extends SlideViewProps {
 // canvas 再描画 debounce ms (legacy CanvasSlideView.refresh の setTimeout 100ms 互換)。
 const DEBOUNCE_MS = 100;
 
-// durationRatio の下限/上限 (slideOps の MIN/MAX_DURATION と一致させる)。
-const MIN_DURATION = 0.2;
-const MAX_DURATION = 9;
 // 取り得る尺の段階 (legacy ±ボタンの増減ステップと一致: <1 は 0.2 刻み、1〜2 は 0.5 刻み、2〜9 は 1 刻み)。
 // ドラッグ確定尺はこの段階へ最近傍スナップする。
 const DURATION_STEPS = [0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -339,7 +337,17 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 				data-thumb-canvas
 			/>
 
-			{/* 編集コントロール (有効/無効・結合・duration) は readOnly で非表示 (選択のみ可)。 */}
+			{/* 尺ラベル (x1.5 等)。通常は下辺の小バッジ、ドラッグ中は中央に拡大。尺 1 は通常時のみ非表示。
+			    readOnly でも出す: 閲覧モードでも SlidePlaybackPanel から尺を変えられるので、
+			    現在値が読めないと操作結果が分からない (サムネ幅の伸縮だけでは判別しづらい)。 */}
+			{badgeText && (
+				<span style={durationBadgeStyle} data-thumb-control="duration-label">
+					{badgeText}
+				</span>
+			)}
+
+			{/* 編集コントロール (有効/無効・結合・duration ドラッグ) は readOnly で非表示。
+			    閲覧モードでの値変更は SlidePlaybackPanel が担う (サムネ上の的はタッチには小さすぎる)。 */}
 			{!readOnly && (
 				<>
 					{/* スライド内アクション (legacy 配置: 編集=左上 / 削除=右上 / 複製=右下)。選択不要。 */}
@@ -399,13 +407,6 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 						title={slide.joining ? "結合解除" : "結合"}>
 						{slide.joining ? "▶" : "▷"}
 					</button>
-
-					{/* 尺ラベル (x1.5 等)。通常は下辺の小バッジ、ドラッグ中は中央に拡大。尺 1 は通常時のみ非表示。 */}
-					{badgeText && (
-						<span style={durationBadgeStyle} data-thumb-control="duration-label">
-							{badgeText}
-						</span>
-					)}
 
 					{/* 右端ドラッグで幅=尺をリサイズ。選択時のみ reveal。 */}
 					<div

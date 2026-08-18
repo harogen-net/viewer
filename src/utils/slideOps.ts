@@ -210,8 +210,9 @@ const decrementStep = (v: number): number => {
 	return 0.2;
 };
 
-const MIN_DURATION = 0.2;
-const MAX_DURATION = 9;
+/** durationRatio の下限/上限。UI 側 (± ボタンの disabled 判定など) も同じ値を使う。 */
+export const MIN_DURATION = 0.2;
+export const MAX_DURATION = 9;
 
 /** durationRatio を任意の値に設定 (0.2..9 でクランプ)。値変化なし / 範囲外なら null。 */
 export const setSlideDurationRatio = (

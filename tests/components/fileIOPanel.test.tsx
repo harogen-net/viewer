@@ -526,6 +526,104 @@ describe("FileIOPanel スマホ限定 ドキュメント保存", () => {
 	});
 });
 
+describe("FileIOPanel スマホ限定 別名で保存 / 未保存表示", () => {
+	beforeEach(() => {
+		deviceMode.isMobile = true; // スマホモード有効
+		saveMock.mockClear();
+		saveMock.mockResolvedValue({ title: "2026-08-18_120000" });
+	});
+
+	// PC のプルダウン「別名で保存...」と同じ挙動 = override:false で、保存名は save 側が
+	// 現在時刻から採番する。名前は尋ねない (一度 prompt で名前を聞く実装にして誤りだった)。
+	it("別名で保存は override:false で save を呼ぶ (名前を尋ねない)", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		await openSubMenu();
+		click(findMenuItem("save-as-mobile"));
+		await act(async () => {});
+
+		expect(saveMock).toHaveBeenCalled();
+		const savedOpts = saveMock.mock.calls[0]?.[1];
+		expect(savedOpts?.override).toBe(false);
+		expect(savedOpts?.allowInViewMode).toBe(true);
+		// 採番された title が meta へ反映され、未保存が解除される。
+		expect(useViewerDocumentStore.getState().meta?.title).toBe("2026-08-18_120000");
+		expect(useViewerDocumentStore.getState().modified).toBe(false);
+	});
+
+	it("スライドが無いと別名で保存は disabled", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+			useSlideStore.getState().setSlides([]);
+		});
+		await openSubMenu();
+		expect(isMenuItemDisabled(findMenuItem("save-as-mobile"))).toBe(true);
+	});
+
+	it("PC では別名で保存メニューは表示されない (スマホ限定導線)", async () => {
+		deviceMode.isMobile = false;
+		await render(false);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		await openSubMenu();
+		expect(findMenuItem("save-as-mobile")).toBeNull();
+	});
+
+	// スマホは保存が手動なので、未保存であることが分かる手掛かりが 2 つ必要:
+	//   メニューを開く前 = ⋮ のドット / 開いた後 = セクションラベル。
+	it("未保存ならセクションラベルが「ファイル（未保存）」になる", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		await openSubMenu();
+		expect(document.querySelector("[data-file-section-label]")?.textContent).toBe(
+			"ファイル（未保存）"
+		);
+	});
+
+	it("保存済みならセクションラベルは「ファイル」", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		await openSubMenu();
+		expect(document.querySelector("[data-file-section-label]")?.textContent).toBe("ファイル");
+	});
+
+	it("⋮ のドットは未保存のときだけ点く", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: false });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		expect(container.querySelector("[data-view-modified-dot]")?.getAttribute("data-view-modified-dot")).toBe("false");
+
+		act(() => {
+			useViewerDocumentStore.setState({ modified: true });
+		});
+		expect(container.querySelector("[data-view-modified-dot]")?.getAttribute("data-view-modified-dot")).toBe("true");
+	});
+
+	// aria-label を modified で切り替えて 3 件のテストを壊した経緯がある。
+	// コントロールの「名前」は状態で変わってはいけない (支援技術にも不利)。
+	it("⋮ の aria-label は未保存でも変わらない", async () => {
+		await render(true);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+		});
+		expect(container.querySelector('button[aria-label="その他の操作"]')).not.toBeNull();
+	});
+});
+
 describe("FileIOPanel スマホ限定 ドキュメント削除", () => {
 	beforeEach(() => {
 		deviceMode.isMobile = true; // スマホモード有効

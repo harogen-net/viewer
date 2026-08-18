@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isEditable, resolveViewerMode, ViewerMode } from "../../src/state/viewerModeStore";
+import {
+	EditCapability,
+	isCapabilityAllowed,
+	isEditable,
+	resolveViewerMode,
+	ViewerMode,
+} from "../../src/state/viewerModeStore";
 
 // 起動モード解決の純関数テスト (docs/mode-spec.md §2.2)。
 // 優先順位: URL ?mode=view (最優先) → mobile PWA 判定 → EDIT (既定)。
@@ -31,5 +37,19 @@ describe("isEditable", () => {
 	it("EDIT のみ true", () => {
 		expect(isEditable(ViewerMode.EDIT)).toBe(true);
 		expect(isEditable(ViewerMode.VIEW)).toBe(false);
+	});
+});
+
+describe("isCapabilityAllowed", () => {
+	// VIEW モード (スマホ) でも、スライドショーの見え方を変えるだけの操作は通す。
+	// ここが崩れると「スマホで何も直せない」か「スマホから文書構造まで壊せる」のどちらかになる。
+	it("EDIT モードはすべての操作種別を許可する", () => {
+		expect(isCapabilityAllowed(ViewerMode.EDIT, EditCapability.FULL)).toBe(true);
+		expect(isCapabilityAllowed(ViewerMode.EDIT, EditCapability.SLIDE_PLAYBACK)).toBe(true);
+	});
+
+	it("VIEW モードは再生設定のみ許可し、編集全般は拒否する", () => {
+		expect(isCapabilityAllowed(ViewerMode.VIEW, EditCapability.SLIDE_PLAYBACK)).toBe(true);
+		expect(isCapabilityAllowed(ViewerMode.VIEW, EditCapability.FULL)).toBe(false);
 	});
 });

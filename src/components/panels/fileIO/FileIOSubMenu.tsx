@@ -11,11 +11,12 @@ import type { ViewerDocument } from "@/types/ViewerDocument";
 import { collectImageMap, collectImageNames } from "@/utils/collectImageMap";
 import { generateDocThumbnailStrip } from "@/utils/slideThumbnail";
 import { buildImageEntries } from "@/utils/storageCodec";
-import { ActionIcon, Menu } from "@mantine/core";
+import { ActionIcon, Indicator, Menu } from "@mantine/core";
 import {
 	IconBookDownload,
 	IconDeviceFloppy,
 	IconDotsVertical,
+	IconFileExport,
 	IconLock,
 	IconPackageExport,
 	IconPackageImport,
@@ -37,6 +38,9 @@ export const FileIOSubMenu: FC<{
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
+	// 未保存表示 (メニューラベルと ⋮ のドット) に使う。スマホは保存が手動なので、
+	// メニューを開かなくても未保存だと分かる手掛かりが必要。
+	const modified = useViewerDocumentStore((s) => s.modified);
 	const slides = useSlideStore((s) => s.slides);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const toast = useToast();
@@ -114,17 +118,20 @@ export const FileIOSubMenu: FC<{
 		})();
 	};
 
-	// スマホモード限定: 現在ロード中のドキュメントを IDB に保存 (通常モードの handleSave と同挙動)。
+	// スマホモード限定の保存本体。通常モードの handleSave と同挙動。
 	// スマホは表側の「保存」ボタンが出ない (readOnly) ため、この導線が唯一の保存手段。
 	// VIEW モード自動選択のため allowInViewMode で gate をバイパスする。
-	const handleMobileSave = wrap(async () => {
+	//
+	// PC の FileIOToolbar.handleSave(override) と同じ形にする:
+	//   override=true  → doc.title へ上書き保存
+	//   override=false → 日付ベースの新タイトルで新規保存 (= 「別名で保存...」)
+	// 名前は尋ねない (PC も尋ねない)。改名したい場合はドキュメント設定でタイトルを変える。
+	const saveDocument = async (override: boolean): Promise<void> => {
 		if (!meta) {
 			toast.info("ドキュメントが未ロードです");
 			return;
 		}
 		const doc: ViewerDocument = { ...meta, slides };
-		// 名前付き document は上書き、未命名 ("(new)"/"") は新規 (date title) 保存 (通常モードと同基準)。
-		const canOverride = meta.title !== "" && meta.title !== "(new)";
 		// 進捗: サムネ生成 (0..0.3) → save (0.3..1)。センシティブはぼかしたサムネを保存。
 		// 生成失敗は best-effort でサムネ無し保存。PW 入力キャンセル時は save が null (無音中止)。
 		const result = await run("保存中…", async (report) => {
@@ -137,7 +144,7 @@ export const FileIOSubMenu: FC<{
 			}).catch(() => null);
 			report(0.3);
 			return save(doc, {
-				override: canOverride,
+				override,
 				thumbnail,
 				onProgress: (f) => report(0.3 + f * 0.7),
 				allowInViewMode: true,
@@ -148,7 +155,14 @@ export const FileIOSubMenu: FC<{
 		markSaved(result.title);
 		toast.success(`保存しました: ${result.title}`);
 		onListChanged?.();
-	});
+	};
+
+	// 保存: 名前付き document は上書き、未命名 ("(new)"/"") は新規 (date title) 保存。
+	// PC の handleSavePrimary と同基準。
+	const canOverride = !!meta && meta.title !== "" && meta.title !== "(new)";
+	const handleMobileSave = wrap(() => saveDocument(canOverride));
+	// 別名で保存: 常に新しい日付タイトルで保存する (PC のプルダウン「別名で保存...」と同じ)。
+	const handleMobileSaveAs = wrap(() => saveDocument(false));
 
 	// スマホモード限定: 現在ロード中のドキュメントを削除 (通常モードの handleDelete と同挙動)。
 	// スマホでは FileSelector が非表示のため selectedTitle を使えず、meta.title を対象にする。
@@ -181,13 +195,25 @@ export const FileIOSubMenu: FC<{
 		<>
 			<Menu shadow="md" width={200} transitionProps={{ duration: 0 }}>
 				<Menu.Target>
-					<ActionIcon
-						variant="default"
-						size="input-xs"
-						data-action="open-picker"
-						aria-label="その他の操作">
-						<IconDotsVertical stroke={2} />
-					</ActionIcon>
+					{/* 未保存のときだけ右上に赤ドットを出す (Mantine Indicator)。スマホは保存が手動なので、
+					    メニューを開かずに未保存だと分かる必要がある。 */}
+					<Indicator
+						disabled={!modified}
+						color="red"
+						size={8}
+						offset={2}
+						position="top-end"
+						data-view-modified-dot={modified ? "true" : "false"}>
+						<ActionIcon
+							variant="default"
+							size="input-xs"
+							data-action="open-picker"
+							// aria-label は状態で変えない (コントロールの「名前」が変わってしまう)。
+									// 未保存はドットで視覚的に、メニュー内のラベル「ファイル（未保存）」で文字として伝える。
+									aria-label="その他の操作">
+							<IconDotsVertical stroke={2} />
+						</ActionIcon>
+					</Indicator>
 				</Menu.Target>
 				<Menu.Dropdown>
 					<Menu.Divider />
@@ -237,13 +263,24 @@ export const FileIOSubMenu: FC<{
 					{isMobile && (
 						<>
 							<Menu.Divider />
-							<Menu.Label>ファイル</Menu.Label>
+							{/* 未保存であることをラベルに出す。スマホは保存が手動なので、
+							    メニューを開いた時点で保存が必要だと分かるようにする。 */}
+							<Menu.Label data-file-section-label>
+								{modified ? "ファイル（未保存）" : "ファイル"}
+							</Menu.Label>
 							<Menu.Item
 								leftSection={<IconDeviceFloppy stroke={2} />}
 								onClick={handleMobileSave}
 								disabled={!hasSlides}
 								data-action="save-mobile">
 								ドキュメントを保存
+							</Menu.Item>
+							<Menu.Item
+								leftSection={<IconFileExport stroke={2} />}
+								onClick={handleMobileSaveAs}
+								disabled={!hasSlides}
+								data-action="save-as-mobile">
+								別名で保存...
 							</Menu.Item>
 							<Menu.Item
 								leftSection={<IconTrash stroke={2} />}

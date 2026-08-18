@@ -19,6 +19,7 @@ import { EditToolbar } from "./panels/EditToolbar";
 import { FileIOPanel } from "./panels/FileIOPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
 import { SlideListPanel } from "./panels/SlideListPanel";
+import { SlidePlaybackPanel } from "./panels/SlidePlaybackPanel";
 import { SlideShowOpsPanel } from "./panels/SlideShowOpsPanel";
 import { SlideshowSettingsModal } from "./panels/SlideshowSettingsModal";
 import { PROGRESS_BAR_HEIGHT, ProgressBar } from "./ProgressBar";
@@ -305,6 +306,9 @@ export const AppMain: FC = () => {
 					data-list-expanded={detailMode ? "false" : "true"}>
 					<SlideListPanel readOnly={!editable} wrap={!detailMode} />
 				</div>
+				{/* 閲覧モードでも選択スライドの再生設定 (有効/無効・表示尺) だけは触れるようにする。
+				    編集モードではサムネ上のコントロールが同じ役割を担うので出さない。 */}
+				{!editable && <SlidePlaybackPanel />}
 			</div>
 			<ProgressBar />
 			<AlertHost />

@@ -3,7 +3,7 @@ import { type ImageEntry, useImageLibraryStore } from "@/state/imageLibraryStore
 import { useLayerStore } from "@/state/layerStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
-import { canEditNow } from "@/state/viewerModeStore";
+import { canEditNow, EditCapability } from "@/state/viewerModeStore";
 import type { SlideState } from "@/types/SlideState";
 import { useCallback } from "react";
 
@@ -25,8 +25,14 @@ export interface UseDocumentMutation {
 	 * SlideState mutation を適用。
 	 * @param label  undo/redo UI 表示用の操作名 (例: "move slide")
 	 * @param update (state: SlideState) => SlideState | null
+	 * @param capability この操作の種別。既定は FULL (EDIT モード限定)。
+	 *        VIEW モードでも通したい操作だけ SLIDE_PLAYBACK を渡す。
 	 */
-	applySlideChange: (label: string, update: (state: SlideState) => SlideState | null) => void;
+	applySlideChange: (
+		label: string,
+		update: (state: SlideState) => SlideState | null,
+		capability?: EditCapability
+	) => void;
 	/**
 	 * history を積まずに SlideState mutation を即時適用する (live 反映用)。
 	 * legacy VMTextInput の `on("input")` 相当 — テキスト入力中など、確定前の
@@ -86,8 +92,12 @@ const applyToStores = (next: SlideState, images?: Record<string, ImageEntry>): v
 
 export const useDocumentMutation = (): UseDocumentMutation => {
 	const applySlideChange = useCallback(
-		(label: string, update: (state: SlideState) => SlideState | null): void => {
-			if (!canEditNow(label)) return;
+		(
+			label: string,
+			update: (state: SlideState) => SlideState | null,
+			capability: EditCapability = EditCapability.FULL
+		): void => {
+			if (!canEditNow(label, capability)) return;
 			const before = currentSlideState();
 			const beforeImages = currentImages();
 			const after = update(before);
