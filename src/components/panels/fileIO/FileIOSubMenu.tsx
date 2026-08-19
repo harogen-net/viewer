@@ -186,6 +186,8 @@ export const FileIOSubMenu: FC<{
 		onListChanged?.();
 	});
 
+	// ⋮ の未保存ドットはスマホ限定 (PC は「変更あり」Pill があるため)。
+	const showModifiedDot = isMobile && modified;
 	const hasSlides = slides.length > 0;
 	const hasEnabledSlide = slides.some((s) => !s.disabled);
 	// スマホ削除の可否: 現在のドキュメントが IDB に保存済み (titles に含まれる) のときのみ有効。
@@ -195,15 +197,16 @@ export const FileIOSubMenu: FC<{
 		<>
 			<Menu shadow="md" width={200} transitionProps={{ duration: 0 }}>
 				<Menu.Target>
-					{/* 未保存のときだけ右上に赤ドットを出す (Mantine Indicator)。スマホは保存が手動なので、
-					    メニューを開かずに未保存だと分かる必要がある。 */}
+					{/* 未保存のときだけ右上に赤ドットを出す (Mantine Indicator)。
+					    スマホ限定にする: スマホは保存が手動でこのメニューが唯一の保存導線だが、
+					    PC は FileIOPanel のドキュメント行に「変更あり」Pill が既に出ており二重になる。 */}
 					<Indicator
-						disabled={!modified}
+						disabled={!showModifiedDot}
 						color="red"
 						size={8}
 						offset={2}
 						position="top-end"
-						data-view-modified-dot={modified ? "true" : "false"}>
+						data-view-modified-dot={showModifiedDot ? "true" : "false"}>
 						<ActionIcon
 							variant="default"
 							size="input-xs"

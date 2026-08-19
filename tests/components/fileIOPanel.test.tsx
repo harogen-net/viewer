@@ -599,6 +599,20 @@ describe("FileIOPanel スマホ限定 別名で保存 / 未保存表示", () => 
 		expect(document.querySelector("[data-file-section-label]")?.textContent).toBe("ファイル");
 	});
 
+	// 回帰: 当初 modified だけで判定しており、PC でもドットが出ていた。
+	// PC は FileIOPanel のドキュメント行に「変更あり」Pill があるため二重表示になる。
+	it("PC では未保存でも ⋮ のドットは出ない", async () => {
+		deviceMode.isMobile = false;
+		await render(false);
+		act(() => {
+			useViewerDocumentStore.setState({ meta: makeMeta("A"), modified: true });
+			useSlideStore.getState().setSlides([makeSlide()]);
+		});
+		expect(
+			container.querySelector("[data-view-modified-dot]")?.getAttribute("data-view-modified-dot")
+		).toBe("false");
+	});
+
 	it("⋮ のドットは未保存のときだけ点く", async () => {
 		await render(true);
 		act(() => {
