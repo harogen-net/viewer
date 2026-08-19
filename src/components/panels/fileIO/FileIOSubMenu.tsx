@@ -8,6 +8,7 @@ import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import type { ViewerDocument } from "@/types/ViewerDocument";
+import { BUILD_ID } from "@/utils/buildId";
 import { collectImageMap, collectImageNames } from "@/utils/collectImageMap";
 import { generateDocThumbnailStrip } from "@/utils/slideThumbnail";
 import { buildImageEntries } from "@/utils/storageCodec";
@@ -305,6 +306,11 @@ export const FileIOSubMenu: FC<{
 							</Menu.Item>
 						</>
 					)}
+					{/* ビルド識別子。実機で「今動いているのが最新の版か」を判断するために出す。
+					    PWA は SW がアプリ本体をキャッシュするため、デプロイしても端末側が古い版を
+					    動かしていることがあり、目印が無いと検証結果を信用できない。 */}
+					<Menu.Divider />
+					<Menu.Label data-build-id>build {BUILD_ID}</Menu.Label>
 				</Menu.Dropdown>
 			</Menu>
 			<AppLockSettingsModal

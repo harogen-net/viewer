@@ -1,5 +1,7 @@
 import { useSlideStore } from "@/state/slideStore";
 import { useSlideshowStore } from "@/state/slideshowStore";
+import { isIosDevice } from "@/utils/mobileDetect";
+import { primeNoSleepVideo } from "@/utils/noSleepVideo";
 import { Button } from "@mantine/core";
 import type { FC } from "react";
 
@@ -19,11 +21,20 @@ export const SlideShowOpsPanel: FC = () => {
 	const canStart = slides.filter((s) => !s.disabled).length > 0;
 	const start = useSlideshowStore((s) => s.start);
 
+	// スリープ抑止の動画再生を **このクリックのコールスタック内で** 開始する。
+	// ミュートしないメディアの play() はユーザー操作内でしか通らないため、
+	// SlideshowShell の effect (操作の後に走る) からでは拒否され得る。
+	// 停止は SlideshowShell 側の hook が担う (開始と停止で持ち場が違うのは意図的)。
+	const handleStart = (): void => {
+		if (isIosDevice()) primeNoSleepVideo();
+		start();
+	};
+
 	return (
 		<Button
 			color="red"
 			size="md"
-			onClick={start}
+			onClick={handleStart}
 			disabled={!canStart}
 			style={{ aspectRatio: 2.5 }}
 			data-ss-op="start">

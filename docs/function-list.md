@@ -126,18 +126,53 @@ mode-spec.md に集約した（本書に写すと二重管理になり、実際�
 - 背景・サイズ追従
 - 表示中は画面の自動ロック / スリープを抑止（Screen Wake Lock）
 
-### 既知の制約: iOS のホーム画面 Web App では 18.4 未満でスリープ抑止が効かない
+### iOS のスリープ抑止: Screen Wake Lock は 18.4 未満のホーム画面 Web App で効かない
 
 WebKit のバグ（[254545](https://bugs.webkit.org/show_bug.cgi?id=254545)、2023-03-27 報告 /
 iOS 18.4（2025-03-31）で RESOLVED FIXED）。ホーム画面 Web App は UIApplication ではなく
 ViewService として動くため、WebKit が使う `UIApplication.idleTimerDisabled` が効かない。
+**`request` は成功するのに効果だけ無い**ため、エラーからは検知できない。
+Safari のタブで開けば 16.4 以降で動く（ホーム画面 App のときだけの問題）。
 
-**`request` は成功するのに効果だけ無い**ため、エラーからは検知できずアプリ側で直す手段も無い。
-放置すると画面が暗転し、さらに放置すると端末ロックまで進む（実機 iOS 17.7 で確認）。
+### 回避策: 無音の音声トラック付き動画を再生し続ける（iOS 限定）
 
-- Safari のタブで開けば 16.4 以降で動く（ホーム画面 App のときだけの問題）
-- 無音ループ動画による代替（NoSleep.js 系）は、同バグのコメントでもホーム画面 Web App では
-  限定的とされており当てにできない
+`src/utils/noSleepVideo.ts` / `src/hooks/useNoSleepVideo.ts`。NoSleep.js と同じ方式。
+実機 iOS 17.7 のホーム画面 Web App で **10 分放置してもスリープしないことを確認済み**。
+
+成立させるのに必要だった条件（いずれか欠けると効かない。実機で 1 つずつ確認した）:
+
+1. **動画に無音の音声トラックを持たせる。** 映像のみの mp4 では効かなかった。
+2. **`muted = false` で再生する。** iOS はミュートされたメディアをスリープ抑止の対象にしない。
+   `video.volume` は iOS では変更できない（無視される）ので、無音であることは
+   トラック自体が無音であることだけで担保している。
+3. **`play()` をユーザー操作のコールスタック内で呼ぶ。** ミュートしないメディアは自動再生
+   ポリシーで拒否されるため、スライドショー開始ボタンの `onClick` から開始する。
+4. **`loop` を使わず、末尾の手前で巻き戻す。** ループの折り返しは「一旦再生が終わった」
+   扱いになり抑止が切れる余地がある（参照実装も 1 秒超の mp4 では loop を使わない）。
+5. **透明度・遮蔽・`display:none` で隠さない。** いずれも「描画省略 = 再生していない」と
+   見なされ得る。不透明・最前面のまま 2px に留め、黒地に黒で実質不可視にしている。
+
+**代償: iOS のオーディオセッションを奪う。** スライドショーを開始すると、ユーザーが裏で
+再生している音楽やポッドキャストが**止まる**。音声トラックは無音なので音は出ないが、
+この副作用は避けられない（他アプリの再生状況は検知できないため条件分岐もできない）。
+スリープ抑止のために必要な代償として受け入れている。
+
+適用は iOS 端末のみ（他プラットフォームは Screen Wake Lock が正しく効くため不要）。
+iOS 18.4 以降や Safari タブでは冗長だが、OS バージョン判定は UA 依存で脆いため
+端末種別だけで割り切っている。
+
+動画は `public/nosleep.mp4`（16x16 / 5 秒 / 10fps / H.264 baseline + 無音 AAC / 約 5KB）。
+再生成する場合は `ffmpeg` で:
+
+```
+ffmpeg -y -f lavfi -i "color=c=black:s=16x16:r=10" \
+  -f lavfi -i "anullsrc=channel_layout=mono:sample_rate=44100" -t 5 \
+  -c:v libx264 -profile:v baseline -level 3.0 -pix_fmt yuv420p -g 10 -keyint_min 10 \
+  -c:a aac -b:a 8k -movflags +faststart public/nosleep.mp4
+```
+
+PWA の precache に入れる必要がある（`vite.config.js` の `includeAssets`）。
+入っていないとオフライン時に動画が取得できず、抑止が無言で失敗する。
 
 ## 10. 保存・読込・入出力
 

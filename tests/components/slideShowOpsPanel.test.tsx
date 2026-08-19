@@ -82,3 +82,66 @@ describe("SlideShowOpsPanel (§9)", () => {
 		expect(op("fullscreen")).toBeNull();
 	});
 });
+
+// スリープ抑止の動画は「開始ボタンのクリック内」で再生を始める必要がある。
+// ミュートしないメディアの play() はユーザー操作のコールスタック内でしか通らないため、
+// SlideshowShell の effect (操作の後に走る) 任せにすると拒否され得る。
+describe("SlideShowOpsPanel スリープ抑止の起動経路", () => {
+	const IPHONE_UA =
+		"Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+	const PC_UA =
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+
+	const setUA = (ua: string, maxTouchPoints: number): void => {
+		Object.defineProperty(navigator, "userAgent", { value: ua, configurable: true });
+		Object.defineProperty(navigator, "maxTouchPoints", {
+			value: maxTouchPoints,
+			configurable: true,
+		});
+	};
+
+	const clickStart = (): void => {
+		act(() => useSlideStore.getState().setSlides([makeSlide(1)]));
+		render();
+		act(() =>
+			(op("start") as HTMLButtonElement).dispatchEvent(new MouseEvent("click", { bubbles: true }))
+		);
+	};
+
+	const nosleepEl = (): Element | null => document.querySelector("video[data-nosleep]");
+
+	beforeEach(() => {
+		// jsdom の HTMLMediaElement は play/pause/load が未実装 (呼ぶと例外) なのでモックする。
+		Object.defineProperty(HTMLMediaElement.prototype, "play", {
+			value: () => Promise.resolve(),
+			configurable: true,
+		});
+		Object.defineProperty(HTMLMediaElement.prototype, "pause", {
+			value: () => {},
+			configurable: true,
+		});
+		Object.defineProperty(HTMLMediaElement.prototype, "load", {
+			value: () => {},
+			configurable: true,
+		});
+	});
+
+	afterEach(() => {
+		nosleepEl()?.remove();
+		setUA(PC_UA, 0);
+	});
+
+	it("iOS では開始クリックのうちに動画を差し込む", () => {
+		setUA(IPHONE_UA, 5);
+		clickStart();
+		expect(nosleepEl()).not.toBeNull();
+		expect(useSlideshowStore.getState().running).toBe(true);
+	});
+
+	it("iOS 以外では動画を差し込まない (再生は開始する)", () => {
+		setUA(PC_UA, 0);
+		clickStart();
+		expect(nosleepEl()).toBeNull();
+		expect(useSlideshowStore.getState().running).toBe(true);
+	});
+});

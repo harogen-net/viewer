@@ -1,5 +1,6 @@
 import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useSlideshowPlayer } from "@/hooks/useSlideshowPlayer";
+import { useNoSleepVideo } from "@/hooks/useNoSleepVideo";
 import { useSafeAreaBackground } from "@/hooks/useSafeAreaBackground";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { useSlideStore } from "@/state/slideStore";
@@ -157,8 +158,11 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	// 受動的に眺める場面のため。open=false で自動解放。非対応環境は no-op。
 	//
 	// iOS のホーム画面 Web App では 18.4 未満で効かない (WebKit のバグ。詳細は useWakeLock)。
-	// request は成功するのに効果だけ無いため、アプリ側では検知も回避もできない。
+	// request は成功するのに効果だけ無いため、API 側からは検知できない。
 	useWakeLock(open);
+	// 上記が効かない iOS 向けの回避策。無音の音声トラックを持つ動画を再生し続ける
+	// (iOS 端末のみ)。開始はスライドショー開始ボタン側が担う。詳細は useNoSleepVideo。
+	useNoSleepVideo(open);
 	// スライドショー実行中は safe-area まで黒く塗る (オーバーレイの背景と同色)。
 	// 詳細は useSafeAreaBackground。
 	useSafeAreaBackground(open, "#000000");
