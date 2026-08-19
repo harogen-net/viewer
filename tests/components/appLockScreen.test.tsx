@@ -578,3 +578,35 @@ describe("AppLockScreen 生体認証の自動呼び出し", () => {
 		expect(statusNow()).toBe(AppLockStatus.UNLOCKED);
 	});
 });
+
+describe("AppLockScreen セーフエリアの塗り", () => {
+	// ロック中は safe-area (ノッチ / ホームインジケータ) までオーバーレイと同色にする。
+	// これが無いと画面本体は暗くても safe-area にアプリ本体の白背景が残る。
+	const LOCK_BG = "#111111";
+
+	it("ロック中は safe-area がオーバーレイと同色になる", async () => {
+		await seedLocked();
+		render();
+		await act(async () => {});
+		const html = document.documentElement;
+		expect(html.hasAttribute("data-safe-area-bg")).toBe(true);
+		expect(html.style.getPropertyValue("--safe-area-bg")).toBe(LOCK_BG);
+		expect(
+			document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.getAttribute("content")
+		).toBe(LOCK_BG);
+	});
+
+	// 戻し漏れると、解錠後もアプリ全体が暗いままになる。
+	it("アンマウント (解錠) で元へ戻る", async () => {
+		await seedLocked();
+		render();
+		await act(async () => {});
+		expect(document.documentElement.hasAttribute("data-safe-area-bg")).toBe(true);
+
+		act(() => root.unmount());
+		expect(document.documentElement.hasAttribute("data-safe-area-bg")).toBe(false);
+		expect(document.querySelector('meta[name="theme-color"]')).toBeNull();
+		// afterEach の unmount が二重にならないよう作り直す。
+		root = createRoot(container);
+	});
+});

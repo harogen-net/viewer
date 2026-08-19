@@ -1,5 +1,6 @@
 import { PasscodeKeypad } from "@/components/common/PasscodeKeypad";
 import { useAppLock } from "@/hooks/useAppLock";
+import { useSafeAreaBackground } from "@/hooks/useSafeAreaBackground";
 import { useAppLockStore } from "@/state/appLockStore";
 import { AppLockStatus, LockFailure } from "@/types/AppLock";
 import { PASSCODE_MAX_LENGTH, PASSCODE_MIN_LENGTH } from "@/utils/appLockPasscode";
@@ -21,6 +22,9 @@ import { useEffect, useRef, useState } from "react";
 // Portal の残骸に対しても無条件で勝つようにしておく。
 const Z_INDEX = 100002;
 
+/** オーバーレイの背景色。safe-area も同色で塗るため定数にしておく (ずれると境界が見える)。 */
+const LOCK_BG = "#111111";
+
 /** この回数以上失敗したら、復旧導線への案内を自分から出す。 */
 const RECOVERY_HINT_AFTER_FAILURES = 3;
 
@@ -28,7 +32,7 @@ const overlayStyle: CSSProperties = {
 	position: "fixed",
 	inset: 0,
 	zIndex: Z_INDEX,
-	background: "#111",
+	background: LOCK_BG,
 	// 縦スクロールを許す。manifest が orientation:landscape なのでスマホでは viewport の高さが
 	// 400px 前後しかなく、キーパッド + ボタン + 復旧導線が入り切らない場合がある。overflow:hidden
 	// だと解錠ボタンが画面外に出て押せなくなる (キーパッド自体も高さで縮むが、それでも足りない
@@ -92,6 +96,10 @@ const failureMessage = (
 };
 
 export const AppLockScreen: FC = () => {
+	// ロック中は safe-area (ノッチ / ホームインジケータ) までオーバーレイと同色で塗る。
+	// これが無いと画面本体は黒くても safe-area にアプリ本体の白背景が残る。
+	// 本コンポーネントは LOCKED の間だけマウントされるので常時 true でよい。
+	useSafeAreaBackground(true, LOCK_BG);
 	const lock = useAppLock();
 	const record = useAppLockStore((s) => s.record);
 	const failureCount = useAppLockStore((s) => s.failureCount);

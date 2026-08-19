@@ -1,5 +1,6 @@
 import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useSlideshowPlayer } from "@/hooks/useSlideshowPlayer";
+import { useSafeAreaBackground } from "@/hooks/useSafeAreaBackground";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { useSlideStore } from "@/state/slideStore";
 import { useSlideshowStore } from "@/state/slideshowStore";
@@ -155,30 +156,9 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	// スライドショー表示中は画面の自動ロック / スリープを抑止する (Screen Wake Lock)。
 	// 受動的に眺める場面のため。open=false で自動解放。非対応環境 (iOS 16.3 以前等) は no-op。
 	useWakeLock(open);
-	// スライドショー実行中は <html> に属性を付け、safe-area まで黒背景を効かせる
-	// (styles/index.css + index.html の viewport-fit=cover と連動)。
-	// あわせて theme-color を黒にする: iOS Safari は portrait のタブ上部バーを theme-color
-	// (無ければページ色) で塗るため、既定だと上部セーフエリアが白く残り没入感を損なう。
-	// landscape は Safari が上部バーを畳むため元々黒。終了時に元の値へ戻す (無ければ meta を除去)。
-	useEffect(() => {
-		if (!open) return;
-		const html = document.documentElement;
-		html.setAttribute("data-slideshow-active", "");
-		let themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-		const createdHere = themeMeta === null;
-		const prevContent = themeMeta?.getAttribute("content") ?? null;
-		if (!themeMeta) {
-			themeMeta = document.createElement("meta");
-			themeMeta.setAttribute("name", "theme-color");
-			document.head.appendChild(themeMeta);
-		}
-		themeMeta.setAttribute("content", "#000000");
-		return () => {
-			html.removeAttribute("data-slideshow-active");
-			if (createdHere) themeMeta?.remove();
-			else if (prevContent !== null) themeMeta?.setAttribute("content", prevContent);
-		};
-	}, [open]);
+	// スライドショー実行中は safe-area まで黒く塗る (オーバーレイの背景と同色)。
+	// 詳細は useSafeAreaBackground。
+	useSafeAreaBackground(open, "#000000");
 	// viewport 寸法は state で持ち、scale は render 中に同期計算する (post-paint 反映による
 	// 初回 scale=1 の白ちらつきを防ぐ)。resize 時のみ state を更新。
 	// rotate 中は使える寸法が swap されるので innerWidth/Height も swap する。

@@ -26,19 +26,22 @@
 }
 
 /*
- * スライドショー実行中は safe-area (iPhone のノッチ / ホームインジケータ) まで
- * 背景を黒くする。SlideshowShell が html に data-slideshow-active を付与/除去する。
+ * 全画面オーバーレイ (スライドショー / ロック画面) の表示中は、safe-area
+ * (iPhone のノッチ / ホームインジケータ) まで背景を塗る。
+ * useSafeAreaBackground が html に data-safe-area-bg と --safe-area-bg を付与/除去する。
  * viewport-fit=cover (index.html) と併せることで、PWA でセーフエリアが白いままの違和感を解消。
  *
  * ポートレート起動 slideshow はオーバーレイを 90° 回転するため、iOS の 100vh が
  * ノッチ含まずに解釈された場合に上端が「素の body 色 (白)」で残ってしまう。
- * html / body / #root 全てに黒を敷いておくことで、オーバーレイが仮に届かない
- * ピクセルがあっても背景は黒になる。
+ * html / body / #root 全てに敷いておくことで、オーバーレイが仮に届かない
+ * ピクセルがあっても背景色が出る。
+ *
+ * 色は呼び出し側がオーバーレイ自身の背景色と揃えて渡す (機能ごとに CSS を足さない)。
  */
-html[data-slideshow-active],
-html[data-slideshow-active] body,
-html[data-slideshow-active] #root {
-	background: #000 !important;
+html[data-safe-area-bg],
+html[data-safe-area-bg] body,
+html[data-safe-area-bg] #root {
+	background: var(--safe-area-bg, #000) !important;
 }
 
 /*
