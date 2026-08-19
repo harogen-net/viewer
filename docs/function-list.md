@@ -124,6 +124,20 @@ mode-spec.md に集約した（本書に写すと二重管理になり、実際�
 - ミラー表示（水平/垂直）
 - カーソル自動非表示
 - 背景・サイズ追従
+- 表示中は画面の自動ロック / スリープを抑止（Screen Wake Lock）
+
+### 既知の制約: iOS のホーム画面 Web App では 18.4 未満でスリープ抑止が効かない
+
+WebKit のバグ（[254545](https://bugs.webkit.org/show_bug.cgi?id=254545)、2023-03-27 報告 /
+iOS 18.4（2025-03-31）で RESOLVED FIXED）。ホーム画面 Web App は UIApplication ではなく
+ViewService として動くため、WebKit が使う `UIApplication.idleTimerDisabled` が効かない。
+
+**`request` は成功するのに効果だけ無い**ため、エラーからは検知できずアプリ側で直す手段も無い。
+放置すると画面が暗転し、さらに放置すると端末ロックまで進む（実機 iOS 17.7 で確認）。
+
+- Safari のタブで開けば 16.4 以降で動く（ホーム画面 App のときだけの問題）
+- 無音ループ動画による代替（NoSleep.js 系）は、同バグのコメントでもホーム画面 Web App では
+  限定的とされており当てにできない
 
 ## 10. 保存・読込・入出力
 

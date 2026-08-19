@@ -154,7 +154,10 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	// にした場合の意図しない回転は isMobile=false で弾かれる。
 	const rotate = open && isMobile && isPortrait;
 	// スライドショー表示中は画面の自動ロック / スリープを抑止する (Screen Wake Lock)。
-	// 受動的に眺める場面のため。open=false で自動解放。非対応環境 (iOS 16.3 以前等) は no-op。
+	// 受動的に眺める場面のため。open=false で自動解放。非対応環境は no-op。
+	//
+	// iOS のホーム画面 Web App では 18.4 未満で効かない (WebKit のバグ。詳細は useWakeLock)。
+	// request は成功するのに効果だけ無いため、アプリ側では検知も回避もできない。
 	useWakeLock(open);
 	// スライドショー実行中は safe-area まで黒く塗る (オーバーレイの背景と同色)。
 	// 詳細は useSafeAreaBackground。

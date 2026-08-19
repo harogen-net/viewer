@@ -106,4 +106,46 @@ describe("useWakeLock", () => {
 		await act(async () => {});
 		expect(requestMock).toHaveBeenCalledTimes(2);
 	});
+
+	// 可視のまま解放されるケース (iOS のホーム画面 Web App など) では取り直す。
+	// visibilitychange を挟まないので、release ハンドラ自身の再取得だけが効く経路。
+	it("可視のまま解放されたら取り直す", async () => {
+		await render(true);
+		expect(requestMock).toHaveBeenCalledTimes(1);
+
+		act(() => releaseListener?.());
+		await act(async () => {});
+		expect(requestMock).toHaveBeenCalledTimes(2);
+	});
+
+	// 「取得 → 即解放」が続くプラットフォームで無限ループにならないこと。
+	// 上限が無いと request と release を延々繰り返してバッテリーを食う。
+	it("可視のままの再取得は上限で打ち止めになる", async () => {
+		await render(true);
+		expect(requestMock).toHaveBeenCalledTimes(1);
+
+		// 解放が延々続く状況を模す。上限 (3 回) を超えても止まること。
+		for (let i = 0; i < 10; i++) {
+			act(() => releaseListener?.());
+			await act(async () => {});
+		}
+		// 初回 1 + 再取得 3 = 4 で打ち止め。
+		expect(requestMock).toHaveBeenCalledTimes(4);
+	});
+
+	// 可視復帰は正常な経路なので、再取得の予算を使い切っていても回復する。
+	it("可視復帰で再取得の予算が戻る", async () => {
+		await render(true);
+		for (let i = 0; i < 10; i++) {
+			act(() => releaseListener?.());
+			await act(async () => {});
+		}
+		expect(requestMock).toHaveBeenCalledTimes(4); // 上限まで消費済み
+
+		await act(async () => {
+			document.dispatchEvent(new Event("visibilitychange"));
+		});
+		await act(async () => {});
+		expect(requestMock).toHaveBeenCalledTimes(5);
+	});
 });
