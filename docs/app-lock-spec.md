@@ -381,19 +381,3 @@ iOS はバックグラウンド移行時にアプリスイッチャー用のス�
 | `src/components/panels/AppLockSettingsModal.tsx` | 設定 UI |
 | `src/utils/sensitiveCrypto.ts` | `encryptJson` / `decryptJson` / base64 helper を追加、`deriveKey` の iterations 修正 |
 | `src/hooks/useStorage.ts` | `eraseAllDocuments()` を追加（`canEditNow` gate を掛けない。スマホは常に VIEW モードなので、掛けるとロックアウト時にリセットできない） |
-
----
-
-## 10. 実機検証が必要な項目（未実施）
-
-以下は Web 標準の記述からは確定できず、**実機で確認するまで設計が確定しない**。バージョン番号は断定していない。
-
-1. **ホーム画面 standalone と Safari タブで `localStorage` / credential が共有されるか** ← 最優先。分離される場合、「Safari タブでロックを有効化 → ホーム画面から起動すると `localStorage` が空 → ロック無しで開く」が起きる。fail-open 設計なので壊れはしないが、「必ずホーム画面に追加してから設定してください」という UX 誘導が必要になる
-2. **standalone PWA で `credentials.create()` / `get()` が実際に動くか** — 過去にバグ報告があった領域
-3. **`display: "fullscreen"`（vite.config.js）で iOS が実際にインストールできるか、どの display モードになるか** — iOS は `fullscreen` を manifest display としてサポートしていない。ただし認証コアは display モードに依存する分岐を持たないので、結果が何であれ同じコードパスが動く
-4. **`credentials.get()` の user activation 要件** — `useEffect` から呼べないことの確認
-5. **ターゲット端末での PBKDF2 150,000 回の実測時間** — 500ms を超えるなら UI にスピナーを出す（値は下げない）
-6. **SNS の in-app browser で WebAuthn が使えないこと** = パスコード経路のみになることの確認
-7. **iOS の 7 日間ストレージ削除ポリシーがインストール済み web app に適用されるか**（ロックが勝手に消えるか）
-
-検証は secure context が必要なため、gh-pages 等の https 配信で行う。ローカルの `npm run dev` を LAN IP で開いても検証できない（§8.3）。

@@ -160,8 +160,6 @@
   - create/get に `userVerification:"required"` と `platform` を渡す、`rp.id` を指定しない
   - challenge は 32 byte かつ呼び出しごとに異なる
 
-**実機のみで確認できる項目**は docs/app-lock-spec.md §10 を参照（standalone とタブでのストレージ共有、iOS での WebAuthn 動作、PBKDF2 の実測時間など）。secure context が必要なため https 配信で行う。
-
 ## 5. 自動化方針
 - 単体
   - reducer/command/adapter を中心に実装

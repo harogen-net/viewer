@@ -19,7 +19,7 @@
 | [mode-spec.md](mode-spec.md) | **モードの唯一の定義**（用語 / 起動判定 / 機能可否 / 書込権限 / 画面向き） |
 | [function-list.md](function-list.md) | 機能一覧。モードの記述は持たず mode-spec を参照する |
 | [test-plan.md](test-plan.md) | テスト方針と観点 |
-| [app-lock-spec.md](app-lock-spec.md) | アプリロック（スマホの起動ゲート）。§10 に実機検証の残りがある |
+| [app-lock-spec.md](app-lock-spec.md) | アプリロック（スマホの起動ゲート） |
 | [sensitive-mode-spec.md](sensitive-mode-spec.md) | センシティブモード（文書単位のパスワード保護） |
 | [data-compatibility-spec.md](data-compatibility-spec.md) | 保存形式の互換要件（レガシーと byte-equal） |
 | [state-management-design.md](state-management-design.md) | 状態管理の設計方針 |
