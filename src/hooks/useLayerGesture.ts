@@ -9,10 +9,18 @@ import { useLayerMutation } from "./useLayerMutation";
 // 担当:
 //   - pointerdown で hit-test → setSelectedLayer
 //   - 同 gesture でそのまま drag (locked layer は選択のみ)
+//     ただし移動は「しきい値」を超えるまで成立しない (下記)
 //   - data-resize-anchor 付き element への pointerdown で 4 隅 resize (aspect 固定)
 //   - data-rotate-handle 付き element への pointerdown で rotate (Shift で 15° snap)
 //   - pointermove で local state の live 値を更新 → LayerEditOverlay の frame に即時反映
 //   - pointerup で `useLayerMutation.updateLayer` を 1 回 commit (履歴 1 件)
+//
+// ドラッグ成立のしきい値 (drag のみ。resize/rotate は専用ハンドル発源なので対象外):
+//   - pointerdown 直後の微動でレイヤーが動いてしまう誤操作を防ぐため、画面上で
+//     DRAG_START_THRESHOLD_PX を超えて動くまで移動を成立させない。それまでは選択のみ。
+//   - ただし DRAG_THRESHOLD_RELEASE_MS 経過後はしきい値を解除する。押したまま止めて
+//     いられるのは誤操作ではないので、1px 単位の微調整をしきい値で塞がないための逃げ道。
+//   - 判定は画面 px。slide-coord にすると同じ手の動きでもズーム倍率でしきい値が変わる。
 //
 // 座標系:
 //   - slide-coord 系 = SlideView の native 寸法 (transform 適用前)。
@@ -68,6 +76,10 @@ interface DragGesture extends CommonGesture {
 	kind: "drag";
 	startX: number;
 	startY: number;
+	/** pointerdown の時刻 (ms)。しきい値の時間解除の起点。 */
+	startedAt: number;
+	/** しきい値を超えて移動が成立したか。false の間は dx/dy を 0 のままにする。 */
+	active: boolean;
 	dx: number;
 	dy: number;
 }
@@ -105,6 +117,22 @@ type Gesture = DragGesture | ResizeGesture | RotateGesture;
 
 const MIN_SCALE_MUL = 0.01;
 const ROTATE_SNAP_DEG = 15;
+
+// ドラッグ成立のしきい値 (client px、ズーム倍率に依らない画面上の実移動量)。
+// pointerdown 直後の手ブレ・クリック時の微動でレイヤーが動いてしまうのを防ぐ。
+// この距離を超えるまで移動を成立させない (選択だけは pointerdown 時点で成立する)。
+//
+// 現在値は「効いていることを手で確かめられる」大きさに振ってある。OS の慣習値は
+// 4px 前後 (Windows SM_CXDRAG = 4) で、常用するならその辺まで下げる。
+export const DRAG_START_THRESHOLD_PX = 20;
+// pointerdown からこの時間が過ぎたら、上のしきい値を解除して微小移動も許す。
+// 「1px だけ動かしたい」意図的な操作がしきい値に阻まれるのを防ぐための逃げ道
+// (押したまま止めていられる = 誤操作ではない、という判定)。
+//
+// ここは短くしてはいけない。300ms 程度だと、狙いを定めてから動かす普通の操作でも
+// 先に時間解除が効いてしまい、距離しきい値が事実上無効化される (= 誤移動が防げない)。
+// 「明らかに押したまま待った」と言える長さを取る。
+export const DRAG_THRESHOLD_RELEASE_MS = 1000;
 
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 const toDeg = (rad: number) => (rad * 180) / Math.PI;
@@ -146,6 +174,28 @@ const baseOf = (layer: {
 	scaleY: layer.scaleY,
 	rotation: layer.rotation,
 });
+
+// drag gesture の初期状態。active=false で始め、しきい値を超えるまで移動を成立させない。
+const newDragGesture = (
+	layer: { uuid: string; transX: number; transY: number; scaleX: number; scaleY: number; rotation: number },
+	e: ReactPointerEvent<HTMLDivElement>
+): DragGesture => ({
+	kind: "drag",
+	uuid: layer.uuid,
+	pointerId: e.pointerId,
+	base: baseOf(layer),
+	startX: e.clientX,
+	startY: e.clientY,
+	startedAt: Date.now(),
+	active: false,
+	dx: 0,
+	dy: 0,
+});
+
+// ドラッグを成立させてよいか。距離しきい値か、時間による解除のどちらかを満たせば成立。
+const shouldActivateDrag = (g: DragGesture, clientX: number, clientY: number): boolean =>
+	Math.hypot(clientX - g.startX, clientY - g.startY) >= DRAG_START_THRESHOLD_PX ||
+	Date.now() - g.startedAt >= DRAG_THRESHOLD_RELEASE_MS;
 
 // live transform 計算 (gesture state から live 値を導出)
 const computeLive = (g: Gesture): LiveTransform => {
@@ -303,16 +353,7 @@ export const useLayerGesture = (
 			} catch {
 				// ignore
 			}
-			setGesture({
-				kind: "drag",
-				uuid: layer.uuid,
-				pointerId: e.pointerId,
-				base: baseOf(layer),
-				startX: e.clientX,
-				startY: e.clientY,
-				dx: 0,
-				dy: 0,
-			});
+			setGesture(newDragGesture(layer, e));
 			return true;
 		},
 		[slide]
@@ -346,16 +387,7 @@ export const useLayerGesture = (
 			} catch {
 				// ignore
 			}
-			setGesture({
-				kind: "drag",
-				uuid: layer.uuid,
-				pointerId: e.pointerId,
-				base: baseOf(layer),
-				startX: e.clientX,
-				startY: e.clientY,
-				dx: 0,
-				dy: 0,
-			});
+			setGesture(newDragGesture(layer, e));
 		},
 		[slide, setSelectedLayer]
 	);
@@ -392,9 +424,15 @@ export const useLayerGesture = (
 			setGesture((cur) => {
 				if (!cur || cur.pointerId !== e.pointerId) return cur;
 				if (cur.kind === "drag") {
+					// しきい値未達の間は同一参照を返して再描画も commit も起こさない
+					// (dx/dy が 0 のままなので pointerup 時の「変化なし」判定でも弾かれる)。
+					if (!cur.active && !shouldActivateDrag(cur, e.clientX, e.clientY)) return cur;
+					// 成立後の移動量は「しきい値を超えた地点」ではなく pointerdown 地点からの差分。
+					// こうしないとカーソルとレイヤーがしきい値ぶんずれたまま最後まで追従する。
 					const s = stageScale > 0 ? stageScale : 1;
 					return {
 						...cur,
+						active: true,
 						dx: (e.clientX - cur.startX) / s,
 						dy: (e.clientY - cur.startY) / s,
 					};
