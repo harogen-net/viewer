@@ -81,7 +81,7 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		expect(items[1].getAttribute("data-selected")).toBe("true");
 	});
 
-	it("disabled slide は data-disabled=true、opacity が下がる", () => {
+	it("disabled slide は data-disabled=true、絵柄と下地だけを暗くする", () => {
 		useSlideStore
 			.getState()
 			.setSlides([makeSlide(1, "a", { disabled: false }), makeSlide(2, "b", { disabled: true })]);
@@ -89,7 +89,20 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		const items = container.querySelectorAll<HTMLElement>("[data-slide-index]");
 		expect(items[0].getAttribute("data-disabled")).toBe("false");
 		expect(items[1].getAttribute("data-disabled")).toBe("true");
-		expect(items[1].style.opacity).toBe("0.35");
+		// グレーアウトは canvas (絵柄) のみ。wrapper に掛けると有効/無効チェックや
+		// 編集ボタンまで沈んで狙いにくくなるため、wrapper 自体は素のまま。
+		// 半透明ではなく filter で落とす (opacity だと白地が透けて色が抜けるだけ)。
+		const canvasOf = (el: HTMLElement): HTMLElement | null =>
+			el.querySelector<HTMLElement>("[data-thumb-canvas]");
+		expect(canvasOf(items[1])?.style.filter).toContain("brightness");
+		expect(canvasOf(items[1])?.style.filter).toContain("grayscale");
+		expect(items[1].style.opacity).toBe("");
+		expect(items[1].style.filter).toBe("");
+		// 透明ボーダーの下から覗く下地も暗くする (白い枠が残ると非活性に見えない)。
+		expect(items[1].style.background).not.toBe("rgb(255, 255, 255)");
+		// 有効な側の絵柄には何も掛けず、下地は白のまま
+		expect(canvasOf(items[0])?.style.filter).toBe("");
+		expect(items[0].style.background).toBe("rgb(255, 255, 255)");
 	});
 
 	it("thumb クリックで selectedIndex が変わる", () => {

@@ -16,7 +16,7 @@ import type { SlideViewProps } from "./SlideView";
 // 役割:
 //   - thumb サムネ描画 (canvas 1 枚に焼付け、layer DOM を作らない = 大量画像でも軽量)
 //   - 選択枠 (selected で青ボーダー)
-//   - disabled opacity
+//   - disabled のグレーアウト (絵柄と下地のみ。コントロールは沈めない。半透明ではなく filter)
 //   - クリック → 親 onClick
 //   - 1-indexed 番号バッジ (左下)
 //   - durationRatio コントローラ ( [-] xN [+]、N != 1 のみ label 表示)
@@ -60,6 +60,14 @@ const snapToStep = (ratio: number): number =>
 // thumb 外枠の最小幅。尺を縮めてもコーナーボタン群 (各 30px) + 中央ラベル +
 // 右端リサイズハンドルが重ならず操作可能な下限を保証する (片道トラップ防止の土台)。
 const DURATION_MIN_THUMB_W = 92;
+
+// 無効スライドの絵柄に掛けるフィルタ。彩度を抜いて暗くする。
+// 不透明のままなので背後の白地に色が抜けず、明るい絵でも «無効» と分かる。
+const DISABLED_THUMB_FILTER = "grayscale(1) brightness(0.5)";
+// 無効スライドの下地。透明ボーダー (2px) の下から覗く白い枠線もここで暗くする
+// (絵柄だけ沈めて枠が白く残ると、非活性に見えない)。
+// #fff に上のフィルタを掛けた結果と同じ明度にして、枠と絵柄が地続きに見えるようにする。
+const DISABLED_THUMB_BG = "#808080";
 
 // legacy ThumbSlideView.fitToHeight() の幅補正式:
 //   r == 1     → 1
@@ -200,11 +208,10 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		// 選択時は青枠、未選択は同じ太さの透明枠 (border でレイアウトずれないように)
 		border: selected ? "2px solid #228be6" : "2px solid transparent",
 		borderRadius: 4,
-		// disabled は半透明
-		opacity: slide.disabled ? 0.35 : 1,
 		cursor: "pointer",
 		boxSizing: "content-box",
-		background: "#fff",
+		// 透明ボーダーの下にも下地が回り込むため、この色が «白枠線» として見える。
+		background: slide.disabled ? DISABLED_THUMB_BG : "#fff",
 		boxShadow: selected ? "0 0 0 1px rgba(34,139,230,0.3)" : "0 0 1px rgba(0,0,0,0.2)",
 		// wrapper の見かけ寸法 (durationCorrection で横伸縮)。
 		// minWidth: 尺を縮めてもコントロール群が重ならない下限を保証 (片道トラップ防止)。
@@ -214,10 +221,17 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 		overflow: "hidden",
 	};
 	// canvas は native aspect で描画、CSS で wrapper に fit (width:100% で stretch される)。
+	// disabled のグレーアウトは **絵柄 (この canvas) だけ** に掛ける。
+	// wrapper 全体に掛けると、有効/無効チェックや編集ボタンまで薄くなって狙いにくくなる
+	// (disable/enable は頻繁に切り替える操作なので、無効時ほど的が見えないと困る)。
+	//
+	// 半透明ではなく filter で落とす。opacity だと背後の白地が透けて色が抜けるだけで、
+	// 明るい絵柄だと «無効» に見えない。不透明のまま彩度と明度を落とす方が判別しやすい。
 	const canvasStyle: CSSProperties = {
 		width: "100%",
 		height: "100%",
 		display: "block",
+		filter: slide.disabled ? DISABLED_THUMB_FILTER : undefined,
 	};
 	// 有効/無効チェックは左下 (legacy 準拠、25x25)。
 	const enableCheckStyle: CSSProperties = {
