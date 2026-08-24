@@ -30,9 +30,11 @@ const ImageLayerContent: FC<{ layer: ImageLayer; clip?: ClipOptions }> = ({ laye
 			clipStyle.WebkitClipPath = inset;
 		}
 		// tween 時のみ clip-path に transition を付与 (legacy ImageView 同様、bezier 補間)。
+		// easing / delay は transform 側と揃える (揃えないと clip だけ別の動きをして崩れる)。
 		if (clip?.transitionMs != null) {
-			const b = "cubic-bezier(.4,0,.7,1)";
-			clipStyle.transition = `clip-path ${clip.transitionMs}ms ${b}, -webkit-clip-path ${clip.transitionMs}ms ${b}`;
+			const b = clip.timingFunction ?? "linear";
+			const d = `${clip.transitionDelayMs ?? 0}ms`;
+			clipStyle.transition = `clip-path ${clip.transitionMs}ms ${b} ${d}, -webkit-clip-path ${clip.transitionMs}ms ${b} ${d}`;
 		}
 		return (
 			<img
@@ -93,6 +95,10 @@ const TextLayerContent: FC<{ layer: TextLayer }> = ({ layer }) => (
 export interface ClipOptions {
 	forceInset?: boolean;
 	transitionMs?: number;
+	/** transition-delay (ms)。前オフセット。transform 側と同値にする。 */
+	transitionDelayMs?: number;
+	/** transition-timing-function。transform 側と同値にする。 */
+	timingFunction?: string;
 }
 
 /**

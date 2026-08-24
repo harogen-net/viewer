@@ -4,7 +4,7 @@ import { useNoSleepVideo } from "@/hooks/useNoSleepVideo";
 import { useSafeAreaBackground } from "@/hooks/useSafeAreaBackground";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { useSlideStore } from "@/state/slideStore";
-import { useSlideshowStore } from "@/state/slideshowStore";
+import { resolveTweenTiming, tweenEaseCss, useSlideshowStore } from "@/state/slideshowStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
 import type { Slide } from "@/types/Slide";
 import type { CSSProperties, FC, ReactNode } from "react";
@@ -138,6 +138,9 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 	const toggleFlipX = useSlideshowStore((s) => s.toggleFlipX);
 	const toggleFlipY = useSlideshowStore((s) => s.toggleFlipY);
 	const startFullscreen = useSlideshowStore((s) => s.startFullscreen);
+	const tweenPrePercent = useSlideshowStore((s) => s.tweenPrePercent);
+	const tweenPostPercent = useSlideshowStore((s) => s.tweenPostPercent);
+	const tweenEasing = tweenEaseCss(useSlideshowStore((s) => s.tweenEase));
 	const setStartFullscreen = useSlideshowStore((s) => s.setStartFullscreen);
 
 	const { frame, position, enabledCount, paused, togglePause, next, prev } = useSlideshowPlayer({
@@ -420,7 +423,14 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 			</>
 		);
 	} else {
-		const tweenMs = Math.max(1, intervalMs * (frame.slide.durationRatio ?? 1));
+		// スライドの表示時間いっぱいが tween の持ち時間。そこから前後オフセット (静止時間) を
+		// 差し引いた残りが実際に動く時間になる (前 = transition-delay、後 = 動き終わった後の余り)。
+		const tweenTotalMs = Math.max(1, intervalMs * (frame.slide.durationRatio ?? 1));
+		const { delayMs: tweenDelayMs, animMs: tweenMs } = resolveTweenTiming(
+			tweenTotalMs,
+			tweenPrePercent,
+			tweenPostPercent
+		);
 		// 短辺基準でフィットする scale を render 中に同期算出 (初回ペイントから正しいサイズ)。
 		const scale = Math.min(viewport.w / frame.slide.width, viewport.h / frame.slide.height);
 		// 中央寄せは flex ではなく absolute + translate(-50%,-50%) scale()。
@@ -462,6 +472,8 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 									bgColor={bgColor}
 									tween={false}
 									tweenMs={tweenMs}
+									tweenDelayMs={tweenDelayMs}
+									tweenEasing={tweenEasing}
 									mirrorH={mirrorH}
 									mirrorV={mirrorV}
 								/>
@@ -473,6 +485,8 @@ export const SlideshowShell: FC<SlideshowShellProps> = ({ open, onClose }) => {
 								bgColor={bgColor}
 								tween={frame.tween}
 								tweenMs={tweenMs}
+								tweenDelayMs={tweenDelayMs}
+								tweenEasing={tweenEasing}
 								mirrorH={mirrorH}
 								mirrorV={mirrorV}
 							/>

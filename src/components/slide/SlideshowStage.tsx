@@ -18,8 +18,12 @@ interface SlideshowStageProps {
 	bgColor?: string;
 	/** join 連動 tween (前フレームからの transform 補間)。 */
 	tween: boolean;
-	/** tween 時間 (ms)。 */
+	/** tween の実アニメ時間 (ms)。前後オフセットを差し引いた後の値。 */
 	tweenMs: number;
+	/** tween 開始までの待ち (ms)。前オフセット = transition-delay。 */
+	tweenDelayMs?: number;
+	/** tween のイージング (CSS transition-timing-function)。 */
+	tweenEasing?: string;
 	mirrorH: boolean;
 	mirrorV: boolean;
 }
@@ -62,6 +66,8 @@ export const SlideshowStage: FC<SlideshowStageProps> = ({
 	bgColor,
 	tween,
 	tweenMs,
+	tweenDelayMs = 0,
+	tweenEasing = "cubic-bezier(0.4, 0, 0.7, 1)",
 	mirrorH,
 	mirrorV,
 }) => {
@@ -92,8 +98,9 @@ export const SlideshowStage: FC<SlideshowStageProps> = ({
 					whiteSpace: "nowrap",
 					opacity: layer.opacity,
 					transform: transformCss(layer, mh, mv),
+					// shorthand の並びは property duration timing-function delay。
 					transition: tween
-						? `transform ${tweenMs}ms cubic-bezier(.4,0,.7,1), opacity ${tweenMs}ms linear`
+						? `transform ${tweenMs}ms ${tweenEasing} ${tweenDelayMs}ms, opacity ${tweenMs}ms linear ${tweenDelayMs}ms`
 						: undefined,
 				};
 				return (
@@ -104,7 +111,12 @@ export const SlideshowStage: FC<SlideshowStageProps> = ({
 						    clip-path にも transition を付けて clipRect を補間する (legacy ImageView 互換)。 */}
 						<LayerContent
 							layer={layer}
-							clip={{ forceInset: true, transitionMs: tween ? tweenMs : undefined }}
+							clip={{
+								forceInset: true,
+								transitionMs: tween ? tweenMs : undefined,
+								transitionDelayMs: tweenDelayMs,
+								timingFunction: tweenEasing,
+							}}
 						/>
 					</div>
 				);
