@@ -116,6 +116,14 @@ const writeColsPref = (n: number): void => {
 	}
 };
 
+// Drawer (position=bottom) の高さ。
+const DRAWER_SIZE_VH = 80;
+// ライブラリ画像のドラッグ中に Drawer を下へ引っ込める量 (Drawer 高さに対する比)。
+// 引っ込めきらずに残る (1 - 比) ぶんが画面下端に居座り、「ここへ戻すと中止」の受け皿になる。
+// 大きくするほど下地 (キャンバス / スライド一覧) が広く空く。
+const DRAG_RETRACT_RATIO = 2 / 3;
+const DRAG_RETRACT_VH = DRAWER_SIZE_VH * DRAG_RETRACT_RATIO;
+
 export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose }) => {
 	const imageById = useImageLibraryStore((s) => s.imageById);
 	const { addImageFile, deleteImage, placeImageOnSlide, pruneOrphanImage, pruneUnusedImages } =
@@ -151,135 +159,93 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 		toast.success("選択中レイヤーの画像を差し替えました");
 		onClose();
 	};
-	// ライブラリ画像をドラッグ中は Drawer を閉じて下のキャンバスへドロップできるようにする。
-	// document レベルで dragstart/dragend/mouseup を監視 (per-tile 遅延 true と dragend の
-	// 競合による stuck を避け、また Drawer 内部からドラッグが始まるので portal をまたぐ問題を回避)。
+	// ライブラリ画像をドラッグ中は Drawer を下へ引っ込め (DRAG_RETRACT_VH)、空いた下地の
+	// キャンバス / スライド一覧へドロップできるようにする。
+	//
+	// 「閉じる / 消す」ではなく「引っ込める」理由:
+	//   - Drawer を閉じると drag 元の <img> が unmount / display:none になる。この状態では
+	//     ブラウザによって dragend が発火せず dragging=true のまま stuck したり、drag 自体が
+	//     中断したりする。DOM に残したまま位置だけずらせば drag 元が生き続ける。
+	//   - 画面下端に残った帯が「ここへ戻すと中止」の受け皿になる。UI ごと消すと、掴んだ後に
+	//     戻す先が分からなくなる。
+	//
+	// 終了検知は dragend / drop だけを使う。pointerup / pointercancel / mouseup / blur /
+	// visibilitychange はドラッグ「中」に発火しうる — 特に Chrome は dragstart の直後に
+	// pointercancel を出すため、これらを終了扱いにすると開始直後に自分で状態を巻き戻して
+	// しまい、引っ込めが一度も効かない (= ドロップ先にイベントが届かない)。
 	const [dragging, setDragging] = useState(false);
-	const shrinkTimer = useRef<number | null>(null);
+	const revealTimer = useRef<number | null>(null);
+	// drop 成立後に Drawer を閉じるため (結果を見せる)。effect は再購読させたくないので ref 経由。
+	const onCloseRef = useRef(onClose);
 	useEffect(() => {
-		// [DIAG imglib-drag] 特定端末 (Windows Chrome PWA) で dragend/mouseup が発火せず
-		// dragging=true に stuck する報告あり。原因切り分け用に一時ロギングを仕込む。
-		// 抽出方法: DevTools コンソールで `imglib-drag` フィルタ。問題確認後に撤去する。
-		const LOG_TAG = "[imglib-drag]";
-		const t0 = performance.now();
-		const log = (evt: string, extra?: Record<string, unknown>): void => {
-			// eslint-disable-next-line no-console
-			console.log(LOG_TAG, `${(performance.now() - t0).toFixed(0)}ms`, evt, extra ?? {});
-		};
-		const stuckWatchdog = { id: null as number | null };
-		const armWatchdog = (): void => {
-			if (stuckWatchdog.id != null) clearTimeout(stuckWatchdog.id);
-			// 10s 経っても解除イベントが来なければ stuck 判定 (=dragend/mouseup 未発火の証拠)
-			stuckWatchdog.id = window.setTimeout(() => {
-				log("STUCK-DETECTED (>10s no dragend/mouseup)", { dragging: true });
-			}, 10_000);
-		};
-		const disarmWatchdog = (): void => {
-			if (stuckWatchdog.id != null) {
-				clearTimeout(stuckWatchdog.id);
-				stuckWatchdog.id = null;
-			}
-		};
-		const targetInfo = (e: Event): Record<string, unknown> => {
-			const t = e.target as HTMLElement | null;
-			return {
-				tag: t?.tagName,
-				id: t?.id,
-				tile: !!t?.closest?.("[data-image-tile]"),
-				imgId: t?.closest?.("[data-image-tile]")?.getAttribute("data-image-id") ?? null,
-			};
-		};
-
-		const clearPending = (): void => {
-			if (shrinkTimer.current != null) {
-				clearTimeout(shrinkTimer.current);
-				shrinkTimer.current = null;
-			}
-		};
-		// ライブラリ発源のドラッグが in-flight の間だけログ/state 変更を有効化。
-		// (無関係な UI クリックの pointerup/mouseup/blur を拾ってノイズ + 意図せぬ setDragging(false) を防ぐ)
+		onCloseRef.current = onClose;
+	});
+	// 引っ込めの解除は退場アニメ完了時 (onExitTransitionEnd) に行うが、それが何らかの理由で
+	// 来なかった場合に引っ込んだまま次回開くのを防ぐ保険。開き直すときは必ず通常位置から。
+	useEffect(() => {
+		if (opened) setDragging(false);
+	}, [opened]);
+	useEffect(() => {
 		let inDrag = false;
-		const onDocDragStart = (e: DragEvent): void => {
+		let dropped = false;
+		const clearPending = (): void => {
+			if (revealTimer.current != null) {
+				clearTimeout(revealTimer.current);
+				revealTimer.current = null;
+			}
+		};
+		const onDragStart = (e: DragEvent): void => {
 			// ライブラリ画像のドラッグのときだけ反応 (タイル内発源で判定)。
 			const target = e.target as HTMLElement | null;
 			if (!target?.closest?.("[data-image-tile]")) return;
-			log("dragstart(doc)", targetInfo(e));
 			inDrag = true;
+			dropped = false;
 			clearPending();
-			// dragstart 内で同期的に state を変えると Chrome がドラッグを中止するため次 tick で反映。
-			shrinkTimer.current = window.setTimeout(() => {
-				log("setDragging(true) fired via setTimeout");
-				setDragging(true);
-				armWatchdog();
-			}, 0);
+			// dragstart 内で同期的に位置を動かすと、その直後に撮られるドラッグゴーストが
+			// 動いた後の見た目で確定してしまう。次 tick へ回してから引っ込める。
+			revealTimer.current = window.setTimeout(() => setDragging(true), 0);
 		};
-		const endDrag =
-			(source: string) =>
-			(e: Event): void => {
-				if (!inDrag) return; // ライブラリ drag 中でなければ無視 (無関係なクリック等)
-				log(`endDrag via ${source}`, targetInfo(e));
-				inDrag = false;
-				clearPending(); // 遅延 true が残っていれば取り消して stuck を防ぐ
-				disarmWatchdog();
-				setDragging(false);
-			};
-		// 追加の観測用 (発火してるかどうかを見るため。状態変更は endDrag 経路のみ)
-		const observe =
-			(name: string) =>
-			(e: Event): void => {
-				if (!inDrag) return;
-				log(`observe: ${name}`, targetInfo(e));
-			};
-		const onStart = onDocDragStart;
-		const onEndDragEnd = endDrag("dragend");
-		const onEndMouseUp = endDrag("mouseup");
-		const onEndPointerUp = endDrag("pointerup");
-		const onEndPointerCancel = endDrag("pointercancel");
-		const onEndDrop = endDrag("drop");
-		const onEndBlur = endDrag("window.blur");
-		const onEndVisChange = (): void => {
-			if (document.visibilityState === "hidden") endDrag("visibilitychange.hidden")(new Event("v"));
+		// drop はどこかの drop zone に着地した合図。片付けは後続の dragend でまとめて行う
+		// (drop の伝播中に Drawer を unmount すると、同じイベントを受け取る React 側の
+		//  onDrop より先に drop zone が消えかねない)。
+		// 引っ込めた Drawer 自身への drop は「中止」なので配置扱いにしない。
+		const onDrop = (e: DragEvent): void => {
+			if (!inDrag) return;
+			const target = e.target as HTMLElement | null;
+			dropped = !target?.closest?.("[data-image-library-panel]");
 		};
-		const onObserveDragOver = observe("dragover");
-		const onObserveDragEnter = observe("dragenter");
-		const onObserveDragLeave = observe("dragleave");
-
-		document.addEventListener("dragstart", onStart, true);
-		document.addEventListener("mouseup", onEndMouseUp, true);
-		document.addEventListener("dragend", onEndDragEnd, true);
-		document.addEventListener("pointerup", onEndPointerUp, true);
-		document.addEventListener("pointercancel", onEndPointerCancel, true);
-		document.addEventListener("drop", onEndDrop, true);
-		window.addEventListener("blur", onEndBlur, true);
-		document.addEventListener("visibilitychange", onEndVisChange, true);
-		// 発火有無の観測 (throttle しないと大量に出るので dragover は 1s に 1 回だけ)
-		let lastOverLog = 0;
-		const onOverThrottled = (e: Event): void => {
-			const now = performance.now();
-			if (now - lastOverLog > 1000) {
-				lastOverLog = now;
-				onObserveDragOver(e);
+		const onDragEnd = (): void => {
+			if (!inDrag) return;
+			inDrag = false;
+			clearPending();
+			if (dropped) {
+				dropped = false;
+				// 引っ込めたまま閉じる。ここで dragging=false に戻すと「せり上がってから
+				// 閉じる」の 2 段アニメになり、ドロップ直後にちらついて見える。
+				// 戻すのは退場アニメが終わってから (onExitTransitionEnd)。
+				onCloseRef.current();
+				return;
 			}
+			setDragging(false);
 		};
-		document.addEventListener("dragover", onOverThrottled, true);
-		document.addEventListener("dragenter", onObserveDragEnter, true);
-		document.addEventListener("dragleave", onObserveDragLeave, true);
-		log("listeners attached");
-		return () => {
-			document.removeEventListener("dragstart", onStart, true);
-			document.removeEventListener("mouseup", onEndMouseUp, true);
-			document.removeEventListener("dragend", onEndDragEnd, true);
-			document.removeEventListener("pointerup", onEndPointerUp, true);
-			document.removeEventListener("pointercancel", onEndPointerCancel, true);
-			document.removeEventListener("drop", onEndDrop, true);
-			window.removeEventListener("blur", onEndBlur, true);
-			document.removeEventListener("visibilitychange", onEndVisChange, true);
-			document.removeEventListener("dragover", onOverThrottled, true);
-			document.removeEventListener("dragenter", onObserveDragEnter, true);
-			document.removeEventListener("dragleave", onObserveDragLeave, true);
-			disarmWatchdog();
+		// stuck 時の保険。次の pointerdown はドラッグ終了後にしか起きない
+		// (ドラッグ開始時の pointerdown はまだ inDrag=false なので素通りする)。
+		const onPointerDown = (): void => {
+			if (!inDrag) return;
+			inDrag = false;
 			clearPending();
-			log("listeners detached");
+			setDragging(false);
+		};
+		document.addEventListener("dragstart", onDragStart, true);
+		document.addEventListener("drop", onDrop, true);
+		document.addEventListener("dragend", onDragEnd, true);
+		document.addEventListener("pointerdown", onPointerDown, true);
+		return () => {
+			document.removeEventListener("dragstart", onDragStart, true);
+			document.removeEventListener("drop", onDrop, true);
+			document.removeEventListener("dragend", onDragEnd, true);
+			document.removeEventListener("pointerdown", onPointerDown, true);
+			clearPending();
 		};
 	}, []);
 	const [cols, setCols] = useState<number>(readColsPref); // 1 行あたりの画像数
@@ -379,27 +345,52 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 	return (
 		<>
 			<Drawer
-				opened={opened && !dragging}
+				opened={opened}
 				onClose={onClose}
 				title="画像ライブラリ"
 				position="bottom"
-				size={"80vh"}
+				size={`${DRAWER_SIZE_VH}vh`}
 				padding="md"
-				// ドラッグ中だけ非モーダル化 (overlay / trap / scroll lock / click-outside を切る):
-				// Drawer は opened=false で閉じるが、モーダル behaviour が残ると裏の canvas への
-				// ドロップを奪う可能性があるので念のため全て !dragging に連動。
-				// 非ドラッグ時は通常の Drawer (backdrop クリックで閉じる)。
+				// ドラッグ中は「閉じる」のではなく「下へ引っ込める」(上の useEffect のコメント参照)。
+				// drag 元の <img> を DOM に残したままにするのが要点で、opened は触らない。
+				//
+				// ずらす先は .inner (position:fixed で画面全体を覆う内側コンテナ)。.content 側の
+				// transform は Mantine の Transition が入退場アニメで上書きするため使えない。
+				// .inner には Transition が触らないので、ここだけが競合しない置き場になる。
+				styles={{
+					inner: {
+						transform: dragging ? `translateY(${DRAG_RETRACT_VH}vh)` : undefined,
+						transition: "transform 160ms ease",
+					},
+				}}
+				// 引っ込めた帯を「戻すと中止」の受け皿にする。dragover で preventDefault しないと
+				// drop 不可カーソルになるので、有効な drop 先として振る舞わせたうえで何もしない。
+				onDragOver={dragging ? (e) => e.preventDefault() : undefined}
+				onDrop={dragging ? (e) => e.preventDefault() : undefined}
+				// 退場アニメの完了後に引っ込めを解除する。閉じる前に解除するとせり上がりが見えてしまう。
+				onExitTransitionEnd={() => setDragging(false)}
 				withOverlay={!dragging}
 				trapFocus={!dragging}
 				lockScroll={!dragging}
 				closeOnClickOutside={!dragging}
-				data-image-library-panel
-				// keepMounted は dragging に連動: drag 中だけ mount を保って drag 元の <img> が
-				// unmount されないようにする (source が消えると一部ブラウザで drag が abort する)。
-				// 通常 close 時は unmount して DOM/メモリを解放。
-				keepMounted={dragging}>
+				data-image-library-panel>
 				<Box style={wrapStyle}>
 					<Stack gap="md">
+						{/* ドラッグ中だけ帯の先頭に出す中止ガイド。引っ込めた Drawer の可視部分は
+						    ヘッダ + ここなので、掴んだあとに「戻す先」が目に入る。 */}
+						{dragging && (
+							<Paper
+								withBorder
+								p="xs"
+								radius="sm"
+								bg="gray.1"
+								style={{ textAlign: "center" }}
+								data-image-drag-cancel-hint>
+								<Text size="sm" c="dimmed">
+									ここへ戻すと中止（ESC でも中断）
+								</Text>
+							</Paper>
+						)}
 						<Group justify="space-between" align="center">
 							<Text size="sm" c="dimmed">
 								{entries.length} 件{unusedCount > 0 ? `（未使用 ${unusedCount}）` : ""}
@@ -495,46 +486,8 @@ export const ImageLibraryPanel: FC<ImageLibraryPanelProps> = ({ opened, onClose 
 				</Box>
 			</Drawer>
 
-			{/* ドラッグ中だけ画面下部に出るキャンセルゾーン。Mantine を通さない素の div なので
-			    Drawer の size 遷移や overlay 再構築と競合しない。ここへドロップすると何もしない (= キャンセル)。 */}
-			{dragging && (
-				<div
-					style={{
-						position: "fixed",
-						left: 0,
-						right: 0,
-						bottom: 0,
-						height: "20vh",
-						zIndex: 300,
-						background: "white",
-						boxSizing: "border-box",
-						boxShadow: "0 0 8px rgba(0,0,0,0.3)",
-						pointerEvents: "auto",
-						padding: 16,
-					}}
-					onDragOver={(e) => e.preventDefault()}
-					onDrop={(e) => e.preventDefault()}
-					data-image-cancel-zone>
-					<div
-						style={{
-							fontSize: 14,
-							userSelect: "none",
-							border: "1px solid #dee2e6",
-							background: "#f8f9fa",
-							padding: 8,
-							borderRadius: 4,
-							width: "100%",
-							height: "100%",
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-						}}>
-						<Text size="sm" c="dimmed">
-							ここへ戻すとキャンセル (ESC でも中断)
-						</Text>
-					</div>
-				</div>
-			)}
+			{/* ドラッグ中に別途出していたキャンセルゾーン (画面下部 20vh の白帯) は撤去した。
+			    引っ込めた Drawer 自身が中止の受け皿を兼ねるため二重に要らない。 */}
 
 			<ConfirmDialog
 				opened={deleteTarget !== null}
