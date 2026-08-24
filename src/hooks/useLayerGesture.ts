@@ -11,7 +11,8 @@ import { useLayerMutation } from "./useLayerMutation";
 //   - 同 gesture でそのまま drag (locked layer は選択のみ)
 //     ただし移動は「しきい値」を超えるまで成立しない (下記)
 //   - data-resize-anchor 付き element への pointerdown で 4 隅 resize (aspect 固定)
-//   - data-rotate-handle 付き element への pointerdown で rotate (Shift で 15° snap)
+//   - data-rotate-zone 付き element (4 隅 anchor の周辺の円) への pointerdown で rotate
+//     (Shift で 15° snap、通常は ROTATE_STEP_DEG = 1° 刻みに丸める)
 //   - pointermove で local state の live 値を更新 → LayerEditOverlay の frame に即時反映
 //   - pointerup で `useLayerMutation.updateLayer` を 1 回 commit (履歴 1 件)
 //
@@ -115,8 +116,18 @@ interface RotateGesture extends CommonGesture {
 
 type Gesture = DragGesture | ResizeGesture | RotateGesture;
 
+// 進行中の gesture 種別 (overlay 側でカーソル固定などに使う)。
+export const GestureKind = {
+	DRAG: "drag",
+	RESIZE: "resize",
+	ROTATE: "rotate",
+} as const;
+export type GestureKind = (typeof GestureKind)[keyof typeof GestureKind];
+
 const MIN_SCALE_MUL = 0.01;
 const ROTATE_SNAP_DEG = 15;
+// マウス操作での回転の最小刻み。小数点以下の角度を残さない (数値入力での微調整とは別扱い)。
+const ROTATE_STEP_DEG = 1;
 
 // ドラッグ成立のしきい値 (client px、ズーム倍率に依らない画面上の実移動量)。
 // pointerdown 直後の手ブレ・クリック時の微動でレイヤーが動いてしまうのを防ぐ。
@@ -140,6 +151,8 @@ const toDeg = (rad: number) => (rad * 180) / Math.PI;
 export interface UseLayerGesture {
 	/** drag/resize/rotate 中の live 値 (frame transform に適用)。非 gesture 中は null。 */
 	live: LiveTransform | null;
+	/** 進行中の gesture 種別。非 gesture 中は null。 */
+	gestureKind: GestureKind | null;
 	/** scaled stage 要素に bind する handlers。 */
 	onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void;
 	onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
@@ -403,7 +416,8 @@ export const useLayerGesture = (
 					if (startResizeOrRotate(e, "resize", anchor)) return;
 				}
 			}
-			const rotateEl = target?.closest<HTMLElement>("[data-rotate-handle]") ?? null;
+			// anchor の周辺に敷いた回転エリア (anchor 本体は上の分岐で resize として先に拾われる)
+			const rotateEl = target?.closest<HTMLElement>("[data-rotate-zone]") ?? null;
 			if (rotateEl) {
 				if (startResizeOrRotate(e, "rotate", null)) return;
 			}
@@ -462,12 +476,16 @@ export const useLayerGesture = (
 				// 正規化 (-180, 180]
 				while (deltaDeg > 180) deltaDeg -= 360;
 				while (deltaDeg <= -180) deltaDeg += 360;
+				// 回転結果は必ず整数度に丸める (Shift 中は ROTATE_SNAP_DEG 刻み)。
+				// マウス操作で小数点以下の角度が入ると、値の確認も再現もできなくなるため。
 				const snap = e.shiftKey;
-				if (snap) {
-					const newRot = cur.base.rotation + deltaDeg;
-					const snapped = Math.round(newRot / ROTATE_SNAP_DEG) * ROTATE_SNAP_DEG;
-					deltaDeg = snapped - cur.base.rotation;
-				}
+				const step = snap ? ROTATE_SNAP_DEG : ROTATE_STEP_DEG;
+				const newRot = cur.base.rotation + deltaDeg;
+				// base 自体が小数の場合 (レガシーデータ等) も、丸めた「結果」との差分を持たせる
+				deltaDeg = Math.round(newRot / step) * step - cur.base.rotation;
+				// 丸めた結果が変わらない微動では state を更新しない。1° 未満の pointermove が
+				// そのたびに全レイヤーの再描画を起こすのを防ぐ (同一参照を返すと React は何もしない)。
+				if (deltaDeg === cur.angleDeltaDeg && snap === cur.snap) return cur;
 				return { ...cur, angleDeltaDeg: deltaDeg, snap };
 			});
 		},
@@ -503,5 +521,5 @@ export const useLayerGesture = (
 
 	const live = gesture ? computeLive(gesture) : null;
 
-	return { live, onPointerDown, onPointerMove, onPointerEnd };
+	return { live, gestureKind: gesture?.kind ?? null, onPointerDown, onPointerMove, onPointerEnd };
 };

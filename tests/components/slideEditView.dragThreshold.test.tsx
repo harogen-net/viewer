@@ -290,12 +290,12 @@ describe("ドラッグ成立しきい値 - 適用範囲", () => {
 	it("rotate はしきい値未満の移動でも即座に効く", () => {
 		seed([makeImageLayer(1, "u-1")]);
 		selectLayer();
-		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
-		expect(rotateHandle).not.toBeNull();
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
+		expect(rotateZone).not.toBeNull();
 
 		// center = slide(50,25) = client(22.5, 11.25)。真上 client(22.5, 0) から
 		// client(24.5, 0.5) へ = 移動距離 hypot(2, 0.5) ≒ 2px でしきい値未満。
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 22.5, clientY: 0 });
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 22.5, clientY: 0 });
 		dispatchPointer(stageEl(), "pointermove", { clientX: 24.5, clientY: 0.5 });
 		dispatchPointer(stageEl(), "pointerup", { clientX: 24.5, clientY: 0.5 });
 

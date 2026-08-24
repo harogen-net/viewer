@@ -1,4 +1,4 @@
-import type { LiveTransform } from "@/hooks/useLayerGesture";
+import { GestureKind, type LiveTransform } from "@/hooks/useLayerGesture";
 import { useLayerStore } from "@/state/layerStore";
 import type { Slide } from "@/types/Slide";
 import type { CSSProperties, FC } from "react";
@@ -11,10 +11,10 @@ import { useLayoutEffect, useState } from "react";
 //   - useLayerStore.selectedLayer に対応する slide layer の bbox を計測 (D-3a)
 //   - SlideView と同一の slide-coord 空間で transform を再現した選択枠を描画 (D-3a)
 //   - drag/resize/rotate 中は親 (SlideEditView) から渡される live を transform に適用 (D-3b/c)
-//   - 4 隅 anchor + 上部 rotate handle を描画 (D-3c)
+//   - 4 隅 anchor + その周辺の回転エリアを描画 (D-3c)
 //
 // hit-test / 入力ハンドリングは親 (SlideEditView) の useLayerGesture hook が担当する。
-// ハンドル要素は data-resize-anchor / data-rotate-handle を持ち、pointerdown 時に
+// ハンドル要素は data-resize-anchor / data-rotate-zone を持ち、pointerdown 時に
 // hook が target を検査して mode を決定する。
 //
 // bbox 計測:
@@ -31,10 +31,14 @@ import { useLayoutEffect, useState } from "react";
 //   - rotate のみ frame にも適用 (回転後の bbox を反映)
 //
 // ハンドル:
-//   - 4 隅 resize anchor + 上辺中央 rotate handle
+//   - 4 隅 resize anchor + 各 anchor の角を中心とする回転エリア (透明な円)
+//   - 専用の回転ハンドル (上辺中央の丸) は廃止した。単独で置くと小さくて見つけにくく、
+//     場所を探す手間がかかっていたため、既存ハンドルの「周辺」に判定を持たせる方式にした
+//   - 回転エリアは anchor より下 (zIndex 1 < 2)。ハンドル本体では resize、その周辺で回転
+//   - hover 中のカーソルで回転できることを示す (ROTATE_CURSOR)
 //   - 全て frame の中で配置 → frame の rotate を継承
-//   - サイズ・距離は stageScale で逆補正し常時 px 固定 (HANDLE_SIZE_PX / HANDLE_GAP_PX)
-//   - locked layer は anchor を描画しない (drag 自体も hook 側で抑止)
+//   - サイズ・距離は stageScale で逆補正し常時 px 固定 (HANDLE_SIZE_PX / ROTATE_ZONE_RADIUS_PX)
+//   - locked layer は anchor も回転エリアも描画しない (drag 自体も hook 側で抑止)
 
 interface LayerEditOverlayProps {
 	slide: Slide;
@@ -44,6 +48,8 @@ interface LayerEditOverlayProps {
 	stageRoot: HTMLElement | null;
 	/** gesture 中の live transform (selectedLayer.uuid と一致する間 frame に反映)。 */
 	live?: LiveTransform | null;
+	/** 進行中の gesture 種別 (回転中のカーソル固定に使う)。 */
+	gestureKind?: GestureKind | null;
 }
 
 const overlayWrapStyle: CSSProperties = {
@@ -54,7 +60,19 @@ const overlayWrapStyle: CSSProperties = {
 
 const OUTLINE_THICKNESS_PX = 2;
 const HANDLE_SIZE_PX = 20;
-const ROTATE_HANDLE_GAP_PX = 24;
+// 回転の当たり判定。各 anchor の角を中心とする半径 N px の円。
+// anchor 本体 (resize) より下に敷くので、実際に回転になるのは「ハンドルの周辺」
+// = 円のうち anchor の四角からはみ出した部分 (主に枠の外側)。
+const ROTATE_ZONE_RADIUS_PX = 22;
+
+// 回転カーソル。CSS に回転用の標準カーソルが無いので SVG を data URI で埋め込む。
+// 白の太縁 + 黒本体で、明背景でも暗背景でも見えるようにしてある。ホットスポットは中心 (12,12)。
+const ROTATE_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#fff" stroke-width="4"><path d="M18.5 12a6.5 6.5 0 1 1-1.9-4.6"/><path d="M17 3.5v4h-4"/></g><g stroke="#000" stroke-width="2"><path d="M18.5 12a6.5 6.5 0 1 1-1.9-4.6"/><path d="M17 3.5v4h-4"/></g></svg>`;
+const ROTATE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(ROTATE_CURSOR_SVG)}") 12 12, grab`;
+
+// 角を中心に円を置くための translate (nw なら左上へ半分ずらす)。
+const zoneTransform = (id: string): string =>
+	`translate(${id.includes("w") ? "-50%" : "50%"}, ${id.startsWith("n") ? "-50%" : "50%"})`;
 
 // 4 隅 anchor 定義 (legacy 互換)
 //   - 位置: 角に貼り付け (translate しない) → anchor の box がフレーム内側に収まる
@@ -77,6 +95,7 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 	stageScale,
 	stageRoot,
 	live = null,
+	gestureKind = null,
 }) => {
 	const selectedLayer = useLayerStore((s) => s.selectedLayer);
 
@@ -148,7 +167,7 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 		stageScale > 0 ? Math.max(OUTLINE_THICKNESS_PX / stageScale, 1) : OUTLINE_THICKNESS_PX;
 	// stage 全体が scale(stageScale) されているため、ハンドルの「画面上 px 固定」化に逆補正
 	const handlePx = stageScale > 0 ? HANDLE_SIZE_PX / stageScale : HANDLE_SIZE_PX;
-	const rotateGapPx = stageScale > 0 ? ROTATE_HANDLE_GAP_PX / stageScale : ROTATE_HANDLE_GAP_PX;
+	const zoneDiameterPx = (ROTATE_ZONE_RADIUS_PX * 2) / (stageScale > 0 ? stageScale : 1);
 
 	const frameStyle: CSSProperties = {
 		position: "absolute",
@@ -184,29 +203,32 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 		zIndex: 2,
 	};
 
-	const rotateHandleStyle: CSSProperties = {
+	// 回転エリア: anchor の角を中心に置く透明な円。zIndex は anchor (2) より下にして、
+	// ハンドル本体の上では resize が勝ち、その周辺だけが回転になるようにする。
+	// 背景が transparent でもヒットテストの対象になり、border-radius は当たり判定も丸く切る。
+	const baseRotateZoneStyle: CSSProperties = {
 		position: "absolute",
-		left: "50%",
-		top: 0,
-		width: handlePx,
-		height: handlePx,
-		// 上辺中央から ROTATE_HANDLE_GAP_PX だけ外側に出す
-		transform: `translate(-50%, calc(-100% - ${rotateGapPx}px))`,
-		background: "#fff",
-		border: `${Math.max(1 / Math.max(stageScale, 0.0001), 1)}px solid #228be6`,
+		width: zoneDiameterPx,
+		height: zoneDiameterPx,
 		borderRadius: "50%",
-		boxSizing: "border-box",
-		cursor: "grab",
+		background: "transparent",
+		cursor: ROTATE_CURSOR,
 		pointerEvents: "auto",
 		userSelect: "none",
 		touchAction: "none",
-		zIndex: 2,
+		zIndex: 1,
 	};
 
 	const showHandles = !selectedLayer.locked;
 
 	return (
 		<div style={overlayWrapStyle} data-edit-overlay>
+			{/* 回転中はカーソルを画面全体で固定する。ドラッグを始めると pointer は回転エリアの
+			    外へ出てしまい、そのままだと下の要素の cursor (矢印や move) に戻ってしまうため。
+			    pointer capture 中は他を操作できないので、`*` への !important で問題ない。 */}
+			{gestureKind === GestureKind.ROTATE && (
+				<style data-rotate-cursor-lock>{`* { cursor: ${ROTATE_CURSOR} !important; }`}</style>
+			)}
 			<div
 				style={frameStyle}
 				data-edit-selection-frame
@@ -215,6 +237,18 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 				data-gesturing={useLive ? "true" : "false"}>
 				{showHandles && (
 					<>
+						{/* 回転エリアを先に敷く (anchor より下)。DOM 順 + zIndex の両方で anchor を上にする。 */}
+						{ANCHORS.map((a) => (
+							<div
+								key={`rot-${a.id}`}
+								data-rotate-zone={a.id}
+								style={{
+									...baseRotateZoneStyle,
+									...a.pos,
+									transform: zoneTransform(a.id),
+								}}
+							/>
+						))}
 						{ANCHORS.map((a) => (
 							<div
 								key={a.id}
@@ -227,7 +261,6 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 								}}
 							/>
 						))}
-						<div data-rotate-handle style={rotateHandleStyle} />
 					</>
 				)}
 			</div>

@@ -367,7 +367,7 @@ describe("SlideEditView ドラッグ中のレイヤー本体ライブ追従", ()
 		seed([layer]);
 		renderHost();
 		act(() => useLayerStore.getState().setSelectedLayer(layer)); // 選択中のみ rotate handle が出る
-		const handle = container.querySelector<HTMLElement>("[data-rotate-handle]");
+		const handle = container.querySelector<HTMLElement>("[data-rotate-zone]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 		expect(handle).not.toBeNull();
 		expect(layerWrapTransform(1)).toContain("rotate(0deg)");

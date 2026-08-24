@@ -223,9 +223,9 @@ describe("SlideEditView (v4 Group D D-3c) - resize", () => {
 		const wrapper = container.querySelector<HTMLElement>('[data-layer-id="1"]');
 		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
 		expect(useLayerStore.getState().selectedLayer?.uuid).toBe("u-1");
-		// locked なので anchor / rotate handle なし
+		// locked なので anchor / 回転エリアなし
 		expect(container.querySelector('[data-resize-anchor="se"]')).toBeNull();
-		expect(container.querySelector("[data-rotate-handle]")).toBeNull();
+		expect(container.querySelector("[data-rotate-zone]")).toBeNull();
 	});
 
 	it("移動なし (t=1) では commit されない", () => {
@@ -241,7 +241,7 @@ describe("SlideEditView (v4 Group D D-3c) - resize", () => {
 });
 
 describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
-	it("rotate handle への pointerdown + pointermove で rotation live が反映", () => {
+	it("回転エリアへの pointerdown + pointermove で rotation live が反映", () => {
 		// center = (50, 25) in slide-coord.
 		// startPointer at angle 0 from center → clientX large, clientY = 25 (= center.y in client)
 		// → atan2(0, +) = 0
@@ -249,13 +249,13 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		seed([makeImageLayer(1, "u-1")]);
 		renderHost();
 		selectByPointerOnLayer(1);
-		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
-		expect(rotateHandle).not.toBeNull();
+		expect(rotateZone).not.toBeNull();
 
 		// stageScale = 0.45 (fit×0.9), center at slide (50,25) = client (22.5, 11.25)
 		// start client (180, 11.25) = slide (400, 25) → angle 0 (delta x = 350, dy = 0)
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25 });
 		// move client (22.5, 180) = slide (50, 400) → angle = atan2(375, 0) = PI/2
 		dispatchPointer(stage!, "pointermove", { clientX: 22.5, clientY: 180 });
 
@@ -269,10 +269,10 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		seed([makeImageLayer(1, "u-1")]);
 		renderHost();
 		selectByPointerOnLayer(1);
-		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25 });
 		dispatchPointer(stage!, "pointermove", { clientX: 22.5, clientY: 180 });
 		dispatchPointer(stage!, "pointerup", { clientX: 22.5, clientY: 180 });
 
@@ -285,11 +285,11 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		seed([makeImageLayer(1, "u-1")]);
 		renderHost();
 		selectByPointerOnLayer(1);
-		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
 
 		// start client (180, 11.25) = slide (400, 25), angle 0 (stageScale=0.45)
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25, shiftKey: true });
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25, shiftKey: true });
 		// 移動先: 約 22° (15 と 30 の間に近い) → slide 中心 (50,25) からの角度
 		// 想定: 50+100*cos(22°), 25+100*sin(22°) ≈ (50+92.7, 25+37.5) = slide (142.7, 62.5)
 		// → client = slide ×0.45 = (64.215, 28.125)
@@ -309,10 +309,130 @@ describe("SlideEditView (v4 Group D D-3c) - rotate", () => {
 		seed([makeImageLayer(1, "u-1")]);
 		renderHost();
 		selectByPointerOnLayer(1);
-		const rotateHandle = container.querySelector<HTMLElement>("[data-rotate-handle]");
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
 		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
-		dispatchPointer(rotateHandle!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25 });
 		dispatchPointer(stage!, "pointerup", { clientX: 180, clientY: 11.25 });
 		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+});
+
+// 専用の回転ハンドル (上辺中央の丸) を廃止し、4 隅 anchor の周辺に回転エリアを敷いた件。
+// 「小さくて見つけにくい」という不満への対応で、判定はハンドルの周囲に移った。
+describe("SlideEditView - 回転エリア (専用ハンドル廃止)", () => {
+	it("専用の回転ハンドルは存在せず、回転エリアが 4 隅ぶんある", () => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		selectByPointerOnLayer(1);
+
+		expect(container.querySelector("[data-rotate-handle]")).toBeNull();
+		const zones = container.querySelectorAll("[data-rotate-zone]");
+		expect(zones.length).toBe(4);
+		expect(Array.from(zones, (z) => z.getAttribute("data-rotate-zone")).sort()).toEqual([
+			"ne",
+			"nw",
+			"se",
+			"sw",
+		]);
+	});
+
+	it("回転エリアは anchor 本体より下に敷かれる (ハンドル上では resize が勝つ)", () => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		selectByPointerOnLayer(1);
+
+		const zone = container.querySelector<HTMLElement>('[data-rotate-zone="se"]');
+		const anchor = container.querySelector<HTMLElement>('[data-resize-anchor="se"]');
+		expect(Number(zone!.style.zIndex)).toBeLessThan(Number(anchor!.style.zIndex));
+	});
+
+	it("locked layer では回転エリアも描画されない", () => {
+		seed([makeImageLayer(1, "u-1", { locked: true })]);
+		renderHost();
+		const wrapper = container.querySelector<HTMLElement>('[data-layer-id="1"]');
+		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
+		expect(container.querySelectorAll("[data-rotate-zone]").length).toBe(0);
+	});
+});
+
+describe("SlideEditView - 回転角の丸め", () => {
+	// center = slide(50,25) = client(22.5, 11.25)。start は client(180, 11.25) = 角度 0。
+	// 移動先 slide(150, 65) = client(67.5, 29.25) → atan2(40, 100) = 21.8014...°
+	const rotateToFractionalAngle = (): void => {
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(stage!, "pointermove", { clientX: 67.5, clientY: 29.25 });
+		dispatchPointer(stage!, "pointerup", { clientX: 67.5, clientY: 29.25 });
+	};
+
+	it("小数になる角度は整数度に丸められる (21.8° → 22°)", () => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		selectByPointerOnLayer(1);
+		rotateToFractionalAngle();
+
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(22);
+	});
+
+	it("base が小数のレイヤーでも結果は整数度になる", () => {
+		// レガシーデータ等で rotation が小数のまま入っているケース。
+		seed([makeImageLayer(1, "u-1", { rotation: 10.4 })]);
+		renderHost();
+		selectByPointerOnLayer(1);
+		rotateToFractionalAngle();
+
+		// 10.4 + 21.8014 = 32.2014 → 32
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBeCloseTo(32, 6);
+	});
+
+	// 注: これが検証するのは「丸めの結果が安定していること」まで。同値のとき state 更新を
+	// 省いて再描画を止めている点 (性能上の意図) は、外から観測できないので覆えていない。
+	it("丸めた角度が変わらない微動では表示角度も動かない", () => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		selectByPointerOnLayer(1);
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		const frame = () => container.querySelector<HTMLElement>("[data-edit-selection-frame]");
+
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(stage!, "pointermove", { clientX: 67.5, clientY: 29.25 }); // 21.8 → 22
+		const after = frame()!.style.transform;
+		expect(after).toContain("rotate(22deg)");
+		// ごくわずかに動かす: 生の角度は変わるが 1° に丸めると同じ 22° のまま
+		dispatchPointer(stage!, "pointermove", { clientX: 67.6, clientY: 29.3 });
+		expect(frame()!.style.transform).toBe(after);
+	});
+});
+
+describe("SlideEditView - 回転中のカーソル固定", () => {
+	it("回転中だけ全画面のカーソル上書きが入り、終わると外れる", () => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		selectByPointerOnLayer(1);
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+
+		expect(container.querySelector("[data-rotate-cursor-lock]")).toBeNull();
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		const lock = container.querySelector("[data-rotate-cursor-lock]");
+		expect(lock).not.toBeNull();
+		// ポインタが回転エリアの外へ出ても矢印に戻らないよう `*` に !important で当てる
+		expect(lock!.textContent).toContain("cursor:");
+		expect(lock!.textContent).toContain("!important");
+
+		dispatchPointer(stage!, "pointerup", { clientX: 180, clientY: 11.25 });
+		expect(container.querySelector("[data-rotate-cursor-lock]")).toBeNull();
+	});
+
+	it("移動 drag ではカーソル固定を入れない", () => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		const wrapper = container.querySelector<HTMLElement>('[data-layer-id="1"]');
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
+		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
+		expect(container.querySelector("[data-rotate-cursor-lock]")).toBeNull();
 	});
 });

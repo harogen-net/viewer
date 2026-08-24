@@ -94,7 +94,7 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 	}, [outerEl, zoom, setZoom]);
 
 	// hit-test + drag + resize + rotate を統合 (pointerdown で選択即 drag 開始)
-	const { live, onPointerDown, onPointerMove, onPointerEnd } = useLayerGesture(
+	const { live, gestureKind, onPointerDown, onPointerMove, onPointerEnd } = useLayerGesture(
 		slide,
 		scale,
 		scaledEl
@@ -294,7 +294,13 @@ export const SlideEditView: FC<SlideEditViewProps> = ({
 					</div>
 					{/* 赤い半透明ボーダー (領域境界)。pointer-events:none、layers より上・ハンドルより下。 */}
 					<div style={areaBorderStyle} data-slide-edit-area-border />
-					<LayerEditOverlay slide={slide} stageScale={scale} stageRoot={scaledEl} live={live} />
+					<LayerEditOverlay
+						slide={slide}
+						stageScale={scale}
+						stageRoot={scaledEl}
+						live={live}
+						gestureKind={gestureKind}
+					/>
 				</div>
 			</div>
 			<div style={zoomBarStyle} data-zoom-bar>
