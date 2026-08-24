@@ -131,6 +131,8 @@ const dispatchPointer = (
 		pointerId?: number;
 		button?: number;
 		shiftKey?: boolean;
+		/** 押下中のボタン bitmask。gesture 中は 1 が既定。0 は「離したのに move が来た」再現用。 */
+		buttons?: number;
 	}
 ): void => {
 	const ev = new Event(type, { bubbles: true, cancelable: true });
@@ -138,9 +140,19 @@ const dispatchPointer = (
 	Object.defineProperty(ev, "clientY", { value: props.clientY });
 	Object.defineProperty(ev, "pointerId", { value: props.pointerId ?? 1 });
 	Object.defineProperty(ev, "button", { value: props.button ?? 0 });
+	Object.defineProperty(ev, "buttons", { value: props.buttons ?? 1 });
 	Object.defineProperty(ev, "shiftKey", { value: props.shiftKey ?? false });
 	act(() => {
 		el.dispatchEvent(ev);
+	});
+};
+
+// stage にも container にも届かず window にだけ届く pointerup (= stage の外で離した) の再現。
+const dispatchPointerOnWindow = (type: "pointerup" | "pointercancel", pointerId = 1): void => {
+	const ev = new Event(type, { bubbles: false, cancelable: true });
+	Object.defineProperty(ev, "pointerId", { value: pointerId });
+	act(() => {
+		window.dispatchEvent(ev);
 	});
 };
 
@@ -434,5 +446,86 @@ describe("SlideEditView - 回転中のカーソル固定", () => {
 		dispatchPointer(wrapper!, "pointerdown", { clientX: 0, clientY: 0 });
 		dispatchPointer(stage!, "pointermove", { clientX: 100, clientY: 50 });
 		expect(container.querySelector("[data-rotate-cursor-lock]")).toBeNull();
+	});
+});
+
+// 「マウスアップしても回転が続く」不具合の再発防止。
+// 終了を stage 要素の onPointerUp だけに頼ると、pointer capture が効かなかった場合や
+// stage の外で離した場合に pointerup が届かず、gesture が生き残って回り続ける。
+describe("SlideEditView - ジェスチャ終了の取りこぼし対策", () => {
+	const startRotate = (): HTMLElement => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		selectByPointerOnLayer(1);
+		const rotateZone = container.querySelector<HTMLElement>("[data-rotate-zone]");
+		const stage = container.querySelector<HTMLElement>("[data-slide-edit-scaled]");
+		// center = client(22.5, 11.25)。角度 0 から 90° へ回す。
+		dispatchPointer(rotateZone!, "pointerdown", { clientX: 180, clientY: 11.25 });
+		dispatchPointer(stage!, "pointermove", { clientX: 22.5, clientY: 180 });
+		return stage!;
+	};
+	const gesturing = (): string | undefined =>
+		container.querySelector<HTMLElement>("[data-edit-selection-frame]")?.dataset.gesturing;
+
+	it("stage の外で離しても (window にだけ届く pointerup) 回転が終わる", () => {
+		startRotate();
+		expect(gesturing()).toBe("true");
+
+		dispatchPointerOnWindow("pointerup");
+
+		expect(gesturing()).toBe("false");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("pointercancel でも終わる", () => {
+		startRotate();
+		dispatchPointerOnWindow("pointercancel");
+		expect(gesturing()).toBe("false");
+	});
+
+	it("pointerup が要素と window の両方を通っても履歴は 1 件", () => {
+		// stage への dispatch は bubbles:true なので window のリスナにも届き、終了処理が
+		// 2 度呼ばれうる。
+		// 注: これが押さえているのは「履歴が増えない」という結果まで。endGesture の
+		// 二重呼び出し自体を止めている gestureRef のガードは、layerOps 側にも同値 patch の
+		// 無変化判定があるため外から観測できず、覆えていない。
+		const stage = startRotate();
+		dispatchPointer(stage, "pointerup", { clientX: 22.5, clientY: 180 });
+
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("pointerup を丸ごと取りこぼしても、ボタンを離した後の pointermove で終わる", () => {
+		// ウィンドウの外で離すと pointerup がどこにも届かないことがある。
+		// その後カーソルが戻ってくると buttons=0 の pointermove が来るので、そこで終了させる。
+		const stage = startRotate();
+		dispatchPointer(stage, "pointermove", { clientX: 22.5, clientY: 180, buttons: 0 });
+
+		expect(gesturing()).toBe("false");
+		expect(useSlideStore.getState().slides[0].layers[0].rotation).toBe(90);
+		expect(useHistoryStore.getState().past.length).toBe(1);
+	});
+
+	it("ボタンを押したままの pointermove では終了しない", () => {
+		const stage = startRotate();
+		dispatchPointer(stage, "pointermove", { clientX: 22.5, clientY: 200, buttons: 1 });
+		expect(gesturing()).toBe("true");
+		expect(useHistoryStore.getState().past.length).toBe(0);
+	});
+
+	it("別 pointerId の pointerup では終了しない", () => {
+		startRotate();
+		dispatchPointerOnWindow("pointerup", 99);
+		expect(gesturing()).toBe("true");
+	});
+
+	it("gesture が無いときは window の pointerup を無視する", () => {
+		seed([makeImageLayer(1, "u-1")]);
+		renderHost();
+		selectByPointerOnLayer(1);
+		dispatchPointerOnWindow("pointerup");
+		expect(useHistoryStore.getState().past.length).toBe(0);
 	});
 });

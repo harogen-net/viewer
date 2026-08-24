@@ -1,7 +1,7 @@
 import { useLayerStore } from "@/state/layerStore";
 import type { Slide } from "@/types/Slide";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLayerMutation } from "./useLayerMutation";
 
 // SlideEditView の scaled stage に bind する layer gesture hook (v4 Group D D-3b / D-3c)。
@@ -262,6 +262,17 @@ export const useLayerGesture = (
 	const setSelectedLayer = useLayerStore((s) => s.setSelectedLayer);
 	const { updateLayer } = useLayerMutation();
 	const [gesture, setGesture] = useState<Gesture | null>(null);
+	// 進行中の gesture を同期的に読むための控え。window 経由の pointerup (要素に届かなかった
+	// ぶん) から参照するのと、要素側と window 側の二重終了を弾くのに使う。
+	const gestureRef = useRef<Gesture | null>(null);
+	useEffect(() => {
+		gestureRef.current = gesture;
+	}, [gesture]);
+	// 開始は同期的に ref も更新する (直後の pointerup を取りこぼさないため)。
+	const beginGesture = useCallback((g: Gesture): void => {
+		gestureRef.current = g;
+		setGesture(g);
+	}, []);
 
 	const startResizeOrRotate = useCallback(
 		(
@@ -305,7 +316,7 @@ export const useLayerGesture = (
 				const pivotOffLY = (-signY * baseVisH) / 2;
 				const pivotX = baseCenterX + cos * pivotOffLX - sin * pivotOffLY;
 				const pivotY = baseCenterY + sin * pivotOffLX + cos * pivotOffLY;
-				setGesture({
+				beginGesture({
 					kind: "resize",
 					uuid: layer.uuid,
 					pointerId: e.pointerId,
@@ -328,7 +339,7 @@ export const useLayerGesture = (
 				const baseCenterY = base.transY + contentH / 2;
 				const p = toSlideCoord(e.clientX, e.clientY, stageRect.left, stageRect.top, stageScale);
 				const startAngle = Math.atan2(p.y - baseCenterY, p.x - baseCenterX);
-				setGesture({
+				beginGesture({
 					kind: "rotate",
 					uuid: layer.uuid,
 					pointerId: e.pointerId,
@@ -366,7 +377,7 @@ export const useLayerGesture = (
 			} catch {
 				// ignore
 			}
-			setGesture(newDragGesture(layer, e));
+			beginGesture(newDragGesture(layer, e));
 			return true;
 		},
 		[slide]
@@ -400,7 +411,7 @@ export const useLayerGesture = (
 			} catch {
 				// ignore
 			}
-			setGesture(newDragGesture(layer, e));
+			beginGesture(newDragGesture(layer, e));
 		},
 		[slide, setSelectedLayer]
 	);
@@ -433,8 +444,48 @@ export const useLayerGesture = (
 		[startResizeOrRotate, startDragSelected, startDragOrHitTest]
 	);
 
+	// gesture の終了 (commit + 解除)。要素側の pointerup と window 側の保険の両方から
+	// 呼ばれるため、gestureRef を同期的に null にして 2 回目の呼び出しを門前払いする。
+	// (layerOps.updateLayer は同値 patch を無変化として弾くので、これが無くても履歴は
+	//  増えない。とはいえ「終了処理は 1 回」を状態として明示しておく。)
+	const endGesture = useCallback(
+		(pointerId: number) => {
+			const g = gestureRef.current;
+			if (!g || g.pointerId !== pointerId) return;
+			gestureRef.current = null;
+			setGesture(null);
+			try {
+				if (stageRoot?.hasPointerCapture(pointerId)) stageRoot.releasePointerCapture(pointerId);
+			} catch {
+				// ignore
+			}
+			const finalLive = computeLive(g);
+			// 変化なしは commit しない (drag delta=0 / resize t=1 / rotate delta=0)
+			if (g.kind === "drag" && g.dx === 0 && g.dy === 0) return;
+			if (g.kind === "resize" && g.t === 1) return;
+			if (g.kind === "rotate" && g.angleDeltaDeg === 0) return;
+			const idx = slide.layers.findIndex((l) => l.uuid === g.uuid);
+			if (idx < 0) return;
+			updateLayer(idx, {
+				transX: finalLive.transX,
+				transY: finalLive.transY,
+				scaleX: finalLive.scaleX,
+				scaleY: finalLive.scaleY,
+				rotation: finalLive.rotation,
+			});
+		},
+		[slide, updateLayer, stageRoot]
+	);
+
 	const onPointerMove = useCallback(
 		(e: ReactPointerEvent<HTMLDivElement>) => {
+			// ボタンが押されていないのに pointermove が来た = pointerup を丸ごと取りこぼしている
+			// (ウィンドウの外で離した等、window のリスナにすら届かないケース)。ここで終了させる。
+			// gesture 中の buttons は必ず 1 以上なので、この判定で正規の操作を切ることはない。
+			if (e.buttons === 0 && gestureRef.current?.pointerId === e.pointerId) {
+				endGesture(e.pointerId);
+				return;
+			}
 			setGesture((cur) => {
 				if (!cur || cur.pointerId !== e.pointerId) return cur;
 				if (cur.kind === "drag") {
@@ -489,35 +540,29 @@ export const useLayerGesture = (
 				return { ...cur, angleDeltaDeg: deltaDeg, snap };
 			});
 		},
-		[stageScale]
+		[stageScale, endGesture]
 	);
 
 	const onPointerEnd = useCallback(
-		(e: ReactPointerEvent<HTMLDivElement>) => {
-			if (!gesture || gesture.pointerId !== e.pointerId) return;
-			try {
-				e.currentTarget.releasePointerCapture(gesture.pointerId);
-			} catch {
-				// ignore
-			}
-			const finalLive = computeLive(gesture);
-			setGesture(null);
-			// 変化なしは commit しない (drag delta=0 / resize t=1 / rotate delta=0)
-			if (gesture.kind === "drag" && gesture.dx === 0 && gesture.dy === 0) return;
-			if (gesture.kind === "resize" && gesture.t === 1) return;
-			if (gesture.kind === "rotate" && gesture.angleDeltaDeg === 0) return;
-			const idx = slide.layers.findIndex((l) => l.uuid === gesture.uuid);
-			if (idx < 0) return;
-			updateLayer(idx, {
-				transX: finalLive.transX,
-				transY: finalLive.transY,
-				scaleX: finalLive.scaleX,
-				scaleY: finalLive.scaleY,
-				rotation: finalLive.rotation,
-			});
-		},
-		[gesture, slide, updateLayer]
+		(e: ReactPointerEvent<HTMLDivElement>) => endGesture(e.pointerId),
+		[endGesture]
 	);
+
+	// pointerup の取りこぼし対策。stage 要素の onPointerUp だけに頼ると、
+	// setPointerCapture が効かなかった場合や stage の外 (ボタンを離した先が別要素) で
+	// 離した場合に終了イベントが届かず、gesture が生き残って「離したのに回り続ける」。
+	// gesture 中だけ window でも拾う。二重終了は endGesture 側の ref で弾く。
+	const gestureActive = gesture !== null;
+	useEffect(() => {
+		if (!gestureActive) return;
+		const onEnd = (e: PointerEvent): void => endGesture(e.pointerId);
+		window.addEventListener("pointerup", onEnd);
+		window.addEventListener("pointercancel", onEnd);
+		return () => {
+			window.removeEventListener("pointerup", onEnd);
+			window.removeEventListener("pointercancel", onEnd);
+		};
+	}, [gestureActive, endGesture]);
 
 	const live = gesture ? computeLive(gesture) : null;
 

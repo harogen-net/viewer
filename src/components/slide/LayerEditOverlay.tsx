@@ -35,6 +35,8 @@ import { useLayoutEffect, useState } from "react";
 //   - 専用の回転ハンドル (上辺中央の丸) は廃止した。単独で置くと小さくて見つけにくく、
 //     場所を探す手間がかかっていたため、既存ハンドルの「周辺」に判定を持たせる方式にした
 //   - 回転エリアは anchor より下 (zIndex 1 < 2)。ハンドル本体では resize、その周辺で回転
+//   - 円のうち枠の内側へ食い込む 1/4 は蓋 (data-rotate-cutout) で塞ぎ、移動のまま残す。
+//     ここを回転にすると、枠の角付近を掴んだつもりが回転になってしまう
 //   - hover 中のカーソルで回転できることを示す (ROTATE_CURSOR)
 //   - 全て frame の中で配置 → frame の rotate を継承
 //   - サイズ・距離は stageScale で逆補正し常時 px 固定 (HANDLE_SIZE_PX / ROTATE_ZONE_RADIUS_PX)
@@ -63,7 +65,10 @@ const HANDLE_SIZE_PX = 20;
 // 回転の当たり判定。各 anchor の角を中心とする半径 N px の円。
 // anchor 本体 (resize) より下に敷くので、実際に回転になるのは「ハンドルの周辺」
 // = 円のうち anchor の四角からはみ出した部分 (主に枠の外側)。
-const ROTATE_ZONE_RADIUS_PX = 22;
+const ROTATE_ZONE_RADIUS_PX = 36;
+// 回転エリアと蓋を着色して当たり判定の形・大きさを目視確認するためのフラグ。
+// 通常は false (透明)。半径やカーソルを調整するときだけ true にする。
+const DEBUG_SHOW_ROTATE_ZONE = false;
 
 // 回転カーソル。CSS に回転用の標準カーソルが無いので SVG を data URI で埋め込む。
 // 白の太縁 + 黒本体で、明背景でも暗背景でも見えるようにしてある。ホットスポットは中心 (12,12)。
@@ -167,7 +172,8 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 		stageScale > 0 ? Math.max(OUTLINE_THICKNESS_PX / stageScale, 1) : OUTLINE_THICKNESS_PX;
 	// stage 全体が scale(stageScale) されているため、ハンドルの「画面上 px 固定」化に逆補正
 	const handlePx = stageScale > 0 ? HANDLE_SIZE_PX / stageScale : HANDLE_SIZE_PX;
-	const zoneDiameterPx = (ROTATE_ZONE_RADIUS_PX * 2) / (stageScale > 0 ? stageScale : 1);
+	const zoneRadiusPx = ROTATE_ZONE_RADIUS_PX / (stageScale > 0 ? stageScale : 1);
+	const zoneDiameterPx = zoneRadiusPx * 2;
 
 	const frameStyle: CSSProperties = {
 		position: "absolute",
@@ -211,8 +217,31 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 		width: zoneDiameterPx,
 		height: zoneDiameterPx,
 		borderRadius: "50%",
-		background: "transparent",
+		// 円の縁を分かるように、塗り + 内側リングの二重で出す (デバッグ時のみ)。
+		background: DEBUG_SHOW_ROTATE_ZONE ? "rgba(255, 0, 255, 0.22)" : "transparent",
+		boxShadow: DEBUG_SHOW_ROTATE_ZONE
+			? `inset 0 0 0 ${Math.max(1 / Math.max(stageScale, 0.0001), 1)}px rgba(255, 0, 255, 0.9)`
+			: undefined,
 		cursor: ROTATE_CURSOR,
+		pointerEvents: "auto",
+		userSelect: "none",
+		touchAction: "none",
+		zIndex: 1,
+	};
+
+	// 円のうち枠の内側へ食い込む 1/4 (角から内向きの象限) を回転判定から外すための蓋。
+	// 円を半径ぶん大きくすると内側の食い込みも同じだけ増え、枠の角付近を掴んだつもりが
+	// 回転になってしまう。そこを塞いで通常どおり「移動」に戻す。
+	//
+	// 角から内向きの R×R 正方形を被せれば、円との交わり = ちょうど食い込みの 1/4 円に一致する
+	// (正方形の残りは元から円の外なので影響しない)。clip-path でくり抜くより挙動が読みやすい。
+	// data-* を持たない frame の子なので、pointerdown は frame と同じ「移動」に振り分けられ、
+	// cursor も frame の move を継承する。zIndex は zone と同じ 1 で DOM 順により上に乗る。
+	const baseRotateCutoutStyle: CSSProperties = {
+		position: "absolute",
+		width: zoneRadiusPx,
+		height: zoneRadiusPx,
+		background: DEBUG_SHOW_ROTATE_ZONE ? "rgba(0, 0, 0, 0.18)" : "transparent",
 		pointerEvents: "auto",
 		userSelect: "none",
 		touchAction: "none",
@@ -247,6 +276,14 @@ export const LayerEditOverlay: FC<LayerEditOverlayProps> = ({
 									...a.pos,
 									transform: zoneTransform(a.id),
 								}}
+							/>
+						))}
+						{/* 円の内向き 1/4 を塞ぐ蓋 (回転ではなく移動に戻す)。zone の後、anchor の前。 */}
+						{ANCHORS.map((a) => (
+							<div
+								key={`cut-${a.id}`}
+								data-rotate-cutout={a.id}
+								style={{ ...baseRotateCutoutStyle, ...a.pos }}
 							/>
 						))}
 						{ANCHORS.map((a) => (
