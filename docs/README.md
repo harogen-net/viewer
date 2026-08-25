@@ -24,6 +24,7 @@
 | [data-compatibility-spec.md](data-compatibility-spec.md) | 保存形式の互換要件（レガシーと byte-equal） |
 | [state-management-design.md](state-management-design.md) | 状態管理の設計方針 |
 | [cloud-sync-plan.md](cloud-sync-plan.md) | クラウド同期の計画（**未着手**） |
+| [bulk-toggle-mode-plan.md](bulk-toggle-mode-plan.md) | 一括切替モードの実装計画（**合意済み・未着手**）。付録にシーン導入を見送った経緯 |
 
 ## 歴史的記録（現状ではない）
 
