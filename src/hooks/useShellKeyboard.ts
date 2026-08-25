@@ -1,4 +1,5 @@
 import { useLayerStore } from "@/state/layerStore";
+import { useListToolStore } from "@/state/listToolStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useEffect } from "react";
 import { useDocumentMutation } from "./useDocumentMutation";
@@ -122,11 +123,16 @@ export const useShellKeyboard = (): void => {
 					e.preventDefault();
 					break;
 				case "z":
+					// 一括切替モード中は undo/redo を止める (docs/bulk-toggle-mode-plan.md)。
+					// モード中の変更は退出時に履歴 1 件へまとめる方式なので、途中で undo が
+					// 走ると突入時スナップショットと実状態がずれ、まとめ方が壊れる。
+					if (useListToolStore.getState().bulkToggleActive) break;
 					if (e.shiftKey) redo();
 					else undo();
 					e.preventDefault();
 					break;
 				case "y":
+					if (useListToolStore.getState().bulkToggleActive) break;
 					redo();
 					e.preventDefault();
 					break;

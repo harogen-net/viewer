@@ -1,5 +1,6 @@
 import { useAlert } from "@/hooks/useAlert";
 import { useSlideMutation } from "@/hooks/useSlideMutation";
+import { useIsBulkToggleMode } from "@/state/listToolStore";
 import { useSlideStore } from "@/state/slideStore";
 import { Menu } from "@mantine/core";
 import type { FC, MouseEvent as ReactMouseEvent, ReactNode } from "react";
@@ -24,6 +25,8 @@ interface SlideListContextMenuProps {
 
 export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }) => {
 	const slides = useSlideStore((s) => s.slides);
+	// 一括切替モード中は有効/無効以外を変更させないので、メニューごと出さない。
+	const bulkToggle = useIsBulkToggleMode();
 	const {
 		duplicateSlide,
 		deleteSlide,
@@ -48,7 +51,7 @@ export const SlideListContextMenu: FC<SlideListContextMenuProps> = ({ children }
 	const hasDisabled = slides.some((s) => s.disabled);
 
 	const handleContextMenu = (e: ReactMouseEvent<HTMLDivElement>): void => {
-		if (slides.length === 0) return;
+		if (slides.length === 0 || bulkToggle) return;
 		const el = (e.target as HTMLElement).closest<HTMLElement>("[data-slide-index]");
 		const targetIndex = el ? Number(el.getAttribute("data-slide-index")) : null;
 		e.preventDefault();

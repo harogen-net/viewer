@@ -29,6 +29,12 @@ interface SortableSlideThumbProps extends SlideViewProps {
 	onToggleJoining: () => void;
 	onToggleDisabled: () => void;
 	thumbHeight?: number;
+	/**
+	 * 一括切替モード: 編集コントロールを隠し、並べ替えも止める。
+	 * DnD を「別 branch を描画する」のではなく useSortable の disabled で止めるのが要点。
+	 * branch を切り替えるとサムネが unmount → remount され、canvas の再描画が全枚数で走る。
+	 */
+	bulkToggleMode?: boolean;
 }
 
 export const SortableSlideThumb: FC<SortableSlideThumbProps> = ({
@@ -46,9 +52,11 @@ export const SortableSlideThumb: FC<SortableSlideThumbProps> = ({
 	onToggleJoining,
 	onToggleDisabled,
 	thumbHeight,
+	bulkToggleMode = false,
 }) => {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
 		id,
+		disabled: bulkToggleMode,
 	});
 
 	const style: CSSProperties = {
@@ -78,6 +86,7 @@ export const SortableSlideThumb: FC<SortableSlideThumbProps> = ({
 				onToggleJoining={onToggleJoining}
 				onToggleDisabled={onToggleDisabled}
 				thumbHeight={thumbHeight}
+				bulkToggleMode={bulkToggleMode}
 			/>
 		</div>
 	);

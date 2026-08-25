@@ -3,6 +3,7 @@ import { useImageDimensionBackfill } from "@/hooks/useImageLibraryMutation";
 import { useLayerAutoSelect } from "@/hooks/useLayerAutoSelect";
 import { useRectSyncConfig } from "@/hooks/useLayerMutation";
 import { useShellKeyboard } from "@/hooks/useShellKeyboard";
+import { useIsBulkToggleMode } from "@/state/listToolStore";
 import { useSlideshowStore } from "@/state/slideshowStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
@@ -295,6 +296,8 @@ export const AppMain: FC = () => {
 	// 編集モードは editingIndex (編集対象) で駆動する。selectedIndex (選択) ではない。
 	const editingIndex = useSlideStore((s) => s.editingIndex);
 	const isEditMode = pcMode && editingIndex >= 0 && !!slides[editingIndex];
+	// 一括切替モード中はスマホの再生設定バーも隠す (モード中は有効/無効以外を触らせない)。
+	const bulkToggle = useIsBulkToggleMode();
 	return (
 		<>
 			<div style={newModeLayoutStyle} data-viewer-mode={mode}>
@@ -308,7 +311,7 @@ export const AppMain: FC = () => {
 				</div>
 				{/* スマホモードでも選択スライドの再生設定 (有効/無効・表示尺) だけは触れるようにする。
 				    編集モードではサムネ上のコントロールが同じ役割を担うので出さない。 */}
-				{!pcMode && <SlidePlaybackPanel />}
+				{!pcMode && !bulkToggle && <SlidePlaybackPanel />}
 			</div>
 			<ProgressBar />
 			<AlertHost />

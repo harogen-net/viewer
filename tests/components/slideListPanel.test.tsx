@@ -95,7 +95,6 @@ describe("SlideListPanel (v4 Group C build C-3)", () => {
 		const canvasOf = (el: HTMLElement): HTMLElement | null =>
 			el.querySelector<HTMLElement>("[data-thumb-canvas]");
 		expect(canvasOf(items[1])?.style.filter).toContain("brightness");
-		expect(canvasOf(items[1])?.style.filter).toContain("grayscale");
 		expect(items[1].style.opacity).toBe("");
 		expect(items[1].style.filter).toBe("");
 		// 透明ボーダーの下から覗く下地も暗くする (白い枠が残ると非活性に見えない)。

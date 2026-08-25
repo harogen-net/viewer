@@ -39,12 +39,15 @@ export interface UseDocumentMutation {
 	 * 連続更新を store に反映するが undo ステップは作らない。
 	 * 確定時に recordHistory で 1 件だけ history を残す運用とセットで使う。
 	 */
-	applySlideChangeLive: (update: (state: SlideState) => SlideState | null) => void;
+	applySlideChangeLive: (
+		update: (state: SlideState) => SlideState | null,
+		capability?: WriteCapability
+	) => void;
 	/**
 	 * before スナップショットから現在状態までを history 1 件として記録する。
 	 * legacy VMHistoricalTextInput の blur 記録相当。変化がなければ no-op。
 	 */
-	recordHistory: (label: string, before: SlideState) => void;
+	recordHistory: (label: string, before: SlideState, capability?: WriteCapability) => void;
 	/** 現在の SlideState スナップショット (before 取得用)。 */
 	snapshot: () => SlideState;
 	undo: () => void;
@@ -115,8 +118,11 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 	);
 
 	const applySlideChangeLive = useCallback(
-		(update: (state: SlideState) => SlideState | null): void => {
-			if (!canWriteNow("applySlideChangeLive")) return;
+		(
+			update: (state: SlideState) => SlideState | null,
+			capability: WriteCapability = WriteCapability.FULL
+		): void => {
+			if (!canWriteNow("applySlideChangeLive", capability)) return;
 			const after = update(currentSlideState());
 			if (!after) return; // no-op
 			applyToStores(after);
@@ -127,19 +133,26 @@ export const useDocumentMutation = (): UseDocumentMutation => {
 		[]
 	);
 
-	const recordHistory = useCallback((label: string, before: SlideState): void => {
-		if (!canWriteNow(`recordHistory:${label}`)) return;
-		const after = currentSlideState();
-		// 変化なし (slides 参照が同一) は記録しない
-		if (after.slides === before.slides) return;
-		// テキスト入力等 library 非依存 op。before/after とも現在の library で可 (変化しない)。
-		const images = currentImages();
-		useHistoryStore
-			.getState()
-			.push({ label, before, after, beforeImages: images, afterImages: images });
-		// ライブ編集の確定時に modified を再計算 (入力を保存時の内容に戻していれば clean に落ちる)。
-		useViewerDocumentStore.getState().refreshModified();
-	}, []);
+	const recordHistory = useCallback(
+		(
+			label: string,
+			before: SlideState,
+			capability: WriteCapability = WriteCapability.FULL
+		): void => {
+			if (!canWriteNow(`recordHistory:${label}`, capability)) return;
+			const after = currentSlideState();
+			// 変化なし (slides 参照が同一) は記録しない
+			if (after.slides === before.slides) return;
+			// テキスト入力等 library 非依存 op。before/after とも現在の library で可 (変化しない)。
+			const images = currentImages();
+			useHistoryStore
+				.getState()
+				.push({ label, before, after, beforeImages: images, afterImages: images });
+			// ライブ編集の確定時に modified を再計算 (入力を保存時の内容に戻していれば clean に落ちる)。
+			useViewerDocumentStore.getState().refreshModified();
+		},
+		[]
+	);
 
 	const snapshot = useCallback((): SlideState => currentSlideState(), []);
 

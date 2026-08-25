@@ -47,6 +47,11 @@ interface SlideThumbViewProps extends SlideViewProps {
 	thumbHeight?: number;
 	/** スマホモード: 有効/無効・結合・duration の編集コントロールを隠す (選択のみ可)。 */
 	mobileMode?: boolean;
+	/**
+	 * 一括切替モード (docs/bulk-toggle-mode-plan.md): 編集系コントロールを隠し、
+	 * 有効/無効チェックボックスだけ残す。スマホでは暗転だけで判別させるのでそれも出さない。
+	 */
+	bulkToggleMode?: boolean;
 }
 
 // canvas 再描画 debounce ms (legacy CanvasSlideView.refresh の setTimeout 100ms 互換)。
@@ -61,13 +66,14 @@ const snapToStep = (ratio: number): number =>
 // 右端リサイズハンドルが重ならず操作可能な下限を保証する (片道トラップ防止の土台)。
 const DURATION_MIN_THUMB_W = 92;
 
-// 無効スライドの絵柄に掛けるフィルタ。彩度を抜いて暗くする。
-// 不透明のままなので背後の白地に色が抜けず、明るい絵でも «無効» と分かる。
-const DISABLED_THUMB_FILTER = "grayscale(1) brightness(0.5)";
+// 無効スライドの絵柄に掛けるフィルタ。暗く落として少しだけ透かす。
+// legacy (css/index.css の `.slide.disabled`) も filter: brightness(40%) で、手法は同じ。
+// opacity 単体では白地に色が抜けるだけで、明るい絵だと «無効» に見えない。
+const DISABLED_THUMB_FILTER = "brightness(0.6) opacity(0.8)";
 // 無効スライドの下地。透明ボーダー (2px) の下から覗く白い枠線もここで暗くする
-// (絵柄だけ沈めて枠が白く残ると、非活性に見えない)。
-// #fff に上のフィルタを掛けた結果と同じ明度にして、枠と絵柄が地続きに見えるようにする。
-const DISABLED_THUMB_BG = "#808080";
+// (絵柄だけ沈めて枠が白く残ると、非活性に見えない)。上のフィルタと対で見た目を合わせてあるので、
+// 片方だけ変えると枠が浮くか沈むかする。
+const DISABLED_THUMB_BG = "#BBB";
 
 // legacy ThumbSlideView.fitToHeight() の幅補正式:
 //   r == 1     → 1
@@ -120,6 +126,7 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 	onSetDuration,
 	onToggleJoining,
 	onToggleDisabled,
+	bulkToggleMode = false,
 	thumbHeight = 110,
 	mobileMode = false,
 }) => {
@@ -200,7 +207,11 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 			cancelled = true;
 			window.clearTimeout(tid);
 		};
-	}, [slide, bgColor, imageMap, canvasW, canvasH]);
+		// 依存は「絵に効くもの」だけに絞る。slide 全体を依存にすると、有効/無効・結合・表示尺の
+		// 切替 (どれも canvas の中身に関係しない) でも再描画が走る。とくに一括切替モードは
+		// クリックのたびに disabled が変わるので、1 クリックごとに無駄な再描画が起きていた。
+		// biome-ignore lint/correctness/useExhaustiveDependencies: 描画に効く要素だけを依存にする
+	}, [slide.layers, slide.width, slide.height, bgColor, imageMap, canvasW, canvasH]);
 
 	const itemStyle: CSSProperties = {
 		position: "relative",
@@ -360,9 +371,25 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 				</span>
 			)}
 
-			{/* 編集コントロール (有効/無効・結合・duration ドラッグ) は mobileMode で非表示。
-			    スマホモードでの値変更は SlidePlaybackPanel が担う (サムネ上の的はタッチには小さすぎる)。 */}
+			{/* 有効/無効チェックボックス。編集系より広く出す:
+			    一括切替モードでは「これだけ残す」= 状態の表示と操作口を兼ねる。
+			    スマホでは的が小さすぎるので出さない (暗転だけで判別させ、操作はタップで行う)。 */}
 			{!mobileMode && (
+				<input
+					type="checkbox"
+					checked={!slide.disabled}
+					onChange={onToggleDisabled}
+					onClick={(e) => e.stopPropagation()}
+					style={enableCheckStyle}
+					data-thumb-control="enable-check"
+					aria-label="有効/無効切替"
+				/>
+			)}
+
+			{/* 編集コントロール (結合・duration ドラッグ・各アクション) は mobileMode で非表示。
+			    スマホモードでの値変更は SlidePlaybackPanel が担う (サムネ上の的はタッチには小さすぎる)。
+			    一括切替モードでも隠す (モード中は有効/無効以外を変更させない)。 */}
+			{!mobileMode && !bulkToggleMode && (
 				<>
 					{/* スライド内アクション (legacy 配置: 編集=左上 / 削除=右上 / 複製=右下)。選択不要。 */}
 					{onEdit && (
@@ -401,16 +428,6 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 							＋
 						</button>
 					)}
-
-					<input
-						type="checkbox"
-						checked={!slide.disabled}
-						onChange={onToggleDisabled}
-						onClick={(e) => e.stopPropagation()}
-						style={enableCheckStyle}
-						data-thumb-control="enable-check"
-						aria-label="有効/無効切替"
-					/>
 
 					<button
 						type="button"

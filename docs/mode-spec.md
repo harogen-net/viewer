@@ -10,7 +10,7 @@
 - docs/function-list.md
 - docs/migration-roadmap.md
 
-## 実装状況（2026-08-18 現在）
+## 実装状況（2026-08-25 現在）
 
 用語は §1 を参照。ここに挙げるファイルは実在するものだけ。
 
@@ -20,9 +20,12 @@
   - 書込操作の種別による部分開放（§3.1 の `WriteCapability`）
   - 縦起動時の landscape ロック + transform 回転フォールバック
   - スマホモード限定の保存 / 別名で保存 / 削除導線（⋮ メニュー）
+  - 一覧モードのサブ状態「一括切替モード」（§1 軸 B の下）
 - 実装ファイル
   - `src/state/launchModeStore.ts` — 起動モード解決・書込 gate（§1 軸 A / 軸 C）
   - `src/state/slideStore.ts` — `editingIndex`（§1 軸 B の実体）
+  - `src/state/listToolStore.ts` — 一括切替モードの状態（§1 軸 B のサブ状態）
+  - `src/hooks/useBulkToggleMode.ts` — 一括切替モードの出入りとクリック処理
   - `src/components/AppMain.tsx` — モード別レイアウト分岐
   - `src/components/panels/SlideListPanel.tsx` — 一覧 / 編集ストリップ
   - `src/components/panels/SlidePlaybackPanel.tsx` — スマホモードの再生設定バー（§3.1）
@@ -64,6 +67,23 @@
   したがってスマホモードでは常に一覧モードである。
 - 編集モードでは一覧が画面下部のストリップ（単一行）になり、一覧モードでは複数行の
   ギャラリーとして領域いっぱいに広がる（`SlideListPanel` の `listMode` prop）。
+
+#### 一覧モードのサブ状態: 一括切替モード
+
+| 呼び方 | コード上の表現（唯一の形） |
+| --- | --- |
+| **一括切替モード** | `useListToolStore.bulkToggleActive` / `useIsBulkToggleMode()` / `bulkToggleMode` |
+
+**軸ではない。一覧モードの中の一時的な状態**（軸を増やさないこと。増やすと軸 A / B と
+混同する。過去に軸を混同して実装を誤っている）。編集モードでは存在しない。
+
+- 目的: スライドをクリックするだけで有効 / 無効を切り替える。他の変更はさせない。
+- 出入り: 一覧ヘッダ右上の Switch、または Esc。
+- モード中に止めるもの: 編集 / 削除 / 複製 / 結合 / 表示尺 / 並べ替え / ダブルクリックでの
+  編集移行 / 右クリックメニュー / undo・redo。スマホでは画面下部の再生設定バーも隠す。
+- クリックは `selectedIndex` を動かさない（選択ではなく値の反転）。
+- 書込権限は `WriteCapability.SLIDE_PLAYBACK`（§3.1）。スマホモードでも使える。
+- 詳細と設計判断は [bulk-toggle-mode-plan.md](bulk-toggle-mode-plan.md)。
 
 ### 軸 C: 書込可否（モードではないが、軸 A から決まる）
 

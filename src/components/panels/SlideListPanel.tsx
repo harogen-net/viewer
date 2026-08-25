@@ -1,6 +1,7 @@
 import { SlideJoinIndicator } from "@/components/slide/SlideJoinIndicator";
 import { SlideThumbView } from "@/components/slide/SlideThumbView";
 import { SortableSlideThumb } from "@/components/slide/SortableSlideThumb";
+import { useBulkToggleMode } from "@/hooks/useBulkToggleMode";
 import { useDrop } from "@/hooks/useDrop";
 import { useImageLibraryMutation } from "@/hooks/useImageLibraryMutation";
 import { useSlideMutation } from "@/hooks/useSlideMutation";
@@ -22,7 +23,17 @@ import {
 	SortableContext,
 	sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
-import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
+import {
+	ActionIcon,
+	Group,
+	Paper,
+	ScrollArea,
+	Stack,
+	Switch,
+	Text,
+	Title,
+	Tooltip,
+} from "@mantine/core";
 import type { CSSProperties, FC, MouseEvent as ReactMouseEvent } from "react";
 import { Fragment, useCallback, useEffect, useRef } from "react";
 import { SlideListContextMenu } from "./SlideListContextMenu";
@@ -67,11 +78,34 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 	listMode = false,
 }) => {
 	const slides = useSlideStore((s) => s.slides);
+	// 一括切替モード (docs/bulk-toggle-mode-plan.md)。一覧モード限定のサブ状態。
+	const {
+		active: bulkToggle,
+		setActive: setBulkToggle,
+		toggleAt,
+		cancel: cancelBulkToggle,
+	} = useBulkToggleMode();
+	// Esc で抜ける。モード中だけ購読する (常時 keydown を掴まない)。
+	useEffect(() => {
+		if (!bulkToggle) return;
+		const onKey = (e: KeyboardEvent): void => {
+			if (e.key === "Escape") setBulkToggle(false);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [bulkToggle, setBulkToggle]);
 	const selectedIndex = useSlideStore((s) => s.selectedIndex);
 	const editingIndex = useSlideStore((s) => s.editingIndex);
 	const setSelectedIndex = useSlideStore((s) => s.setSelectedIndex);
 	const setEditingIndex = useSlideStore((s) => s.setEditingIndex);
 	const meta = useViewerDocumentStore((s) => s.meta);
+
+	// 文書が差し替わったらモードを打ち切る (履歴は残さない)。突入時 snapshot は前の文書の
+	// ものなので、そのまま確定すると undo が前の文書を復元してしまう。
+	useEffect(() => {
+		cancelBulkToggle();
+	}, [meta, cancelBulkToggle]);
+
 	const bgColor = meta?.bgColor;
 	const {
 		moveSlide,
@@ -306,13 +340,13 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 					: { position: "relative" }
 			}
 			bg="gray.3"
-			onDragOver={mobileMode ? undefined : dropProps.onDragOver}
-			onDragLeave={mobileMode ? undefined : dropProps.onDragLeave}
-			onDrop={mobileMode ? undefined : dropProps.onDrop}
+			onDragOver={mobileMode || bulkToggle ? undefined : dropProps.onDragOver}
+			onDragLeave={mobileMode || bulkToggle ? undefined : dropProps.onDragLeave}
+			onDrop={mobileMode || bulkToggle ? undefined : dropProps.onDrop}
 			onClick={handleGroundClick}
 			data-slide-list-drop-zone>
 			{!mobileMode && <style>{THUMB_REVEAL_CSS}</style>}
-			{!mobileMode && (
+			{!mobileMode && !bulkToggle && (
 				<div style={dropOverlayStyle} data-slide-list-drop-overlay>
 					ドロップで画像スライドを追加
 				</div>
@@ -326,6 +360,19 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 							{selectedIndex >= 0 && ` / selected: #${selectedIndex + 1}`}
 						</Text>
 					</Group>
+
+					{/* 一括切替モードの出入り。一覧モードのみ (編集モードのストリップでは出さない)。
+					    モード中はスライドをクリックするだけで有効/無効が切り替わり、他の変更はできない。 */}
+					{listMode && (
+						<Switch
+							size="sm"
+							checked={bulkToggle}
+							onChange={(e) => setBulkToggle(e.currentTarget.checked)}
+							label="一括切替"
+							data-action="bulk-toggle-mode"
+							aria-label="一括切替モード"
+						/>
+					)}
 
 					{/* 前後スライド選択 (◀▶) は編集モード (listMode=false) のみ表示。新規追加はリスト末尾へ移設。 */}
 					{!mobileMode && !listMode && (
@@ -363,7 +410,12 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 						</Text>
 					</div>
 				) : mobileMode ? (
-					// スマホモード: D&D 無し・編集コントロール無しの素の一覧 (クリック選択のみ)。
+					// スマホモード: D&D 無し・編集コントロール無しの素の一覧。
+					// クリックは通常なら選択、一括切替モード中は有効/無効のトグル。
+					//
+					// 一括切替モードで branch を切り替えないこと。切り替えると全サムネが
+					// unmount → remount され、canvas の再描画が全枚数で走る (体感でリロード)。
+					// PC 側は下の DnD 経路のまま、useSortable の disabled で並べ替えだけ止める。
 					<ScrollArea
 						type="auto"
 						scrollbarSize={14}
@@ -377,12 +429,15 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 										index={i}
 										selected={i === selectedIndex}
 										bgColor={bgColor}
-										onClick={() => setSelectedIndex(i)}
+										onClick={() => (bulkToggle ? toggleAt(i) : setSelectedIndex(i))}
 										onSetDuration={(r) => setSlideDurationRatio(i, r)}
 										onToggleJoining={() => setSlideJoining(i, !slide.joining)}
-										onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
+										onToggleDisabled={() =>
+											bulkToggle ? toggleAt(i) : setSlideDisabled(i, !slide.disabled)
+										}
 										thumbHeight={THUMB_HEIGHT}
 										mobileMode
+										bulkToggleMode={bulkToggle}
 									/>
 									{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
 								</Fragment>
@@ -412,15 +467,18 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 												index={i}
 												selected={i === selectedIndex}
 												bgColor={bgColor}
-												onClick={() => handleThumbClick(i)}
-												onDoubleClick={() => enterEdit(i)}
+												onClick={() => (bulkToggle ? toggleAt(i) : handleThumbClick(i))}
+												onDoubleClick={bulkToggle ? undefined : () => enterEdit(i)}
 												onEdit={() => enterEdit(i)}
 												onDuplicate={() => handleDuplicateAt(i)}
 												onDelete={() => void handleDeleteAt(i)}
 												onSetDuration={(r) => setSlideDurationRatio(i, r)}
 												onToggleJoining={() => setSlideJoining(i, !slide.joining)}
-												onToggleDisabled={() => setSlideDisabled(i, !slide.disabled)}
+												onToggleDisabled={() =>
+													bulkToggle ? toggleAt(i) : setSlideDisabled(i, !slide.disabled)
+												}
 												thumbHeight={THUMB_HEIGHT}
+												bulkToggleMode={bulkToggle}
 											/>
 											{i < slides.length - 1 && <SlideJoinIndicator joining={slide.joining} />}
 										</Fragment>

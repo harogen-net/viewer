@@ -24,15 +24,15 @@
 | [data-compatibility-spec.md](data-compatibility-spec.md) | 保存形式の互換要件（レガシーと byte-equal） |
 | [state-management-design.md](state-management-design.md) | 状態管理の設計方針 |
 | [cloud-sync-plan.md](cloud-sync-plan.md) | クラウド同期の計画（**未着手**） |
-| [bulk-toggle-mode-plan.md](bulk-toggle-mode-plan.md) | 一括切替モードの実装計画（**合意済み・未着手**）。付録にシーン導入を見送った経緯 |
 
 ## 歴史的記録（現状ではない）
 
-jQuery + MVVM 実装から React へ移行した際の計画・経過・振り返り。
-現在のコードを知る目的では読まないこと。
+完了した計画書と、jQuery + MVVM 実装から React へ移行した際の計画・経過・振り返り。
+現在のコードを知る目的では読まないこと（現状の仕様は上の表を見る）。
 
 | ファイル | 内容 |
 | --- | --- |
+| [bulk-toggle-mode-plan.md](bulk-toggle-mode-plan.md) | 一括切替モードの実装計画（実装済み）。付録にシーン導入を見送った経緯 |
 | [migration-closeout-v4.md](migration-closeout-v4.md) | 移行完了時の振り返り（結果と学び） |
 | [migration-postmortem.md](migration-postmortem.md) | 移行途中の反省文 |
 | [migration-roadmap-v4.md](migration-roadmap-v4.md) | v4 計画（forward-only build。これで完了した） |
