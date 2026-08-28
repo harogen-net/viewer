@@ -40,9 +40,16 @@ const renderThumb = (
 		selected?: boolean;
 		index?: number;
 		mobileMode?: boolean;
+		bulkToggleMode?: boolean;
 	} = {},
 ): void => {
-	const { selected = false, index = 0, mobileMode = false, ...handlers } = overrides;
+	const {
+		selected = false,
+		index = 0,
+		mobileMode = false,
+		bulkToggleMode = false,
+		...handlers
+	} = overrides;
 	act(() => {
 		root.render(
 			<SlideThumbView
@@ -50,6 +57,7 @@ const renderThumb = (
 				index={index}
 				selected={selected}
 				mobileMode={mobileMode}
+				bulkToggleMode={bulkToggleMode}
 				{...baseHandlers}
 				{...handlers}
 			/>,
@@ -168,6 +176,19 @@ describe("SlideThumbView thumb 内 UI (v4 Group C C-9)", () => {
 
 			expect(toggle).toHaveBeenCalledTimes(1);
 			expect(click).not.toHaveBeenCalled();
+		});
+
+		// 一括切替モードではサムネ本体のクリックがトグルなので、操作口としては要らない
+		// (状態は暗転で読ませる)。スマホは元から非表示。
+		it("mobileMode / bulkToggleMode では出さない", () => {
+			renderThumb(makeSlide({ disabled: false }));
+			expect(getControl("enable-check")).not.toBeNull();
+
+			renderThumb(makeSlide({ disabled: false }), { mobileMode: true });
+			expect(getControl("enable-check")).toBeNull();
+
+			renderThumb(makeSlide({ disabled: false }), { bulkToggleMode: true });
+			expect(getControl("enable-check")).toBeNull();
 		});
 	});
 

@@ -192,7 +192,9 @@ export const SlideListPanel: FC<{ mobileMode?: boolean; listMode?: boolean }> = 
 	// ◀▶ は「選択中スライドの前後を選択」するナビ (未選択 / 端では非活性)。
 	const canSelectPrev = selectedIndex > 0;
 	const canSelectNext = selectedIndex >= 0 && selectedIndex < slides.length - 1;
-	const canAdd = !!meta;
+	// 一括切替モード中は追加も禁止 (有効/無効以外は変更させない)。末尾の ＋ ボタンと
+	// 空状態の案内文の両方がこれで消える。
+	const canAdd = !!meta && !bulkToggle;
 
 	// DnD sensors: PointerSensor は 8px 移動するまで click 扱い (= サムネクリックで選択が成立)
 	const sensors = useSensors(

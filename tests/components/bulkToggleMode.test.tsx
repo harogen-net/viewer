@@ -191,7 +191,7 @@ describe("一括切替モード - 履歴", () => {
 });
 
 describe("一括切替モード - 他の操作の抑止", () => {
-	it("モード中はサムネ上の編集コントロールが消え、チェックボックスだけ残る (PC)", () => {
+	it("モード中はサムネ上の操作口が全て消える (チェックボックスも)", () => {
 		seed([makeSlide(1, "a")]);
 		// 通常時は編集コントロールが出ている
 		expect(control(0, "enable-check")).not.toBeNull();
@@ -200,7 +200,8 @@ describe("一括切替モード - 他の操作の抑止", () => {
 		expect(control(0, "edit")).not.toBeNull();
 
 		setMode(true);
-		expect(control(0, "enable-check")).not.toBeNull(); // これだけ残す
+		// サムネ本体のクリックがトグルなので操作口は要らない。状態は暗転で読ませる
+		expect(control(0, "enable-check")).toBeNull();
 		expect(control(0, "join-arrow")).toBeNull();
 		expect(control(0, "duration-resize")).toBeNull();
 		expect(control(0, "edit")).toBeNull();
@@ -208,7 +209,7 @@ describe("一括切替モード - 他の操作の抑止", () => {
 		expect(control(0, "duplicate")).toBeNull();
 	});
 
-	it("スマホではモード中もチェックボックスを出さない (暗転だけで判別させる)", () => {
+	it("スマホでもモード中は同じ (元からチェックボックスなし、タップでトグル)", () => {
 		seed([makeSlide(1, "a")], true);
 		expect(control(0, "enable-check")).toBeNull();
 		setMode(true);
@@ -216,6 +217,25 @@ describe("一括切替モード - 他の操作の抑止", () => {
 		// タップでのトグルは効く
 		clickThumb(0);
 		expect(disabledFlags()).toEqual([true]);
+	});
+
+	it("モード中は新規スライド追加ボタンが消える", () => {
+		seed([makeSlide(1, "a")]);
+		const addBtn = (): Element | null =>
+			container.querySelector('button[aria-label="スライド追加"]');
+		expect(addBtn()).not.toBeNull();
+		setMode(true);
+		expect(addBtn()).toBeNull();
+		setMode(false);
+		expect(addBtn()).not.toBeNull();
+	});
+
+	it("空の一覧では案内文の「＋ で追加」もモード中は消える", () => {
+		// canAdd 1 箇所で追加ボタンと案内文の両方が決まる。案内だけ残ると押せない的を案内することになる。
+		seed([]);
+		expect(container.textContent).toContain("＋ で追加");
+		setMode(true);
+		expect(container.textContent).not.toContain("＋ で追加");
 	});
 
 	const openCtx = (): void => {

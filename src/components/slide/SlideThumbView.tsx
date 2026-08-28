@@ -48,8 +48,8 @@ interface SlideThumbViewProps extends SlideViewProps {
 	/** スマホモード: 有効/無効・結合・duration の編集コントロールを隠す (選択のみ可)。 */
 	mobileMode?: boolean;
 	/**
-	 * 一括切替モード (docs/bulk-toggle-mode-plan.md): 編集系コントロールを隠し、
-	 * 有効/無効チェックボックスだけ残す。スマホでは暗転だけで判別させるのでそれも出さない。
+	 * 一括切替モード (docs/bulk-toggle-mode-plan.md): サムネ上の操作口を全て隠す
+	 * (有効/無効チェックボックスも)。切替はサムネ本体のクリックで行い、状態は暗転で読ませる。
 	 */
 	bulkToggleMode?: boolean;
 }
@@ -371,10 +371,11 @@ export const SlideThumbView: FC<SlideThumbViewProps> = ({
 				</span>
 			)}
 
-			{/* 有効/無効チェックボックス。編集系より広く出す:
-			    一括切替モードでは「これだけ残す」= 状態の表示と操作口を兼ねる。
-			    スマホでは的が小さすぎるので出さない (暗転だけで判別させ、操作はタップで行う)。 */}
-			{!mobileMode && (
+			{/* 有効/無効チェックボックス。
+			    スマホでは的が小さすぎるので出さない (暗転だけで判別させ、操作はタップで行う)。
+			    一括切替モードでも出さない: サムネ本体のクリックがトグルなので操作口としては要らず、
+			    状態は暗転で読める (PC とスマホで見た目も揃う)。 */}
+			{!mobileMode && !bulkToggleMode && (
 				<input
 					type="checkbox"
 					checked={!slide.disabled}
