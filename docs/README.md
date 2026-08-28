@@ -23,7 +23,8 @@
 | [sensitive-mode-spec.md](sensitive-mode-spec.md) | センシティブモード（文書単位のパスワード保護） |
 | [data-compatibility-spec.md](data-compatibility-spec.md) | 保存形式の互換要件（レガシーと byte-equal） |
 | [state-management-design.md](state-management-design.md) | 状態管理の設計方針 |
-| [cloud-sync-plan.md](cloud-sync-plan.md) | クラウド同期の計画（**未着手**） |
+| [document-id-plan.md](document-id-plan.md) | ドキュメント ID 導入と IDB スキーマ v3 の計画（**未着手**） |
+| [cloud-sync-plan.md](cloud-sync-plan.md) | クラウド同期の計画（**未着手**。document-id-plan が前提） |
 
 ## 歴史的記録（現状ではない）
 
