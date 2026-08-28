@@ -10,7 +10,7 @@
 - docs/function-list.md
 - docs/migration-roadmap.md
 
-## 実装状況（2026-08-25 現在）
+## 実装状況（2026-08-28 現在）
 
 用語は §1 を参照。ここに挙げるファイルは実在するものだけ。
 
@@ -18,7 +18,7 @@
   - 起動モード解決（URL クエリ + スマホ環境判定）と store 化
   - スマホモード時の書込ゲート（action-level reject）と編集 UI の非表示
   - 書込操作の種別による部分開放（§3.1 の `WriteCapability`）
-  - 縦起動時の landscape ロック + transform 回転フォールバック
+  - スライドショーの縦画面対応（manifest の landscape 固定 + オーバーレイの自前回転。§4）
   - スマホモード限定の保存 / 別名で保存 / 削除導線（⋮ メニュー）
   - 一覧モードのサブ状態「一括切替モード」（§1 軸 B の下）
 - 実装ファイル
@@ -30,11 +30,12 @@
   - `src/components/panels/SlideListPanel.tsx` — 一覧 / 編集ストリップ
   - `src/components/panels/SlidePlaybackPanel.tsx` — スマホモードの再生設定バー（§3.1）
   - `src/components/panels/fileIO/FileIOSubMenu.tsx` — スマホモード限定の保存 / 削除導線
-  - `src/hooks/useOrientationLock.ts` — 画面向き（§4）
+  - `src/components/SlideshowShell.tsx` — スライドショーの縦画面回転とセーフエリア（§4.2）
+  - `vite.config.js` — PWA manifest の `orientation: "landscape"`（§4.2）
   - `src/utils/mobileDetect.ts` — スマホ環境判定（§2.1）
 - 未実装
-  - 書込ゲートの網羅（現状は mutation hook 単位。個別操作の抜けは §3.1 の基準で判断する）
-  - orientation フォールバックの端末別最適化（セーフエリア調整など）
+  - 書込ゲートの網羅（現状は mutation hook 単位。store を直接書く経路は通らない。§3.2）
+  - 一覧 / 編集画面の縦→横フォールバック（§4.3。スライドショー以外は端末の向きのまま）
 
 注記:
 
@@ -195,29 +196,59 @@ SLIDE_PLAYBACK に入れる基準は「破壊的でない（スライドもレ�
   未保存であることは ⋮ の赤ドット（Mantine `Indicator`）とメニューのセクションラベル
   「ファイル（未保存）」で示す。
 
+### 3.2 ゲートが掛かる範囲
+
+`canWriteNow()` は **mutation hook の入口**にあり、操作単位では掛かっていない。
+
+| 場所 | 守るもの |
+| --- | --- |
+| `useDocumentMutation` | `applySlideChange` / `applySlideChangeLive` / `recordHistory` / undo / redo |
+| `useImageLibraryMutation` | 画像の追加・削除・GC |
+| `useStorage` | 保存・削除（`allowInViewMode` でスマホ限定の導線だけバイパス） |
+| `useFileIO` | HVD / HVZ / PNG / ZIP のエクスポート |
+
+スライドとレイヤーの変更は `useSlideMutation` / `useLayerMutation` がすべて
+`applySlideChange` の薄い wrapper なので、この 1 点で覆われる。
+
+**ただし store を直接書く経路はゲートを通らない。** 2026-08-28 時点で 6 箇所ある
+（`FileIOPanel` / `DocumentSettingsModal` ×2 / `FileIOToolbar` / `FileIOSubMenu` / `EditToolbar`）。
+現在これらが安全なのは「スマホモードではその UI を描画しない」からであり、防御は §6.1 が
+求める二重化になっていない。スマホで新たに何かを部分開放するときは、この経路を先に確認すること。
+
 ## 4. スマホモード画面向き仕様
 
 ### 4.1 要件
 
 - スマホモードは横画面 UX を前提とする。
-- 縦起動時も横画面として動作させる。
+- スライドショー再生は、端末が縦でも横画面として見せる。
 
-### 4.2 実装順序
+### 4.2 実装
 
-1. Screen Orientation API で landscape ロックを試行
-2. 失敗または非対応時は CSS transform フォールバック
+**1. PWA manifest の `orientation: "landscape"`**（`vite.config.js`）
 
-### 4.3 transform フォールバック仕様
+standalone 起動時に OS が向きを固定する。スマホでの主経路はこれで、アプリ側のコードは
+関与しない。ブラウザのタブで開いた場合は効かない。
 
-- ルートコンテナへ回転を適用
-  - `transform: rotate(90deg)`
-  - `transform-origin: center center`
-- 表示領域の幅高さを入れ替え
-  - `width: 100vh`
-  - `height: 100vw`
-- `resize` / `orientationchange` で再計算
-- ノッチ端末のセーフエリアを考慮
-- タップ座標とヒット領域のずれを許容しない
+**2. スライドショーオーバーレイの自前回転**（`src/components/SlideshowShell.tsx`）
+
+`isMobile && isPortrait` のとき、オーバーレイ自体を 90° 回転して長辺を横にする。
+判定は端末軸（`useDeviceMode`）で行い、起動モードとは独立している。
+
+- 外側（`inset: 0`）で safe-area まで黒を塗り、内側が回転と寸法 swap を担う二重構造。
+  回転時に内側の `100vh` が safe-area を含まなくても隙間が出ないようにするため。
+- `env(safe-area-inset-*)` は常に物理ビューポート基準なので、回転中は
+  top←right / left←top / right←bottom / bottom←left と対応を入れ替える。
+- `resize` で viewport を読み直す。回転中は `innerWidth` / `innerHeight` も swap する。
+
+### 4.3 実装していないこと
+
+**アプリ全体（一覧 / 編集画面）の縦→横フォールバックは無い。** 上記 2 はスライドショー
+オーバーレイ限定で、それ以外の画面は端末の向きのまま表示される。
+
+かつて `src/hooks/useOrientationLock.ts`（Screen Orientation API のロック試行 +
+`<html data-orientation-fallback>` 付与）があったが、どこからも呼ばれておらず、属性を消費する
+CSS ルールも存在しなかった。動かない実装を「実装済み」と誤読させるため **2026-08-28 に削除**した。
+全体フォールバックが必要になったら、§4.2 の `SlideshowShell` の回転処理を土台にする方が近い。
 
 ## 5. センシティブモード連携
 
@@ -247,13 +278,13 @@ SLIDE_PLAYBACK に入れる基準は「破壊的でない（スライドもレ�
 
 - PC ブラウザ起動で編集可能である。
 - スマホ PWA 起動で閲覧中心の UI になる。
-- スマホ縦起動時でも横画面 UX が成立する。
+- スマホ縦起動でもスライドショーが横画面で成立する（§4.2。一覧 / 編集画面は対象外）。
 - モードごとの可否マトリクスに反する操作が行えない。
 
 ## 8. 残タスク
 
-初版の実装タスク（modeResolver / featureGate / useOrientationLock / モード別分岐 /
-受け入れテスト）はすべて完了済み。現在の残りは以下。
+初版の実装タスク（modeResolver / featureGate / モード別分岐 / 受け入れテスト）は完了済み。
+現在の残りは以下。いずれも現状で運用上の支障は出ていない。
 
-- 実機検証（スマホ実機での画面向きフォールバック、セーフエリア、タップ精度）。
-- 書込ゲートの網羅性レビュー（§3.1 の基準に照らして、開放漏れ／開放しすぎが無いか）。
+- 書込ゲートの網羅性レビュー（§3.2 の「store 直書き 6 箇所」を含む）。
+- 一覧 / 編集画面の縦→横フォールバック（§4.3）。着手するか否かも未決。

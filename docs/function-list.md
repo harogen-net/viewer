@@ -18,7 +18,7 @@ mode-spec.md に集約した（本書に写すと二重管理になり、実際�
 - 用語の定義（PCモード / スマホモード / 一覧モード / 編集モード）: [mode-spec.md](mode-spec.md) §1
 - 起動判定: 同 §2
 - モード別の機能可否マトリクス: 同 §3
-- 画面向き（landscape ロックと transform フォールバック）: 同 §4
+- 画面向き（manifest の landscape 固定とスライドショーの回転）: 同 §4
 - センシティブモード: [sensitive-mode-spec.md](sensitive-mode-spec.md)
 - アプリロック: [app-lock-spec.md](app-lock-spec.md)
 
