@@ -1,11 +1,11 @@
+import { isMobileEnv } from "@/utils/mobileDetect";
 import { useEffect, useState } from "react";
 
 // スマホ判定 + orientation 追従。UI 側で「スマホモード共通」「portrait のみ」の分岐を行う。
-// - isMobile: user agent 判定 (PWA/browser 問わず)
+// - isMobile: 端末判定 (PWA/browser 問わず)。判定は mobileDetect に一本化する
+//   (以前ここに同じ UA 正規表現を複製しており、片方だけ直すと挙動がずれる状態だった)
 // - isPortrait: matchMedia("(orientation: portrait)") — resize / rotation で state 更新
 // SSR safety のため lazy init。
-
-const MOBILE_UA_RE = /Android|iPhone|iPad|iPod|Mobile/i;
 
 interface DeviceMode {
 	isMobile: boolean;
@@ -15,7 +15,7 @@ interface DeviceMode {
 const readInitial = (): DeviceMode => {
 	if (typeof window === "undefined") return { isMobile: false, isPortrait: false };
 	return {
-		isMobile: MOBILE_UA_RE.test(navigator.userAgent),
+		isMobile: isMobileEnv(),
 		isPortrait: window.matchMedia?.("(orientation: portrait)").matches ?? false,
 	};
 };
