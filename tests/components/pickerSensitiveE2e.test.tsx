@@ -8,7 +8,7 @@ import { useImageLibraryStore } from "../../src/state/imageLibraryStore";
 import { useSensitiveSessionStore } from "../../src/state/sensitiveSessionStore";
 import type { ViewerDocument } from "../../src/types/ViewerDocument";
 
-// エンドツーエンド確認 (モックなし): 実 useStorage で sensitive を保存 → 実 listTitles →
+// エンドツーエンド確認 (モックなし): 実 useStorage で sensitive を保存 → 実 listDocs →
 // 実 DocumentPickerGrid に流し込み、🔒 バッジが出ることを通しで検証する。
 
 let api: StorageApi;
@@ -63,32 +63,35 @@ afterEach(() => {
 });
 
 describe("picker sensitive badge (end-to-end)", () => {
-	it("sensitive を保存 → listTitles → グリッドで 🔒、非 sensitive は無し", async () => {
+	it("sensitive を保存 → listDocs → グリッドで 🔒、非 sensitive は無し", async () => {
 		useSensitiveSessionStore.setState({ password: "pw" });
 		await act(async () => {
 			await api.save(makeDoc("secret-doc", true), { override: true });
 			await api.save(makeDoc("plain-doc", false), { override: true });
 		});
-		const titles = await api.listTitles();
-		expect(titles.find((t) => t.title === "secret-doc")?.isSensitive).toBe(true);
+		const docs = await api.listDocs();
+		const secret = docs.find((d) => d.title === "secret-doc");
+		const plain = docs.find((d) => d.title === "plain-doc");
+		expect(secret?.isSensitive).toBe(true);
 
 		act(() => {
 			gridRoot.render(
 				<MantineProvider>
 					<DocumentPickerGrid
-						titles={titles}
+						docs={docs}
 						loadThumbnail={async () => null}
-						selectedTitle={null}
+						selectedId={null}
 						onPick={() => {}}
 					/>
 				</MantineProvider>
 			);
 		});
+		// カードの識別子は docId (title ではない)
 		expect(
-			gridDiv.querySelector('[data-picker-item="secret-doc"] [data-picker-sensitive]')
+			gridDiv.querySelector(`[data-picker-item="${secret?.id}"] [data-picker-sensitive]`)
 		).not.toBeNull();
 		expect(
-			gridDiv.querySelector('[data-picker-item="plain-doc"] [data-picker-sensitive]')
+			gridDiv.querySelector(`[data-picker-item="${plain?.id}"] [data-picker-sensitive]`)
 		).toBeNull();
 	});
 });

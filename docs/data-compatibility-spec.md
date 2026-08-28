@@ -30,6 +30,9 @@ React 移行後も既存データを読み書き可能にし、互換性を保�
 - Document
   - `screen.width`, `screen.height`, `bgColor`, `createTime`, `editTime`, `title`
   - 追加: `isSensitive`, `security.*`
+  - 追加: `docId`（version 3.2〜。ドキュメントの永続 ID。
+    [document-id-plan.md](document-id-plan.md)）。持たない文書ではキー自体を出力しないため、
+    既存ファイルとの byte-equal は崩れない。読込時に採番はしない（保存時に確定する）
 - Slide
   - `id`, `durationRatio`, `joining`, `disabled`, `layers`
 - Layer

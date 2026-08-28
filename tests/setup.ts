@@ -1,5 +1,6 @@
 import { useAppLockStore } from "@/state/appLockStore";
 import { useLaunchModeStore, LaunchMode } from "@/state/launchModeStore";
+import { MigrationStatus, useMigrationStore } from "../src/state/migrationStore";
 import { AppLockStatus } from "@/types/AppLock";
 import "fake-indexeddb/auto";
 
@@ -98,10 +99,16 @@ if (typeof Blob !== "undefined" && typeof Blob.prototype.text !== "function") {
 	};
 }
 
-// jsdom の innerHeight=768 は isMobileEnv() の SMALL_VIEWPORT_PX(900) 判定に引っかかり、
-// launchModeStore の初期モードが VIEW になってしまう。テストは既定で PCモード想定
-// (スマホモードを検証したいテストは自前で setState する) のため、setup で EDIT に上書き。
+// jsdom の userAgent は PC 相当なので isMobileEnv() は false になるが、明示しておく
+// (テストは既定で PCモード想定。スマホモードを検証したいテストは自前で setState する)。
 useLaunchModeStore.setState({ mode: LaunchMode.PC, isMobileEnv: false });
+
+// 旧形式ドキュメントの移行状態を「移行不要」で始める。
+// 既定は UNKNOWN で、その間はストレージ API が不活性になる (docs/document-id-plan.md)。
+// 実アプリでは LegacyMigrationModal の probe が状態を確定させるが、テストはその
+// コンポーネントを描画しないので、ここで確定させておかないと全ストレージテストが空を返す。
+// 移行そのものを検証するテストは自前で setState する。
+useMigrationStore.setState({ status: MigrationStatus.NONE, legacyCount: 0, legacyTitles: [] });
 
 // アプリロックも既定で無効にしておく (jsdom の innerHeight=768 で isMobileEnv() が true に
 // なるため、localStorage にレコードが残るケースで既存テストが巻き添えでロックされないように)。

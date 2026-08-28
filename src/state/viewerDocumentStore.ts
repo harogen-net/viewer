@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { DocId } from "../types/DocId";
 import type { Slide } from "../types/Slide";
 import type { ViewerDocument } from "../types/ViewerDocument";
 import { useClipboardStore } from "./clipboardStore";
@@ -53,8 +54,12 @@ interface ViewerDocumentState {
 	 *   - meta 編集 (metaDirty) があれば slide が clean でも modified=true を維持する。
 	 */
 	refreshModified: () => void;
-	/** 保存完了をマーク: meta.title を保存名へ同期し baseline を現状態に更新 (履歴/slides は触らない)。 */
-	markSaved: (title: string) => void;
+	/**
+	 * 保存完了をマーク: meta.title / meta.docId を保存結果へ同期し、baseline を現状態に更新する
+	 * (履歴/slides は触らない)。docId は未保存文書の初回保存や「別名で保存」で新規採番されるため、
+	 * ここで書き戻さないと次の上書き保存が別レコードを作ってしまう。
+	 */
+	markSaved: (title: string, docId?: DocId) => void;
 	/** meta の一部を更新し modified=true にする (title / bgColor / width など document 設定の編集用)。
 	 *  履歴/slides は触らない。width/height は SSOT なので別途 slide へ再注入すること。 */
 	patchMeta: (patch: Partial<DocumentMeta>) => void;
@@ -102,9 +107,9 @@ export const useViewerDocumentStore = create<ViewerDocumentState>()((set) => ({
 			const slidesClean = slides === s.savedSlides || deepEqual(slides, s.savedSlides);
 			return { modified: s.metaDirty || !slidesClean };
 		}),
-	markSaved: (title) =>
+	markSaved: (title, docId) =>
 		set((s) => ({
-			meta: s.meta ? { ...s.meta, title } : s.meta,
+			meta: s.meta ? { ...s.meta, title, docId: docId ?? s.meta.docId } : s.meta,
 			modified: false,
 			metaDirty: false,
 			// 保存した現状態を新しい clean baseline にする。

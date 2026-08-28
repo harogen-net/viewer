@@ -18,9 +18,9 @@ const render = (): void => {
 				<DocumentPickerModal
 					opened
 					onClose={() => {}}
-					titles={[]}
+					docs={[]}
 					loadThumbnail={async () => null}
-					selectedTitle={null}
+					selectedId={null}
 					onPick={() => {}}
 				/>
 			</MantineProvider>

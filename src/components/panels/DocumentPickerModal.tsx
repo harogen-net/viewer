@@ -1,4 +1,5 @@
-import type { StoredDocThumbnail, StoredSlideTitle } from "@/hooks/useStorage";
+import type { StoredDoc, StoredDocThumbnail } from "@/hooks/useStorage";
+import type { DocId } from "@/types/DocId";
 import { useSensitiveSessionStore } from "@/state/sensitiveSessionStore";
 import { Loader, Modal, PasswordInput, Stack, Text } from "@mantine/core";
 import { IconLock } from "@tabler/icons-react";
@@ -7,9 +8,10 @@ import { useEffect, useRef, useState } from "react";
 
 // 保存ドキュメントを「見た目で選ぶ」ビジュアルピッカー (v4 Group D 補間、§0-10 新側内製)。
 // FileIOPanel の <Select> を補完する、サムネ + タイトルのギャラリー。
-//   - titles: 表示する一覧 (呼び出し側で update 降順ソート済みを渡す)
-//   - thumbnails: {title: {thumb(連結1枚), frames(コマ数)}}。未生成 title は欠落 → N/A 表示
-//   - カードクリックで onPick(title) (呼び出し側でロード + close)
+//   - docs: 表示する一覧 (呼び出し側で update 降順ソート済みを渡す)
+//   - サムネは docId で個別遅延ロード。未生成は N/A 表示
+//   - カードクリックで onPick(docId) (呼び出し側でロード + close)
+//   - title は重複しうるので、識別は docId。同名を見分けられるよう更新日時も出す
 //   - サムネは横連結1枚画像。通常 1 コマ目、ホバーで順次コマ送り (ThumbnailStrip)
 //
 // 責務分離 (SlideView/SortableSlideThumb と同方針):
@@ -17,11 +19,11 @@ import { useEffect, useRef, useState } from "react";
 //   - DocumentPickerModal = Modal ラッパー (開閉アニメーションあり、薄い配線のみ)
 
 interface DocumentPickerGridProps {
-	titles: StoredSlideTitle[];
+	docs: StoredDoc[];
 	/** 1 ドキュメントのサムネを遅延取得する (カードが可視になった時のみ呼ぶ)。未生成は null。 */
-	loadThumbnail: (title: string) => Promise<StoredDocThumbnail | null>;
-	selectedTitle: string | null;
-	onPick: (title: string) => void;
+	loadThumbnail: (id: DocId) => Promise<StoredDocThumbnail | null>;
+	selectedId: DocId | null;
+	onPick: (id: DocId) => void;
 	/** パスワード欄が空か。true の間はセンシティブ文書カードを選択不可 (デコードを試みない)。 */
 	passwordEmpty?: boolean;
 }
@@ -64,6 +66,20 @@ const titleStyle: CSSProperties = {
 	whiteSpace: "nowrap",
 	overflow: "hidden",
 	textOverflow: "ellipsis",
+};
+// 更新日時 (title の下)。title は重複しうるため、同名カードを見分ける手掛かりとして添える。
+const updatedStyle: CSSProperties = {
+	fontSize: 10,
+	color: "#868e96",
+	whiteSpace: "nowrap",
+};
+
+/** 一覧の update (epoch ms) を "YYYY/MM/DD HH:MM" で表示する。 */
+const formatUpdated = (update: number): string => {
+	if (!update) return "";
+	const d = new Date(update);
+	const p = (n: number): string => `${n}`.padStart(2, "0");
+	return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 // センシティブ文書のサムネ右上に出す 🔒 バッジ (サムネはぼかし済みだが、一目で分かる標示)。
 const lockBadgeStyle: CSSProperties = {
@@ -180,9 +196,10 @@ const ThumbnailStrip: FC<{ thumb: string; frames: number; alt: string }> = ({
 // IntersectionObserver 非対応環境 (jsdom テスト等) では即ロードにフォールバックする。
 type LoadState = "idle" | "loading" | "loaded" | "empty";
 const LazyDocThumbnail: FC<{
-	title: string;
-	loadThumbnail: (title: string) => Promise<StoredDocThumbnail | null>;
-}> = ({ title, loadThumbnail }) => {
+	docId: DocId;
+	alt: string;
+	loadThumbnail: (id: DocId) => Promise<StoredDocThumbnail | null>;
+}> = ({ docId, alt, loadThumbnail }) => {
 	const [state, setState] = useState<LoadState>("idle");
 	const [data, setData] = useState<StoredDocThumbnail | null>(null);
 	const boxRef = useRef<HTMLDivElement>(null);
@@ -196,7 +213,7 @@ const LazyDocThumbnail: FC<{
 			if (startedRef.current) return;
 			startedRef.current = true;
 			setState("loading");
-			loadThumbnail(title)
+			loadThumbnail(docId)
 				.then((d) => {
 					if (cancelled) return;
 					setData(d);
@@ -221,10 +238,10 @@ const LazyDocThumbnail: FC<{
 			cancelled = true;
 			io.disconnect();
 		};
-	}, [title, loadThumbnail]);
+	}, [docId, loadThumbnail]);
 
 	if (state === "loaded" && data) {
-		return <ThumbnailStrip thumb={data.thumb} frames={data.frames} alt={title} />;
+		return <ThumbnailStrip thumb={data.thumb} frames={data.frames} alt={alt} />;
 	}
 	return (
 		<div ref={boxRef} style={thumbBoxStyle} data-picker-thumb-box data-thumb-state={state}>
@@ -239,13 +256,13 @@ const LazyDocThumbnail: FC<{
 };
 
 export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
-	titles,
+	docs,
 	loadThumbnail,
-	selectedTitle,
+	selectedId,
 	onPick,
 	passwordEmpty = false,
 }) => {
-	if (titles.length === 0) {
+	if (docs.length === 0) {
 		return (
 			<Text size="sm" c="dimmed">
 				保存済みドキュメントがありません。
@@ -262,8 +279,8 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 	};
 	return (
 		<div style={gridStyle}>
-			{titles.map((t) => {
-				const selected = t.title === selectedTitle;
+			{docs.map((t) => {
+				const selected = t.id === selectedId;
 				// センシティブ文書は PW 欄が空の間は選択不可 (クリックしてもデコードを試みない)。
 				const locked = !!t.isSensitive && passwordEmpty;
 				return (
@@ -271,19 +288,20 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 						type="button"
 						key={t.id}
 						style={cardStyle(selected, locked)}
-						data-picker-item={t.title}
+						data-picker-item={t.id}
+						data-picker-title={t.title}
 						data-selected={selected ? "true" : "false"}
 						data-picker-locked={locked ? "true" : undefined}
 						disabled={locked}
 						title={locked ? "パスワードを入力すると開けます" : undefined}
-						onClick={locked ? undefined : () => onPick(t.title)}>
+						onClick={locked ? undefined : () => onPick(t.id)}>
 						{/* width:100% を明示する理由: 親カードは <button> の flex-column。
 						    WebKit (iOS Safari) は button を flex コンテナにすると align-items:stretch
 						    を効かせず、この wrapper がクロス軸で content 幅に潰れる。結果 thumbBoxStyle
 						    の width:100% が 0 に解決してサムネ枠が消える。明示 100% で button の確定幅に
 						    解決させて回避する (desktop Chrome/FF は stretch が効くため元々問題なし)。 */}
 						<div style={{ position: "relative", width: "100%" }}>
-							<LazyDocThumbnail title={t.title} loadThumbnail={loadThumbnail} />
+							<LazyDocThumbnail docId={t.id} alt={t.title} loadThumbnail={loadThumbnail} />
 							{t.isSensitive && (
 								<div
 									style={lockBadgeStyle}
@@ -295,6 +313,10 @@ export const DocumentPickerGrid: FC<DocumentPickerGridProps> = ({
 							)}
 						</div>
 						<span style={titleStyle}>{t.title}</span>
+						{/* title は重複しうるので、同名カードを見分ける手掛かりとして更新日時を出す。 */}
+						<span style={updatedStyle} data-picker-updated>
+							{formatUpdated(t.update)}
+						</span>
 						{locked && (
 							<Text size="xs" c="dimmed" data-picker-locked-hint>
 								パスワードを入力してください

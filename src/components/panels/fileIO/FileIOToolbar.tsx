@@ -2,11 +2,13 @@ import { DocumentPickerModal } from "@/components/panels/DocumentPickerModal";
 import { useAlert } from "@/hooks/useAlert";
 import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useProgress } from "@/hooks/useProgress";
-import { useStorage, type StoredSlideTitle } from "@/hooks/useStorage";
+import { useStorage, type StoredDoc } from "@/hooks/useStorage";
+import { MigrationStatus, isStorageReadable, useMigrationStore } from "@/state/migrationStore";
 import { useToast } from "@/hooks/useToast";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import type { DocId } from "@/types/DocId";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import { collectImageMap } from "@/utils/collectImageMap";
 import { DateUtil } from "@/utils/DateUtil";
@@ -28,7 +30,7 @@ import { FileSelector } from "./FileSelector";
 import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false }) => {
-	const { listTitles, loadByTitle, save, deleteByTitle, getThumbnail } = useStorage();
+	const { listDocs, loadById, save, deleteById, getThumbnail } = useStorage();
 	const { run } = useProgress();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
@@ -41,63 +43,71 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 	const { wrap, confirmDiscardIfModified } = useFileIOCommon();
 	const { isMobile } = useDeviceMode();
 
-	const [titles, setTitles] = useState<StoredSlideTitle[]>([]);
-	const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
+	const [docs, setDocs] = useState<StoredDoc[]>([]);
+	const [selectedId, setSelectedId] = useState<DocId | null>(null);
 	const [pickerOpen, setPickerOpen] = useState(false);
 
-	// title 一覧を refresh (update 降順)。
-	const refreshTitles = useCallback(async (): Promise<StoredSlideTitle[]> => {
-		const ts = await listTitles();
-		ts.sort((a, b) => b.update - a.update);
-		setTitles(ts);
-		return ts;
-	}, [listTitles]);
+	// ドキュメント一覧を refresh (update 降順)。
+	const refreshDocs = useCallback(async (): Promise<StoredDoc[]> => {
+		const ds = await listDocs();
+		ds.sort((a, b) => b.update - a.update);
+		setDocs(ds);
+		return ds;
+	}, [listDocs]);
+
+	// 旧形式の移行状態。
+	//   - readable になった時点で引き直す。これが無いと起動直後の 1 回が空振りして一覧が空になる
+	//     (probe / 移行の完了は非同期で、初回 effect より後に来る)
+	//   - 承認前 (PENDING) は旧ストアの読み取り専用モード。一覧とロードは効くが書込はできない
+	const storageReadable = useMigrationStore((s) => isStorageReadable(s.status));
+	const readOnlyLegacy = useMigrationStore((s) => s.status === MigrationStatus.PENDING);
 
 	useEffect(() => {
-		refreshTitles().catch((e) => console.error("[FileIOPanel] refreshTitles error:", e));
-	}, [refreshTitles]);
+		if (!storageReadable) return;
+		refreshDocs().catch((e) => console.error("[FileIOPanel] refreshDocs error:", e));
+	}, [refreshDocs, storageReadable]);
 
 	// ビジュアルピッカー: 一覧 (軽量) だけ読んで開く。サムネは各カードが可視時に個別遅延ロードする。
 	const handleOpenPicker = wrap(async () => {
 		if (!(await confirmDiscardIfModified())) return;
-		await refreshTitles();
+		await refreshDocs();
 		setPickerOpen(true);
 	});
 	// ギャラリーでカードを選択 → 閉じてロード (未保存ガードは handleSelectChange 内)。
-	const handlePick = (title: string): void => {
+	const handlePick = (id: DocId): void => {
 		setPickerOpen(false);
-		handleSelectChange(title, false); // confirmDiscard は既に handleOpenPicker で済ませている
+		handleSelectChange(id, false); // confirmDiscard は既に handleOpenPicker で済ませている
 	};
 
 	// 新規はモーダルを開かず、すべて既定値で document を即作成する (legacy 寄せ)。
 	// 既定: title=date string / 画面 landscape 寸法 / 白背景 / slides 空。
 	const handleNew = wrap(async () => {
 		if (!(await confirmDiscardIfModified())) return;
-		setSelectedTitle(null);
+		setSelectedId(null);
 		// 新規作成は前ドキュメントの画像を引き継がない (画像ライブラリをクリア)。
 		useImageLibraryStore.getState().setImageLibrary({});
 		setDocument({ ...createNewViewerDocument(), title: DateUtil.getDateString() });
 		toast.success("新規ドキュメントを作成しました");
 	});
 
-	// title を選んだ瞬間にロードする (レガシー FileSelector と同挙動)。
+	// ドキュメントを選んだ瞬間にロードする (レガシー FileSelector と同挙動)。
 	// null クリア時はロードしない (選択のみ解除)。未保存変更があれば確認し、
 	// キャンセル時は選択も変えない (Select は controlled なので元の値に戻る)。
-	const handleSelectChange = (v: string | null, confirmDiscard = true): void => {
+	const handleSelectChange = (v: DocId | null, confirmDiscard = true): void => {
 		if (!v) {
-			setSelectedTitle(null);
+			setSelectedId(null);
 			return;
 		}
 		wrap(async () => {
 			if (confirmDiscard && !(await confirmDiscardIfModified())) return;
 			// 進捗バー付きロード。ok=完了(100%まで伸ばす)、notfound/locked=Abort(即消し)。
-			let outcome: Awaited<ReturnType<typeof loadByTitle>> | undefined;
+			let outcome: Awaited<ReturnType<typeof loadById>> | undefined;
 			await run("読み込み中…", async (report) => {
-				outcome = await loadByTitle(v, report);
+				outcome = await loadById(v, report);
 				return outcome.status === "ok" ? outcome : null;
 			});
 			if (outcome?.status === "ok") {
-				setSelectedTitle(v);
+				setSelectedId(v);
 				setDocument(outcome.doc);
 				toast.success(`ロードしました: ${outcome.doc.title} (${outcome.doc.slides.length} slides)`);
 			} else if (outcome?.status === "notfound") {
@@ -108,10 +118,10 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 	};
 
 	// 現在開いているドキュメントを保存時の状態へ戻す (再読み込み)。
-	// 同一 title を Select で選び直しても onChange が発火しないため、専用導線を用意。
+	// 同一項目を Select で選び直しても onChange が発火しないため、専用導線を用意。
 	const handleReload = wrap(async () => {
-		if (!meta) return;
-		const title = meta.title;
+		if (!meta?.docId) return;
+		const { docId, title } = meta;
 		const confirmed = await alert.confirm(
 			`"${title}" を保存時の状態に戻します。未保存の変更は失われます。`,
 			{
@@ -120,14 +130,14 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 			}
 		);
 		if (!confirmed) return;
-		let outcome: Awaited<ReturnType<typeof loadByTitle>> | undefined;
+		let outcome: Awaited<ReturnType<typeof loadById>> | undefined;
 		await run("読み込み中…", async (report) => {
-			outcome = await loadByTitle(title, report);
+			outcome = await loadById(docId, report);
 			return outcome.status === "ok" ? outcome : null;
 		});
 		if (outcome?.status === "ok") {
 			setDocument(outcome.doc);
-			setSelectedTitle(outcome.doc.title);
+			setSelectedId(docId);
 			toast.success(`再ロードしました: ${outcome.doc.title}`);
 		} else if (outcome?.status === "notfound") {
 			toast.error(`データが見つかりません: ${title}`);
@@ -139,6 +149,11 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 		wrap(async () => {
 			if (!meta) {
 				toast.info("ドキュメントが未ロードです");
+				return;
+			}
+			// 承認前は save が null を返して無音で終わるため、理由を明示する。
+			if (readOnlyLegacy) {
+				toast.info("旧形式の移行が済むまで保存できません (読み込みと書き出しのみ可能)");
 				return;
 			}
 			const doc: ViewerDocument = { ...meta, slides };
@@ -164,27 +179,34 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 			if (!result) return; // パスワード入力キャンセル = 保存中止 (無音)
 			// 保存名を meta へ同期し modified を解除 (beforeunload / 未保存ガードの誤発火を防ぐ。
 			// override 時は同名、新規時は採番された日付 title を反映 → 直後の上書きが正しい対象になる)。
-			markSaved(result.title);
+			markSaved(result.title, result.docId);
+			// 別名で保存は新しいドキュメント。選択も新しい方へ移す (直後の削除/再ロードが正しい対象になる)。
+			setSelectedId(result.docId);
 			toast.success(`保存しました: ${result.title}`);
-			await refreshTitles();
+			await refreshDocs();
 		});
 
 	const handleDelete = wrap(async () => {
-		if (!selectedTitle) {
-			toast.info("削除する title を選択してください");
+		if (readOnlyLegacy) {
+			toast.info("旧形式の移行が済むまで削除できません");
 			return;
 		}
-		if (!(await alert.confirm(`delete "${selectedTitle}" ?`))) return;
-		await deleteByTitle(selectedTitle);
-		toast.success(`削除しました: ${selectedTitle}`);
-		setSelectedTitle(null);
-		await refreshTitles();
+		if (!selectedId) {
+			toast.info("削除するドキュメントを選択してください");
+			return;
+		}
+		const label = docs.find((d) => d.id === selectedId)?.title ?? selectedId;
+		if (!(await alert.confirm(`delete "${label}" ?`))) return;
+		await deleteById(selectedId);
+		toast.success(`削除しました: ${label}`);
+		setSelectedId(null);
+		await refreshDocs();
 	});
 
 	const canOverride = !!meta && meta.title !== "" && meta.title !== "(new)";
 	const hasSlides = slides.length > 0;
-	// 再読み込み可否: 現在の document が保存済み (titles に存在) かつ未保存変更がある時のみ。
-	const currentSaved = !!meta && titles.some((t) => t.title === meta.title);
+	// 再読み込み可否: 現在の document が保存済み (docId が一覧に存在) かつ未保存変更がある時のみ。
+	const currentSaved = !!meta?.docId && docs.some((d) => d.id === meta.docId);
 	const canReload = currentSaved && modified;
 
 	// 保存 (統合): 名前付き document は上書き (該当レコードが無ければ save 内で add = 新規保存)。
@@ -217,11 +239,7 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 				</Button>
 
 				{!isMobile && (
-					<FileSelector
-						titles={titles}
-						selectedTitle={selectedTitle}
-						onChange={handleSelectChange}
-					/>
+					<FileSelector docs={docs} selectedId={selectedId} onChange={handleSelectChange} />
 				)}
 				{!mobileMode && (
 					<>
@@ -278,7 +296,7 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 						variant="default"
 						color="red"
 						onClick={handleDelete}
-						disabled={!selectedTitle}
+						disabled={!selectedId}
 						aria-label="削除"
 						data-action="delete">
 						削除
@@ -286,21 +304,19 @@ export const FileIOToolbar: FC<{ mobileMode?: boolean }> = ({ mobileMode = false
 				)}
 				<FileIOSubMenu
 					mobileMode={mobileMode}
-					titles={titles}
-					onTitleChange={handleSelectChange}
+					docs={docs}
+					onDocChange={handleSelectChange}
 					onListChanged={() => {
-						refreshTitles().catch((e) =>
-							console.error("[FileIOPanel] refreshTitles error:", e)
-						);
+						refreshDocs().catch((e) => console.error("[FileIOPanel] refreshDocs error:", e));
 					}}
 				/>
 			</Group>
 			<DocumentPickerModal
 				opened={pickerOpen}
 				onClose={() => setPickerOpen(false)}
-				titles={titles}
+				docs={docs}
 				loadThumbnail={getThumbnail}
-				selectedTitle={selectedTitle}
+				selectedId={selectedId}
 				onPick={handlePick}
 			/>
 		</>

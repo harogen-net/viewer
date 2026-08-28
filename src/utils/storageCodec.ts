@@ -22,6 +22,12 @@ const HVD_VERSION = 3;
 // imageNames (画像の元ファイル名) を含む文書のマイナーバージョン。名前を持つ文書だけこの版で出力し、
 // 名前なし文書は従来 (3) のまま = 既存ファイルと byte-equal を保つ。読み取りは version に依存しない。
 const HVD_VERSION_WITH_NAMES = 3.1;
+// docId (ドキュメントの永続 ID、docs/document-id-plan.md) を含む文書のマイナーバージョン。
+// docId を持つ文書だけこの版で出力する。持たない文書は従来どおり (3 / 3.1) なので、
+// 既存ファイルとの byte-equal は保たれる。読み取りは version に依存しない。
+// 3.1 との併記はしない: version は「含まれる最上位の拡張」を表す単一の値で、
+// docId の有無だけが分岐条件 (imageNames は 3.2 側にも入りうる)。
+const HVD_VERSION_WITH_DOCID = 3.2;
 
 // ---- Raw HVD JSON 型定義 (legacy SlideStorage の JSON 構造に対応) ----
 
@@ -58,6 +64,10 @@ export interface RawHvdSlide {
 
 export interface RawHvd {
 	version: number;
+	// ドキュメントの永続 ID (docs/document-id-plan.md)。任意フィールド (version 3.2〜)。
+	// ファイルと一緒に同一性を運ぶために書く (クラウド同期でリネームを追跡できるようにする)。
+	// 名前が `id` でないのは、ファイル内には既に Slide.id / Layer.id があり紛らわしいため。
+	docId?: string;
 	screen: { width: number; height: number };
 	bgColor?: string;
 	createTime?: number;
@@ -188,6 +198,9 @@ export function parseHvd(jsonText: string, fallbackTitle: string): ParsedHvd {
 	const width = Number(raw.screen?.width) || 0;
 	const height = Number(raw.screen?.height) || 0;
 	const doc: ViewerDocument = {
+		// docId 無し (レガシー / 他アプリ由来) は undefined のまま。ここで採番しないのは、
+		// 同じファイルを 2 回開いただけで 2 個の ID ができてしまうため (保存時に確定する)。
+		docId: typeof raw.docId === "string" && raw.docId !== "" ? raw.docId : undefined,
 		title: fallbackTitle,
 		width,
 		height,
@@ -267,6 +280,12 @@ export function serializeHvd(
 	// → slideData → imageData。
 	const out: Record<string, unknown> = {};
 	out.version = HVD_VERSION;
+	// docId は version の直後 (同一性はファイルの先頭で読めるべき)。持たない文書では
+	// キー自体を出力しないので、既存ファイルとの byte-equal は崩れない。
+	if (doc.docId) {
+		out.version = HVD_VERSION_WITH_DOCID;
+		out.docId = doc.docId;
+	}
 	out.screen = { width: doc.width, height: doc.height };
 	if (doc.bgColor) out.bgColor = doc.bgColor;
 	if (doc.createTime) out.createTime = doc.createTime;
@@ -307,7 +326,9 @@ export function serializeHvd(
 				if (imageData[id] != null && nm != null && nm !== "") imageNames[id] = nm;
 			});
 			if (Object.keys(imageNames).length > 0) {
-				out.version = HVD_VERSION_WITH_NAMES; // 先頭 version の値だけ差し替え (挿入順は不変)
+				// 先頭 version の値だけ差し替え (挿入順は不変)。docId で既に 3.2 を立てている場合は
+				// 下げない (version は「含まれる最上位の拡張」を表す)。
+				out.version = Math.max(out.version as number, HVD_VERSION_WITH_NAMES);
 				out.imageNames = imageNames;
 			}
 		}

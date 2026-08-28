@@ -75,20 +75,22 @@ afterEach(() => {
 });
 
 describe("useStorage (v3 Group B build 3)", () => {
-	it("空 DB の listTitles は空配列", async () => {
-		const titles = await storage.api.listTitles();
-		expect(titles).toEqual([]);
+	it("空 DB の listDocs は空配列", async () => {
+		const docs = await storage.api.listDocs();
+		expect(docs).toEqual([]);
 	});
 
-	it("save (override) で doc.title が保持され、loadByTitle で同等 doc が戻る", async () => {
+	it("save (override) で doc.title が保持され、loadById で同等 doc が戻る", async () => {
 		const doc = makeDoc("my-doc", 2);
-		const { title } = (await storage.api.save(doc, { override: true }))!;
+		const { title, docId } = (await storage.api.save(doc, { override: true }))!;
 		expect(title).toBe("my-doc");
+		expect(docId).toBeTruthy();
 
-		const res = await storage.api.loadByTitle("my-doc");
+		const res = await storage.api.loadById(docId);
 		expect(res.status).toBe("ok");
 		if (res.status !== "ok") return;
 		expect(res.doc.title).toBe("my-doc");
+		expect(res.doc.docId).toBe(docId);
 		expect(res.doc.width).toBe(800);
 		expect(res.doc.slides.length).toBe(2);
 	});
@@ -101,23 +103,24 @@ describe("useStorage (v3 Group B build 3)", () => {
 		expect(title.length).toBeGreaterThan(0);
 	});
 
-	it("save 後の listTitles で 1 件出る、editTime は now で上書き", async () => {
+	it("save 後の listDocs で 1 件出る、editTime は now で上書き", async () => {
 		const before = Date.now();
-		await storage.api.save(makeDoc("t1"), { override: true });
+		const saved = (await storage.api.save(makeDoc("t1"), { override: true }))!;
 		const after = Date.now();
 
-		const titles = await storage.api.listTitles();
-		expect(titles.length).toBe(1);
-		expect(titles[0].title).toBe("t1");
-		expect(titles[0].update).toBeGreaterThanOrEqual(before);
-		expect(titles[0].update).toBeLessThanOrEqual(after);
+		const docs = await storage.api.listDocs();
+		expect(docs.length).toBe(1);
+		expect(docs[0].title).toBe("t1");
+		expect(docs[0].id).toBe(saved.docId);
+		expect(docs[0].update).toBeGreaterThanOrEqual(before);
+		expect(docs[0].update).toBeLessThanOrEqual(after);
 
-		const res = await storage.api.loadByTitle("t1");
+		const res = await storage.api.loadById(saved.docId);
 		expect(res.status).toBe("ok");
 		if (res.status === "ok") expect(res.doc.editTime).toBeGreaterThanOrEqual(before);
 	});
 
-	it("loadByTitle は imageLibraryStore に画像 dataURL を投入する", async () => {
+	it("loadById は imageLibraryStore に画像 dataURL を投入する", async () => {
 		// 1) doc に image layer 1 枚 + imageLibrary に対応 dataURL を仕込んで save
 		useImageLibraryStore.getState().setImageLibrary({
 			img1: "data:image/png;base64,AAA=",
@@ -162,65 +165,98 @@ describe("useStorage (v3 Group B build 3)", () => {
 				},
 			],
 		};
-		await storage.api.save(doc, { override: true });
+		const saved = (await storage.api.save(doc, { override: true }))!;
 
-		// 2) imageLibrary をクリアしてから loadByTitle で再投入されることを検証
+		// 2) imageLibrary をクリアしてから loadById で再投入されることを検証
 		useImageLibraryStore.getState().setImageLibrary({});
 		expect(Object.keys(useImageLibraryStore.getState().imageById).length).toBe(0);
 
-		await storage.api.loadByTitle("with-img");
+		await storage.api.loadById(saved.docId);
 		const library = useImageLibraryStore.getState().imageById;
 		expect(library.img1?.dataURL).toBe("data:image/png;base64,AAA=");
 	});
 
-	it("deleteByTitle で title が消える、該当なし title は no-op", async () => {
-		await storage.api.save(makeDoc("a"), { override: true });
+	it("deleteById で 1 件だけ消える、該当なし id は no-op", async () => {
+		const a = (await storage.api.save(makeDoc("a"), { override: true }))!;
 		await storage.api.save(makeDoc("b"), { override: true });
 
-		await storage.api.deleteByTitle("a");
-		const titles = await storage.api.listTitles();
-		expect(titles.length).toBe(1);
-		expect(titles[0].title).toBe("b");
-		expect((await storage.api.loadByTitle("a")).status).toBe("notfound");
+		await storage.api.deleteById(a.docId);
+		const docs = await storage.api.listDocs();
+		expect(docs.length).toBe(1);
+		expect(docs[0].title).toBe("b");
+		expect((await storage.api.loadById(a.docId)).status).toBe("notfound");
 
-		await expect(storage.api.deleteByTitle("nonexistent")).resolves.toBeUndefined();
+		await expect(storage.api.deleteById("nonexistent")).resolves.toBeUndefined();
 	});
 
-	it("save の thumbnail (連結1枚+frames) が loadThumbnails で取得でき、未指定 title は欠落", async () => {
-		await storage.api.save(makeDoc("withThumb"), {
+	it("save の thumbnail (連結1枚+frames) が loadThumbnails で取得でき、未指定は欠落", async () => {
+		const withThumb = (await storage.api.save(makeDoc("withThumb"), {
 			override: true,
 			thumbnail: { thumb: "data:image/jpeg;base64,THUMB", frames: 5 },
-		});
-		await storage.api.save(makeDoc("noThumb"), { override: true }); // thumbnail 未指定
+		}))!;
+		const noThumb = (await storage.api.save(makeDoc("noThumb"), { override: true }))!;
 
 		const thumbs = await storage.api.loadThumbnails();
-		expect(thumbs.withThumb).toEqual({ thumb: "data:image/jpeg;base64,THUMB", frames: 5 });
-		expect(thumbs.noThumb).toBeUndefined(); // 未生成は欠落 (UI で n/a)
+		expect(thumbs[withThumb.docId]).toEqual({ thumb: "data:image/jpeg;base64,THUMB", frames: 5 });
+		expect(thumbs[noThumb.docId]).toBeUndefined(); // 未生成は欠落 (UI で n/a)
 	});
 
-	it("deleteByTitle はサムネも削除する", async () => {
-		await storage.api.save(makeDoc("x"), {
+	it("deleteById はサムネも削除する", async () => {
+		const x = (await storage.api.save(makeDoc("x"), {
 			override: true,
 			thumbnail: { thumb: "data:image/jpeg;base64,T", frames: 3 },
-		});
-		expect((await storage.api.loadThumbnails()).x?.frames).toBe(3);
-		await storage.api.deleteByTitle("x");
-		expect((await storage.api.loadThumbnails()).x).toBeUndefined();
+		}))!;
+		expect((await storage.api.loadThumbnails())[x.docId]?.frames).toBe(3);
+		await storage.api.deleteById(x.docId);
+		expect((await storage.api.loadThumbnails())[x.docId]).toBeUndefined();
 	});
 
-	it("同一 title への save は id 維持で上書き", async () => {
-		await storage.api.save(makeDoc("same"), { override: true });
-		const t1 = await storage.api.listTitles();
-		const id1 = t1[0].id;
+	// docId ベースになったので「同じ文書か」は title ではなく docId で決まる
+	// (docs/document-id-plan.md)。
+	it("同じ docId への save は 1 レコードを上書きする", async () => {
+		const first = (await storage.api.save(makeDoc("same"), { override: true }))!;
 
-		await storage.api.save(makeDoc("same", 3), { override: true });
-		const t2 = await storage.api.listTitles();
-		expect(t2.length).toBe(1);
-		expect(t2[0].id).toBe(id1);
+		await storage.api.save({ ...makeDoc("same", 3), docId: first.docId }, { override: true });
+		const docs = await storage.api.listDocs();
+		expect(docs.length).toBe(1);
+		expect(docs[0].id).toBe(first.docId);
 
-		const res = await storage.api.loadByTitle("same");
+		const res = await storage.api.loadById(first.docId);
 		expect(res.status).toBe("ok");
 		if (res.status === "ok") expect(res.doc.slides.length).toBe(3);
+	});
+
+	it("リネームして保存しても docId は変わらず、旧レコードが残らない", async () => {
+		const first = (await storage.api.save(makeDoc("before"), { override: true }))!;
+		const renamed = (await storage.api.save(
+			{ ...makeDoc("after"), docId: first.docId },
+			{ override: true }
+		))!;
+		expect(renamed.docId).toBe(first.docId);
+
+		const docs = await storage.api.listDocs();
+		expect(docs.length).toBe(1);
+		expect(docs[0].title).toBe("after");
+	});
+
+	it("別名で保存 (override なし) は docId を新規採番する", async () => {
+		const first = (await storage.api.save(makeDoc("orig"), { override: true }))!;
+		const copy = (await storage.api.save({ ...makeDoc("orig"), docId: first.docId }))!;
+		expect(copy.docId).not.toBe(first.docId);
+		expect((await storage.api.listDocs()).length).toBe(2);
+	});
+
+	// title は自由入力の表示名で、一意性を要求しない (docs/document-id-plan.md §6)。
+	it("同名の文書を 2 件持て、片方だけ削除できる", async () => {
+		const a = (await storage.api.save(makeDoc("dup"), { override: true }))!;
+		const b = (await storage.api.save(makeDoc("dup"), { override: true }))!;
+		expect(a.docId).not.toBe(b.docId);
+		expect((await storage.api.listDocs()).length).toBe(2);
+
+		await storage.api.deleteById(a.docId);
+		const rest = await storage.api.listDocs();
+		expect(rest.length).toBe(1);
+		expect(rest[0].id).toBe(b.docId);
 	});
 });
 
@@ -238,33 +274,33 @@ describe("useStorage VIEW mode gate (allowInViewMode bypass)", () => {
 	it("スマホモード: save() は 既定で silent no-op (null 返し、IDB に書かれない)", async () => {
 		const res = await storage.api.save(makeDoc("blocked"), { override: true });
 		expect(res).toBeNull();
-		const titles = await storage.api.listTitles();
-		expect(titles.find((t) => t.title === "blocked")).toBeUndefined();
+		const docs = await storage.api.listDocs();
+		expect(docs.find((d) => d.title === "blocked")).toBeUndefined();
 	});
 
 	it("スマホモード: allowInViewMode=true なら IDB に実書きされる", async () => {
 		const res = await storage.api.save(makeDoc("allowed"), { override: true, allowInViewMode: true });
 		expect(res?.title).toBe("allowed");
-		const titles = await storage.api.listTitles();
-		expect(titles.some((t) => t.title === "allowed")).toBe(true);
+		const docs = await storage.api.listDocs();
+		expect(docs.some((d) => d.title === "allowed")).toBe(true);
 	});
 
-	it("スマホモード: deleteByTitle() は 既定で silent no-op (IDB のレコードが残る)", async () => {
-		// EDIT で seed してから VIEW に切替え (beforeEach で VIEW になっているので EDIT に戻す)。
+	it("スマホモード: deleteById() は 既定で silent no-op (IDB のレコードが残る)", async () => {
+		// PC で seed してから スマホ に切替え (beforeEach で スマホ になっているので戻す)。
 		useLaunchModeStore.setState({ mode: LaunchMode.PC });
-		await storage.api.save(makeDoc("keep-me"), { override: true });
+		const keep = (await storage.api.save(makeDoc("keep-me"), { override: true }))!;
 		useLaunchModeStore.setState({ mode: LaunchMode.MOBILE });
-		await storage.api.deleteByTitle("keep-me");
-		const titles = await storage.api.listTitles();
-		expect(titles.some((t) => t.title === "keep-me")).toBe(true); // gate で 次の 削除 は スキップされる
+		await storage.api.deleteById(keep.docId);
+		const docs = await storage.api.listDocs();
+		expect(docs.some((d) => d.title === "keep-me")).toBe(true); // gate で 次の 削除 は スキップされる
 	});
 
 	it("スマホモード: allowInViewMode=true なら IDB から実除かれる", async () => {
 		useLaunchModeStore.setState({ mode: LaunchMode.PC });
-		await storage.api.save(makeDoc("purge"), { override: true });
+		const purge = (await storage.api.save(makeDoc("purge"), { override: true }))!;
 		useLaunchModeStore.setState({ mode: LaunchMode.MOBILE });
-		await storage.api.deleteByTitle("purge", { allowInViewMode: true });
-		const titles = await storage.api.listTitles();
-		expect(titles.find((t) => t.title === "purge")).toBeUndefined();
+		await storage.api.deleteById(purge.docId, { allowInViewMode: true });
+		const docs = await storage.api.listDocs();
+		expect(docs.find((d) => d.title === "purge")).toBeUndefined();
 	});
 });

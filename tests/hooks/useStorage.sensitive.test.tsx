@@ -81,12 +81,12 @@ const deleteDb = (): Promise<void> =>
 	});
 
 // slideData ストアの生 JSON を直接読む (暗号化を検査するため)。
-const readStoredJson = (title: string): Promise<string> =>
+const readStoredJson = (docId: string): Promise<string> =>
 	new Promise((resolve, reject) => {
-		const open = indexedDB.open("viewer", 2);
+		const open = indexedDB.open("viewer");
 		open.onsuccess = () => {
 			const db = open.result;
-			const g = db.transaction("slideData", "readonly").objectStore("slideData").get(title);
+			const g = db.transaction("docData", "readonly").objectStore("docData").get(docId);
 			g.onsuccess = () => {
 				resolve((g.result as { data?: string } | undefined)?.data ?? "");
 				db.close();
@@ -96,21 +96,20 @@ const readStoredJson = (title: string): Promise<string> =>
 		open.onerror = () => reject(open.error);
 	});
 
-// title レコードから isSensitive を消して「変更前に保存された旧レコード」を再現する。
-const stripTitleFlag = (title: string): Promise<void> =>
+// 一覧レコードから isSensitive を消して「変更前に保存された旧レコード」を再現する。
+const stripTitleFlag = (docId: string): Promise<void> =>
 	new Promise((resolve, reject) => {
-		const open = indexedDB.open("viewer", 2);
+		const open = indexedDB.open("viewer");
 		open.onsuccess = () => {
 			const db = open.result;
-			const tx = db.transaction("slideTitles", "readwrite");
-			const store = tx.objectStore("slideTitles");
-			const g = store.getAll();
+			const tx = db.transaction("docs", "readwrite");
+			const store = tx.objectStore("docs");
+			const g = store.get(docId);
 			g.onsuccess = () => {
-				for (const rec of g.result as Array<{ title: string; isSensitive?: boolean }>) {
-					if (rec.title === title) {
-						delete rec.isSensitive;
-						store.put(rec);
-					}
+				const rec = g.result as { id: string; isSensitive?: boolean } | undefined;
+				if (rec) {
+					delete rec.isSensitive;
+					store.put(rec);
 				}
 			};
 			tx.oncomplete = () => {
@@ -138,20 +137,21 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 	it("sensitive: 暗号化保存し、同一 PW の load で復号して imageLibrary に戻す", async () => {
 		useImageLibraryStore.getState().setImageLibrary({ "img-1": "data:image/png;base64,SECRETpixels" });
 		useSensitiveSessionStore.setState({ password: "pw" }); // セッションPW = モーダル不要
-		let saved: { title: string } | null = null;
+		let saved: { docId: string; title: string } | null = null;
 		await act(async () => {
 			saved = await api.save(makeDoc({ isSensitive: true }), { override: true });
 		});
 		expect(saved).not.toBeNull();
+		const savedId = saved!.docId;
 
-		const raw = await readStoredJson("secret");
+		const raw = await readStoredJson(savedId);
 		expect(raw).not.toContain("SECRETpixels"); // 平文が保存されていない
 		expect(raw).toContain("imageDataEnc");
 
 		useImageLibraryStore.getState().setImageLibrary({}); // クリアしてから load
-		let res: Awaited<ReturnType<typeof api.loadByTitle>> | undefined;
+		let res: Awaited<ReturnType<typeof api.loadById>> | undefined;
 		await act(async () => {
-			res = await api.loadByTitle("secret");
+			res = await api.loadById(savedId);
 		});
 		expect(res?.status).toBe("ok");
 		if (res?.status === "ok") expect(res.doc.isSensitive).toBe(true);
@@ -162,15 +162,16 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 
 	it("非 sensitive: 従来通り平文で保存・ロードされる (回帰)", async () => {
 		useImageLibraryStore.getState().setImageLibrary({ "img-1": "data:plainDATA" });
+		let saved: { docId: string; title: string } | null = null;
 		await act(async () => {
-			await api.save(makeDoc({ isSensitive: false }), { override: true });
+			saved = await api.save(makeDoc({ isSensitive: false }), { override: true });
 		});
-		const raw = await readStoredJson("secret");
+		const raw = await readStoredJson(saved!.docId);
 		expect(raw).toContain("data:plainDATA");
 
 		useImageLibraryStore.getState().setImageLibrary({});
 		await act(async () => {
-			await api.loadByTitle("secret");
+			await api.loadById(saved!.docId);
 		});
 		expect(useImageLibraryStore.getState().imageById["img-1"]?.dataURL).toBe("data:plainDATA");
 	});
@@ -178,7 +179,7 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 	it("sensitive: パスワード欄が未入力なら save は null (保存中止)", async () => {
 		useImageLibraryStore.getState().setImageLibrary({ "img-1": "data:x" });
 		useSensitiveSessionStore.setState({ password: null }); // box 未入力
-		let saved: { title: string } | null = null;
+		let saved: { docId: string; title: string } | null = null;
 		await act(async () => {
 			saved = await api.save(makeDoc({ isSensitive: true }), { override: true });
 		});
@@ -190,44 +191,46 @@ describe("useStorage sensitive (Phase 4 結線)", () => {
 		await act(async () => {
 			await api.save(makeDoc({ isSensitive: true }), { override: true });
 		});
-		const titles = await api.listTitles();
-		expect(titles.find((t) => t.title === "secret")?.isSensitive).toBe(true);
+		const docs = await api.listDocs();
+		expect(docs.find((d) => d.title === "secret")?.isSensitive).toBe(true);
 	});
 
-	it("backfill: 旧レコード(isSensitive 未記録)でも listTitles が slideData から復元する", async () => {
+	it("backfill: 旧レコード(isSensitive 未記録)でも listDocs が本体から復元する", async () => {
 		useSensitiveSessionStore.setState({ password: "pw" });
+		let saved: { docId: string; title: string } | null = null;
 		await act(async () => {
-			await api.save(makeDoc({ isSensitive: true }), { override: true });
+			saved = await api.save(makeDoc({ isSensitive: true }), { override: true });
 		});
-		await stripTitleFlag("secret"); // 変更前の旧レコード状態を再現
-		const titles = await api.listTitles(); // ここで backfill されるはず
-		expect(titles.find((t) => t.title === "secret")?.isSensitive).toBe(true);
+		await stripTitleFlag(saved!.docId); // 変更前の旧レコード状態を再現
+		const docs = await api.listDocs(); // ここで backfill されるはず
+		expect(docs.find((d) => d.id === saved!.docId)?.isSensitive).toBe(true);
 		// 永続化も確認 (2 回目も true、backfill が書き戻されている)
-		const again = await api.listTitles();
-		expect(again.find((t) => t.title === "secret")?.isSensitive).toBe(true);
+		const again = await api.listDocs();
+		expect(again.find((d) => d.id === saved!.docId)?.isSensitive).toBe(true);
 	});
 
 	it("非 sensitive は isSensitive=false で一覧保存される", async () => {
 		await act(async () => {
 			await api.save(makeDoc({ isSensitive: false }), { override: true });
 		});
-		const titles = await api.listTitles();
-		expect(titles.find((t) => t.title === "secret")?.isSensitive).toBe(false);
+		const docs = await api.listDocs();
+		expect(docs.find((d) => d.title === "secret")?.isSensitive).toBe(false);
 	});
 
 	it("sensitive: load 時に box が誤りなら locked を返しロード中止 (現状維持・画像なし文書を出さない)", async () => {
 		useImageLibraryStore.getState().setImageLibrary({ "img-1": "data:image/png;base64,SEC" });
 		useSensitiveSessionStore.setState({ password: "pw" });
+		let saved: { docId: string; title: string } | null = null;
 		await act(async () => {
-			await api.save(makeDoc({ isSensitive: true }), { override: true });
+			saved = await api.save(makeDoc({ isSensitive: true }), { override: true });
 		});
 		// 「現在開いている文書」の画像を入れておく (誤PWロードでこれが消えないことを確認)
 		useImageLibraryStore.getState().setImageLibrary({ current: "data:current" });
 		useSensitiveSessionStore.setState({ password: "wrong" }); // box に誤ったPW
 
-		let res: Awaited<ReturnType<typeof api.loadByTitle>> | undefined;
+		let res: Awaited<ReturnType<typeof api.loadById>> | undefined;
 		await act(async () => {
-			res = await api.loadByTitle("secret");
+			res = await api.loadById(saved!.docId);
 		});
 		expect(res?.status).toBe("locked"); // ロード中止 (画像なし文書を出さない)
 		// store は触られず、現文書の画像が保持される

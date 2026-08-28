@@ -19,6 +19,7 @@ import { EditOpsPanel } from "./panels/EditOpsPanel";
 import { EditToolbar } from "./panels/EditToolbar";
 import { FileIOPanel } from "./panels/FileIOPanel";
 import { LayerListPanel } from "./panels/LayerListPanel";
+import { LegacyMigrationModal } from "./panels/LegacyMigrationModal";
 import { SlideListPanel } from "./panels/SlideListPanel";
 import { SlidePlaybackPanel } from "./panels/SlidePlaybackPanel";
 import { SlideShowOpsPanel } from "./panels/SlideShowOpsPanel";
@@ -314,6 +315,9 @@ export const AppMain: FC = () => {
 				{!pcMode && !bulkToggle && <SlidePlaybackPanel />}
 			</div>
 			<ProgressBar />
+			{/* 旧形式ドキュメントの移行確認。承認するまでストレージ API は不活性なので、
+			    他の UI より前面に出す必要がある (Modal なので描画順で足りる)。 */}
+			<LegacyMigrationModal />
 			<AlertHost />
 			<ToastHost />
 		</>

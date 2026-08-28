@@ -5,12 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // 保存ファイル前後移動 (◀ / ▶) と未保存ガードの結線テスト。
 // useStorage / useFileIO は IDB / ファイル依存のため hoisted mock で差し替える
-// (関数 ref を安定させ refreshTitles の effect が無限再実行しないようにする)。
+// (関数 ref を安定させ refreshDocs の effect が無限再実行しないようにする)。
 
-const { listTitlesMock, loadByTitleMock, saveMock, deleteMock, loadThumbnailsMock, getThumbnailMock } =
+const { listDocsMock, loadByIdMock, saveMock, deleteMock, loadThumbnailsMock, getThumbnailMock } =
 	vi.hoisted(() => ({
-		listTitlesMock: vi.fn(),
-		loadByTitleMock: vi.fn(),
+		listDocsMock: vi.fn(),
+		loadByIdMock: vi.fn(),
 		saveMock: vi.fn(),
 		deleteMock: vi.fn(),
 		loadThumbnailsMock: vi.fn(),
@@ -19,10 +19,10 @@ const { listTitlesMock, loadByTitleMock, saveMock, deleteMock, loadThumbnailsMoc
 
 vi.mock("../../src/hooks/useStorage", () => ({
 	useStorage: () => ({
-		listTitles: listTitlesMock,
-		loadByTitle: loadByTitleMock,
+		listDocs: listDocsMock,
+		loadById: loadByIdMock,
 		save: saveMock,
-		deleteByTitle: deleteMock,
+		deleteById: deleteMock,
 		loadThumbnails: loadThumbnailsMock,
 		getThumbnail: getThumbnailMock,
 	}),
@@ -58,9 +58,11 @@ import type { Slide } from "../../src/types/Slide";
 import { createNewViewerDocument } from "../../src/utils/viewerDocumentFactory";
 
 const makeDoc = (title: string) => ({ ...createNewViewerDocument(), title });
-const makeMeta = (title: string) => {
+// 保存済み文書の meta。docId は既定で一覧の id (id-a など) に対応させる。
+// 「未保存」を表現したいテストは一覧に無い title を渡す (docId も一覧と一致しなくなる)。
+const makeMeta = (title: string, docId = `id-${title.toLowerCase()}`) => {
 	const { slides: _s, ...meta } = makeDoc(title);
-	return meta;
+	return { ...meta, docId };
 };
 const makeSlide = (): Slide => ({
 	id: 1,
@@ -106,26 +108,27 @@ const render = async (mobileMode = false): Promise<void> => {
 };
 
 beforeEach(() => {
-	listTitlesMock.mockReset();
-	loadByTitleMock.mockReset();
-	// update 降順で A(3) > B(2) > C(1) になる一覧
-	listTitlesMock.mockResolvedValue([
-		{ id: 1, title: "A", update: 3 },
-		{ id: 2, title: "B", update: 2 },
-		{ id: 3, title: "C", update: 1 },
+	listDocsMock.mockReset();
+	loadByIdMock.mockReset();
+	// update 降順で A(3) > B(2) > C(1) になる一覧。id は title と別値にして
+	// 「識別は docId、表示は title」を取り違えないようにする。
+	listDocsMock.mockResolvedValue([
+		{ id: "id-a", title: "A", update: 3 },
+		{ id: "id-b", title: "B", update: 2 },
+		{ id: "id-c", title: "C", update: 1 },
 	]);
-	loadByTitleMock.mockImplementation(async (title: string) => ({
+	loadByIdMock.mockImplementation(async (id: string) => ({
 		status: "ok",
-		doc: makeDoc(title),
+		doc: { ...makeDoc(id.replace("id-", "").toUpperCase()), docId: id },
 	}));
-	saveMock.mockResolvedValue({ title: "saved-2026" });
+	saveMock.mockResolvedValue({ docId: "id-saved", title: "saved-2026" });
 	loadThumbnailsMock.mockReset();
 	// A はサムネ有り (連結1枚+frames)、B/C は無し
-	loadThumbnailsMock.mockResolvedValue({ A: { thumb: "data:image/jpeg;base64,T", frames: 3 } });
+	loadThumbnailsMock.mockResolvedValue({ "id-a": { thumb: "data:image/jpeg;base64,T", frames: 3 } });
 	getThumbnailMock.mockReset();
-	// 遅延ロード: title 指定で個別取得 (A のみサムネ有り)。
-	getThumbnailMock.mockImplementation(async (title: string) =>
-		title === "A" ? { thumb: "data:image/jpeg;base64,T", frames: 3 } : null
+	// 遅延ロード: docId 指定で個別取得 (A のみサムネ有り)。
+	getThumbnailMock.mockImplementation(async (id: string) =>
+		id === "id-a" ? { thumb: "data:image/jpeg;base64,T", frames: 3 } : null
 	);
 	// device mode を既定 (PC) に戻す (テストごとに mutate されている可能性を排除)。
 	deviceMode.isMobile = false;
@@ -157,7 +160,7 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		expect(navBtn("next")?.disabled).toBe(false);
 		click(navBtn("next"));
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function)); // 先頭
+		expect(loadByIdMock).toHaveBeenCalledWith("id-a", expect.any(Function)); // 先頭
 	});
 
 	// 回帰: 1 回の選択でロードは 1 回だけ (FileSelector と親が二重にロードしない)。
@@ -165,8 +168,8 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		await render();
 		click(navBtn("next")); // → 先頭 "A" を 1 回ロード
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenCalledTimes(1);
-		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
+		expect(loadByIdMock).toHaveBeenCalledTimes(1);
+		expect(loadByIdMock).toHaveBeenCalledWith("id-a", expect.any(Function));
 	});
 
 	it("▶ で次へ、端 (末尾) では ▶ 無効", async () => {
@@ -175,10 +178,10 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		await act(async () => {});
 		click(navBtn("next")); // → B (index 1)
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenLastCalledWith("B", expect.any(Function));
+		expect(loadByIdMock).toHaveBeenLastCalledWith("id-b", expect.any(Function));
 		click(navBtn("next")); // → C (index 2、末尾)
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenLastCalledWith("C", expect.any(Function));
+		expect(loadByIdMock).toHaveBeenLastCalledWith("id-c", expect.any(Function));
 		expect(navBtn("next")?.disabled).toBe(true); // 末尾で無効
 		expect(navBtn("prev")?.disabled).toBe(false);
 	});
@@ -191,7 +194,7 @@ describe("FileIOPanel 保存ファイル前後移動", () => {
 		await act(async () => {});
 		click(navBtn("prev")); // A
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenLastCalledWith("A", expect.any(Function));
+		expect(loadByIdMock).toHaveBeenLastCalledWith("id-a", expect.any(Function));
 	});
 });
 
@@ -206,7 +209,7 @@ describe("FileIOPanel 未保存ガード", () => {
 		click(navBtn("next"));
 		expect(useAlertStore.getState().request?.kind).toBe("confirm");
 		await resolveAlert(false); // キャンセル
-		expect(loadByTitleMock).not.toHaveBeenCalled();
+		expect(loadByIdMock).not.toHaveBeenCalled();
 	});
 
 	it("選択は modified でも確認 OK ならロードする", async () => {
@@ -215,7 +218,7 @@ describe("FileIOPanel 未保存ガード", () => {
 		click(navBtn("next"));
 		await resolveAlert(true); // 破棄して続行
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
+		expect(loadByIdMock).toHaveBeenCalledWith("id-a", expect.any(Function));
 	});
 
 	it("modified=false なら確認なしで即ロード", async () => {
@@ -223,29 +226,29 @@ describe("FileIOPanel 未保存ガード", () => {
 		click(navBtn("next"));
 		await act(async () => {});
 		expect(useAlertStore.getState().request).toBeNull(); // 確認は出ない
-		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
+		expect(loadByIdMock).toHaveBeenCalledWith("id-a", expect.any(Function));
 	});
 
 	// 開く処理の同期的副作用 = refreshTitles (listTitles) 呼び出しで「開いたか」を判定する
 	// (jsdom では Modal の開くトランジションが進まず本文が mount されないため DOM では判定不可)。
 	it("ピッカーを開く操作は modified 時に確認し、キャンセルなら開かない", async () => {
 		await render();
-		listTitlesMock.mockClear();
+		listDocsMock.mockClear();
 		useViewerDocumentStore.setState({ modified: true });
 		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
 		expect(useAlertStore.getState().request?.kind).toBe("confirm");
 		await resolveAlert(false); // キャンセル
-		expect(listTitlesMock).not.toHaveBeenCalled(); // 開く処理が走らない
+		expect(listDocsMock).not.toHaveBeenCalled(); // 開く処理が走らない
 	});
 
 	it("ピッカーを開く操作は確認 OK なら開く", async () => {
 		await render();
-		listTitlesMock.mockClear();
+		listDocsMock.mockClear();
 		useViewerDocumentStore.setState({ modified: true });
 		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
 		await resolveAlert(true); // 破棄して続行
 		await act(async () => {});
-		expect(listTitlesMock).toHaveBeenCalled(); // 開く処理 (refreshTitles) が走った
+		expect(listDocsMock).toHaveBeenCalled(); // 開く処理 (refreshDocs) が走った
 	});
 
 	it("インポートはファイル選択時には確認しない (確認はインポートボタン押下時に移動)", async () => {
@@ -296,7 +299,7 @@ describe("FileIOPanel 再読み込み (元に戻す)", () => {
 		expect(useAlertStore.getState().request?.kind).toBe("confirm");
 		await resolveAlert(true);
 		await act(async () => {});
-		expect(loadByTitleMock).toHaveBeenCalledWith("A", expect.any(Function));
+		expect(loadByIdMock).toHaveBeenCalledWith("id-a", expect.any(Function));
 	});
 
 	it("確認キャンセルでは再ロードしない", async () => {
@@ -306,7 +309,7 @@ describe("FileIOPanel 再読み込み (元に戻す)", () => {
 		});
 		click(container.querySelector<HTMLButtonElement>('[data-action="reload"]'));
 		await resolveAlert(false);
-		expect(loadByTitleMock).not.toHaveBeenCalled();
+		expect(loadByIdMock).not.toHaveBeenCalled();
 	});
 
 	it("未保存変更が無ければ無効", async () => {
@@ -336,10 +339,10 @@ describe("FileIOPanel ビジュアルピッカー", () => {
 	// documentPickerGrid.test.tsx (Modal 非依存) で担保。
 	it("ギャラリーを開くと開く処理が走り、一括 loadThumbnails は呼ばれない (遅延ロード)", async () => {
 		await render();
-		listTitlesMock.mockClear();
+		listDocsMock.mockClear();
 		click(container.querySelector<HTMLButtonElement>('[data-action="open-picker"]'));
 		await act(async () => {});
-		expect(listTitlesMock).toHaveBeenCalled(); // 開く処理 (refreshTitles) が走った
+		expect(listDocsMock).toHaveBeenCalled(); // 開く処理 (refreshDocs) が走った
 		expect(loadThumbnailsMock).not.toHaveBeenCalled(); // 一括読みは廃止 (各カードが遅延取得)
 	});
 });
@@ -469,7 +472,7 @@ describe("FileIOPanel スマホ限定 ドキュメント保存", () => {
 	beforeEach(() => {
 		deviceMode.isMobile = true; // スマホモード有効
 		saveMock.mockClear();
-		saveMock.mockResolvedValue({ title: "A" });
+		saveMock.mockResolvedValue({ docId: "id-a", title: "A" });
 	});
 
 	it("スマホでは保存メニューが表示される (mobileMode でも)", async () => {
@@ -530,7 +533,7 @@ describe("FileIOPanel スマホ限定 別名で保存 / 未保存表示", () => 
 	beforeEach(() => {
 		deviceMode.isMobile = true; // スマホモード有効
 		saveMock.mockClear();
-		saveMock.mockResolvedValue({ title: "2026-08-18_120000" });
+		saveMock.mockResolvedValue({ docId: "id-new", title: "2026-08-18_120000" });
 	});
 
 	// PC のプルダウン「別名で保存...」と同じ挙動 = override:false で、保存名は save 側が
@@ -670,7 +673,7 @@ describe("FileIOPanel スマホ限定 ドキュメント削除", () => {
 		click(findMenuItem("delete-mobile"));
 		await resolveAlert(true); // 確認 OK
 		await act(async () => {});
-		expect(deleteMock).toHaveBeenCalledWith("A", { allowInViewMode: true });
+		expect(deleteMock).toHaveBeenCalledWith("id-a", { allowInViewMode: true });
 		// 画面からドキュメントが消える (setDocument(null) が呼ばれる) — 回帰: 以前はメニュー
 		// 削除後も doc が画面に残り「消えていない」ように見えていた。
 		expect(useViewerDocumentStore.getState().meta).toBeNull();

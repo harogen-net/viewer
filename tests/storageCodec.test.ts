@@ -110,6 +110,50 @@ describe("storageCodec (v3 Group B build 1)", () => {
 	});
 
 	describe("serializeHvd", () => {
+		// docId (docs/document-id-plan.md)。持つ文書だけ version 3.2 で出力し、
+		// 持たない文書はキーごと省略する = 既存ファイルとの byte-equal を保つ。
+		it("docId を持つと version 3.2 で docId を出力する", () => {
+			const doc: ViewerDocument = {
+				docId: "doc-uuid-1",
+				title: "t",
+				width: 100,
+				height: 200,
+				createTime: 0,
+				editTime: 0,
+				slides: [],
+			};
+			const json = JSON.parse(serializeHvd(doc, {}));
+			expect(json.version).toBe(3.2);
+			expect(json.docId).toBe("doc-uuid-1");
+		});
+
+		it("docId が無ければキー自体を出力しない (version は 3 のまま)", () => {
+			const doc: ViewerDocument = {
+				title: "t",
+				width: 100,
+				height: 200,
+				createTime: 0,
+				editTime: 0,
+				slides: [],
+			};
+			const json = JSON.parse(serializeHvd(doc, {}));
+			expect(json.version).toBe(3);
+			expect("docId" in json).toBe(false);
+		});
+
+		it("parseHvd は docId を読み、無ければ undefined (読込時に採番しない)", () => {
+			const withId = parseHvd(
+				'{"version":3.2,"docId":"abc","screen":{"width":8,"height":6},"slideData":[]}',
+				"fallback"
+			);
+			expect(withId.doc.docId).toBe("abc");
+			const without = parseHvd(
+				'{"version":3,"screen":{"width":8,"height":6},"slideData":[]}',
+				"fallback"
+			);
+			expect(without.doc.docId).toBeUndefined();
+		});
+
 		it("最小 doc が version=3 / screen / slideData / 空 imageData を含む", () => {
 			const doc: ViewerDocument = {
 				title: "t",
@@ -308,6 +352,19 @@ describe("storageCodec (v3 Group B build 1)", () => {
 			// parse で imageNames が復元される
 			const parsed = parseHvd(jsonText, "t");
 			expect(parsed.imageNames).toEqual({ used: "会議資料.png" });
+		});
+
+		// version は「含まれる最上位の拡張」を表す単一の値。imageNames の分岐が後に評価されるので、
+		// Math.max で解決しないと docId の 3.2 を 3.1 へ引き下げてしまう。
+		it("docId と imageNames の両方があっても version は 3.2 (3.1 へ下がらない)", () => {
+			const json = JSON.parse(
+				serializeHvd({ ...makeImageDoc(), docId: "doc-1" }, imageMap, {
+					imageNames: { used: "会議資料.png" },
+				})
+			);
+			expect(json.version).toBe(3.2);
+			expect(json.docId).toBe("doc-1");
+			expect(json.imageNames).toEqual({ used: "会議資料.png" });
 		});
 
 		it("名前なし (imageNames 未指定) は version 3 のまま imageNames キーを出さない", () => {

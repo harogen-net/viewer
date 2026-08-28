@@ -2,11 +2,12 @@ import { useAlert } from "@/hooks/useAlert";
 import { useDeviceMode } from "@/hooks/useDeviceMode";
 import { useFileIO } from "@/hooks/useFileIO";
 import { useProgress } from "@/hooks/useProgress";
-import { type StoredSlideTitle, useStorage } from "@/hooks/useStorage";
+import { type StoredDoc, useStorage } from "@/hooks/useStorage";
 import { useToast } from "@/hooks/useToast";
 import { useImageLibraryStore } from "@/state/imageLibraryStore";
 import { useSlideStore } from "@/state/slideStore";
 import { useViewerDocumentStore } from "@/state/viewerDocumentStore";
+import type { DocId } from "@/types/DocId";
 import type { ViewerDocument } from "@/types/ViewerDocument";
 import { BUILD_ID } from "@/utils/buildId";
 import { collectImageMap, collectImageNames } from "@/utils/collectImageMap";
@@ -30,12 +31,12 @@ import { useFileIOCommon } from "./useFileIOCommon";
 
 export const FileIOSubMenu: FC<{
 	mobileMode?: boolean;
-	titles: StoredSlideTitle[];
-	onTitleChange?: (title: string | null) => void;
+	docs: StoredDoc[];
+	onDocChange?: (id: DocId | null) => void;
 	onListChanged?: () => void;
-}> = ({ mobileMode = false, titles, onTitleChange, onListChanged }) => {
+}> = ({ mobileMode = false, docs, onDocChange, onListChanged }) => {
 	const { exportHvd, exportHvz, exportPng, importFile, exportAllSlidesZip } = useFileIO();
-	const { save, deleteByTitle } = useStorage();
+	const { save, deleteById } = useStorage();
 	const setDocument = useViewerDocumentStore((s) => s.setDocument);
 	const markSaved = useViewerDocumentStore((s) => s.markSaved);
 	const meta = useViewerDocumentStore((s) => s.meta);
@@ -114,7 +115,7 @@ export const FileIOSubMenu: FC<{
 			useImageLibraryStore
 				.getState()
 				.setImageLibrary(buildImageEntries(result.imageData, result.imageNames));
-			onTitleChange?.(null);
+			onDocChange?.(null);
 			toast.success(`インポートしました: ${result.doc.title} (${result.doc.slides.length} slides)`);
 		})();
 	};
@@ -153,7 +154,7 @@ export const FileIOSubMenu: FC<{
 		});
 		if (!result) return; // パスワード入力キャンセル = 保存中止 (無音)
 		// 保存名を meta へ同期し modified を解除 (未保存ガードの誤発火を防ぐ)。
-		markSaved(result.title);
+		markSaved(result.title, result.docId);
 		toast.success(`保存しました: ${result.title}`);
 		onListChanged?.();
 	};
@@ -166,21 +167,21 @@ export const FileIOSubMenu: FC<{
 	const handleMobileSaveAs = wrap(() => saveDocument(false));
 
 	// スマホモード限定: 現在ロード中のドキュメントを削除 (通常モードの handleDelete と同挙動)。
-	// スマホでは FileSelector が非表示のため selectedTitle を使えず、meta.title を対象にする。
+	// スマホでは FileSelector が非表示のため選択を使えず、現在ロード中の文書 (meta.docId) を対象にする。
 	const handleMobileDelete = wrap(async () => {
 		if (!meta) {
 			toast.info("ドキュメントが未ロードです");
 			return;
 		}
 		const target = meta.title;
-		if (!titles.some((t) => t.title === target)) {
+		if (!meta.docId || !docs.some((d) => d.id === meta.docId)) {
 			toast.info(`未保存のためデータストア上に存在しません: ${target}`);
 			return;
 		}
 		if (!(await alert.confirm(`delete "${target}" ?`))) return;
-		await deleteByTitle(target, { allowInViewMode: true });
-		// 画面上のドキュメントもクリア (通常モードの selectedTitle と違い、スマホは現在ロード中
-		// のものを対象にするため、削除後に doc/画像を残すと「消えていない」ように見える)。
+		await deleteById(meta.docId, { allowInViewMode: true });
+		// 画面上のドキュメントもクリア (PC の選択削除と違い、スマホは現在ロード中のものを
+		// 対象にするため、削除後に doc/画像を残すと「消えていない」ように見える)。
 		setDocument(null);
 		useImageLibraryStore.getState().setImageLibrary({});
 		toast.success(`削除しました: ${target}`);
@@ -191,8 +192,8 @@ export const FileIOSubMenu: FC<{
 	const showModifiedDot = isMobile && modified;
 	const hasSlides = slides.length > 0;
 	const hasEnabledSlide = slides.some((s) => !s.disabled);
-	// スマホ削除の可否: 現在のドキュメントが IDB に保存済み (titles に含まれる) のときのみ有効。
-	const canMobileDelete = !!meta && titles.some((t) => t.title === meta.title);
+	// スマホ削除の可否: 現在のドキュメントが IDB に保存済み (docId が一覧にある) のときのみ有効。
+	const canMobileDelete = !!meta?.docId && docs.some((d) => d.id === meta.docId);
 
 	return (
 		<>
